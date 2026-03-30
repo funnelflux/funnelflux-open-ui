@@ -1,0 +1,149 @@
+import { useState, useRef, useEffect } from 'react'
+import { Tags, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/shared/PageHeader'
+import { EmptyState } from '@/components/shared/EmptyState'
+import { useToast } from '@/components/shared/Toaster'
+import { useTags, useSaveTag, useUpdateTag } from '@/api/hooks/useTags'
+
+export function TagsPage() {
+  const toast = useToast()
+  const { data: tags, isLoading } = useTags()
+  const saveTag = useSaveTag()
+  const updateTag = useUpdateTag()
+
+  const [inputValue, setInputValue] = useState('')
+  const [editingTagId, setEditingTagId] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState('')
+  const editInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingTagId && editInputRef.current) {
+      editInputRef.current.focus()
+      editInputRef.current.select()
+    }
+  }, [editingTagId])
+
+  function handleAddTags() {
+    const trimmed = inputValue.trim()
+    if (!trimmed) return
+
+    saveTag.mutate(trimmed, {
+      onSuccess: () => {
+        toast.success('Tags added')
+        setInputValue('')
+      },
+      onError: (err) => {
+        toast.error(`Failed to add tags: ${(err as Error).message}`)
+      },
+    })
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddTags()
+    }
+  }
+
+  function startEditing(id: string, name: string) {
+    setEditingTagId(id)
+    setEditingValue(name)
+  }
+
+  function commitEdit() {
+    if (!editingTagId) return
+    const trimmed = editingValue.trim()
+    if (!trimmed) {
+      setEditingTagId(null)
+      return
+    }
+
+    updateTag.mutate(
+      { id: editingTagId, name: trimmed },
+      {
+        onSuccess: () => {
+          toast.success('Tag renamed')
+        },
+        onError: (err) => {
+          toast.error(`Failed to rename tag: ${(err as Error).message}`)
+        },
+      },
+    )
+    setEditingTagId(null)
+  }
+
+  function handleEditKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitEdit()
+    }
+    if (e.key === 'Escape') {
+      setEditingTagId(null)
+    }
+  }
+
+  return (
+    <div>
+      <PageHeader title="Tags" />
+
+      <div className="flex items-center gap-2 mb-6">
+        <Input
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Enter tag names (comma-separated)"
+          className="max-w-md"
+        />
+        <Button
+          onClick={handleAddTags}
+          disabled={!inputValue.trim() || saveTag.isPending}
+          size="sm"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Add
+        </Button>
+      </div>
+
+      {isLoading && (
+        <p className="text-sm text-muted-foreground">Loading tags...</p>
+      )}
+
+      {!isLoading && (!tags || tags.length === 0) && (
+        <EmptyState
+          icon={<Tags className="h-10 w-10" />}
+          message="No tags yet. Add some above."
+        />
+      )}
+
+      {tags && tags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <div key={tag.id}>
+              {editingTagId === tag.id ? (
+                <Input
+                  ref={editInputRef}
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={handleEditKeyDown}
+                  className="h-7 w-32 text-xs"
+                />
+              ) : (
+                <Badge
+                  variant="secondary"
+                  className="cursor-pointer hover:bg-secondary/60 text-sm py-1 px-3"
+                  onClick={() => startEditing(tag.id, tag.name)}
+                >
+                  {tag.name}
+                </Badge>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

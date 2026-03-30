@@ -1,6 +1,6 @@
 // Auth
 export interface SessionResponse {
-  apiKey: string
+  authenticated: boolean
   userId: string
   username: string
   isAdmin: boolean

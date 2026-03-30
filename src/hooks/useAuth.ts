@@ -10,7 +10,7 @@ export function useAuth() {
     if (isAuthenticated || !isLoading) return
 
     bootstrapAuth()
-      .then(({ apiKey, user }) => setAuth(apiKey, user))
+      .then((user) => setAuth(user))
       .catch((err) => {
         if (err.message === 'AUTH_REQUIRED') {
           setError('AUTH_REQUIRED')

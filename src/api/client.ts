@@ -1,25 +1,16 @@
-import { useAuthStore } from '@/store/auth'
 import type { ApiError } from '@/types/api'
 
-const API_BASE = import.meta.env.VITE_FUNNELFLUX_URL || ''
 const API_PATH = '/admin/api/v2'
 
 export class ApiClient {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = `${API_BASE}${API_PATH}`
-  }
-
-  private getApiKey(): string {
-    const key = useAuthStore.getState().apiKey
-    if (!key) throw new Error('Not authenticated')
-    return key
+    this.baseUrl = API_PATH
   }
 
   private buildUrl(endpoint: string, params?: Record<string, string>): string {
     const url = new URL(`${this.baseUrl}${endpoint}`, window.location.origin)
-    url.searchParams.set('apiKey', this.getApiKey())
     if (params) {
       Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
     }
@@ -27,13 +18,16 @@ export class ApiClient {
   }
 
   async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    const res = await fetch(this.buildUrl(endpoint, params))
+    const res = await fetch(this.buildUrl(endpoint, params), {
+      credentials: 'same-origin',
+    })
     return this.handleResponse<T>(res)
   }
 
   async post<T>(endpoint: string, body?: unknown, params?: Record<string, string>): Promise<T> {
     const res = await fetch(this.buildUrl(endpoint, params), {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
     })
@@ -43,6 +37,7 @@ export class ApiClient {
   async put<T>(endpoint: string, body?: unknown, params?: Record<string, string>): Promise<T> {
     const res = await fetch(this.buildUrl(endpoint, params), {
       method: 'PUT',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
     })
@@ -50,7 +45,10 @@ export class ApiClient {
   }
 
   async delete<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    const res = await fetch(this.buildUrl(endpoint, params), { method: 'DELETE' })
+    const res = await fetch(this.buildUrl(endpoint, params), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    })
     return this.handleResponse<T>(res)
   }
 
