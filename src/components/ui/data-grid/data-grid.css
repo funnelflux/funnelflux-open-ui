@@ -1,0 +1,69 @@
+/**
+ * AG Grid (Quartz) — theme aligned with app design tokens.
+ * Used by `DataGrid` only.
+ */
+.ff-data-grid.ag-theme-quartz {
+  --ag-font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --ag-font-size: 13px;
+  --ag-active-color: var(--primary);
+  --ag-background-color: var(--card);
+  --ag-foreground-color: var(--card-foreground);
+  --ag-border-color: var(--border);
+  --ag-secondary-border-color: color-mix(in oklch, var(--border) 70%, transparent);
+  --ag-header-background-color: color-mix(in oklch, var(--muted) 65%, var(--background));
+  --ag-header-foreground-color: var(--foreground);
+  --ag-tooltip-background-color: var(--popover);
+  --ag-odd-row-background-color: color-mix(in oklch, var(--muted) 28%, transparent);
+  --ag-row-hover-color: color-mix(in oklch, var(--primary) 10%, transparent);
+  --ag-selected-row-background-color: color-mix(in oklch, var(--primary) 7%, transparent);
+  --ag-row-border-color: color-mix(in oklch, var(--border) 75%, transparent);
+  --ag-row-border-width: 1px;
+  --ag-header-column-resize-handle-color: color-mix(in oklch, var(--primary) 35%, transparent);
+  --ag-pinned-row-background-color: color-mix(in oklch, var(--muted) 72%, var(--background));
+  --ag-pinned-row-text-color: var(--foreground);
+  --ag-pinned-row-font-weight: 600;
+  --ag-wrapper-border-radius: 0;
+  --ag-row-height: calc(var(--ag-font-size) + var(--ag-grid-size) * 4);
+}
+
+.ff-data-grid.ag-theme-quartz .ag-header-cell-text {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.ff-data-grid.ag-theme-quartz .ag-header-cell,
+.ff-data-grid.ag-theme-quartz .ag-cell {
+  border-right: 1px solid var(--ag-secondary-border-color);
+}
+
+/* First column = dimension / label; remaining = metrics */
+.ff-data-grid.ag-theme-quartz .ff-dg-header-metric .ag-header-cell-comp-wrapper {
+  justify-content: flex-end;
+}
+.ff-data-grid.ag-theme-quartz .ff-dg-header-metric .ag-header-cell-label {
+  justify-content: flex-end;
+}
+.ff-data-grid.ag-theme-quartz .ff-dg-cell-metric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+.ff-data-grid.ag-theme-quartz .ff-dg-cell-dim {
+  text-align: left;
+}
+
+.ff-data-grid.ag-theme-quartz .ff-dg-header-metric .ag-header-cell-text {
+  text-align: right;
+}
+.ff-data-grid.ag-theme-quartz .ff-dg-header-dim .ag-header-cell-text {
+  text-align: left;
+}
+
+.ff-data-grid.ag-theme-quartz .ag-row-pinned {
+  border-top: 1px solid var(--ag-border-color);
+  box-shadow: inset 0 1px 0 0 color-mix(in oklch, var(--foreground) 6%, transparent);
+}
+
+.ff-data-grid.ag-theme-quartz .ag-body-viewport {
+  overflow-x: auto;
+}

@@ -41,16 +41,28 @@ export interface RotatorNodeParams {
   // Rotator has no unique params — weights are on connections
 }
 
+/** Extra query params appended when redirecting to this page (funnel node scope). */
+export interface PageNodeTokenPass {
+  field: string
+  token: string
+}
+
 export interface LanderNodeParams {
   pageId: string
   pageName?: string
   redirectType?: string
+  /** Funnel node: pass accumulated URL parameters to this page */
+  accumulateUrlParams?: boolean
+  /** Funnel node: append &field={token} using dynamic tokens */
+  additionalTokens?: PageNodeTokenPass[]
 }
 
 export interface OfferNodeParams {
   pageId: string
   pageName?: string
   redirectType?: string
+  accumulateUrlParams?: boolean
+  additionalTokens?: PageNodeTokenPass[]
 }
 
 export interface ExternalUrlNodeParams {
@@ -238,13 +250,37 @@ export interface ApiFunnel {
   idCampaign: string
   funnelName: string
   defaultCostPerEntrance: number
-  defaultRedirectUrl?: string
-  defaultOverflowUrl?: string
-  deduplicateByIp?: boolean
-  deduplicateWindowHours?: number
   nodes: ApiFunnelNode[]
   connections: ApiFunnelConnection[]
   isArchived: boolean
+}
+
+/** V2 funnel resource fields editable in the OSS editor (matches PHP \\FluxAPI\\v2\\Models\\Data\\Funnel) */
+export interface FunnelKeyValuePair {
+  key: string
+  value: string
+}
+
+export interface FunnelPostbackOverrideRow {
+  idTrafficSource: string
+  postbackType: string
+  postbackCode: string
+}
+
+export interface FunnelEditorMeta {
+  idFunnel: string
+  idCampaign: string
+  funnelName: string
+  defaultCostPerEntrance: number
+  /** Funnel notes (campaign_funnels.notes) */
+  notes: string
+  isArchived: boolean
+  canvasWidth: number | null
+  canvasHeight: number | null
+  customTokens: FunnelKeyValuePair[]
+  acculumatedUrlParams: FunnelKeyValuePair[]
+  incomingTrafficCostOverrides: FunnelKeyValuePair[]
+  postbackOverrides: FunnelPostbackOverrideRow[]
 }
 
 // ── Code Snippet ────────────────────────────────────────────────────────────

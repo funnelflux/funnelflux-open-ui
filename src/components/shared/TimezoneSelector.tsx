@@ -5,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 
 const STORAGE_KEY = "ff_timezone"
 
@@ -81,9 +82,12 @@ function getDisplayLabel(tz: string): string {
 interface TimezoneSelectorProps {
   value?: string
   onChange?: (timezone: string) => void
+  /** Merged onto the trigger (e.g. height/width to align with other toolbar controls). */
+  triggerClassName?: string
+  id?: string
 }
 
-export function TimezoneSelector({ value, onChange }: TimezoneSelectorProps) {
+export function TimezoneSelector({ value, onChange, triggerClassName, id }: TimezoneSelectorProps) {
   const currentTz = value || getStoredTimezone()
   const normalized = normalizeTimezone(currentTz)
 
@@ -94,7 +98,7 @@ export function TimezoneSelector({ value, onChange }: TimezoneSelectorProps) {
 
   return (
     <Select value={normalized} onValueChange={handleChange}>
-      <SelectTrigger className="w-[200px] h-9 text-xs">
+      <SelectTrigger id={id} className={cn('h-9 w-[200px] text-xs', triggerClassName)}>
         <SelectValue>{getDisplayLabel(normalized)}</SelectValue>
       </SelectTrigger>
       <SelectContent>
@@ -109,4 +113,6 @@ export function TimezoneSelector({ value, onChange }: TimezoneSelectorProps) {
   )
 }
 
+// Re-export for callers that only need the stored default (non-component).
+// eslint-disable-next-line react-refresh/only-export-components -- utility
 export { getStoredTimezone }

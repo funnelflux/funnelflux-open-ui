@@ -11,20 +11,14 @@ function LanderNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>
     <BaseNode
       selected={selected}
       isEntrance={data.isEntrance}
-      className="border-l-2 border-l-blue-500"
-    >
-      <div className="flex items-center gap-2">
-        <FileText className="h-4 w-4 shrink-0 text-blue-500" />
-        <div className="min-w-0">
-          <div className="text-sm font-medium">Lander</div>
-          {params.pageName && (
-            <div className="truncate text-xs text-muted-foreground">
-              {params.pageName}
-            </div>
-          )}
-        </div>
-      </div>
-    </BaseNode>
+      card={{
+        accent: 'sky',
+        kind: 'Lander',
+        title: data.label || 'Lander',
+        subtitle: params.pageName || (params.pageId ? `Page ${params.pageId}` : undefined),
+        icon: <FileText className="h-5 w-5" />,
+      }}
+    />
   )
 }
 

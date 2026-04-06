@@ -33,9 +33,10 @@ function ActionEdgeComponent({
       <BaseEdge
         path={edgePath}
         markerEnd={markerEnd}
+        className="stroke-primary/65"
         style={{
           ...style,
-          strokeWidth: selected ? 2.5 : 1.5,
+          strokeWidth: selected ? 2.75 : 2,
         }}
       />
       <EdgeLabelRenderer>

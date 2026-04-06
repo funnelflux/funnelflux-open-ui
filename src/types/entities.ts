@@ -39,6 +39,7 @@ export interface Funnel {
   idCampaign: string
   funnelName: string
   defaultCostPerEntrance: number
+  notes?: string
   nodes: FunnelNode[]
   connections: FunnelConnection[]
   isArchived: boolean

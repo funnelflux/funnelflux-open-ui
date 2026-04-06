@@ -15,6 +15,9 @@ import {
   CommandItem,
 } from '@/components/ui/command'
 import { usePages, useConditions, useCodeSnippets } from '@/api/hooks'
+import type { ConditionListRow } from '@/api/hooks/useConditions'
+import type { CodeSnippetListRow } from '@/api/hooks/useCodeSnippets'
+import { asArray } from '@/lib/utils'
 
 export interface EntityPickerDialogProps {
   open: boolean
@@ -47,13 +50,23 @@ export function EntityPickerDialog({
 
   const items = useMemo(() => {
     if (entityType === 'lander' || entityType === 'offer') {
-      return (pagesQuery.data ?? []).map((p) => ({ id: p.idPage, name: p.pageName }))
+      // Page list API returns `{ id, name }` (not always full Page objects).
+      return asArray<Record<string, unknown>>(pagesQuery.data).map((p) => ({
+        id: String(p.idPage ?? p.id ?? ''),
+        name: String(p.pageName ?? p.name ?? ''),
+      }))
     }
     if (entityType === 'condition') {
-      return (conditionsQuery.data ?? []).map((c) => ({ id: c.idCondition, name: c.conditionName }))
+      return asArray<ConditionListRow>(conditionsQuery.data).map((c) => ({
+        id: c.id,
+        name: c.name,
+      }))
     }
-    // jsCode or phpCode
-    return (snippetsQuery.data ?? []).map((s) => ({ id: s.idSnippet, name: s.snippetName }))
+    // jsCode or phpCode — list API returns `{ id, name, codeType? }`
+    return asArray<CodeSnippetListRow>(snippetsQuery.data).map((s) => ({
+      id: s.id,
+      name: s.name,
+    }))
   }, [entityType, pagesQuery.data, conditionsQuery.data, snippetsQuery.data])
 
   const label = ENTITY_LABELS[entityType]

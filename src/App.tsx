@@ -29,6 +29,7 @@ import { ConversionsPage } from "@/pages/data-updates/ConversionsPage"
 import { CostUpdatePage } from "@/pages/data-updates/CostUpdatePage"
 import { ResetStatsPage } from "@/pages/data-updates/ResetStatsPage"
 import { FunnelEditorPage } from "@/pages/funnels/FunnelEditorPage"
+import { FunnelBuilderLegacyRedirect } from "@/pages/funnels/FunnelBuilderLegacyRedirect"
 import { GlobalConditionsPage } from "@/pages/settings/GlobalConditionsPage"
 import { ToastProvider, useToast } from "@/components/shared/Toaster"
 import type { Permissions } from "@/types/api"
@@ -117,6 +118,11 @@ function AppRoutes() {
         <Route
           path="campaigns/:campaignId/funnels/:funnelId"
           element={guarded((p) => p.campaigns.canEdit, <FunnelEditorPage />)}
+        />
+
+        <Route
+          path="funnel-builder/:id"
+          element={guarded((p) => p.campaigns.canEdit, <FunnelBuilderLegacyRedirect />)}
         />
 
         {/* Reports */}

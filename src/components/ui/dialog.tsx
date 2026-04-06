@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Modal } from "antd"
+import type { ModalProps } from "antd"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -23,7 +24,6 @@ function Dialog({
     if (!React.isValidElement(child)) { rest.push(child); return }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const dn = (child.type as any)?.displayName
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (dn === "DialogTrigger") triggerNode = child
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     else if (dn === "DialogContent") contentProps = (child as any).props ?? {}
@@ -44,7 +44,10 @@ function Dialog({
         destroyOnClose
         className={cn(contentProps.className)}
         closeIcon={<X className="h-4 w-4" />}
-        width={contentProps.style?.maxWidth ?? 512}
+        width={contentProps.width ?? contentProps.style?.maxWidth ?? 512}
+        zIndex={contentProps.zIndex}
+        styles={contentProps.styles as ModalProps['styles']}
+        classNames={contentProps.classNames as ModalProps['classNames']}
       >
         {contentProps.children}
       </Modal>
@@ -61,6 +64,7 @@ function DialogTrigger({
   children: React.ReactNode
   asChild?: boolean
 } & React.HTMLAttributes<HTMLElement>) {
+  void _asChild
   return <span role="button" tabIndex={0} {...props}>{children}</span>
 }
 DialogTrigger.displayName = "DialogTrigger"
@@ -71,6 +75,7 @@ function DialogPortal({ children }: { children: React.ReactNode }) {
 DialogPortal.displayName = "DialogPortal"
 
 function DialogOverlay({ className: _className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  void _className
   void props
   return null
 }
@@ -81,7 +86,20 @@ function DialogClose({ children, ...props }: React.HTMLAttributes<HTMLButtonElem
 }
 DialogClose.displayName = "DialogClose"
 
-function DialogContent({ children, className: _className }: { children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
+/** Props are read by `Dialog` from the element (`child.props`); only `children` are rendered here. */
+function DialogContent({
+  children,
+}: {
+  children: React.ReactNode
+  className?: string
+  /** Pixel width or CSS width string (passed to Ant Design Modal). */
+  width?: number | string
+  /** Stacking order; use above React Flow / canvas overlays (e.g. 1100). */
+  zIndex?: number
+  style?: React.CSSProperties
+  styles?: ModalProps['styles']
+  classNames?: ModalProps['classNames']
+}) {
   return <>{children}</>
 }
 DialogContent.displayName = "DialogContent"

@@ -34,10 +34,10 @@ function ConditionEdgeComponent({
       <BaseEdge
         path={edgePath}
         markerEnd={markerEnd}
+        className={isYes ? 'stroke-emerald-600/80 dark:stroke-emerald-400/75' : 'stroke-red-600/80 dark:stroke-red-400/75'}
         style={{
           ...style,
-          strokeWidth: selected ? 2.5 : 1.5,
-          stroke: isYes ? '#15803d' : '#b91c1c',
+          strokeWidth: selected ? 2.75 : 2,
         }}
       />
       <EdgeLabelRenderer>

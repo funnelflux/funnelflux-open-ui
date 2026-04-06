@@ -22,9 +22,18 @@ export interface RequestColumnFilters {
   filters?: Record<string, string>
 }
 
-// Options
+// Options (matches FluxAPI\v2\Models\Stats\RequestOptions)
 export interface RequestOptions {
-  viewType?: 'tree' | 'flat'
+  viewType?: 'tree' | 'flat' | 'mixed'
+  idCampaignFilter?: string | null
+  idFunnelFilter?: string | null
+  idTrafficSourceFilter?: string | null
+}
+
+/** V2 drilldown sorting (sortingColumns) */
+export interface SortingColumn {
+  columnName: string
+  order: 'asc' | 'desc'
 }
 
 // DateTime components matching the PHP models
@@ -62,7 +71,8 @@ export interface DrilldownRequest {
   topLevelFilters?: Grouping[]
   columnFilters?: RequestColumnFilters
   paging?: RequestPaging
-  sorting?: RequestSorting
+  /** Legacy numeric sort (some pages); prefer `sortingColumns` for V2 drilldown */
+  sorting?: RequestSorting | { sortingColumns: SortingColumn[] }
   options?: RequestOptions
   trackingFieldMappings?: Record<string, string>
 }

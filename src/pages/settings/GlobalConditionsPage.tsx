@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Plus } from 'lucide-react'
-import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks'
+import { Loader2, Plus } from 'lucide-react'
+import { useConditions, useCondition, useSaveCondition, useDeleteCondition } from '@/api/hooks'
+import type { ConditionListRow } from '@/api/hooks/useConditions'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
 import { SearchInput } from '@/components/shared/SearchInput'
@@ -10,41 +11,41 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useToast } from '@/components/shared/Toaster'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { getErrorMessage } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { Condition } from '@/types/funnel'
 
 export function GlobalConditionsPage() {
   const toast = useToast()
-  const { data: conditions, isLoading } = useConditions('global')
+  const { data: conditionRows, isLoading } = useConditions()
+  const [editId, setEditId] = useState<string | null>(null)
+  const { data: loadedCondition, isLoading: loadingCondition } = useCondition(editId ?? '')
   const saveCondition = useSaveCondition()
   const deleteCondition = useDeleteCondition()
 
   const [search, setSearch] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
-  const [editCondition, setEditCondition] = useState<Condition | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
-    const list = conditions ?? []
+    const list = conditionRows ?? []
     if (!search) return list
     const q = search.toLowerCase()
-    return list.filter((c) => c.conditionName.toLowerCase().includes(q))
-  }, [conditions, search])
+    return list.filter((c) => c.name.toLowerCase().includes(q))
+  }, [conditionRows, search])
 
   const handleSave = useCallback(
     async (condition: Condition) => {
       try {
         await saveCondition.mutateAsync(condition)
-        toast.success(editCondition ? 'Condition updated' : 'Condition created')
+        toast.success(editId ? 'Condition updated' : 'Condition created')
         setEditorOpen(false)
-        setEditCondition(null)
+        setEditId(null)
       } catch (err) {
         toast.error(getErrorMessage(err))
       }
     },
-    [saveCondition, toast, editCondition],
+    [saveCondition, toast, editId],
   )
 
   const handleDelete = useCallback(async () => {
@@ -58,48 +59,21 @@ export function GlobalConditionsPage() {
     }
   }, [deleteId, deleteCondition, toast])
 
-  const columns = useMemo<ColumnDef<Condition>[]>(
+  const columns = useMemo<ColumnDef<ConditionListRow>[]>(
     () => [
       {
         id: 'name',
         header: 'Name',
-        accessorFn: (row) => row.conditionName,
-        cell: ({ row }) => <span className="font-medium">{row.original.conditionName}</span>,
+        accessorFn: (row) => row.name,
+        cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
         enableSorting: true,
-      },
-      {
-        id: 'scope',
-        header: 'Scope',
-        accessorFn: (row) => row.scope,
-        cell: ({ row }) => (
-          <Badge variant="outline" className="text-xs capitalize">
-            {row.original.scope}
-          </Badge>
-        ),
-      },
-      {
-        id: 'rules',
-        header: 'Rules',
-        cell: ({ row }) => {
-          const count = row.original.blocks.reduce((sum, b) => sum + b.rules.length, 0)
-          return <span className="text-muted-foreground text-sm">{count} rule{count !== 1 ? 's' : ''}</span>
-        },
-      },
-      {
-        id: 'blocks',
-        header: 'Blocks',
-        cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">
-            {row.original.blocks.length} ({row.original.blockLogicOperator})
-          </span>
-        ),
       },
       {
         id: 'id',
         header: 'ID',
-        accessorFn: (row) => row.idCondition,
+        accessorFn: (row) => row.id,
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">{row.original.idCondition}</span>
+          <span className="font-mono text-xs text-muted-foreground">{row.original.id}</span>
         ),
       },
       {
@@ -111,14 +85,14 @@ export function GlobalConditionsPage() {
               {
                 label: 'Edit',
                 onClick: () => {
-                  setEditCondition(row.original)
+                  setEditId(row.original.id)
                   setEditorOpen(true)
                 },
               },
               {
                 label: 'Delete',
                 destructive: true,
-                onClick: () => setDeleteId(row.original.idCondition),
+                onClick: () => setDeleteId(row.original.id),
               },
             ]}
           />
@@ -128,13 +102,16 @@ export function GlobalConditionsPage() {
     [],
   )
 
+  const editorLoading = editorOpen && !!editId && loadingCondition
+  const editorReady = editorOpen && (!editId || !!loadedCondition)
+
   return (
     <div className="space-y-4">
       <PageHeader title="Global Conditions">
         <Button
           size="sm"
           onClick={() => {
-            setEditCondition(null)
+            setEditId(null)
             setEditorOpen(true)
           }}
         >
@@ -154,17 +131,23 @@ export function GlobalConditionsPage() {
           columns={columns}
           data={filtered}
           isLoading={isLoading}
-          getRowId={(row) => row.idCondition}
+          getRowId={(row) => row.id}
         />
       )}
 
+      {editorLoading ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : null}
+
       <ConditionEditor
-        open={editorOpen}
+        open={editorReady}
         onClose={() => {
           setEditorOpen(false)
-          setEditCondition(null)
+          setEditId(null)
         }}
-        condition={editCondition}
+        condition={editId ? loadedCondition ?? null : null}
         onSave={handleSave}
       />
 

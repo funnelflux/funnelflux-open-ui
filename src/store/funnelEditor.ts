@@ -10,25 +10,11 @@ import type {
   NodeTypeValue,
 } from '@/types/funnel'
 import { generateId } from '@/lib/id-generator'
+import { extractMetaFromRawFunnel, normalizeFunnelApiResponse } from '@/lib/funnelApiV2'
+import { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
+import type { FunnelEditorMeta } from '@/types/funnel'
 
-// ── Coordinate Conversion ───────────────────────────────────────────────────
-
-const CANVAS_WIDTH = 2000
-const CANVAS_HEIGHT = 1500
-
-export function percentToPixel(percentX: number, percentY: number) {
-  return {
-    x: (percentX / 100) * CANVAS_WIDTH,
-    y: (percentY / 100) * CANVAS_HEIGHT,
-  }
-}
-
-export function pixelToPercent(x: number, y: number) {
-  return {
-    percentPosX: Math.round((x / CANVAS_WIDTH) * 100 * 100) / 100,
-    percentPosY: Math.round((y / CANVAS_HEIGHT) * 100 * 100) / 100,
-  }
-}
+export { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
 
 // ── Helpers: API → React Flow ───────────────────────────────────────────────
 
@@ -133,28 +119,21 @@ function getNodeComponentType(nodeType: NodeTypeValue): string {
 
 // ── Store ───────────────────────────────────────────────────────────────────
 
-interface FunnelMeta {
-  idFunnel: string
-  idCampaign: string
-  funnelName: string
-  defaultCostPerEntrance: number
-  defaultRedirectUrl: string
-  defaultOverflowUrl: string
-  deduplicateByIp: boolean
-  deduplicateWindowHours: number
-  isArchived: boolean
-}
+type FunnelMeta = FunnelEditorMeta
 
 const defaultMeta: FunnelMeta = {
   idFunnel: '',
   idCampaign: '',
   funnelName: '',
   defaultCostPerEntrance: 0,
-  defaultRedirectUrl: '',
-  defaultOverflowUrl: '',
-  deduplicateByIp: false,
-  deduplicateWindowHours: 24,
+  notes: '',
   isArchived: false,
+  canvasWidth: null,
+  canvasHeight: null,
+  customTokens: [],
+  acculumatedUrlParams: [],
+  incomingTrafficCostOverrides: [],
+  postbackOverrides: [],
 }
 
 interface FunnelEditorState {
@@ -167,12 +146,13 @@ interface FunnelEditorState {
   isDirty: boolean
 
   // Actions
-  hydrate: (funnel: ApiFunnel) => void
+  hydrate: (funnel: ApiFunnel | unknown) => void
   reset: () => void
   serialize: () => ApiFunnel
 
-  setNodes: (nodes: FunnelFlowNode[]) => void
-  setEdges: (edges: FunnelFlowEdge[]) => void
+  /** When `markDirty` is false, graph is updated without setting unsaved (e.g. RF measure/select, handle sync). */
+  setNodes: (nodes: FunnelFlowNode[], markDirty?: boolean) => void
+  setEdges: (edges: FunnelFlowEdge[], markDirty?: boolean) => void
   updateMeta: (partial: Partial<FunnelMeta>) => void
   setSelectedNodeId: (id: string | null) => void
   setSelectedEdgeId: (id: string | null) => void
@@ -196,7 +176,10 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
   selectedEdgeId: null,
   isDirty: false,
 
-  hydrate: (funnel) => {
+  hydrate: (funnelInput) => {
+    const funnel = normalizeFunnelApiResponse(funnelInput)
+    const v2Meta = extractMetaFromRawFunnel(funnelInput)
+    const raw = funnelInput as Record<string, unknown>
     set({
       nodes: funnel.nodes.map(apiNodeToFlowNode),
       edges: funnel.connections.map(apiConnectionToFlowEdge),
@@ -205,11 +188,9 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
         idCampaign: funnel.idCampaign,
         funnelName: funnel.funnelName,
         defaultCostPerEntrance: funnel.defaultCostPerEntrance,
-        defaultRedirectUrl: funnel.defaultRedirectUrl ?? '',
-        defaultOverflowUrl: funnel.defaultOverflowUrl ?? '',
-        deduplicateByIp: funnel.deduplicateByIp ?? false,
-        deduplicateWindowHours: funnel.deduplicateWindowHours ?? 24,
         isArchived: funnel.isArchived,
+        ...v2Meta,
+        notes: String(raw.notes ?? ''),
       },
       selectedNodeId: null,
       selectedEdgeId: null,
@@ -235,18 +216,16 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
       idCampaign: meta.idCampaign,
       funnelName: meta.funnelName,
       defaultCostPerEntrance: meta.defaultCostPerEntrance,
-      defaultRedirectUrl: meta.defaultRedirectUrl,
-      defaultOverflowUrl: meta.defaultOverflowUrl,
-      deduplicateByIp: meta.deduplicateByIp,
-      deduplicateWindowHours: meta.deduplicateWindowHours,
       isArchived: meta.isArchived,
       nodes: nodes.map((n) => flowNodeToApiNode(n, meta.idFunnel)),
       connections: edges.map((e) => flowEdgeToApiConnection(e, meta.idFunnel)),
     }
   },
 
-  setNodes: (nodes) => set({ nodes, isDirty: true }),
-  setEdges: (edges) => set({ edges, isDirty: true }),
+  setNodes: (nodes, markDirty = true) =>
+    set((s) => ({ nodes, isDirty: markDirty ? true : s.isDirty })),
+  setEdges: (edges, markDirty = true) =>
+    set((s) => ({ edges, isDirty: markDirty ? true : s.isDirty })),
   updateMeta: (partial) =>
     set((s) => ({ meta: { ...s.meta, ...partial }, isDirty: true })),
   setSelectedNodeId: (selectedNodeId) => set({ selectedNodeId, selectedEdgeId: null }),

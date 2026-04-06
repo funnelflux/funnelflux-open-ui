@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { subDays } from 'date-fns'
 import { type ColumnDef, type ExpandedState, type PaginationState, type SortingState, type OnChangeFn } from '@tanstack/react-table'
-import { Copy, Pencil, Plus, Trash2, Workflow } from 'lucide-react'
+import { Copy, Pencil, Plus, Trash2, Waypoints, Workflow } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TreeDataTable } from '@/components/shared/TreeDataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -323,7 +323,27 @@ export function CampaignsPage() {
       id: 'name',
       header: 'Name',
       accessorFn: (r) => r.name,
-      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2 min-w-0">
+          {row.original.kind === 'funnel' && row.original.funnelId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+              title="Open funnel builder"
+              aria-label="Open funnel builder"
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/campaigns/${row.original.campaignId}/funnels/${row.original.funnelId}`)
+              }}
+            >
+              <Waypoints className="h-4 w-4" />
+            </Button>
+          ) : null}
+          <span className="font-medium truncate">{row.original.name}</span>
+        </div>
+      ),
     },
     {
       id: 'visits',

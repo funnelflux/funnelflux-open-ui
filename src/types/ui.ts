@@ -130,6 +130,8 @@ export interface SystemLinkRequest {
   idNode?: string
   idTrafficSource?: string
   domain?: string
+  /** Omitted or null → server uses funnel default, then traffic source default (entrance link API). */
+  cost?: number
 }
 
 export interface SystemLink {

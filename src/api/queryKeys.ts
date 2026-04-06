@@ -71,7 +71,7 @@ export const queryKeys = {
   },
   conditions: {
     all: ['conditions'] as const,
-    list: (scope?: string) => [...queryKeys.conditions.all, 'list', scope] as const,
+    list: () => [...queryKeys.conditions.all, 'list'] as const,
     detail: (id: string) => [...queryKeys.conditions.all, 'detail', id] as const,
   },
   codeSnippets: {
