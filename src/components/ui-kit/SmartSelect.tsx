@@ -78,6 +78,7 @@ export function SmartSelect({
       mapped.push({
         label: `Type to search ${overflow} more...`,
         value: '__overflow__',
+        disabled: true,
       })
     }
     return mapped
@@ -90,11 +91,6 @@ export function SmartSelect({
       onSearch={setSearch}
       onOpenChange={(open) => { if (!open) setSearch('') }}
       options={selectOptions}
-      // Prevent selecting the overflow indicator
-      onSelect={(val: string, option) => {
-        if (val === '__overflow__') return
-        rest.onSelect?.(val, option)
-      }}
       optionRender={(option) => {
         if (option.value === '__overflow__') {
           return (
@@ -136,6 +132,7 @@ export function SmartMultiSelect({
       mapped.push({
         label: `Type to search ${overflow} more...`,
         value: '__overflow__',
+        disabled: true,
       })
     }
     return mapped
@@ -153,10 +150,6 @@ export function SmartMultiSelect({
       maxTagPlaceholder={(omitted) => (
         <Tag className="m-0">+{omitted.length}</Tag>
       )}
-      onSelect={(val: string, option) => {
-        if (val === '__overflow__') return
-        rest.onSelect?.(val, option)
-      }}
       optionRender={(option) => {
         if (option.value === '__overflow__') {
           return (
