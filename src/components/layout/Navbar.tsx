@@ -103,7 +103,7 @@ function NavDropdown({
       <DropdownMenuTrigger asChild>
         <button
           className={`px-3 py-2 text-sm rounded flex items-center gap-1 outline-none ${
-            active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700"
+            active ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700"
           }`}
         >
           {item.label}
@@ -146,7 +146,7 @@ function DesktopNav({ permissions, pathname }: { permissions: Permissions; pathn
             key={item.to}
             to={item.to}
             className={`px-3 py-2 text-sm rounded no-underline ${
-              active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700"
+              active ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700"
             }`}
           >
             {item.label}
@@ -176,12 +176,12 @@ function MobileNav({ permissions, pathname }: { permissions: Permissions; pathna
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden text-slate-300 hover:text-white hover:bg-slate-700">
+        <Button variant="ghost" size="icon" className="md:hidden text-gray-300 hover:text-white hover:bg-gray-700">
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-64 bg-slate-800 text-white border-slate-700 p-0">
-        <div className="p-4 border-b border-slate-700">
+      <SheetContent side="left" className="w-64 bg-nav-bg text-white border-gray-700 p-0">
+        <div className="p-4 border-b border-gray-700">
           <span className="font-bold text-lg">FunnelFlux</span>
         </div>
         <nav className="p-2">
@@ -191,7 +191,7 @@ function MobileNav({ permissions, pathname }: { permissions: Permissions; pathna
               to={link.to}
               onClick={() => setOpen(false)}
               className={`block px-3 py-2 text-sm rounded no-underline ${
-                pathname === link.to ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700"
+                pathname === link.to ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700"
               }`}
             >
               {link.label}
@@ -209,7 +209,7 @@ function SettingsDropdown({ permissions }: { permissions: Permissions }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded outline-none">
+        <button className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none">
           <Settings className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
@@ -296,7 +296,7 @@ function UserDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded outline-none">
+        <button className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none">
           <User className="h-4 w-4" />
           <span className="hidden sm:inline">{user?.firstname || user?.login}</span>
           <ChevronDown className="h-3 w-3" />
@@ -323,7 +323,7 @@ function NotificationBell() {
 
   return (
     <button
-      className="relative p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded"
+      className="relative p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded"
       onClick={() => navigate("/inbox")}
     >
       <Bell className="h-4 w-4" />
@@ -347,7 +347,7 @@ export function Navbar() {
   if (!permissions) return null
 
   return (
-    <nav className="bg-slate-800 text-white h-14 px-4 flex items-center gap-1 sticky top-0 z-50">
+    <nav className="bg-nav-bg text-white h-14 px-4 flex items-center gap-1 sticky top-0 z-50">
       <MobileNav permissions={permissions} pathname={location.pathname} />
 
       <Link to="/" className="font-bold text-lg mr-4 text-white no-underline">
