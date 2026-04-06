@@ -88,7 +88,7 @@ export function SmartSelect({
       showSearch
       filterOption={false}
       onSearch={setSearch}
-      onDropdownVisibleChange={(open) => { if (!open) setSearch('') }}
+      onOpenChange={(open) => { if (!open) setSearch('') }}
       options={selectOptions}
       // Prevent selecting the overflow indicator
       onSelect={(val: string, option) => {
@@ -147,7 +147,7 @@ export function SmartMultiSelect({
       showSearch
       filterOption={false}
       onSearch={setSearch}
-      onDropdownVisibleChange={(open) => { if (!open) setSearch('') }}
+      onOpenChange={(open) => { if (!open) setSearch('') }}
       options={selectOptions}
       maxTagCount={maxTagCount}
       maxTagPlaceholder={(omitted) => (

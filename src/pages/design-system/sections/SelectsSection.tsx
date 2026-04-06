@@ -118,7 +118,7 @@ export function SelectsSection() {
             Date-only by default. <code className="bg-muted px-1.5 py-0.5 rounded">showTime</code> enables datetime with auto-advance:
             select start date → auto-moves to end date. Time defaults 00:00:00 → 23:59:59.
           </p>
-          <Space direction="vertical" size="middle">
+          <Space orientation="vertical" size="middle">
             <DateTimeRangePicker />
             <DateTimeRangePicker showTime />
           </Space>
