@@ -28,6 +28,7 @@
   /* Fonts — uses --font-grid (Roboto) instead of --font-sans (Inter) */
   --ag-font-family: var(--font-grid);
   --ag-font-size: 13px;
+  font-variant-numeric: tabular-nums;
 
   /* Borders */
   --ag-borders: solid 1px;

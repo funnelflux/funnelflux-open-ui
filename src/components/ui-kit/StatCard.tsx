@@ -24,7 +24,7 @@ export function StatCard({
       <p className="text-sm font-medium text-muted-foreground">{title}</p>
       <div className="flex items-baseline gap-2 mt-1">
         {prefix && <span className="text-muted-foreground">{prefix}</span>}
-        <span className="text-2xl font-semibold text-foreground">{value}</span>
+        <span className="text-2xl font-semibold text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
         {suffix && (
           <span className="text-sm text-muted-foreground">{suffix}</span>
         )}
