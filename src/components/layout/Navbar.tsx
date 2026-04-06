@@ -209,7 +209,7 @@ function SettingsDropdown({ permissions }: { permissions: Permissions }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none">
+        <button className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Settings className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
@@ -296,7 +296,7 @@ function UserDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none">
+        <button className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <User className="h-4 w-4" />
           <span className="hidden sm:inline">{user?.firstname || user?.login}</span>
           <ChevronDown className="h-3 w-3" />
