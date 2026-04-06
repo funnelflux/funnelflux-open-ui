@@ -1,0 +1,64 @@
+/*
+  AG-Grid FunnelFlux Theme
+  Reads semantic CSS variables from design-tokens.css.
+  Dark mode works automatically when .dark is toggled on <html>.
+*/
+
+.ag-theme-funnelflux {
+  /* Core colors */
+  --ag-background-color: var(--surface);
+  --ag-foreground-color: var(--foreground);
+  --ag-border-color: var(--border);
+  --ag-secondary-border-color: var(--border);
+
+  /* Header */
+  --ag-header-background-color: var(--surface-secondary);
+  --ag-header-foreground-color: var(--muted-fg);
+  --ag-header-height: 36px;
+
+  /* Rows */
+  --ag-row-height: 40px;
+  --ag-row-hover-color: var(--surface-secondary);
+  --ag-selected-row-background-color: var(--primary-subtle);
+  --ag-range-selection-background-color: var(--primary-subtle);
+
+  /* Odd row stripe */
+  --ag-odd-row-background-color: transparent;
+
+  /* Fonts — uses --font-grid (Roboto) instead of --font-sans (Inter) */
+  --ag-font-family: var(--font-grid);
+  --ag-font-size: 13px;
+
+  /* Borders */
+  --ag-borders: solid 1px;
+  --ag-border-radius: var(--radius);
+  --ag-cell-horizontal-border: none;
+  --ag-row-border-color: var(--border);
+
+  /* Input */
+  --ag-input-focus-border-color: var(--primary);
+
+  /* Misc */
+  --ag-card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --ag-checkbox-checked-color: var(--primary);
+}
+
+/* Header text styling */
+.ag-theme-funnelflux .ag-header-cell-text {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* Remove outer border on grid wrapper for cleaner embedding */
+.ag-theme-funnelflux .ag-root-wrapper {
+  border-radius: var(--radius);
+}
+
+/* Pagination styling */
+.ag-theme-funnelflux .ag-paging-panel {
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted-fg);
+}

@@ -1,0 +1,127 @@
+/* ============================================================
+   FunnelFlux Design Tokens
+   Single source of truth for colors, typography, and spacing.
+   Consumed by Tailwind (via index.css), AG-Grid, and Recharts.
+   Ant Design tokens are duplicated in antd-theme.ts (hex values).
+   ============================================================ */
+
+/* --- Raw palette (constant in both modes) --- */
+:root {
+  /* Neutral – Slate family */
+  --ff-gray-0:   #FFFFFF;
+  --ff-gray-50:  #F8FAFC;
+  --ff-gray-100: #F1F5F9;
+  --ff-gray-200: #E2E8F0;
+  --ff-gray-300: #CBD5E1;
+  --ff-gray-400: #94A3B8;
+  --ff-gray-500: #64748B;
+  --ff-gray-600: #475569;
+  --ff-gray-700: #334155;
+  --ff-gray-800: #1E293B;
+  --ff-gray-900: #0F172A;
+  --ff-gray-950: #020617;
+
+  /* Primary – Blue-600 family */
+  --ff-blue-50:  #EFF6FF;
+  --ff-blue-100: #DBEAFE;
+  --ff-blue-500: #3B82F6;
+  --ff-blue-600: #2563EB;
+  --ff-blue-700: #1D4ED8;
+
+  /* Semantic status */
+  --ff-success: #16A34A;
+  --ff-warning: #D97706;
+  --ff-error:   #DC2626;
+  --ff-info:    #3B82F6;
+
+  /* Chart palette – 10 colors, same in both modes */
+  --ff-chart-1:  #3B82F6;
+  --ff-chart-2:  #8B5CF6;
+  --ff-chart-3:  #06B6D4;
+  --ff-chart-4:  #F97316;
+  --ff-chart-5:  #22C55E;
+  --ff-chart-6:  #EC4899;
+  --ff-chart-7:  #EAB308;
+  --ff-chart-8:  #6366F1;
+  --ff-chart-9:  #14B8A6;
+  --ff-chart-10: #F43F5E;
+
+  /* Profit/Loss */
+  --ff-profit: #16A34A;
+  --ff-loss:   #DC2626;
+
+  /* Typography — change these to customize the app's fonts */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-grid: 'Roboto', system-ui, -apple-system, sans-serif;
+
+  /* Spacing scale (px) */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Layout */
+  --nav-height: 48px;
+  --radius: 6px;
+  --page-padding: 24px;
+  --toolbar-height: 48px;
+
+  /* Responsive breakpoints (reference — applied via Tailwind lg:/md:) */
+  /* sm: 640px  md: 768px  lg: 1024px  xl: 1280px  2xl: 1536px */
+  /* Minimum supported: 1024px (desktop-first). Below 1024px: simplified. */
+}
+
+/* --- Light mode semantic aliases (default) --- */
+:root {
+  --background:        var(--ff-gray-0);
+  --foreground:        var(--ff-gray-900);
+  --surface:           var(--ff-gray-0);
+  --surface-secondary: var(--ff-gray-50);
+  --border:            var(--ff-gray-200);
+  --border-strong:     var(--ff-gray-300);
+  --muted:             var(--ff-gray-100);
+  --muted-fg:          var(--ff-gray-500);
+  --primary:           var(--ff-blue-600);
+  --primary-fg:        #FFFFFF;
+  --primary-hover:     var(--ff-blue-700);
+  --primary-subtle:    var(--ff-blue-50);
+  --destructive:       var(--ff-error);
+  --destructive-fg:    #FFFFFF;
+  --nav-bg:            var(--ff-gray-800);
+  --nav-fg:            var(--ff-gray-50);
+  --ring:              var(--ff-blue-500);
+  --focus-ring:        rgba(37, 99, 235, 0.25);
+
+  /* Select highlight */
+  --select-option-bg:  var(--ff-blue-50);
+}
+
+/* --- Dark mode semantic aliases --- */
+.dark {
+  --background:        var(--ff-gray-900);
+  --foreground:        var(--ff-gray-50);
+  --surface:           var(--ff-gray-800);
+  --surface-secondary: var(--ff-gray-800);
+  --border:            var(--ff-gray-700);
+  --border-strong:     var(--ff-gray-600);
+  --muted:             var(--ff-gray-800);
+  --muted-fg:          var(--ff-gray-400);
+  --primary:           var(--ff-blue-500);
+  --primary-fg:        #FFFFFF;
+  --primary-hover:     var(--ff-blue-600);
+  --primary-subtle:    #1E3A5F;
+  --destructive:       #EF4444;
+  --destructive-fg:    #FFFFFF;
+  --nav-bg:            var(--ff-gray-950);
+  --nav-fg:            var(--ff-gray-50);
+  --ring:              var(--ff-blue-500);
+  --focus-ring:        rgba(59, 130, 246, 0.35);
+
+  --select-option-bg:  #1E3A5F;
+}
