@@ -2,19 +2,16 @@ import { useState, useMemo } from 'react'
 import { type ColumnDef, type RowSelectionState } from '@tanstack/react-table'
 import { subDays } from 'date-fns'
 import { Copy, Pencil, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from 'antd'
 import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { ConfirmModal, EmptyState, TimezoneSelect, useToastApi } from '@/components/ui-kit'
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
 import { CategoryManager } from '@/components/shared/CategoryManager'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
-import { useToast } from '@/components/shared/Toaster'
 import { useArchiveTrafficSource, useCategories, useSaveTrafficSource, useDeleteTrafficSource, useCloneTrafficSource, useTrafficSource } from '@/api/hooks'
 import { useEntityPaginatedReport, type EntityRow } from '@/api/hooks/useEntityPaginatedReport'
 import { TrafficSourceForm } from '@/components/forms/TrafficSourceForm'
@@ -39,7 +36,7 @@ interface TrafficSourceMeta {
 }
 
 export function TrafficSourcesPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -200,7 +197,7 @@ export function TrafficSourcesPage() {
       cell: ({ row }) => {
         const val = cellRaw(row.original.cells[iPL])
         return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
+          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
             {cellFmt(row.original.cells[iPL])}
           </span>
         )
@@ -214,7 +211,7 @@ export function TrafficSourcesPage() {
       cell: ({ row }) => {
         const val = cellRaw(row.original.cells[iROI])
         return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
+          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
             {cellFmt(row.original.cells[iROI])}
           </span>
         )
@@ -246,7 +243,7 @@ export function TrafficSourcesPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Traffic Sources">
-        <Button onClick={handleCreate} size="sm">Add Traffic Source</Button>
+        <Button type="primary" onClick={handleCreate} size="small">Add Traffic Source</Button>
       </PageHeader>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -262,7 +259,7 @@ export function TrafficSourcesPage() {
           timezone={tz}
           onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
         />
-        <TimezoneSelector value={tz} onChange={setTz} />
+        <TimezoneSelect value={tz} onChange={setTz} />
       </div>
 
       {!isLoading && filtered.length === 0 ? (
@@ -323,13 +320,14 @@ export function TrafficSourcesPage() {
         isSubmitting={saveMutation.isPending}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteId}
-        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onCancel={() => setDeleteId(null)}
         title="Delete Traffic Source"
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}
-        isLoading={deleteMutation.isPending}
+        loading={deleteMutation.isPending}
+        danger
       />
     </div>
   )

@@ -1,22 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Loader2, Upload } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button, Input, Modal, Select } from 'antd'
 
 interface CsvImportDialogProps {
   open: boolean
@@ -104,92 +88,85 @@ export function CsvImportDialog({
     }
   }
 
+  const footer = (
+    <div className="flex justify-end gap-2">
+      <Button htmlType="button" onClick={() => onOpenChange(false)}>
+        Cancel
+      </Button>
+      <Button type="primary" htmlType="button" disabled={rows.length === 0 || isImporting} onClick={() => void handleImport()}>
+        {isImporting ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Upload className="mr-2 h-4 w-4" />
+        )}
+        Import
+      </Button>
+    </div>
+  )
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+    <Modal open={open} onCancel={() => onOpenChange(false)} title={title} footer={footer} width={896} destroyOnHidden>
+      <p className="text-sm text-muted-foreground mb-4">{description}</p>
 
-        <div className="space-y-4">
-          <div className="rounded-lg border border-dashed p-6">
-            <Label htmlFor="csv-upload" className="mb-2 block text-sm font-medium">
-              CSV file
-            </Label>
-            <Input id="csv-upload" type="file" accept=".csv,text/csv" onChange={handleFileChange} />
-          </div>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-dashed p-6">
+          <label htmlFor="csv-upload" className="mb-2 block text-sm font-medium">
+            CSV file
+          </label>
+          <Input id="csv-upload" type="file" accept=".csv,text/csv" onChange={handleFileChange} />
+        </div>
 
-          {headers.length > 0 ? (
-            <>
-              <div className="grid gap-3 md:grid-cols-2">
-                {headers.map((header) => (
-                  <div key={header} className="space-y-1.5">
-                    <Label>{header}</Label>
-                    <Select
-                      value={mappings[header] ?? '__skip__'}
-                      onValueChange={(value) =>
-                        setMappings((current) => ({ ...current, [header]: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__skip__">Skip column</SelectItem>
-                        {fieldOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
-              </div>
+        {headers.length > 0 ? (
+          <>
+            <div className="grid gap-3 md:grid-cols-2">
+              {headers.map((header) => (
+                <div key={header} className="space-y-1.5">
+                  <label className="text-sm font-medium">{header}</label>
+                  <Select
+                    value={mappings[header] ?? '__skip__'}
+                    onChange={(value) =>
+                      setMappings((current) => ({ ...current, [header]: value }))
+                    }
+                    className="w-full"
+                    options={[
+                      { value: '__skip__', label: 'Skip column' },
+                      ...fieldOptions.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                      })),
+                    ]}
+                  />
+                </div>
+              ))}
+            </div>
 
-              <div className="rounded-md border overflow-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      {headers.map((header) => (
-                        <th key={header} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                          {header}
-                        </th>
+            <div className="rounded-md border overflow-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    {headers.map((header) => (
+                      <th key={header} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="border-b">
+                      {headers.map((header, index) => (
+                        <td key={`${header}-${rowIndex}`} className="px-3 py-2">
+                          {row[index] ?? ''}
+                        </td>
                       ))}
                     </tr>
-                  </thead>
-                  <tbody>
-                    {previewRows.map((row, rowIndex) => (
-                      <tr key={rowIndex} className="border-b">
-                        {headers.map((header, index) => (
-                          <td key={`${header}-${rowIndex}`} className="px-3 py-2">
-                            {row[index] ?? ''}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : null}
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={rows.length === 0 || isImporting} onClick={() => void handleImport()}>
-              {isImporting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="mr-2 h-4 w-4" />
-              )}
-              Import
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </Modal>
   )
 }

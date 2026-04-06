@@ -3,16 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { subDays } from 'date-fns'
 import { type ColumnDef, type ExpandedState, type PaginationState, type SortingState, type OnChangeFn } from '@tanstack/react-table'
 import { Copy, Pencil, Plus, Trash2, Workflow } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from 'antd'
 import { TreeDataTable } from '@/components/shared/TreeDataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { ConfirmModal, EmptyState, TimezoneSelect, useToastApi } from '@/components/ui-kit'
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
-import { useToast } from '@/components/shared/Toaster'
 import {
   useSaveCampaign,
   useDeleteCampaign,
@@ -66,7 +63,7 @@ function reportRowsToRows(report: Report, kind: 'campaign' | 'funnel', campaignI
 }
 
 export function CampaignsPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -374,7 +371,7 @@ export function CampaignsPage() {
       accessorFn: (r) => cellRaw(r.cells[iPL]),
       cell: ({ row }) => {
         const val = cellRaw(row.original.cells[iPL])
-        return <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>{cellFmt(row.original.cells[iPL])}</span>
+        return <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>{cellFmt(row.original.cells[iPL])}</span>
       },
     },
     {
@@ -384,7 +381,7 @@ export function CampaignsPage() {
       accessorFn: (r) => cellRaw(r.cells[iROI]),
       cell: ({ row }) => {
         const val = cellRaw(row.original.cells[iROI])
-        return <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>{cellFmt(row.original.cells[iROI])}</span>
+        return <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>{cellFmt(row.original.cells[iROI])}</span>
       },
     },
     {
@@ -428,7 +425,7 @@ export function CampaignsPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Campaigns">
-        <Button onClick={handleCreate} size="sm">Add Campaign</Button>
+        <Button type="primary" onClick={handleCreate} size="small">Add Campaign</Button>
       </PageHeader>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -438,7 +435,7 @@ export function CampaignsPage() {
           timezone={tz}
           onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
         />
-        <TimezoneSelector value={tz} onChange={setTz} />
+        <TimezoneSelect value={tz} onChange={setTz} />
       </div>
 
       {!isLoading && filtered.length === 0 ? (
@@ -470,13 +467,14 @@ export function CampaignsPage() {
         isSubmitting={saveMutation.isPending}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteTarget}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        onCancel={() => setDeleteTarget(null)}
         title={deleteTarget?.kind === 'campaign' ? 'Delete Campaign' : 'Delete Funnel'}
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}
-        isLoading={deleteTarget?.kind === 'campaign' ? deleteMutation.isPending : deleteFunnel.isPending}
+        loading={deleteTarget?.kind === 'campaign' ? deleteMutation.isPending : deleteFunnel.isPending}
+        danger
       />
     </div>
   )

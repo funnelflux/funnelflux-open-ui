@@ -31,7 +31,7 @@ import { CostUpdatePage } from "@/pages/data-updates/CostUpdatePage"
 import { ResetStatsPage } from "@/pages/data-updates/ResetStatsPage"
 import { FunnelEditorPage } from "@/pages/funnels/FunnelEditorPage"
 import { GlobalConditionsPage } from "@/pages/settings/GlobalConditionsPage"
-import { ToastProvider, useToast } from "@/components/shared/Toaster"
+import { useToastApi } from "@/components/ui-kit"
 import type { Permissions } from "@/types/api"
 import { lazy, Suspense } from "react"
 
@@ -69,7 +69,7 @@ function guarded(check: (p: Permissions) => boolean, element: React.ReactNode) {
 }
 
 function NotificationPoller() {
-  const toast = useToast()
+  const toast = useToastApi()
   useNotifications((msg) => toast.info(msg))
   return null
 }
@@ -226,7 +226,6 @@ export default function App() {
     <ConfigProvider theme={antdTheme}>
       <AntApp message={{ maxCount: 3 }}>
         <QueryClientProvider client={queryClient}>
-          <ToastProvider>
             <BrowserRouter basename="/v2-ui">
               <Routes>
                 {/* Design system reference (no auth required) */}
@@ -242,7 +241,6 @@ export default function App() {
                 <Route path="*" element={<AuthGate><AppRoutes /></AuthGate>} />
               </Routes>
             </BrowserRouter>
-          </ToastProvider>
         </QueryClientProvider>
       </AntApp>
     </ConfigProvider>

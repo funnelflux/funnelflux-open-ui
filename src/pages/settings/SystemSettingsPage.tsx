@@ -2,20 +2,9 @@ import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Save } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
+import { Button, Input, Switch, Select, Divider } from 'antd'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { useToast } from '@/components/shared/Toaster'
+import { useToastApi } from '@/components/ui-kit'
 import { useSystemSettings, useSaveSystemSettings } from '@/api/hooks/useSystemSettings'
 import { DomainsManager } from '@/components/settings/DomainsManager'
 import {
@@ -32,7 +21,7 @@ const REDIRECT_METHODS = [
 ]
 
 export function SystemSettingsPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: settings, isLoading } = useSystemSettings()
   const saveSettings = useSaveSystemSettings()
 
@@ -99,7 +88,7 @@ export function SystemSettingsPage() {
         {/* Force HTTPS */}
         <div className="flex items-center justify-between">
           <div>
-            <Label htmlFor="forceHTTPS">Force HTTPS</Label>
+            <label htmlFor="forceHTTPS" className="block text-sm font-medium text-foreground">Force HTTPS</label>
             <p className="text-xs text-muted-foreground">
               Redirect all HTTP traffic to HTTPS
             </p>
@@ -111,7 +100,7 @@ export function SystemSettingsPage() {
               <Switch
                 id="forceHTTPS"
                 checked={field.value}
-                onCheckedChange={field.onChange}
+                onChange={field.onChange}
               />
             )}
           />
@@ -119,7 +108,7 @@ export function SystemSettingsPage() {
 
         {/* Default Home Page URL */}
         <div className="space-y-2">
-          <Label htmlFor="defaultHomePageURL">Default Home Page URL</Label>
+          <label htmlFor="defaultHomePageURL" className="block text-sm font-medium text-foreground">Default Home Page URL</label>
           <Input
             id="defaultHomePageURL"
             {...form.register('defaultHomePageURL')}
@@ -133,7 +122,7 @@ export function SystemSettingsPage() {
         {/* Auto Expand Campaigns */}
         <div className="flex items-center justify-between">
           <div>
-            <Label htmlFor="autoExpandCampaigns">Auto Expand Campaigns</Label>
+            <label htmlFor="autoExpandCampaigns" className="block text-sm font-medium text-foreground">Auto Expand Campaigns</label>
             <p className="text-xs text-muted-foreground">
               Automatically expand campaign rows in the listing
             </p>
@@ -145,7 +134,7 @@ export function SystemSettingsPage() {
               <Switch
                 id="autoExpandCampaigns"
                 checked={field.value}
-                onCheckedChange={field.onChange}
+                onChange={field.onChange}
               />
             )}
           />
@@ -153,65 +142,55 @@ export function SystemSettingsPage() {
 
         {/* Offers Default Redirect */}
         <div className="space-y-2">
-          <Label>Offers Default Redirect</Label>
+          <label className="block text-sm font-medium text-foreground">Offers Default Redirect</label>
           <Controller
             control={form.control}
             name="offersDefaultRedirect"
             render={({ field }) => (
               <Select
                 value={field.value.type}
-                onValueChange={(type) =>
+                onChange={(type) =>
                   field.onChange({ type, name: findRedirectName(type) })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select redirect method" />
-                </SelectTrigger>
-                <SelectContent>
-                  {REDIRECT_METHODS.map((method) => (
-                    <SelectItem key={method.type} value={method.type}>
-                      {method.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                className="w-full"
+                placeholder="Select redirect method"
+                options={REDIRECT_METHODS.map((method) => ({
+                  value: method.type,
+                  label: method.name,
+                }))}
+              />
             )}
           />
         </div>
 
         {/* Landers Default Redirect */}
         <div className="space-y-2">
-          <Label>Landers Default Redirect</Label>
+          <label className="block text-sm font-medium text-foreground">Landers Default Redirect</label>
           <Controller
             control={form.control}
             name="landersDefaultRedirect"
             render={({ field }) => (
               <Select
                 value={field.value.type}
-                onValueChange={(type) =>
+                onChange={(type) =>
                   field.onChange({ type, name: findRedirectName(type) })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select redirect method" />
-                </SelectTrigger>
-                <SelectContent>
-                  {REDIRECT_METHODS.map((method) => (
-                    <SelectItem key={method.type} value={method.type}>
-                      {method.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                className="w-full"
+                placeholder="Select redirect method"
+                options={REDIRECT_METHODS.map((method) => ({
+                  value: method.type,
+                  label: method.name,
+                }))}
+              />
             )}
           />
         </div>
 
         {/* Min Confidence Rate */}
         <div className="space-y-2">
-          <Label htmlFor="minConfidenceRateForWinners">
+          <label htmlFor="minConfidenceRateForWinners" className="block text-sm font-medium text-foreground">
             Min Confidence Rate for Winners (%)
-          </Label>
+          </label>
           <Input
             id="minConfidenceRateForWinners"
             type="number"
@@ -228,7 +207,7 @@ export function SystemSettingsPage() {
 
         {/* ClickBank IPN Key */}
         <div className="space-y-2">
-          <Label htmlFor="clickbankIPNKey">ClickBank IPN Key</Label>
+          <label htmlFor="clickbankIPNKey" className="block text-sm font-medium text-foreground">ClickBank IPN Key</label>
           <Input
             id="clickbankIPNKey"
             {...form.register('clickbankIPNKey')}
@@ -238,7 +217,7 @@ export function SystemSettingsPage() {
 
         {/* Save Button */}
         <div className="pt-2">
-          <Button type="submit" disabled={saveSettings.isPending}>
+          <Button type="primary" htmlType="submit" disabled={saveSettings.isPending}>
             {saveSettings.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -249,7 +228,7 @@ export function SystemSettingsPage() {
         </div>
       </form>
 
-      <Separator className="my-8 max-w-2xl" />
+      <Divider className="my-8 max-w-2xl" />
 
       <div className="max-w-2xl">
         <DomainsManager />

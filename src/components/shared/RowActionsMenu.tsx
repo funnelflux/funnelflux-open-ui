@@ -1,7 +1,6 @@
-import { Dropdown } from 'antd'
+import { Dropdown, Button } from 'antd'
 import type { MenuProps } from 'antd'
 import { MoreHorizontal, type LucideIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 
 export interface RowAction {
   label: string
@@ -47,9 +46,7 @@ export function RowActionsMenu({ actions }: RowActionsMenuProps) {
 
   return (
     <Dropdown menu={{ items }} trigger={['click']}>
-      <Button variant="ghost" size="icon" className="h-8 w-8">
-        <MoreHorizontal className="h-4 w-4" />
-      </Button>
+      <Button type="text" className="h-8 w-8" icon={<MoreHorizontal className="h-4 w-4" />} />
     </Dropdown>
   )
 }

@@ -1,22 +1,11 @@
 import { useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Plus, Pencil, Trash2, RotateCcw, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet'
+import { Button, Input, Drawer } from 'antd'
 import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { useToast } from '@/components/shared/Toaster'
 import {
   useStoredLinks,
   useSaveStoredLink,
@@ -27,7 +16,7 @@ import type { StoredLink } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 
 export function StoredLinksPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: links, isLoading } = useStoredLinks()
   const saveMutation = useSaveStoredLink()
   const deleteMutation = useDeleteStoredLink()
@@ -166,7 +155,7 @@ export function StoredLinksPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Stored Links">
-        <Button onClick={openCreate} size="sm">
+        <Button type="primary" onClick={openCreate} size="small">
           <Plus className="h-4 w-4 mr-1" />
           Add Link
         </Button>
@@ -187,66 +176,63 @@ export function StoredLinksPage() {
         />
       )}
 
-      {/* Add/Edit Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>{editingLink ? 'Edit Link' : 'Add Link'}</SheetTitle>
-            <SheetDescription>
-              {editingLink
-                ? 'Update the stored link details.'
-                : 'Create a new stored link for tracking.'}
-            </SheetDescription>
-          </SheetHeader>
+      {/* Add/Edit Drawer */}
+      <Drawer open={sheetOpen} onClose={() => setSheetOpen(false)} title={editingLink ? 'Edit Link' : 'Add Link'} width={378} destroyOnHidden>
+        <p className="text-sm text-muted-foreground mb-4">
+          {editingLink
+            ? 'Update the stored link details.'
+            : 'Create a new stored link for tracking.'}
+        </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-            <div className="space-y-1.5">
-              <Label htmlFor="link-name">Name</Label>
-              <Input
-                id="link-name"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder="My tracking link"
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label htmlFor="link-name" className="text-sm font-medium">Name</label>
+            <Input
+              id="link-name"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder="My tracking link"
+            />
+          </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="link-url">URL</Label>
-              <Input
-                id="link-url"
-                value={formUrl}
-                onChange={(e) => setFormUrl(e.target.value)}
-                placeholder="https://..."
-              />
-            </div>
+          <div className="space-y-1.5">
+            <label htmlFor="link-url" className="text-sm font-medium">URL</label>
+            <Input
+              id="link-url"
+              value={formUrl}
+              onChange={(e) => setFormUrl(e.target.value)}
+              placeholder="https://..."
+            />
+          </div>
 
-            <Button type="submit" disabled={saveMutation.isPending} className="w-full">
-              {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editingLink ? 'Save Changes' : 'Create Link'}
-            </Button>
-          </form>
-        </SheetContent>
-      </Sheet>
+          <Button type="primary" htmlType="submit" disabled={saveMutation.isPending} className="w-full">
+            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {editingLink ? 'Save Changes' : 'Create Link'}
+          </Button>
+        </form>
+      </Drawer>
 
       {/* Delete Confirm */}
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteId}
-        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onCancel={() => setDeleteId(null)}
         title="Delete Link"
         description="Are you sure you want to delete this stored link? This action cannot be undone."
         onConfirm={handleDelete}
-        isLoading={deleteMutation.isPending}
+        loading={deleteMutation.isPending}
+        danger
       />
 
       {/* Reset Confirm */}
-      <ConfirmDialog
+      <ConfirmModal
         open={!!resetId}
-        onOpenChange={(open) => { if (!open) setResetId(null) }}
+        onCancel={() => setResetId(null)}
         title="Reset Link Stats"
         description="Are you sure you want to reset the click stats for this link?"
         confirmText="Reset"
         onConfirm={handleReset}
-        isLoading={resetMutation.isPending}
+        loading={resetMutation.isPending}
+        danger
       />
     </div>
   )

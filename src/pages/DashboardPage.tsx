@@ -8,10 +8,8 @@ import { StatsCards } from '@/components/dashboard/StatsCards'
 import { DashboardChart } from '@/components/dashboard/DashboardChart'
 import { DataTable } from '@/components/shared/DataTable'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { TimezoneSelect } from '@/components/ui-kit'
+import { Button, Card, Tag } from 'antd'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { Report, ReportCell } from '@/types/stats'
@@ -160,13 +158,8 @@ function WidgetTable({
   )
 
   return (
-    <Card className={pulse ? 'animate-pulse' : undefined}>
-      <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <DataTable columns={columns} data={rows} isLoading={isLoading} getRowId={(row) => row.id} />
-      </CardContent>
+    <Card className={pulse ? 'animate-pulse' : undefined} title={<span className="text-sm font-medium">{title}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
+      <DataTable columns={columns} data={rows} isLoading={isLoading} getRowId={(row) => row.id} />
     </Card>
   )
 }
@@ -318,13 +311,13 @@ export function DashboardPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          {isAutoRefresh ? <Badge variant="secondary">Live</Badge> : null}
+          {isAutoRefresh ? <Tag>Live</Tag> : null}
         </div>
         <div className="flex items-center gap-2">
           <Button
-            type="button"
-            variant={isAutoRefresh ? 'default' : 'outline'}
-            size="sm"
+            htmlType="button"
+            type={isAutoRefresh ? 'primary' : 'default'}
+            size="small"
             className="h-9"
             onClick={() => setIsAutoRefresh((current) => !current)}
           >
@@ -340,7 +333,7 @@ export function DashboardPage() {
               }
             }}
           />
-          <TimezoneSelector value={tz} onChange={setTz} />
+          <TimezoneSelect value={tz} onChange={setTz} />
         </div>
       </div>
 

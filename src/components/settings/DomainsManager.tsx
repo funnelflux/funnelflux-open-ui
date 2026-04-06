@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { Globe, Plus, Star, Trash2, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
+import { Button, Input, Tag } from 'antd'
+import { ConfirmModal, useToastApi } from '@/components/ui-kit'
 import {
   useDomains,
   useSaveDomain,
@@ -15,7 +12,7 @@ import type { Domain } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 
 export function DomainsManager() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: domains, isLoading } = useDomains()
   const saveDomain = useSaveDomain()
   const deleteDomain = useDeleteDomain()
@@ -87,9 +84,10 @@ export function DomainsManager() {
           className="max-w-sm"
         />
         <Button
+          type="primary"
           onClick={handleAdd}
           disabled={!newDomain.trim() || saveDomain.isPending}
-          size="sm"
+          size="small"
         >
           {saveDomain.isPending ? (
             <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -121,16 +119,16 @@ export function DomainsManager() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{domain.domain}</span>
                 {domain.isDefault && (
-                  <Badge variant="secondary" className="text-xs">
+                  <Tag className="text-xs">
                     Default
-                  </Badge>
+                  </Tag>
                 )}
               </div>
               <div className="flex items-center gap-1">
                 {!domain.isDefault && (
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    type="text"
+                    size="small"
                     onClick={() => handleSetDefault(domain)}
                     disabled={setDefaultDomain.isPending}
                     title="Set as default"
@@ -139,8 +137,8 @@ export function DomainsManager() {
                   </Button>
                 )}
                 <Button
-                  variant="ghost"
-                  size="sm"
+                  type="text"
+                  size="small"
                   onClick={() => setDeleteTarget(domain)}
                   className="text-destructive hover:text-destructive"
                   title="Delete domain"
@@ -153,12 +151,12 @@ export function DomainsManager() {
         </div>
       )}
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteTarget}
         title="Delete Domain"
         description={`Are you sure you want to delete "${deleteTarget?.domain}"? This cannot be undone.`}
         confirmText="Delete"
-        destructive
+        danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />

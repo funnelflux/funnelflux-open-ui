@@ -3,31 +3,11 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Plus, Pencil, RotateCcw, Trash2, Loader2, Shield } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet'
+import { Button, Input, Switch, Select, Drawer } from 'antd'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
+import { ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import { DataTable } from '@/components/shared/DataTable'
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
 import {
   useTrafficFilters,
   useSaveTrafficFilter,
@@ -50,7 +30,7 @@ const FILTER_TYPE_LABELS: Record<FilterType, string> = {
 const FILTER_TYPES = Object.keys(FILTER_TYPE_LABELS) as FilterType[]
 
 export function TrafficFiltersPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: filters, isLoading } = useTrafficFilters()
   const saveFilter = useSaveTrafficFilter()
   const deleteFilter = useDeleteTrafficFilter()
@@ -147,7 +127,7 @@ export function TrafficFiltersPage() {
       cell: ({ row }) => (
         <Switch
           checked={row.original.isEnabled}
-          onCheckedChange={() => handleToggleEnabled(row.original)}
+          onChange={() => handleToggleEnabled(row.original)}
         />
       ),
     },
@@ -194,7 +174,7 @@ export function TrafficFiltersPage() {
       <PageHeader
         title="Traffic Filters"
         actions={
-          <Button onClick={openCreate} size="sm">
+          <Button type="primary" onClick={openCreate} size="small">
             <Plus className="h-4 w-4 mr-1" />
             Add Filter
           </Button>
@@ -217,7 +197,7 @@ export function TrafficFiltersPage() {
         />
       )}
 
-      <TrafficFilterSheet
+      <TrafficFilterDrawer
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         initialData={editingFilter}
@@ -225,12 +205,12 @@ export function TrafficFiltersPage() {
         isSubmitting={saveFilter.isPending}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteTarget}
         title="Delete Traffic Filter"
         description={`Are you sure you want to delete "${deleteTarget?.trafficFilterName}"? This cannot be undone.`}
         confirmText="Delete"
-        destructive
+        danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
@@ -238,9 +218,9 @@ export function TrafficFiltersPage() {
   )
 }
 
-// --- Sheet form for create/edit ---
+// --- Drawer form for create/edit ---
 
-interface TrafficFilterSheetProps {
+interface TrafficFilterDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData?: TrafficFilter
@@ -248,13 +228,13 @@ interface TrafficFilterSheetProps {
   isSubmitting?: boolean
 }
 
-function TrafficFilterSheet({
+function TrafficFilterDrawer({
   open,
   onOpenChange,
   initialData,
   onSubmit,
   isSubmitting,
-}: TrafficFilterSheetProps) {
+}: TrafficFilterDrawerProps) {
   const form = useForm<TrafficFilterFormData>({
     resolver: zodResolver(trafficFilterSchema),
     defaultValues: {
@@ -303,114 +283,110 @@ function TrafficFilterSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[440px] sm:max-w-[440px] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>
-            {initialData ? 'Edit Traffic Filter' : 'New Traffic Filter'}
-          </SheetTitle>
-          <SheetDescription>
-            {initialData
-              ? 'Update the filter configuration below.'
-              : 'Configure a new traffic filter.'}
-          </SheetDescription>
-        </SheetHeader>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-6 mt-6"
-        >
-          <div className="space-y-2">
-            <Label htmlFor="trafficFilterName">Name</Label>
-            <Input
-              id="trafficFilterName"
-              {...form.register('trafficFilterName')}
-              placeholder="Filter name"
-            />
-            {form.formState.errors.trafficFilterName && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.trafficFilterName.message}
-              </p>
+    <Drawer
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title={initialData ? 'Edit Traffic Filter' : 'New Traffic Filter'}
+      width={440}
+      destroyOnHidden
+    >
+      <p className="text-sm text-muted-foreground mb-4">
+        {initialData
+          ? 'Update the filter configuration below.'
+          : 'Configure a new traffic filter.'}
+      </p>
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-6"
+      >
+        <div className="space-y-2">
+          <label htmlFor="trafficFilterName" className="block text-sm font-medium text-foreground">Name</label>
+          <Input
+            id="trafficFilterName"
+            {...form.register('trafficFilterName')}
+            placeholder="Filter name"
+          />
+          {form.formState.errors.trafficFilterName && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.trafficFilterName.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-foreground">Filter Type</label>
+          <Controller
+            control={form.control}
+            name="filterType"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onChange={field.onChange}
+                className="w-full"
+                placeholder="Select type"
+                options={FILTER_TYPES.map((type) => ({
+                  value: type,
+                  label: FILTER_TYPE_LABELS[type],
+                }))}
+              />
             )}
-          </div>
+          />
+          {form.formState.errors.filterType && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.filterType.message}
+            </p>
+          )}
+        </div>
 
-          <div className="space-y-2">
-            <Label>Filter Type</Label>
-            <Controller
-              control={form.control}
-              name="filterType"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FILTER_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {FILTER_TYPE_LABELS[type]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {form.formState.errors.filterType && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.filterType.message}
-              </p>
+        <div className="space-y-2">
+          <label htmlFor="filterEntries" className="block text-sm font-medium text-foreground">Entries (one per line)</label>
+          <Input.TextArea
+            id="filterEntries"
+            value={entriesText}
+            onChange={(e) => handleEntriesChange(e.target.value)}
+            placeholder="Enter one entry per line"
+            rows={8}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="redirectToURL" className="block text-sm font-medium text-foreground">Redirect URL (optional)</label>
+          <Input
+            id="redirectToURL"
+            {...form.register('redirectToURL')}
+            placeholder="https://example.com"
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <label htmlFor="isEnabled" className="text-sm font-medium">Enabled</label>
+          <Controller
+            control={form.control}
+            name="isEnabled"
+            render={({ field }) => (
+              <Switch
+                id="isEnabled"
+                checked={field.value}
+                onChange={field.onChange}
+              />
             )}
-          </div>
+          />
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="filterEntries">Entries (one per line)</Label>
-            <Textarea
-              id="filterEntries"
-              value={entriesText}
-              onChange={(e) => handleEntriesChange(e.target.value)}
-              placeholder="Enter one entry per line"
-              rows={8}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="redirectToURL">Redirect URL (optional)</Label>
-            <Input
-              id="redirectToURL"
-              {...form.register('redirectToURL')}
-              placeholder="https://example.com"
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Label htmlFor="isEnabled">Enabled</Label>
-            <Controller
-              control={form.control}
-              name="isEnabled"
-              render={({ field }) => (
-                <Switch
-                  id="isEnabled"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              )}
-            />
-          </div>
-
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {initialData ? 'Save' : 'Create'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </SheetContent>
-    </Sheet>
+        <div className="flex gap-2 pt-4">
+          <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {initialData ? 'Save' : 'Create'}
+          </Button>
+          <Button
+            htmlType="button"
+            onClick={() => onOpenChange(false)}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </Drawer>
   )
 }

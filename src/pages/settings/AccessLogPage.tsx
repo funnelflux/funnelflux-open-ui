@@ -4,7 +4,7 @@ import { FileText } from 'lucide-react'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
+import { EmptyState } from '@/components/ui-kit'
 import { DataTable } from '@/components/shared/DataTable'
 import type { AccessLogEntry } from '@/types/ui'
 

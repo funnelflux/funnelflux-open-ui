@@ -1,18 +1,8 @@
 import { useState } from 'react'
 import { Loader2, AlertTriangle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button, Input, Select } from 'antd'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
+import { ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { useCampaignsList, useTrafficSources } from '@/api/hooks'
 import { api } from '@/api/client'
 import { getErrorMessage } from '@/lib/utils'
@@ -22,7 +12,7 @@ function todayString(): string {
 }
 
 export function ResetStatsPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: campaigns } = useCampaignsList()
   const { data: trafficSources } = useTrafficSources()
 
@@ -85,44 +75,34 @@ export function ResetStatsPage() {
       <div className="max-w-lg space-y-4">
         {/* Campaign */}
         <div className="space-y-1.5">
-          <Label>Campaign (optional)</Label>
-          <Select value={idCampaign} onValueChange={setIdCampaign}>
-            <SelectTrigger>
-              <SelectValue placeholder="All campaigns" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">All campaigns</SelectItem>
-              {(campaigns ?? []).map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
+          <label className="text-sm font-medium">Campaign (optional)</label>
+          <Select value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full">
+            <Select.Option value="__none__">All campaigns</Select.Option>
+            {(campaigns ?? []).map((c) => (
+              <Select.Option key={c.id} value={c.id}>
+                {c.name}
+              </Select.Option>
+            ))}
           </Select>
         </div>
 
         {/* Traffic Source */}
         <div className="space-y-1.5">
-          <Label>Traffic Source (optional)</Label>
-          <Select value={idTrafficSource} onValueChange={setIdTrafficSource}>
-            <SelectTrigger>
-              <SelectValue placeholder="All traffic sources" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">All traffic sources</SelectItem>
-              {(trafficSources ?? []).map((ts) => (
-                <SelectItem key={ts.idTrafficSource} value={ts.idTrafficSource}>
-                  {ts.trafficSourceName}
-                </SelectItem>
-              ))}
-            </SelectContent>
+          <label className="text-sm font-medium">Traffic Source (optional)</label>
+          <Select value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="All traffic sources" className="w-full">
+            <Select.Option value="__none__">All traffic sources</Select.Option>
+            {(trafficSources ?? []).map((ts) => (
+              <Select.Option key={ts.idTrafficSource} value={ts.idTrafficSource}>
+                {ts.trafficSourceName}
+              </Select.Option>
+            ))}
           </Select>
         </div>
 
         {/* Date Range */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="reset-date-from">Date From</Label>
+            <label htmlFor="reset-date-from" className="text-sm font-medium">Date From</label>
             <Input
               id="reset-date-from"
               type="date"
@@ -131,7 +111,7 @@ export function ResetStatsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="reset-date-to">Date To</Label>
+            <label htmlFor="reset-date-to" className="text-sm font-medium">Date To</label>
             <Input
               id="reset-date-to"
               type="date"
@@ -144,7 +124,6 @@ export function ResetStatsPage() {
         {/* Actions */}
         <div className="flex items-center gap-3">
           <Button
-            variant="outline"
             onClick={handleCalculate}
             disabled={isCalculating}
           >
@@ -153,7 +132,7 @@ export function ResetStatsPage() {
           </Button>
 
           <Button
-            variant="destructive"
+            danger type="primary"
             onClick={() => setConfirmOpen(true)}
             disabled={previewCount === null || previewCount === 0}
           >
@@ -172,14 +151,15 @@ export function ResetStatsPage() {
         )}
       </div>
 
-      <ConfirmDialog
+      <ConfirmModal
         open={confirmOpen}
-        onOpenChange={setConfirmOpen}
+        onCancel={() => setConfirmOpen(false)}
         title="Reset Statistics"
         description={`This will permanently delete ${previewCount?.toLocaleString() ?? 0} record(s). This action cannot be undone.`}
         confirmText="Delete Records"
         onConfirm={handleReset}
-        isLoading={isDeleting}
+        loading={isDeleting}
+        danger
       />
     </div>
   )

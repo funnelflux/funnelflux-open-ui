@@ -33,9 +33,9 @@ function ConditionNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeDat
         id="yes"
         position={Position.Right}
         style={{ top: '33%' }}
-        className="!h-2 !w-2 !border-border !bg-green-500"
+        className="!h-2 !w-2 !border-border !bg-success"
       />
-      <span className="absolute right-3 text-xs font-medium text-green-600" style={{ top: 'calc(33% - 7px)' }}>
+      <span className="absolute right-3 text-xs font-medium text-success" style={{ top: 'calc(33% - 7px)' }}>
         Yes
       </span>
 
@@ -45,9 +45,9 @@ function ConditionNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeDat
         id="no"
         position={Position.Right}
         style={{ top: '66%' }}
-        className="!h-2 !w-2 !border-border !bg-red-500"
+        className="!h-2 !w-2 !border-border !bg-error"
       />
-      <span className="absolute right-3 text-xs font-medium text-red-600" style={{ top: 'calc(66% - 7px)' }}>
+      <span className="absolute right-3 text-xs font-medium text-error" style={{ top: 'calc(66% - 7px)' }}>
         No
       </span>
     </BaseNode>

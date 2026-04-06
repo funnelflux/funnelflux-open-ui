@@ -4,19 +4,16 @@ import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
 import { SearchInput } from '@/components/shared/SearchInput'
-import { EmptyState } from '@/components/shared/EmptyState'
+import { ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Button, Tag } from 'antd'
 import { getErrorMessage } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { Condition } from '@/types/funnel'
 
 export function GlobalConditionsPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: conditions, isLoading } = useConditions('global')
   const saveCondition = useSaveCondition()
   const deleteCondition = useDeleteCondition()
@@ -72,9 +69,9 @@ export function GlobalConditionsPage() {
         header: 'Scope',
         accessorFn: (row) => row.scope,
         cell: ({ row }) => (
-          <Badge variant="outline" className="text-xs capitalize">
+          <Tag className="text-xs capitalize">
             {row.original.scope}
-          </Badge>
+          </Tag>
         ),
       },
       {
@@ -132,7 +129,8 @@ export function GlobalConditionsPage() {
     <div className="space-y-4">
       <PageHeader title="Global Conditions">
         <Button
-          size="sm"
+          type="primary"
+          size="small"
           onClick={() => {
             setEditCondition(null)
             setEditorOpen(true)
@@ -168,17 +166,15 @@ export function GlobalConditionsPage() {
         onSave={handleSave}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteId}
-        onOpenChange={(open) => {
-          if (!open) setDeleteId(null)
-        }}
+        onCancel={() => setDeleteId(null)}
         title="Delete Condition"
         description="Are you sure? This condition will be permanently deleted and removed from any funnels using it."
         confirmText="Delete"
         onConfirm={handleDelete}
-        isLoading={deleteCondition.isPending}
-        destructive
+        loading={deleteCondition.isPending}
+        danger
       />
     </div>
   )

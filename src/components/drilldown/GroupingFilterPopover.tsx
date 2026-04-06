@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Filter } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button, Input, Popover, Tabs } from "antd"
 import { cn } from "@/lib/utils"
 
 interface GroupingFilterPopoverProps {
@@ -59,61 +56,73 @@ export function GroupingFilterPopover({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn("relative h-7 w-7", isActive && "text-foreground")}
-        >
-          <Filter className="h-3.5 w-3.5" />
-          {isActive ? (
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-          ) : null}
-          <span className="sr-only">Filter {grouping}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 space-y-3">
-        <div>
-          <p className="text-sm font-medium">{grouping}</p>
-          <p className="text-xs text-muted-foreground">
-            Enter one value per line or separate values with commas.
-          </p>
-        </div>
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      trigger="click"
+      placement="bottomLeft"
+      content={
+        <div className="w-80 space-y-3">
+          <div>
+            <p className="text-sm font-medium">{grouping}</p>
+            <p className="text-xs text-muted-foreground">
+              Enter one value per line or separate values with commas.
+            </p>
+          </div>
 
-        <Tabs value={tab} onValueChange={(value) => setTab(value as "whitelist" | "blacklist")}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="whitelist">Whitelist</TabsTrigger>
-            <TabsTrigger value="blacklist">Blacklist</TabsTrigger>
-          </TabsList>
-          <TabsContent value="whitelist" className="mt-3">
-            <Textarea
-              value={whitelistInput}
-              onChange={(event) => setWhitelistInput(event.target.value)}
-              placeholder={"123\n456\nUS"}
-              className="min-h-[140px] text-xs"
-            />
-          </TabsContent>
-          <TabsContent value="blacklist" className="mt-3">
-            <Textarea
-              value={blacklistInput}
-              onChange={(event) => setBlacklistInput(event.target.value)}
-              placeholder={"bot\ntest"}
-              className="min-h-[140px] text-xs"
-            />
-          </TabsContent>
-        </Tabs>
+          <Tabs
+            activeKey={tab}
+            onChange={(key) => setTab(key as "whitelist" | "blacklist")}
+            items={[
+              {
+                key: "whitelist",
+                label: "Whitelist",
+                children: (
+                  <Input.TextArea
+                    value={whitelistInput}
+                    onChange={(event) => setWhitelistInput(event.target.value)}
+                    placeholder={"123\n456\nUS"}
+                    className="min-h-[140px] text-xs"
+                  />
+                ),
+              },
+              {
+                key: "blacklist",
+                label: "Blacklist",
+                children: (
+                  <Input.TextArea
+                    value={blacklistInput}
+                    onChange={(event) => setBlacklistInput(event.target.value)}
+                    placeholder={"bot\ntest"}
+                    className="min-h-[140px] text-xs"
+                  />
+                ),
+              },
+            ]}
+          />
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={handleClear}>
-            Clear
-          </Button>
-          <Button type="button" size="sm" onClick={handleApply}>
-            Apply
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button htmlType="button" size="small" onClick={handleClear}>
+              Clear
+            </Button>
+            <Button htmlType="button" type="primary" size="small" onClick={handleApply}>
+              Apply
+            </Button>
+          </div>
         </div>
-      </PopoverContent>
+      }
+    >
+      <Button
+        htmlType="button"
+        type="text"
+        className={cn("relative h-7 w-7", isActive && "text-foreground")}
+        icon={<Filter className="h-3.5 w-3.5" />}
+      >
+        {isActive ? (
+          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+        ) : null}
+        <span className="sr-only">Filter {grouping}</span>
+      </Button>
     </Popover>
   )
 }

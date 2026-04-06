@@ -6,15 +6,15 @@ import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { FunnelTopForm } from '@/components/funnel-builder/FunnelTopForm'
 import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
 import { FunnelAdvancedSettings } from '@/components/funnel-builder/FunnelAdvancedSettings'
-import { useToast } from '@/components/shared/Toaster'
-import { Button } from '@/components/ui/button'
+import { useToastApi } from '@/components/ui-kit'
+import { Button } from 'antd'
 import { Save, ArrowLeft, Loader2 } from 'lucide-react'
 import type { ApiFunnel } from '@/types/funnel'
 
 export function FunnelEditorPage() {
   const { campaignId, funnelId } = useParams<{ campaignId: string; funnelId: string }>()
   const navigate = useNavigate()
-  const toast = useToast()
+  const toast = useToastApi()
 
   const isNew = funnelId === 'new'
   const { data: funnel, isLoading } = useFunnel(isNew ? '' : funnelId ?? '')
@@ -86,8 +86,7 @@ export function FunnelEditorPage() {
         {/* Header bar */}
         <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={handleBack}>
-              <ArrowLeft className="h-4 w-4 mr-1" />
+            <Button type="text" size="small" onClick={handleBack} icon={<ArrowLeft className="h-4 w-4" />}>
               Back
             </Button>
             <span className="text-sm text-muted-foreground">
@@ -100,15 +99,12 @@ export function FunnelEditorPage() {
             )}
           </div>
           <Button
-            size="sm"
+            type="primary"
+            size="small"
             onClick={handleSave}
             disabled={saveFunnel.isPending}
+            icon={saveFunnel.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           >
-            {saveFunnel.isPending ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-1" />
-            )}
             Save
           </Button>
         </div>

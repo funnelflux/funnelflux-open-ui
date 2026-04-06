@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react"
 import { type ColumnDef, type OnChangeFn, type PaginationState, type SortingState } from "@tanstack/react-table"
 import { PageHeader } from "@/components/shared/PageHeader"
-import { EmptyState } from "@/components/shared/EmptyState"
+import { EmptyState } from "@/components/ui-kit"
 import { DataTable } from "@/components/shared/DataTable"
 import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"

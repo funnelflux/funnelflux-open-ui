@@ -22,21 +22,8 @@ import {
   Columns3,
   Loader2,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Button, Dropdown, Skeleton, Select } from "antd"
+import type { MenuProps } from "antd"
 import { cn } from "@/lib/utils"
 
 interface TreeRow {
@@ -153,31 +140,32 @@ export function TreeDataTable<TData extends TreeRow>({
   const pageCount = table.getPageCount()
   const rowCount = totalRows ?? data.length
 
+  const columnMenuItems: MenuProps['items'] = table.getAllLeafColumns().map((column) => ({
+    key: column.id,
+    label: (
+      <label className="flex items-center gap-2 text-xs cursor-pointer">
+        <input
+          type="checkbox"
+          checked={column.getIsVisible()}
+          onChange={(e) => column.toggleVisibility(e.target.checked)}
+          className="rounded"
+        />
+        {typeof column.columnDef.header === "string"
+          ? column.columnDef.header
+          : column.id}
+      </label>
+    ),
+  }))
+
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex justify-end">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
-              <Columns3 className="mr-1.5 h-3.5 w-3.5" />
-              Columns
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            {table.getAllLeafColumns().map((column) => (
-              <DropdownMenuCheckboxItem
-                key={column.id}
-                checked={column.getIsVisible()}
-                onCheckedChange={(v) => column.toggleVisibility(!!v)}
-                className="text-xs"
-              >
-                {typeof column.columnDef.header === "string"
-                  ? column.columnDef.header
-                  : column.id}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Dropdown menu={{ items: columnMenuItems }} trigger={['click']}>
+          <Button size="small" className="h-8 text-xs">
+            <Columns3 className="mr-1.5 h-3.5 w-3.5" />
+            Columns
+          </Button>
+        </Dropdown>
       </div>
 
       <div className="rounded-md border bg-background overflow-auto">
@@ -224,7 +212,7 @@ export function TreeDataTable<TData extends TreeRow>({
                 <tr key={`skeleton-${i}`} className="border-b">
                   {columns.map((_, j) => (
                     <td key={j} className="px-3 py-2">
-                      <Skeleton className="h-4 w-full" />
+                      <Skeleton.Input active size="small" block />
                     </td>
                   ))}
                 </tr>
@@ -305,24 +293,19 @@ export function TreeDataTable<TData extends TreeRow>({
           <span>{rowCount.toLocaleString()} rows</span>
           <Select
             value={String(currentPagination.pageSize)}
-            onValueChange={(v) =>
+            onChange={(v) =>
               (onPaginationChange ?? setInternalPagination)({
                 pageIndex: 0,
                 pageSize: Number(v),
               })
             }
-          >
-            <SelectTrigger className="h-7 w-[70px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZES.map((size) => (
-                <SelectItem key={size} value={String(size)} className="text-xs">
-                  {size}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            size="small"
+            style={{ width: 70 }}
+            options={PAGE_SIZES.map((size) => ({
+              value: String(size),
+              label: String(size),
+            }))}
+          />
           <span>per page</span>
         </div>
 
@@ -331,23 +314,19 @@ export function TreeDataTable<TData extends TreeRow>({
             Page {currentPagination.pageIndex + 1} of {Math.max(pageCount, 1)}
           </span>
           <Button
-            variant="outline"
-            size="icon"
+            type="text"
             className="h-7 w-7"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
+            icon={<ChevronLeft className="h-3.5 w-3.5" />}
+          />
           <Button
-            variant="outline"
-            size="icon"
+            type="text"
             className="h-7 w-7"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-          >
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Button>
+            icon={<ChevronRight className="h-3.5 w-3.5" />}
+          />
         </div>
       </div>
     </div>

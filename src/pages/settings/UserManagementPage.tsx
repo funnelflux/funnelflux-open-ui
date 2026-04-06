@@ -2,22 +2,18 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Trash2, UserCheck, UserPlus, UserX, Users } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
+import { Button, Tag, Switch } from 'antd'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
+import { ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import { DataTable } from '@/components/shared/DataTable'
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
 import { useUsers, useChangeUserStatus, useDeleteUser } from '@/api/hooks/useUserManagement'
 import type { ManagedUser } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 
 export function UserManagementPage() {
   const navigate = useNavigate()
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: users, isLoading } = useUsers()
   const changeStatus = useChangeUserStatus()
   const deleteUser = useDeleteUser()
@@ -85,9 +81,9 @@ export function UserManagementPage() {
       header: 'Admin',
       cell: ({ row }) =>
         row.original.isAdmin ? (
-          <Badge variant="default" className="text-xs">
+          <Tag color="blue" className="text-xs">
             Admin
-          </Badge>
+          </Tag>
         ) : null,
     },
     {
@@ -96,7 +92,7 @@ export function UserManagementPage() {
       cell: ({ row }) => (
         <Switch
           checked={row.original.enabled}
-          onCheckedChange={() => handleToggleEnabled(row.original)}
+          onChange={() => handleToggleEnabled(row.original)}
         />
       ),
     },
@@ -140,7 +136,7 @@ export function UserManagementPage() {
   return (
     <div>
       <PageHeader title="User Management">
-        <Button size="sm" onClick={() => navigate('/settings/users/new')}>
+        <Button type="primary" size="small" onClick={() => navigate('/settings/users/new')}>
           <UserPlus className="mr-1.5 h-3.5 w-3.5" />
           Add User
         </Button>
@@ -160,12 +156,12 @@ export function UserManagementPage() {
         />
       )}
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteTarget}
         title="Delete User"
         description={`Are you sure you want to delete user "${deleteTarget?.login}"? This cannot be undone.`}
         confirmText="Delete"
-        destructive
+        danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />

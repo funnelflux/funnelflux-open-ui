@@ -1,6 +1,5 @@
 import { Plus, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Button, Tag } from 'antd'
 import type { ConditionBlock as ConditionBlockType, ConditionRule } from '@/types/funnel'
 import { ConditionRuleRow } from './ConditionRuleRow'
 
@@ -57,20 +56,18 @@ export function ConditionBlock({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Block {blockIndex + 1}</span>
-          <Badge
-            variant="outline"
+          <Tag
             className="cursor-pointer select-none text-xs"
             onClick={toggleLogicOperator}
           >
             {block.logicOperator}
-          </Badge>
+          </Tag>
           <span className="text-xs text-muted-foreground">between rules</span>
         </div>
         {canRemove && (
           <Button
-            type="button"
-            variant="ghost"
-            size="icon"
+            htmlType="button"
+            type="text"
             className="h-7 w-7"
             onClick={onRemove}
           >
@@ -93,9 +90,9 @@ export function ConditionBlock({
 
       {/* Add rule button */}
       <Button
-        type="button"
-        variant="ghost"
-        size="sm"
+        htmlType="button"
+        type="text"
+        size="small"
         className="h-7 text-xs"
         onClick={handleAddRule}
       >

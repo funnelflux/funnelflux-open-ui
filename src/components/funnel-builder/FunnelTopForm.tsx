@@ -1,14 +1,6 @@
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { useCampaignsList } from '@/api/hooks'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Input, Select } from 'antd'
 
 interface FunnelTopFormProps {
   isNew: boolean
@@ -22,9 +14,9 @@ export function FunnelTopForm({ isNew }: FunnelTopFormProps) {
   return (
     <div className="flex items-end gap-4 p-4 border-b bg-background">
       <div className="flex-1 min-w-0">
-        <Label htmlFor="funnelName" className="text-xs text-muted-foreground mb-1">
+        <label htmlFor="funnelName" className="text-xs text-muted-foreground mb-1">
           Funnel Name
-        </Label>
+        </label>
         <Input
           id="funnelName"
           placeholder="Enter funnel name..."
@@ -35,31 +27,23 @@ export function FunnelTopForm({ isNew }: FunnelTopFormProps) {
       </div>
 
       <div className="w-64">
-        <Label htmlFor="idCampaign" className="text-xs text-muted-foreground mb-1">
+        <label htmlFor="idCampaign" className="text-xs text-muted-foreground mb-1">
           Campaign
-        </Label>
+        </label>
         <Select
-          value={meta.idCampaign}
-          onValueChange={(v) => updateMeta({ idCampaign: v })}
+          value={meta.idCampaign || undefined}
+          onChange={(v) => updateMeta({ idCampaign: v })}
           disabled={!isNew}
-        >
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder="Select campaign..." />
-          </SelectTrigger>
-          <SelectContent>
-            {campaigns?.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="Select campaign..."
+          className="w-full"
+          options={campaigns?.map((c) => ({ value: c.id, label: c.name }))}
+        />
       </div>
 
       <div className="w-36">
-        <Label htmlFor="defaultCost" className="text-xs text-muted-foreground mb-1">
+        <label htmlFor="defaultCost" className="text-xs text-muted-foreground mb-1">
           Default CPV
-        </Label>
+        </label>
         <Input
           id="defaultCost"
           type="number"

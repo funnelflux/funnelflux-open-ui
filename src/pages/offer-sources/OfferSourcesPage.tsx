@@ -4,33 +4,14 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pencil, Trash2, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet'
+import { Button, Input, Select, Drawer } from 'antd'
 import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { ConfirmModal, EmptyState, TimezoneSelect, useToastApi } from '@/components/ui-kit'
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
-import { useToast } from '@/components/shared/Toaster'
 import {
   useSaveOfferSource,
   useDeleteOfferSource,
@@ -130,121 +111,110 @@ function OfferSourceForm({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{isEditing ? 'Edit Offer Source' : 'Add Offer Source'}</SheetTitle>
-          <SheetDescription>
-            {isEditing ? 'Update the offer source configuration.' : 'Create a new offer source.'}
-          </SheetDescription>
-        </SheetHeader>
+    <Drawer open={open} onClose={() => onOpenChange(false)} title={isEditing ? 'Edit Offer Source' : 'Add Offer Source'} width={512} destroyOnHidden>
+      <p className="text-sm text-muted-foreground mb-4">
+        {isEditing ? 'Update the offer source configuration.' : 'Create a new offer source.'}
+      </p>
 
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-5 mt-6">
-          {/* Load Template */}
-          {!isEditing && templates && templates.length > 0 && (
-            <div className="space-y-1.5">
-              <Label>Copy from Template</Label>
-              <Select onValueChange={handleLoadTemplate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-5">
+        {/* Load Template */}
+        {!isEditing && templates && templates.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Copy from Template</label>
+            <Select onChange={handleLoadTemplate} placeholder="Select a template" className="w-full">
+              {templates.map((template) => (
+                <Select.Option key={template.id} value={template.id}>
+                  {template.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </div>
+        )}
+
+        {/* Name */}
+        <div className="space-y-1.5">
+          <label htmlFor="offerSourceName" className="text-sm font-medium">Name</label>
+          <Input
+            id="offerSourceName"
+            {...register('offerSourceName')}
+            placeholder="Offer source name"
+          />
+          {errors.offerSourceName && (
+            <p className="text-xs text-destructive">{errors.offerSourceName.message}</p>
           )}
+        </div>
 
-          {/* Name */}
-          <div className="space-y-1.5">
-            <Label htmlFor="offerSourceName">Name</Label>
-            <Input
-              id="offerSourceName"
-              {...register('offerSourceName')}
-              placeholder="Offer source name"
-            />
-            {errors.offerSourceName && (
-              <p className="text-xs text-destructive">{errors.offerSourceName.message}</p>
-            )}
-          </div>
+        {/* Sub ID */}
+        <div className="space-y-1.5">
+          <label htmlFor="subId" className="text-sm font-medium">Sub ID Parameter</label>
+          <Input
+            id="subId"
+            {...register('subId')}
+            placeholder="e.g. sub_id"
+          />
+        </div>
 
-          {/* Sub ID */}
-          <div className="space-y-1.5">
-            <Label htmlFor="subId">Sub ID Parameter</Label>
-            <Input
-              id="subId"
-              {...register('subId')}
-              placeholder="e.g. sub_id"
-            />
-          </div>
+        {/* Query Separator */}
+        <div className="space-y-1.5">
+          <label htmlFor="querySeparator" className="text-sm font-medium">Query Separator</label>
+          <Input
+            id="querySeparator"
+            {...register('querySeparator')}
+            placeholder="&"
+          />
+        </div>
 
-          {/* Query Separator */}
-          <div className="space-y-1.5">
-            <Label htmlFor="querySeparator">Query Separator</Label>
-            <Input
-              id="querySeparator"
-              {...register('querySeparator')}
-              placeholder="&"
-            />
-          </div>
+        {/* Postback Sub ID */}
+        <div className="space-y-1.5">
+          <label htmlFor="postbackSubId" className="text-sm font-medium">Postback Sub ID</label>
+          <Input
+            id="postbackSubId"
+            {...register('postbackSubId')}
+            placeholder="Postback sub ID token"
+          />
+        </div>
 
-          {/* Postback Sub ID */}
-          <div className="space-y-1.5">
-            <Label htmlFor="postbackSubId">Postback Sub ID</Label>
-            <Input
-              id="postbackSubId"
-              {...register('postbackSubId')}
-              placeholder="Postback sub ID token"
-            />
-          </div>
+        {/* Postback TX ID */}
+        <div className="space-y-1.5">
+          <label htmlFor="postbackTxId" className="text-sm font-medium">Postback TX ID</label>
+          <Input
+            id="postbackTxId"
+            {...register('postbackTxId')}
+            placeholder="Postback transaction ID token"
+          />
+        </div>
 
-          {/* Postback TX ID */}
-          <div className="space-y-1.5">
-            <Label htmlFor="postbackTxId">Postback TX ID</Label>
-            <Input
-              id="postbackTxId"
-              {...register('postbackTxId')}
-              placeholder="Postback transaction ID token"
-            />
-          </div>
+        {/* Postback Payout */}
+        <div className="space-y-1.5">
+          <label htmlFor="postbackPayout" className="text-sm font-medium">Postback Payout</label>
+          <Input
+            id="postbackPayout"
+            {...register('postbackPayout')}
+            placeholder="Postback payout token"
+          />
+        </div>
 
-          {/* Postback Payout */}
-          <div className="space-y-1.5">
-            <Label htmlFor="postbackPayout">Postback Payout</Label>
-            <Input
-              id="postbackPayout"
-              {...register('postbackPayout')}
-              placeholder="Postback payout token"
-            />
-          </div>
-
-          {/* Submit */}
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? 'Save Changes' : 'Create'}
-            </Button>
-          </div>
-        </form>
-      </SheetContent>
-    </Sheet>
+        {/* Submit */}
+        <div className="flex justify-end gap-2 pt-4">
+          <Button
+            htmlType="button"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button type="primary" htmlType="submit" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isEditing ? 'Save Changes' : 'Create'}
+          </Button>
+        </div>
+      </form>
+    </Drawer>
   )
 }
 
 export function OfferSourcesPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -387,7 +357,7 @@ export function OfferSourcesPage() {
       cell: ({ row }) => {
         const val = cellRaw(row.original.cells[iPL])
         return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
+          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
             {cellFmt(row.original.cells[iPL])}
           </span>
         )
@@ -401,7 +371,7 @@ export function OfferSourcesPage() {
       cell: ({ row }) => {
         const val = cellRaw(row.original.cells[iROI])
         return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
+          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
             {cellFmt(row.original.cells[iROI])}
           </span>
         )
@@ -432,7 +402,7 @@ export function OfferSourcesPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Offer Sources">
-        <Button onClick={handleCreate} size="sm">Add Offer Source</Button>
+        <Button type="primary" onClick={handleCreate} size="small">Add Offer Source</Button>
       </PageHeader>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -443,7 +413,7 @@ export function OfferSourcesPage() {
           timezone={tz}
           onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
         />
-        <TimezoneSelector value={tz} onChange={setTz} />
+        <TimezoneSelect value={tz} onChange={setTz} />
       </div>
 
       {!isLoading && filtered.length === 0 ? (
@@ -472,13 +442,14 @@ export function OfferSourcesPage() {
         isSubmitting={saveMutation.isPending}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteId}
-        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onCancel={() => setDeleteId(null)}
         title="Delete Offer Source"
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}
-        isLoading={deleteMutation.isPending}
+        loading={deleteMutation.isPending}
+        danger
       />
     </div>
   )

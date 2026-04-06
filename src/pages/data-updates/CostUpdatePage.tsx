@@ -1,18 +1,8 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button, Input, Select } from 'antd'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
-import { useToast } from '@/components/shared/Toaster'
+import { TimezoneSelect, useToastApi } from '@/components/ui-kit'
 import { useCampaignsList, useTrafficSources } from '@/api/hooks'
 import { api } from '@/api/client'
 import type { CostUpdateRequest } from '@/types/ui'
@@ -23,7 +13,7 @@ function todayString(): string {
 }
 
 export function CostUpdatePage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: trafficSources } = useTrafficSources()
   const { data: campaigns } = useCampaignsList()
 
@@ -80,43 +70,33 @@ export function CostUpdatePage() {
       <form onSubmit={handleSubmit} className="max-w-lg space-y-4">
         {/* Traffic Source */}
         <div className="space-y-1.5">
-          <Label>Traffic Source *</Label>
-          <Select value={idTrafficSource} onValueChange={setIdTrafficSource}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select traffic source" />
-            </SelectTrigger>
-            <SelectContent>
-              {(trafficSources ?? []).map((ts) => (
-                <SelectItem key={ts.idTrafficSource} value={ts.idTrafficSource}>
-                  {ts.trafficSourceName}
-                </SelectItem>
-              ))}
-            </SelectContent>
+          <label className="text-sm font-medium">Traffic Source *</label>
+          <Select value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="Select traffic source" className="w-full">
+            {(trafficSources ?? []).map((ts) => (
+              <Select.Option key={ts.idTrafficSource} value={ts.idTrafficSource}>
+                {ts.trafficSourceName}
+              </Select.Option>
+            ))}
           </Select>
         </div>
 
         {/* Campaign (optional) */}
         <div className="space-y-1.5">
-          <Label>Campaign (optional)</Label>
-          <Select value={idCampaign} onValueChange={setIdCampaign}>
-            <SelectTrigger>
-              <SelectValue placeholder="All campaigns" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">All campaigns</SelectItem>
-              {(campaigns ?? []).map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
+          <label className="text-sm font-medium">Campaign (optional)</label>
+          <Select value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full">
+            <Select.Option value="__none__">All campaigns</Select.Option>
+            {(campaigns ?? []).map((c) => (
+              <Select.Option key={c.id} value={c.id}>
+                {c.name}
+              </Select.Option>
+            ))}
           </Select>
         </div>
 
         {/* Date Range */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="date-from">Date From</Label>
+            <label htmlFor="date-from" className="text-sm font-medium">Date From</label>
             <Input
               id="date-from"
               type="date"
@@ -125,7 +105,7 @@ export function CostUpdatePage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="date-to">Date To</Label>
+            <label htmlFor="date-to" className="text-sm font-medium">Date To</label>
             <Input
               id="date-to"
               type="date"
@@ -137,13 +117,13 @@ export function CostUpdatePage() {
 
         {/* Timezone */}
         <div className="space-y-1.5">
-          <Label>Timezone</Label>
-          <TimezoneSelector value={timezone} onChange={setTimezone} />
+          <label className="text-sm font-medium">Timezone</label>
+          <TimezoneSelect value={timezone} onChange={setTimezone} />
         </div>
 
         {/* Total Cost */}
         <div className="space-y-1.5">
-          <Label htmlFor="total-cost">Total Cost *</Label>
+          <label htmlFor="total-cost" className="text-sm font-medium">Total Cost *</label>
           <Input
             id="total-cost"
             type="number"
@@ -155,7 +135,7 @@ export function CostUpdatePage() {
           />
         </div>
 
-        <Button type="submit" disabled={isSubmitting || !idTrafficSource}>
+        <Button type="primary" htmlType="submit" disabled={isSubmitting || !idTrafficSource}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Update Cost
         </Button>

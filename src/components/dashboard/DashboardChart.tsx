@@ -7,9 +7,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button, Card, Skeleton } from 'antd'
 
 interface ChartPoint {
   date: string
@@ -54,14 +52,14 @@ export function DashboardChart({
   isLoading,
 }: DashboardChartProps) {
   return (
-    <Card>
-      <CardHeader className="pb-2 p-4">
+    <Card
+      title={
         <div className="flex flex-wrap items-center gap-1">
           {METRICS.map(({ key, label }) => (
             <Button
               key={key}
-              variant={metric === key ? 'default' : 'ghost'}
-              size="sm"
+              type={metric === key ? 'primary' : 'text'}
+              size="small"
               className="h-7 text-xs"
               onClick={() => onMetricChange(key)}
             >
@@ -69,10 +67,13 @@ export function DashboardChart({
             </Button>
           ))}
         </div>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
+      }
+      styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}
+    >
         {isLoading ? (
-          <Skeleton className="h-[300px] w-full" />
+          <Skeleton.Node active style={{ width: '100%', height: 300 }}>
+            <div style={{ width: '100%', height: 300 }} />
+          </Skeleton.Node>
         ) : data.length === 0 ? (
           <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">
             No data for the selected period.
@@ -117,7 +118,6 @@ export function DashboardChart({
             </LineChart>
           </ResponsiveContainer>
         )}
-      </CardContent>
     </Card>
   )
 }

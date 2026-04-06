@@ -1,5 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, Skeleton } from 'antd'
 import type { LiveStats } from '@/types/ui'
 
 interface StatsCardsProps {
@@ -45,15 +44,9 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
       {CARDS.map(({ key, label, format }) => (
-        <Card key={key}>
-          <CardHeader className="pb-2 p-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              {label}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
+        <Card key={key} title={<span className="text-xs font-medium text-muted-foreground">{label}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
             {isLoading ? (
-              <Skeleton className="h-7 w-20" />
+              <Skeleton.Input active size="small" style={{ width: 80, height: 28 }} />
             ) : !stats ? (
               <p className="text-xl font-bold tabular-nums">0</p>
             ) : (
@@ -61,7 +54,6 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
                 {formatValue(key, format, stats)}
               </p>
             )}
-          </CardContent>
         </Card>
       ))}
     </div>

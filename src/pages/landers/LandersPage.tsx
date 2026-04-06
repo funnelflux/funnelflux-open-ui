@@ -2,20 +2,17 @@ import { useState, useMemo } from 'react'
 import { subDays } from 'date-fns'
 import { type ColumnDef, type RowSelectionState } from '@tanstack/react-table'
 import { Archive, Copy, Pencil, Trash2, Upload } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from 'antd'
 import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { ConfirmModal, EmptyState, TimezoneSelect, useToastApi } from '@/components/ui-kit'
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
 import { CategoryManager } from '@/components/shared/CategoryManager'
 import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
-import { useToast } from '@/components/shared/Toaster'
 import { useCategories, useDeletePage, useClonePage, useArchivePage } from '@/api/hooks'
 import { useEntityPaginatedReport, type EntityRow } from '@/api/hooks/useEntityPaginatedReport'
 import { PageForm } from '@/components/forms/PageForm'
@@ -43,7 +40,7 @@ interface PageMeta {
 const META_PARAMS = { pageType: 'lander' }
 
 export function LandersPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -229,7 +226,7 @@ export function LandersPage() {
       cell: ({ row }) => {
         const val = cellRaw(row.original.cells[iPL])
         return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
+          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
             {cellFmt(row.original.cells[iPL])}
           </span>
         )
@@ -243,7 +240,7 @@ export function LandersPage() {
       cell: ({ row }) => {
         const val = cellRaw(row.original.cells[iROI])
         return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
+          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
             {cellFmt(row.original.cells[iROI])}
           </span>
         )
@@ -277,11 +274,11 @@ export function LandersPage() {
     <div className="space-y-4">
       <PageHeader title="Landers">
         <div className="flex items-center gap-2">
-          <Button onClick={() => setImportOpen(true)} size="sm" variant="outline">
+          <Button onClick={() => setImportOpen(true)} size="small">
             <Upload className="mr-1.5 h-3.5 w-3.5" />
             Import CSV
           </Button>
-          <Button onClick={handleCreate} size="sm">Add Lander</Button>
+          <Button type="primary" onClick={handleCreate} size="small">Add Lander</Button>
         </div>
       </PageHeader>
 
@@ -298,7 +295,7 @@ export function LandersPage() {
           timezone={tz}
           onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
         />
-        <TimezoneSelector value={tz} onChange={setTz} />
+        <TimezoneSelect value={tz} onChange={setTz} />
       </div>
 
       {!isLoading && filtered.length === 0 ? (
@@ -377,13 +374,14 @@ export function LandersPage() {
         isSubmitting={saveMutation.isPending}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteId}
-        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onCancel={() => setDeleteId(null)}
         title="Delete Lander"
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}
-        isLoading={deleteMutation.isPending}
+        loading={deleteMutation.isPending}
+        danger
       />
     </div>
   )

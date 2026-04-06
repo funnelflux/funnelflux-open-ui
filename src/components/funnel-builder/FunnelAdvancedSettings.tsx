@@ -1,33 +1,25 @@
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
+import { Collapse, Input, Switch } from 'antd'
 
 export function FunnelAdvancedSettings() {
   const meta = useFunnelEditorStore((s) => s.meta)
   const updateMeta = useFunnelEditorStore((s) => s.updateMeta)
 
   return (
-    <Accordion type="single" collapsible className="border-t">
-      <AccordionItem value="advanced" className="border-b-0">
-        <AccordionTrigger className="px-4 py-3 text-sm font-medium hover:no-underline">
-          Advanced Settings
-        </AccordionTrigger>
-        <AccordionContent className="px-4 pb-4">
+    <Collapse
+      className="border-t"
+      items={[{
+        key: 'advanced',
+        label: <span className="text-sm font-medium">Advanced Settings</span>,
+        children: (
           <div className="grid gap-6 md:grid-cols-3">
             {/* Redirect URLs */}
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Redirect URLs</h4>
               <div>
-                <Label htmlFor="defaultRedirectUrl" className="text-xs text-muted-foreground">
+                <label htmlFor="defaultRedirectUrl" className="text-xs text-muted-foreground">
                   Default Redirect URL
-                </Label>
+                </label>
                 <Input
                   id="defaultRedirectUrl"
                   placeholder="https://..."
@@ -40,9 +32,9 @@ export function FunnelAdvancedSettings() {
                 </p>
               </div>
               <div>
-                <Label htmlFor="defaultOverflowUrl" className="text-xs text-muted-foreground">
+                <label htmlFor="defaultOverflowUrl" className="text-xs text-muted-foreground">
                   Overflow URL
-                </Label>
+                </label>
                 <Input
                   id="defaultOverflowUrl"
                   placeholder="https://..."
@@ -63,17 +55,17 @@ export function FunnelAdvancedSettings() {
                 <Switch
                   id="deduplicateByIp"
                   checked={meta.deduplicateByIp}
-                  onCheckedChange={(v) => updateMeta({ deduplicateByIp: v })}
+                  onChange={(v) => updateMeta({ deduplicateByIp: v })}
                 />
-                <Label htmlFor="deduplicateByIp" className="text-sm">
+                <label htmlFor="deduplicateByIp" className="text-sm font-medium">
                   Deduplicate by IP
-                </Label>
+                </label>
               </div>
               {meta.deduplicateByIp && (
                 <div>
-                  <Label htmlFor="deduplicateWindowHours" className="text-xs text-muted-foreground">
+                  <label htmlFor="deduplicateWindowHours" className="text-xs text-muted-foreground">
                     Window (hours)
-                  </Label>
+                  </label>
                   <Input
                     id="deduplicateWindowHours"
                     type="number"
@@ -87,8 +79,8 @@ export function FunnelAdvancedSettings() {
               )}
             </div>
           </div>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+        ),
+      }]}
+    />
   )
 }

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from 'antd'
 import { DataTable } from '@/components/shared/DataTable'
 import type { DashboardData } from '@/types/ui'
 import type { ReportCell } from '@/types/stats'
@@ -50,20 +50,13 @@ export function DashboardTable({ data, isLoading }: DashboardTableProps) {
   if (!isLoading && !data) return null
 
   return (
-    <Card>
-      <CardHeader className="pb-2 p-4">
-        <CardTitle className="text-sm font-medium">
-          Top {data?.tableStatsOptions?.statsType ?? 'Campaigns'}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
+    <Card title={<span className="text-sm font-medium">Top {data?.tableStatsOptions?.statsType ?? 'Campaigns'}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
         <DataTable
           columns={columns}
           data={rows}
           isLoading={isLoading}
           getRowId={(row) => row.id}
         />
-      </CardContent>
     </Card>
   )
 }

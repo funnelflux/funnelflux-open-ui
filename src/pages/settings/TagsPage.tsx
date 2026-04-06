@@ -1,15 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { Tags, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { Button, Input, Tag } from 'antd'
+import type { InputRef } from 'antd'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { useToast } from '@/components/shared/Toaster'
+import { EmptyState, useToastApi } from '@/components/ui-kit'
 import { useTags, useSaveTag, useUpdateTag } from '@/api/hooks/useTags'
 
 export function TagsPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: tags, isLoading } = useTags()
   const saveTag = useSaveTag()
   const updateTag = useUpdateTag()
@@ -17,7 +15,7 @@ export function TagsPage() {
   const [inputValue, setInputValue] = useState('')
   const [editingTagId, setEditingTagId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
-  const editInputRef = useRef<HTMLInputElement>(null)
+  const editInputRef = useRef<InputRef>(null)
 
   useEffect(() => {
     if (editingTagId && editInputRef.current) {
@@ -98,9 +96,10 @@ export function TagsPage() {
           className="max-w-md"
         />
         <Button
+          type="primary"
           onClick={handleAddTags}
           disabled={!inputValue.trim() || saveTag.isPending}
-          size="sm"
+          size="small"
         >
           <Plus className="h-4 w-4 mr-1" />
           Add
@@ -132,13 +131,12 @@ export function TagsPage() {
                   className="h-7 w-32 text-xs"
                 />
               ) : (
-                <Badge
-                  variant="secondary"
+                <Tag
                   className="cursor-pointer hover:bg-secondary/60 text-sm py-1 px-3"
                   onClick={() => startEditing(tag.id, tag.name)}
                 >
                   {tag.name}
-                </Badge>
+                </Tag>
               )}
             </div>
           ))}

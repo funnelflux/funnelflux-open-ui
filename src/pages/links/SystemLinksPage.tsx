@@ -1,18 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Copy, Loader2, Link } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button, Input, Select, Card } from 'antd'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { useToast } from '@/components/shared/Toaster'
+import { useToastApi } from '@/components/ui-kit'
 import {
   useSystemLinksData,
   useFunnels,
@@ -26,13 +16,12 @@ import type { FunnelNode } from '@/types/entities'
 import { getErrorMessage } from '@/lib/utils'
 
 function CopyButton({ value }: { value: string }) {
-  const toast = useToast()
+  const toast = useToastApi()
 
   return (
     <Button
-      type="button"
-      variant="outline"
-      size="icon"
+      htmlType="button"
+      type="text"
       onClick={() =>
         navigator.clipboard.writeText(value).then(
           () => toast.success('Copied to clipboard'),
@@ -46,7 +35,7 @@ function CopyButton({ value }: { value: string }) {
 }
 
 export function SystemLinksPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: linksData, isLoading: loadingData } = useSystemLinksData()
   const generateEntranceLink = useGenerateEntranceLink()
   const generateActionLink = useGenerateActionLink()
@@ -129,98 +118,81 @@ export function SystemLinksPage() {
         <>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Campaign *</Label>
-              <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select campaign" />
-                </SelectTrigger>
-                <SelectContent>
-                  {campaigns.map((campaign) => (
-                    <SelectItem key={campaign.id} value={campaign.id}>
-                      {campaign.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+              <label className="text-sm font-medium">Campaign *</label>
+              <Select value={selectedCampaign || undefined} onChange={setSelectedCampaign} placeholder="Select campaign" className="w-full">
+                {campaigns.map((campaign) => (
+                  <Select.Option key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                  </Select.Option>
+                ))}
               </Select>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Funnel *</Label>
+              <label className="text-sm font-medium">Funnel *</label>
               <Select
-                value={selectedFunnel}
-                onValueChange={setSelectedFunnel}
+                value={selectedFunnel || undefined}
+                onChange={setSelectedFunnel}
                 disabled={!selectedCampaign}
+                placeholder={selectedCampaign ? 'Select funnel' : 'Select a campaign first'}
+                className="w-full"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder={selectedCampaign ? 'Select funnel' : 'Select a campaign first'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(funnels ?? []).map((funnel) => (
-                    <SelectItem key={funnel.id} value={funnel.id}>
-                      {funnel.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                {(funnels ?? []).map((funnel) => (
+                  <Select.Option key={funnel.id} value={funnel.id}>
+                    {funnel.name}
+                  </Select.Option>
+                ))}
               </Select>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Node</Label>
+              <label className="text-sm font-medium">Node</label>
               <Select
                 value={selectedNode || '__default__'}
-                onValueChange={(value) => setSelectedNode(value === '__default__' ? '' : value)}
+                onChange={(value) => setSelectedNode(value === '__default__' ? '' : value)}
                 disabled={!selectedFunnel}
+                placeholder={selectedFunnel ? 'Select node' : 'Select a funnel first'}
+                className="w-full"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder={selectedFunnel ? 'Select node' : 'Select a funnel first'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Default funnel entry</SelectItem>
-                  {nodes.map((node) => (
-                    <SelectItem key={node.idNode} value={node.idNode}>
-                      {node.nodeName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                <Select.Option value="__default__">Default funnel entry</Select.Option>
+                {nodes.map((node) => (
+                  <Select.Option key={node.idNode} value={node.idNode}>
+                    {node.nodeName}
+                  </Select.Option>
+                ))}
               </Select>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Traffic Source *</Label>
+              <label className="text-sm font-medium">Traffic Source *</label>
               <Select
-                value={selectedTrafficSource}
-                onValueChange={setSelectedTrafficSource}
+                value={selectedTrafficSource || undefined}
+                onChange={setSelectedTrafficSource}
+                placeholder="Select traffic source"
+                className="w-full"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select traffic source" />
-                </SelectTrigger>
-                <SelectContent>
-                  {trafficSources.map((source) => (
-                    <SelectItem key={source.id} value={source.id}>
-                      {source.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                {trafficSources.map((source) => (
+                  <Select.Option key={source.id} value={source.id}>
+                    {source.name}
+                  </Select.Option>
+                ))}
               </Select>
             </div>
 
             <div className="space-y-1.5 lg:col-span-2">
-              <Label>Domain</Label>
+              <label className="text-sm font-medium">Domain</label>
               <Select
                 value={selectedDomain || '__default__'}
-                onValueChange={(value) => setSelectedDomain(value === '__default__' ? '' : value)}
+                onChange={(value) => setSelectedDomain(value === '__default__' ? '' : value)}
+                placeholder="Default domain"
+                className="w-full"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Default domain" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Default domain</SelectItem>
-                  {domains.map((domain) => (
-                    <SelectItem key={domain.id} value={domain.domain}>
-                      {domain.domain}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                <Select.Option value="__default__">Default domain</Select.Option>
+                {domains.map((domain) => (
+                  <Select.Option key={domain.id} value={domain.domain}>
+                    {domain.domain}
+                  </Select.Option>
+                ))}
               </Select>
             </div>
           </div>
@@ -231,35 +203,24 @@ export function SystemLinksPage() {
           </div>
 
           {entranceLink ? (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Entrance Link</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <Input value={entranceLink} readOnly className="font-mono text-xs" />
-                  <CopyButton value={entranceLink} />
-                </div>
-              </CardContent>
+            <Card title={<span className="text-sm">Entrance Link</span>}>
+              <div className="flex items-center gap-2">
+                <Input value={entranceLink} readOnly className="font-mono text-xs" />
+                <CopyButton value={entranceLink} />
+              </div>
             </Card>
           ) : null}
 
           <div className="grid gap-4 xl:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Universal JS</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <Card title={<span className="text-sm">Universal JS</span>}>
+              <div className="space-y-2">
                 <Input value={universalJs} readOnly className="font-mono text-xs" />
                 {universalJs ? <CopyButton value={universalJs} /> : null}
-              </CardContent>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Action Click URLs</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <Card title={<span className="text-sm">Action Click URLs</span>}>
+              <div className="space-y-2">
                 {actionLinks.length > 0 ? (
                   actionLinks.map((actionLink, index) => (
                     <div key={actionLink} className="flex items-center gap-2">
@@ -271,14 +232,11 @@ export function SystemLinksPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground">Select a campaign, funnel, and traffic source to generate action URLs.</p>
                 )}
-              </CardContent>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Conversion Postback URLs</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <Card title={<span className="text-sm">Conversion Postback URLs</span>}>
+              <div className="space-y-2">
                 {postbackUrl ? (
                   <>
                     <Input value={postbackUrl} readOnly className="font-mono text-xs" />
@@ -287,7 +245,7 @@ export function SystemLinksPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground">Choose a traffic source with postback configuration to preview its conversion URL.</p>
                 )}
-              </CardContent>
+              </div>
             </Card>
           </div>
         </>

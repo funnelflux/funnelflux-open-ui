@@ -11,10 +11,10 @@ function LanderNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>
     <BaseNode
       selected={selected}
       isEntrance={data.isEntrance}
-      className="border-l-2 border-l-blue-500"
+      className="border-l-2 border-l-primary"
     >
       <div className="flex items-center gap-2">
-        <FileText className="h-4 w-4 shrink-0 text-blue-500" />
+        <FileText className="h-4 w-4 shrink-0 text-primary" />
         <div className="min-w-0">
           <div className="text-sm font-medium">Lander</div>
           {params.pageName && (

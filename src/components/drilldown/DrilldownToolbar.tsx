@@ -1,17 +1,9 @@
 import { useState, useCallback, useEffect } from "react"
 import { Download, Loader2, Play, Save, Trash2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Button, Select } from "antd"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
-import { TimezoneSelector } from "@/components/shared/TimezoneSelector"
+import { TimezoneSelect, useToastApi } from "@/components/ui-kit"
 import { GroupingsCascade } from "@/components/drilldown/GroupingsCascade"
-import { useToast } from "@/components/shared/Toaster"
 import { useDrilldownStore } from "@/store/drilldown"
 import {
   useDeleteView,
@@ -69,7 +61,7 @@ export function DrilldownToolbar({
   viewType,
   paging,
 }: DrilldownToolbarProps) {
-  const toast = useToast()
+  const toast = useToastApi()
   const {
     groupings,
     groupingFilters,
@@ -204,80 +196,61 @@ export function DrilldownToolbar({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
-        <Select value={selectedViewId} onValueChange={handleSelectView}>
-          <SelectTrigger className="h-9 w-[220px] text-xs">
-            <SelectValue placeholder="Saved views" />
-          </SelectTrigger>
-          <SelectContent>
-            {(savedViews ?? []).map((view) => (
-              <SelectItem key={view.idView} value={view.idView} className="text-xs">
-                {view.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Select
+          value={selectedViewId || undefined}
+          onChange={handleSelectView}
+          placeholder="Saved views"
+          className="h-9 w-[220px] text-xs"
+          options={(savedViews ?? []).map((view) => ({
+            key: view.idView,
+            value: view.idView,
+            label: view.name,
+          }))}
+        />
         <DateRangePicker
           value={datePickerValue}
           timezone={timezone}
           onChange={setDatePickerValue}
         />
-        <TimezoneSelector value={timezone} onChange={setTimezone} />
+        <TimezoneSelect value={timezone} onChange={setTimezone} />
         <Button
-          type="button"
-          size="sm"
-          variant="outline"
+          htmlType="button"
+          size="small"
           className="h-9"
           onClick={() => void handleSaveView()}
           disabled={saveView.isPending}
+          icon={saveView.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
         >
-          {saveView.isPending ? (
-            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-          ) : (
-            <Save className="h-3.5 w-3.5 mr-1.5" />
-          )}
           Save
         </Button>
         <Button
-          type="button"
-          size="sm"
-          variant="outline"
+          htmlType="button"
+          size="small"
           className="h-9"
           onClick={() => void handleDeleteView()}
           disabled={!selectedViewId || deleteView.isPending}
+          icon={deleteView.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
         >
-          {deleteView.isPending ? (
-            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-          ) : (
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-          )}
           Delete
         </Button>
         <Button
-          size="sm"
+          type="primary"
+          size="small"
           className="h-9"
           onClick={handleApply}
           disabled={isLoading}
+          icon={isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
         >
-          {isLoading ? (
-            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-          ) : (
-            <Play className="h-3.5 w-3.5 mr-1.5" />
-          )}
           Apply
         </Button>
         <Button
-          type="button"
-          size="sm"
-          variant="outline"
+          htmlType="button"
+          size="small"
           className="h-9"
           onClick={() => void handleExport()}
           disabled={isExporting}
+          icon={isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
         >
-          {isExporting ? (
-            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-          ) : (
-            <Download className="h-3.5 w-3.5 mr-1.5" />
-          )}
           Export CSV
         </Button>
       </div>

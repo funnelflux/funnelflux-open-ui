@@ -6,9 +6,8 @@ import { api } from "@/api/client"
 import { DataTable } from "@/components/shared/DataTable"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
 import { PageHeader } from "@/components/shared/PageHeader"
-import { TimezoneSelector } from "@/components/shared/TimezoneSelector"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { TimezoneSelect } from "@/components/ui-kit"
+import { Button, Card } from "antd"
 import { useDrilldownStore } from "@/store/drilldown"
 import { toApiDateTimeRange } from "@/types/stats"
 import type { Report, ReportCell } from "@/types/stats"
@@ -189,8 +188,7 @@ export function QuickViewPage() {
         title={`${entityName} Quick View`}
         subtitle={`${entityGroupBy} · ${entityId}`}
       >
-        <Button size="sm" onClick={handleOpenInDrilldown}>
-          <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
+        <Button type="primary" size="small" onClick={handleOpenInDrilldown} icon={<ArrowRight className="h-3.5 w-3.5" />}>
           Open in Drilldown
         </Button>
       </PageHeader>
@@ -205,7 +203,7 @@ export function QuickViewPage() {
             }
           }}
         />
-        <TimezoneSelector value={timezone} onChange={setTimezone} />
+        <TimezoneSelect value={timezone} onChange={setTimezone} />
       </div>
 
       <div className="space-y-3">
@@ -214,9 +212,9 @@ export function QuickViewPage() {
             {group.map((option) => (
               <Button
                 key={option.groupBy}
-                type="button"
-                size="sm"
-                variant={selectedGroupBy === option.groupBy ? "default" : "outline"}
+                htmlType="button"
+                size="small"
+                type={selectedGroupBy === option.groupBy ? "primary" : "default"}
                 onClick={() => setSelectedGroupBy(option.groupBy)}
               >
                 {option.label}
@@ -226,15 +224,13 @@ export function QuickViewPage() {
         ))}
       </div>
 
-      <Card>
-        <CardContent className="p-4">
+      <Card styles={{ body: { padding: 16 } }}>
           <DataTable
             columns={columns}
             data={rows}
             isLoading={isLoading}
             getRowId={(row) => row.id}
           />
-        </CardContent>
       </Card>
     </div>
   )
