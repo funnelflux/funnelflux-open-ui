@@ -17,6 +17,7 @@ function getInitialMode(): ThemeMode {
 
 function applyMode(mode: ThemeMode) {
   document.documentElement.classList.toggle('dark', mode === 'dark')
+  document.documentElement.style.colorScheme = mode
   localStorage.setItem('ff-theme-mode', mode)
 }
 
