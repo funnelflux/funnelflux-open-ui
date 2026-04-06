@@ -73,7 +73,8 @@ export function SmartSelect({
   const { items, overflow } = useFilteredOptions(options, search, alphabetical)
 
   const selectOptions = useMemo(() => {
-    const mapped = items.map((o) => ({ label: o.label, value: o.value }))
+    const mapped: { label: string; value: string; disabled?: boolean }[] =
+      items.map((o) => ({ label: o.label, value: o.value }))
     if (overflow > 0) {
       mapped.push({
         label: `Type to search ${overflow} more...`,
@@ -127,7 +128,8 @@ export function SmartMultiSelect({
   const { items, overflow } = useFilteredOptions(options, search, alphabetical)
 
   const selectOptions = useMemo(() => {
-    const mapped = items.map((o) => ({ label: o.label, value: o.value }))
+    const mapped: { label: string; value: string; disabled?: boolean }[] =
+      items.map((o) => ({ label: o.label, value: o.value }))
     if (overflow > 0) {
       mapped.push({
         label: `Type to search ${overflow} more...`,
