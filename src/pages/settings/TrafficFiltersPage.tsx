@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColDef } from 'ag-grid-community'
 import { Plus, Pencil, RotateCcw, Trash2, Loader2, Shield } from 'lucide-react'
-import { Button, Input, Switch, Select, Drawer } from 'antd'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
-import { DataTable } from '@/components/shared/DataTable'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
+import { Button, Input, Switch, Select, Modal } from 'antd'
+import { PageShell, DataGrid, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
 import {
   useTrafficFilters,
   useSaveTrafficFilter,
@@ -103,64 +101,71 @@ export function TrafficFiltersPage() {
     })
   }
 
-  const columns: ColumnDef<TrafficFilter, unknown>[] = [
+  const columns: ColDef<TrafficFilter>[] = [
     {
-      accessorKey: 'trafficFilterName',
-      header: 'Name',
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.trafficFilterName}</span>
+      colId: 'trafficFilterName',
+      headerName: 'Name',
+      field: 'trafficFilterName',
+      cellRenderer: (params: { data: TrafficFilter }) => (
+        <span className="font-medium">{params.data.trafficFilterName}</span>
       ),
     },
     {
-      accessorKey: 'filterType',
-      header: 'Type',
-      cell: ({ row }) => FILTER_TYPE_LABELS[row.original.filterType] ?? row.original.filterType,
+      colId: 'filterType',
+      headerName: 'Type',
+      field: 'filterType',
+      valueFormatter: (params: { value: FilterType }) =>
+        FILTER_TYPE_LABELS[params.value] ?? params.value,
     },
     {
-      id: 'entriesCount',
-      header: 'Entries',
-      cell: ({ row }) => row.original.filterEntries?.length ?? 0,
+      colId: 'entriesCount',
+      headerName: 'Entries',
+      valueGetter: (params: { data: TrafficFilter | undefined }) =>
+        params.data?.filterEntries?.length ?? 0,
     },
     {
-      accessorKey: 'isEnabled',
-      header: 'Enabled',
-      cell: ({ row }) => (
+      colId: 'isEnabled',
+      headerName: 'Enabled',
+      field: 'isEnabled',
+      cellRenderer: (params: { data: TrafficFilter }) => (
         <Switch
-          checked={row.original.isEnabled}
-          onChange={() => handleToggleEnabled(row.original)}
+          checked={params.data.isEnabled}
+          onChange={() => handleToggleEnabled(params.data)}
         />
       ),
     },
     {
-      accessorKey: 'idTrafficFilter',
-      header: 'ID',
-      cell: ({ row }) => (
+      colId: 'idTrafficFilter',
+      headerName: 'ID',
+      field: 'idTrafficFilter',
+      cellRenderer: (params: { data: TrafficFilter }) => (
         <span className="font-mono text-xs text-muted-foreground">
-          {row.original.idTrafficFilter}
+          {params.data.idTrafficFilter}
         </span>
       ),
     },
     {
-      id: 'actions',
-      header: '',
-      size: 50,
-      cell: ({ row }) => (
-        <RowActionsMenu
+      colId: 'actions',
+      headerName: '',
+      width: 50,
+      sortable: false,
+      cellRenderer: (params: { data: TrafficFilter }) => (
+        <InlineActions
           actions={[
             {
               label: 'Edit',
               icon: Pencil,
-              onClick: () => openEdit(row.original),
+              onClick: () => openEdit(params.data),
             },
             {
               label: 'Apply Retroactively',
               icon: RotateCcw,
-              onClick: () => handleApplyRetroactively(row.original),
+              onClick: () => handleApplyRetroactively(params.data),
             },
             {
               label: 'Delete',
               icon: Trash2,
-              onClick: () => setDeleteTarget(row.original),
+              onClick: () => setDeleteTarget(params.data),
               destructive: true,
             },
           ]}
@@ -170,17 +175,15 @@ export function TrafficFiltersPage() {
   ]
 
   return (
-    <div>
-      <PageHeader
-        title="Traffic Filters"
-        actions={
-          <Button type="primary" onClick={openCreate} size="small">
-            <Plus className="h-4 w-4 mr-1" />
-            Add Filter
-          </Button>
-        }
-      />
-
+    <PageShell
+      title="Traffic Filters"
+      actions={
+        <Button type="primary" onClick={openCreate}>
+          <Plus className="h-4 w-4 mr-1" />
+          Add Filter
+        </Button>
+      }
+    >
       {!isLoading && (!filters || filters.length === 0) ? (
         <EmptyState
           icon={<Shield className="h-10 w-10" />}
@@ -189,15 +192,15 @@ export function TrafficFiltersPage() {
           onAction={openCreate}
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filters ?? []}
-          isLoading={isLoading}
-          getRowId={(row) => row.idTrafficFilter}
+        <DataGrid<TrafficFilter>
+          rowData={filters ?? []}
+          columnDefs={columns}
+          getRowId={(p) => p.data.idTrafficFilter}
+          loading={isLoading}
         />
       )}
 
-      <TrafficFilterDrawer
+      <TrafficFilterModal
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         initialData={editingFilter}
@@ -214,13 +217,11 @@ export function TrafficFiltersPage() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </PageShell>
   )
 }
 
-// --- Drawer form for create/edit ---
-
-interface TrafficFilterDrawerProps {
+interface TrafficFilterModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData?: TrafficFilter
@@ -228,13 +229,13 @@ interface TrafficFilterDrawerProps {
   isSubmitting?: boolean
 }
 
-function TrafficFilterDrawer({
+function TrafficFilterModal({
   open,
   onOpenChange,
   initialData,
   onSubmit,
   isSubmitting,
-}: TrafficFilterDrawerProps) {
+}: TrafficFilterModalProps) {
   const form = useForm<TrafficFilterFormData>({
     resolver: zodResolver(trafficFilterSchema),
     defaultValues: {
@@ -283,21 +284,17 @@ function TrafficFilterDrawer({
   }
 
   return (
-    <Drawer
+    <Modal
       open={open}
-      onClose={() => onOpenChange(false)}
+      onCancel={() => onOpenChange(false)}
       title={initialData ? 'Edit Traffic Filter' : 'New Traffic Filter'}
-      width={440}
+      footer={null}
+      width={640}
       destroyOnHidden
     >
-      <p className="text-sm text-muted-foreground mb-4">
-        {initialData
-          ? 'Update the filter configuration below.'
-          : 'Configure a new traffic filter.'}
-      </p>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-6"
+        className="space-y-6 pt-4"
       >
         <div className="space-y-2">
           <label htmlFor="trafficFilterName" className="block text-sm font-medium text-foreground">Name</label>
@@ -387,6 +384,6 @@ function TrafficFilterDrawer({
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   )
 }

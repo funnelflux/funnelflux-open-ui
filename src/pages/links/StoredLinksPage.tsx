@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { type ColumnDef } from '@tanstack/react-table'
+import type { ColDef } from 'ag-grid-community'
 import { Plus, Pencil, Trash2, RotateCcw, Loader2 } from 'lucide-react'
-import { Button, Input, Drawer } from 'antd'
-import { DataTable } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
+import { Button, Input, Modal } from 'antd'
+import { PageShell, DataGrid, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
 import {
   useStoredLinks,
   useSaveStoredLink,
@@ -94,48 +92,55 @@ export function StoredLinksPage() {
     })
   }
 
-  const columns: ColumnDef<StoredLink>[] = [
+  const columns: ColDef<StoredLink>[] = [
     {
-      accessorKey: 'name',
-      header: 'Name',
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
+      colId: 'name',
+      headerName: 'Name',
+      field: 'name',
+      cellRenderer: (params: { data: StoredLink }) => (
+        <span className="font-medium">{params.data.name}</span>
       ),
     },
     {
-      accessorKey: 'url',
-      header: 'URL',
-      cell: ({ row }) => (
+      colId: 'url',
+      headerName: 'URL',
+      field: 'url',
+      cellRenderer: (params: { data: StoredLink }) => (
         <span className="text-xs text-muted-foreground truncate max-w-[300px] block">
-          {row.original.url}
+          {params.data.url}
         </span>
       ),
     },
     {
-      accessorKey: 'clicks',
-      header: 'Clicks',
-      size: 100,
-      cell: ({ row }) => (
-        <span className="tabular-nums">{row.original.clicks ?? 0}</span>
+      colId: 'clicks',
+      headerName: 'Clicks',
+      field: 'clicks',
+      width: 100,
+      cellRenderer: (params: { data: StoredLink }) => (
+        <span className="tabular-nums">{params.data.clicks ?? 0}</span>
       ),
     },
     {
-      accessorKey: 'lastClickDate',
-      header: 'Last Click',
-      size: 160,
-      cell: ({ row }) => (
+      colId: 'lastClickDate',
+      headerName: 'Last Click',
+      field: 'lastClickDate',
+      width: 160,
+      cellRenderer: (params: { data: StoredLink }) => (
         <span className="text-xs text-muted-foreground">
-          {row.original.lastClickDate || '--'}
+          {params.data.lastClickDate || '--'}
         </span>
       ),
     },
     {
-      id: 'actions',
-      size: 50,
-      cell: ({ row }) => {
-        const link = row.original
+      colId: 'actions',
+      headerName: '',
+      width: 50,
+      sortable: false,
+      filter: false,
+      cellRenderer: (params: { data: StoredLink }) => {
+        const link = params.data
         return (
-          <RowActionsMenu
+          <InlineActions
             actions={[
               { label: 'Edit', icon: Pencil, onClick: () => openEdit(link) },
               { label: 'Reset Stats', icon: RotateCcw, onClick: () => setResetId(link.id) },
@@ -153,14 +158,15 @@ export function StoredLinksPage() {
   ]
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Stored Links">
-        <Button type="primary" onClick={openCreate} size="small">
+    <PageShell
+      title="Stored Links"
+      actions={
+        <Button type="primary" onClick={openCreate}>
           <Plus className="h-4 w-4 mr-1" />
           Add Link
         </Button>
-      </PageHeader>
-
+      }
+    >
       {!isLoading && (!links || links.length === 0) ? (
         <EmptyState
           message="No stored links yet. Create one to get started."
@@ -168,23 +174,16 @@ export function StoredLinksPage() {
           onAction={openCreate}
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={links ?? []}
-          isLoading={isLoading}
-          getRowId={(row) => row.id}
+        <DataGrid<StoredLink>
+          rowData={links ?? []}
+          columnDefs={columns}
+          getRowId={(p) => p.data.id}
+          loading={isLoading}
         />
       )}
 
-      {/* Add/Edit Drawer */}
-      <Drawer open={sheetOpen} onClose={() => setSheetOpen(false)} title={editingLink ? 'Edit Link' : 'Add Link'} width={378} destroyOnHidden>
-        <p className="text-sm text-muted-foreground mb-4">
-          {editingLink
-            ? 'Update the stored link details.'
-            : 'Create a new stored link for tracking.'}
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <Modal open={sheetOpen} onCancel={() => setSheetOpen(false)} title={editingLink ? 'Edit Link' : 'Add Link'} footer={null} width={480} destroyOnHidden>
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-1.5">
             <label htmlFor="link-name" className="text-sm font-medium">Name</label>
             <Input
@@ -210,7 +209,7 @@ export function StoredLinksPage() {
             {editingLink ? 'Save Changes' : 'Create Link'}
           </Button>
         </form>
-      </Drawer>
+      </Modal>
 
       {/* Delete Confirm */}
       <ConfirmModal
@@ -234,6 +233,6 @@ export function StoredLinksPage() {
         loading={resetMutation.isPending}
         danger
       />
-    </div>
+    </PageShell>
   )
 }

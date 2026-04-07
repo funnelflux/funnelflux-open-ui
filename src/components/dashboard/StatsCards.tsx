@@ -1,4 +1,5 @@
-import { Card, Skeleton } from 'antd'
+import { Skeleton } from 'antd'
+import { StatCard } from '@/components/ui-kit'
 import type { LiveStats } from '@/types/ui'
 
 interface StatsCardsProps {
@@ -27,7 +28,6 @@ function formatValue(
   }
   if (key === 'roi') {
     const roiVal = stats.roi ?? '0'
-    // API may return "0.00%" already formatted — don't add extra %
     return roiVal.includes('%') ? roiVal : `${roiVal}%`
   }
 
@@ -44,17 +44,18 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
       {CARDS.map(({ key, label, format }) => (
-        <Card key={key} title={<span className="text-xs font-medium text-muted-foreground">{label}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
-            {isLoading ? (
-              <Skeleton.Input active size="small" style={{ width: 80, height: 28 }} />
-            ) : !stats ? (
-              <p className="text-xl font-bold tabular-nums">0</p>
-            ) : (
-              <p className="text-xl font-bold tabular-nums">
-                {formatValue(key, format, stats)}
-              </p>
-            )}
-        </Card>
+        isLoading ? (
+          <div key={key} className="rounded-lg border bg-background p-5">
+            <p className="text-sm font-medium text-muted-foreground">{label}</p>
+            <Skeleton.Input active size="small" style={{ width: 80, height: 28, marginTop: 4 }} />
+          </div>
+        ) : (
+          <StatCard
+            key={key}
+            title={label}
+            value={stats ? formatValue(key, format, stats) : '0'}
+          />
+        )
       ))}
     </div>
   )

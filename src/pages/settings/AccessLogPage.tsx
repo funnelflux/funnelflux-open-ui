@@ -1,11 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColDef } from 'ag-grid-community'
 import { FileText } from 'lucide-react'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/ui-kit'
-import { DataTable } from '@/components/shared/DataTable'
+import { PageShell, DataGrid, EmptyState } from '@/components/ui-kit'
 import type { AccessLogEntry } from '@/types/ui'
 
 export function AccessLogPage() {
@@ -14,60 +12,60 @@ export function AccessLogPage() {
     queryFn: () => api.get<AccessLogEntry[]>('/ui/accesslog/load/'),
   })
 
-  const columns: ColumnDef<AccessLogEntry, unknown>[] = [
+  const columns: ColDef<AccessLogEntry>[] = [
     {
-      accessorKey: 'date',
-      header: 'Date',
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.date}</span>
+      colId: 'date',
+      headerName: 'Date',
+      field: 'date',
+      cellRenderer: (params: { data: AccessLogEntry }) => (
+        <span className="text-sm">{params.data.date}</span>
       ),
     },
     {
-      accessorKey: 'username',
-      header: 'User',
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.username}</span>
+      colId: 'username',
+      headerName: 'User',
+      field: 'username',
+      cellRenderer: (params: { data: AccessLogEntry }) => (
+        <span className="font-medium">{params.data.username}</span>
       ),
     },
     {
-      accessorKey: 'action',
-      header: 'Action',
-      cell: ({ row }) => row.original.action,
+      colId: 'action',
+      headerName: 'Action',
+      field: 'action',
     },
     {
-      accessorKey: 'ip',
-      header: 'IP',
-      cell: ({ row }) => (
-        <span className="font-mono text-xs">{row.original.ip}</span>
+      colId: 'ip',
+      headerName: 'IP',
+      field: 'ip',
+      cellRenderer: (params: { data: AccessLogEntry }) => (
+        <span className="font-mono text-xs">{params.data.ip}</span>
       ),
     },
     {
-      accessorKey: 'details',
-      header: 'Details',
-      cell: ({ row }) =>
-        row.original.details || (
-          <span className="text-muted-foreground">--</span>
-        ),
+      colId: 'details',
+      headerName: 'Details',
+      field: 'details',
+      cellRenderer: (params: { data: AccessLogEntry }) =>
+        params.data.details || <span className="text-muted-foreground">--</span>,
     },
   ]
 
   return (
-    <div>
-      <PageHeader title="Access Log" />
-
+    <PageShell title="Access Log">
       {!isLoading && (!entries || entries.length === 0) ? (
         <EmptyState
           icon={<FileText className="h-10 w-10" />}
           message="No access log entries."
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={entries ?? []}
-          isLoading={isLoading}
-          getRowId={(row) => row.id}
+        <DataGrid<AccessLogEntry>
+          rowData={entries ?? []}
+          columnDefs={columns}
+          getRowId={(p) => p.data.id}
+          loading={isLoading}
         />
       )}
-    </div>
+    </PageShell>
   )
 }

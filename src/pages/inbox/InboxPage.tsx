@@ -1,8 +1,7 @@
 import { useCallback } from 'react'
 import { Mail, MailOpen, Trash2, Inbox } from 'lucide-react'
 import { Button, Collapse, Tag } from 'antd'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { PageShell, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import {
   useInboxMessages,
   useChangeReadStatus,
@@ -75,9 +74,7 @@ export function InboxPage() {
   }
 
   return (
-    <div>
-      <PageHeader title="Inbox" />
-
+    <PageShell title="Inbox">
       {isLoading && (
         <p className="text-sm text-muted-foreground">Loading messages...</p>
       )}
@@ -156,6 +153,6 @@ export function InboxPage() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </PageShell>
   )
 }

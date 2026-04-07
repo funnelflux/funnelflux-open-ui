@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Loader2, AlertTriangle } from 'lucide-react'
-import { Button, Input, Select } from 'antd'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Button, Input } from 'antd'
+import { PageShell, ConfirmModal, SmartSelect, useToastApi } from '@/components/ui-kit'
+import type { SmartSelectOption } from '@/components/ui-kit'
 import { useCampaignsList, useTrafficSources } from '@/api/hooks'
 import { api } from '@/api/client'
 import { getErrorMessage } from '@/lib/utils'
@@ -15,6 +15,22 @@ export function ResetStatsPage() {
   const toast = useToastApi()
   const { data: campaigns } = useCampaignsList()
   const { data: trafficSources } = useTrafficSources()
+
+  const campaignOptions: SmartSelectOption[] = useMemo(
+    () => [
+      { label: 'All campaigns', value: '__none__' },
+      ...(campaigns ?? []).map((c) => ({ label: c.name, value: c.id, searchId: c.id })),
+    ],
+    [campaigns],
+  )
+
+  const trafficSourceOptions: SmartSelectOption[] = useMemo(
+    () => [
+      { label: 'All traffic sources', value: '__none__' },
+      ...(trafficSources ?? []).map((ts) => ({ label: ts.trafficSourceName, value: ts.idTrafficSource, searchId: ts.idTrafficSource })),
+    ],
+    [trafficSources],
+  )
 
   const [idCampaign, setIdCampaign] = useState('')
   const [idTrafficSource, setIdTrafficSource] = useState('')
@@ -66,37 +82,21 @@ export function ResetStatsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Reset Stats"
-        subtitle="Delete statistics data for a specific date range and filters"
-      />
-
+    <PageShell
+      title="Reset Stats"
+      subtitle="Delete statistics data for a specific date range and filters"
+    >
       <div className="max-w-lg space-y-4">
         {/* Campaign */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Campaign (optional)</label>
-          <Select value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full">
-            <Select.Option value="__none__">All campaigns</Select.Option>
-            {(campaigns ?? []).map((c) => (
-              <Select.Option key={c.id} value={c.id}>
-                {c.name}
-              </Select.Option>
-            ))}
-          </Select>
+          <SmartSelect options={campaignOptions} value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full" />
         </div>
 
         {/* Traffic Source */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Traffic Source (optional)</label>
-          <Select value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="All traffic sources" className="w-full">
-            <Select.Option value="__none__">All traffic sources</Select.Option>
-            {(trafficSources ?? []).map((ts) => (
-              <Select.Option key={ts.idTrafficSource} value={ts.idTrafficSource}>
-                {ts.trafficSourceName}
-              </Select.Option>
-            ))}
-          </Select>
+          <SmartSelect options={trafficSourceOptions} value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="All traffic sources" className="w-full" />
         </div>
 
         {/* Date Range */}
@@ -161,6 +161,6 @@ export function ResetStatsPage() {
         loading={isDeleting}
         danger
       />
-    </div>
+    </PageShell>
   )
 }

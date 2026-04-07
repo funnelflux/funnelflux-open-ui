@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { type ColumnDef } from "@tanstack/react-table"
+import type { ColDef } from "ag-grid-community"
 import { ArrowRight } from "lucide-react"
 import { api } from "@/api/client"
-import { DataTable } from "@/components/shared/DataTable"
+import { PageShell, DataGrid, TimezoneSelect } from "@/components/ui-kit"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
-import { PageHeader } from "@/components/shared/PageHeader"
-import { TimezoneSelect } from "@/components/ui-kit"
 import { Button, Card } from "antd"
 import { useDrilldownStore } from "@/store/drilldown"
 import { toApiDateTimeRange } from "@/types/stats"
@@ -77,9 +75,7 @@ export function QuickViewPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   const loadEntityName = useCallback(async () => {
-    if (!entityId) {
-      return
-    }
+    if (!entityId) return
 
     try {
       const now = new Date()
@@ -105,9 +101,7 @@ export function QuickViewPage() {
   }, [entityGroupBy, entityId, timezone])
 
   const loadReport = useCallback(async () => {
-    if (!entityId) {
-      return
-    }
+    if (!entityId) return
 
     setIsLoading(true)
     try {
@@ -145,20 +139,16 @@ export function QuickViewPage() {
     void loadReport()
   }, [loadReport])
 
-  const columns: ColumnDef<QuickViewRow>[] = useMemo(() => {
-    if (!report) {
-      return []
-    }
-
+  const columnDefs: ColDef[] = useMemo(() => {
+    if (!report) return []
     return report.columns.map((column, index) => ({
-      id: `col-${index}`,
-      header: column.name,
-      accessorFn: (row) => row.cells[index]?.formatted ?? "",
-      cell: ({ row }) => (
-        <span className={index === 0 ? "font-medium" : "tabular-nums"}>
-          {row.original.cells[index]?.formatted ?? ""}
-        </span>
-      ),
+      colId: `col-${index}`,
+      headerName: column.name,
+      valueGetter: (p: { data: QuickViewRow }) => p.data?.cells[index]?.formatted ?? "",
+      cellClass: index === 0 ? "font-medium" : undefined,
+      cellStyle: index > 0 ? { fontVariantNumeric: "tabular-nums" } : undefined,
+      flex: index === 0 ? 1 : undefined,
+      width: index > 0 ? 110 : undefined,
     }))
   }, [report])
 
@@ -183,16 +173,15 @@ export function QuickViewPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title={`${entityName} Quick View`}
-        subtitle={`${entityGroupBy} · ${entityId}`}
-      >
+    <PageShell
+      title={`${entityName} Quick View`}
+      subtitle={`${entityGroupBy} · ${entityId}`}
+      actions={
         <Button type="primary" size="small" onClick={handleOpenInDrilldown} icon={<ArrowRight className="h-3.5 w-3.5" />}>
           Open in Drilldown
         </Button>
-      </PageHeader>
-
+      }
+    >
       <div className="flex items-center gap-3 flex-wrap">
         <DateRangePicker
           value={{ from: dateRange.from, to: dateRange.to, preset: null }}
@@ -225,13 +214,13 @@ export function QuickViewPage() {
       </div>
 
       <Card styles={{ body: { padding: 16 } }}>
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            getRowId={(row) => row.id}
-          />
+        <DataGrid
+          rowData={rows}
+          columnDefs={columnDefs}
+          loading={isLoading}
+          getRowId={(params) => params.data.id}
+        />
       </Card>
-    </div>
+    </PageShell>
   )
 }

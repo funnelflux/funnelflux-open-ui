@@ -43,7 +43,7 @@ export function DateRangePicker({
         }
       }}
       presets={presetRanges(timezone)}
-      size="small"
+      size="middle"
       className={className}
       allowClear={false}
     />

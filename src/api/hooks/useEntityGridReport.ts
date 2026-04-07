@@ -1,43 +1,46 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { type PaginationState, type SortingState, type OnChangeFn } from '@tanstack/react-table'
+import type { SortModelItem } from 'ag-grid-community'
 import { api } from '@/api/client'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { Report, ReportCell } from '@/types/stats'
 
-export interface EntityRow {
+export interface EntityGridRow {
   id: string
   name: string
   cells: ReportCell[]
 }
 
-export interface UseEntityPaginatedReportOptions {
+export interface UseEntityGridReportOptions {
   groupBy: string
   dateFrom: Date
   dateTo: Date
   timezone: string
   /** Metadata endpoint, e.g. '/data/page/list/' */
   metaEndpoint: string
-  /** Query params for metadata endpoint, e.g. { pageType: 'lander' } */
+  /** Query params for metadata endpoint */
   metaParams?: Record<string, string>
   /** Key used to index metadata by ID, e.g. 'idPage' */
   metaIdKey: string
+  pageSize?: number
 }
 
-export interface UseEntityPaginatedReportResult<TMeta> {
-  rows: EntityRow[]
+export interface UseEntityGridReportResult<TMeta> {
+  rows: EntityGridRow[]
   columns: { name: string; type: string }[]
   metaById: Record<string, TMeta>
   totalRows: number
-  pagination: PaginationState
-  onPaginationChange: OnChangeFn<PaginationState>
-  sorting: SortingState
-  onSortingChange: OnChangeFn<SortingState>
+  page: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (pageSize: number) => void
+  sortModel: SortModelItem[]
+  onSortChange: (sortModel: SortModelItem[]) => void
   isLoading: boolean
   reload: () => void
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useEntityPaginatedReport<TMeta extends Record<string, any>>({
+export function useEntityGridReport<TMeta extends Record<string, any>>({
   groupBy,
   dateFrom,
   dateTo,
@@ -45,26 +48,25 @@ export function useEntityPaginatedReport<TMeta extends Record<string, any>>({
   metaEndpoint,
   metaParams,
   metaIdKey,
-}: UseEntityPaginatedReportOptions): UseEntityPaginatedReportResult<TMeta> {
-  const [rows, setRows] = useState<EntityRow[]>([])
+  pageSize: initialPageSize = 50,
+}: UseEntityGridReportOptions): UseEntityGridReportResult<TMeta> {
+  const [rows, setRows] = useState<EntityGridRow[]>([])
   const [columns, setColumns] = useState<{ name: string; type: string }[]>([])
   const [metaById, setMetaById] = useState<Record<string, TMeta>>({})
   const [totalRows, setTotalRows] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 50,
-  })
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(initialPageSize)
+  const [sortModel, setSortModel] = useState<SortModelItem[]>([])
 
   const fetchReport = useCallback(
-    (pag: PaginationState, sort: SortingState) => {
+    (currentPage: number, currentPageSize: number, sort: SortModelItem[]) => {
       setIsLoading(true)
 
       const sortParam = sort[0]
         ? {
-            column: Number(String(sort[0].id).replace('col-', '')),
-            direction: sort[0].desc ? ('desc' as const) : ('asc' as const),
+            column: Number(String(sort[0].colId).replace('col-', '')),
+            direction: sort[0].sort === 'desc' ? ('desc' as const) : ('asc' as const),
           }
         : undefined
 
@@ -75,8 +77,8 @@ export function useEntityPaginatedReport<TMeta extends Record<string, any>>({
           { groupBy, whitelistFilters: [], blacklistFilters: [] },
         ],
         paging: {
-          start: pag.pageIndex * pag.pageSize,
-          length: pag.pageSize,
+          start: currentPage * currentPageSize,
+          length: currentPageSize,
         },
         sorting: sortParam,
         options: { viewType: 'flat' },
@@ -117,34 +119,40 @@ export function useEntityPaginatedReport<TMeta extends Record<string, any>>({
 
   // Load on mount and when date/tz/groupBy changes — reset to page 0
   useEffect(() => {
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    fetchReport({ pageIndex: 0, pageSize: pagination.pageSize }, sorting)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-fetch on param changes
+    setPage(0)
+    fetchReport(0, pageSize, sortModel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupBy, dateFrom, dateTo, timezone, metaEndpoint])
 
-  const onPaginationChange: OnChangeFn<PaginationState> = useCallback(
-    (updater) => {
-      const next = typeof updater === 'function' ? updater(pagination) : updater
-      setPagination(next)
-      fetchReport(next, sorting)
+  const onPageChange = useCallback(
+    (newPage: number) => {
+      setPage(newPage)
+      fetchReport(newPage, pageSize, sortModel)
     },
-    [fetchReport, pagination, sorting],
+    [fetchReport, pageSize, sortModel],
   )
 
-  const onSortingChange: OnChangeFn<SortingState> = useCallback(
-    (updater) => {
-      const next = typeof updater === 'function' ? updater(sorting) : updater
-      setSorting(next)
-      const resetPag = { ...pagination, pageIndex: 0 }
-      setPagination(resetPag)
-      fetchReport(resetPag, next)
+  const onPageSizeChange = useCallback(
+    (newPageSize: number) => {
+      setPageSize(newPageSize)
+      setPage(0)
+      fetchReport(0, newPageSize, sortModel)
     },
-    [fetchReport, pagination, sorting],
+    [fetchReport, sortModel],
+  )
+
+  const onSortChange = useCallback(
+    (newSort: SortModelItem[]) => {
+      setSortModel(newSort)
+      setPage(0)
+      fetchReport(0, pageSize, newSort)
+    },
+    [fetchReport, pageSize],
   )
 
   const reload = useCallback(() => {
-    fetchReport(pagination, sorting)
-  }, [fetchReport, pagination, sorting])
+    fetchReport(page, pageSize, sortModel)
+  }, [fetchReport, page, pageSize, sortModel])
 
   return useMemo(
     () => ({
@@ -152,13 +160,15 @@ export function useEntityPaginatedReport<TMeta extends Record<string, any>>({
       columns,
       metaById,
       totalRows,
-      pagination,
-      onPaginationChange,
-      sorting,
-      onSortingChange,
+      page,
+      pageSize,
+      onPageChange,
+      onPageSizeChange,
+      sortModel,
+      onSortChange,
       isLoading,
       reload,
     }),
-    [rows, columns, metaById, totalRows, pagination, onPaginationChange, sorting, onSortingChange, isLoading, reload],
+    [rows, columns, metaById, totalRows, page, pageSize, onPageChange, onPageSizeChange, sortModel, onSortChange, isLoading, reload],
   )
 }

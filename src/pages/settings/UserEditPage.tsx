@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { Button, Input, Switch, Select } from 'antd'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { useToastApi } from '@/components/ui-kit'
+import { PageShell, useToastApi } from '@/components/ui-kit'
 import { PermissionsGrid } from '@/components/settings/PermissionsGrid'
 import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
@@ -164,8 +163,7 @@ export function UserEditPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={isNew ? 'New User' : 'Edit User'} />
+    <PageShell title={isNew ? 'New User' : 'Edit User'}>
 
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading user...</div>
@@ -230,6 +228,6 @@ export function UserEditPage() {
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   )
 }

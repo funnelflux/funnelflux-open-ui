@@ -71,6 +71,7 @@
   --radius: 6px;
   --page-padding: 24px;
   --toolbar-height: 48px;
+  --control-height: 32px;
 
   /* Responsive breakpoints (reference — applied via Tailwind lg:/md:) */
   /* sm: 640px  md: 768px  lg: 1024px  xl: 1280px  2xl: 1536px */
@@ -124,4 +125,9 @@
   --focus-ring:        rgba(59, 130, 246, 0.35);
 
   --select-option-bg:  #1E3A5F;
+}
+
+/* Modal backdrop blur */
+.ant-modal-mask {
+  backdrop-filter: blur(4px);
 }

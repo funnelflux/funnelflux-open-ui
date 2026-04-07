@@ -1,15 +1,34 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { subDays } from 'date-fns'
-import { type ColumnDef } from '@tanstack/react-table'
+import type { AgGridReact } from 'ag-grid-react'
+import type { ColDef, SelectionChangedEvent } from 'ag-grid-community'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pencil, Trash2, Loader2 } from 'lucide-react'
-import { Button, Input, Select, Drawer } from 'antd'
-import { DataTable } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmModal, EmptyState, TimezoneSelect, useToastApi } from '@/components/ui-kit'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { SearchInput } from '@/components/shared/SearchInput'
+import { Button, Input, Select, Modal } from 'antd'
+import {
+  PageShell,
+  SearchToolbar,
+  DataGrid,
+  FormField,
+  ConfirmModal,
+  EmptyState,
+  TimezoneSelect,
+  useToastApi,
+  nameColumn,
+  visitsColumn,
+  clicksColumn,
+  ctrColumn,
+  convColumn,
+  revenueColumn,
+  costColumn,
+  plColumn,
+  roiColumn,
+  idColumn,
+} from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
+import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
+import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
 import {
@@ -19,19 +38,10 @@ import {
   useOfferSourceTemplates,
   useLoadOfferSourceTemplate,
 } from '@/api/hooks'
-import { useEntityPaginatedReport, type EntityRow } from '@/api/hooks/useEntityPaginatedReport'
+import { useEntityGridReport, type EntityGridRow } from '@/api/hooks/useEntityGridReport'
 import { offerSourceSchema, type OfferSourceFormData } from '@/schemas/offerSource'
-import type { ReportCell } from '@/types/stats'
 import type { OfferSource } from '@/types/entities'
 import { getErrorMessage } from '@/lib/utils'
-
-function cellFmt(cell?: ReportCell): string {
-  return cell?.formatted ?? ''
-}
-function cellRaw(cell?: ReportCell): number {
-  if (!cell) return 0
-  return typeof cell.raw === 'number' ? cell.raw : Number(cell.raw) || 0
-}
 
 interface OfferSourceMeta {
   idOfferSource: string
@@ -45,6 +55,7 @@ const defaultValues: OfferSourceFormData = {
   postbackSubId: '',
   postbackTxId: '',
   postbackPayout: '',
+  notes: '',
 }
 
 function OfferSourceForm({
@@ -86,6 +97,7 @@ function OfferSourceForm({
           postbackSubId: initialData.postbackSubId ?? '',
           postbackTxId: initialData.postbackTxId ?? '',
           postbackPayout: initialData.postbackPayout ?? '',
+          notes: initialData.notes ?? '',
           isArchived: initialData.isArchived,
         })
       } else {
@@ -111,17 +123,17 @@ function OfferSourceForm({
   }
 
   return (
-    <Drawer open={open} onClose={() => onOpenChange(false)} title={isEditing ? 'Edit Offer Source' : 'Add Offer Source'} width={512} destroyOnHidden>
-      <p className="text-sm text-muted-foreground mb-4">
-        {isEditing ? 'Update the offer source configuration.' : 'Create a new offer source.'}
-      </p>
-
+    <Modal open={open} onCancel={() => onOpenChange(false)} title={isEditing ? 'Edit Offer Source' : 'Add Offer Source'} footer={null} width={640} destroyOnHidden>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-5">
-        {/* Load Template */}
+      <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-5 pt-4">
+        {isEditing && initialData?.idOfferSource && (
+          <FormField label="ID">
+            <Input value={initialData.idOfferSource} disabled className="font-mono text-xs" />
+          </FormField>
+        )}
+
         {!isEditing && templates && templates.length > 0 && (
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Copy from Template</label>
+          <FormField label="Copy from Template">
             <Select onChange={handleLoadTemplate} placeholder="Select a template" className="w-full">
               {templates.map((template) => (
                 <Select.Option key={template.id} value={template.id}>
@@ -129,97 +141,68 @@ function OfferSourceForm({
                 </Select.Option>
               ))}
             </Select>
-          </div>
+          </FormField>
         )}
 
-        {/* Name */}
-        <div className="space-y-1.5">
-          <label htmlFor="offerSourceName" className="text-sm font-medium">Name</label>
-          <Input
-            id="offerSourceName"
-            {...register('offerSourceName')}
-            placeholder="Offer source name"
-          />
-          {errors.offerSourceName && (
-            <p className="text-xs text-destructive">{errors.offerSourceName.message}</p>
-          )}
-        </div>
+        <FormField label="Name" htmlFor="offerSourceName" error={errors.offerSourceName?.message}>
+          <Input id="offerSourceName" {...register('offerSourceName')} placeholder="Offer source name" />
+        </FormField>
 
-        {/* Sub ID */}
-        <div className="space-y-1.5">
-          <label htmlFor="subId" className="text-sm font-medium">Sub ID Parameter</label>
-          <Input
-            id="subId"
-            {...register('subId')}
-            placeholder="e.g. sub_id"
-          />
-        </div>
+        <FormField label="Sub ID Parameter" htmlFor="subId">
+          <Input id="subId" {...register('subId')} placeholder="e.g. sub_id" />
+        </FormField>
 
-        {/* Query Separator */}
-        <div className="space-y-1.5">
-          <label htmlFor="querySeparator" className="text-sm font-medium">Query Separator</label>
-          <Input
-            id="querySeparator"
-            {...register('querySeparator')}
-            placeholder="&"
-          />
-        </div>
+        <FormField label="Query Separator" htmlFor="querySeparator">
+          <Input id="querySeparator" {...register('querySeparator')} placeholder="&" />
+        </FormField>
 
-        {/* Postback Sub ID */}
-        <div className="space-y-1.5">
-          <label htmlFor="postbackSubId" className="text-sm font-medium">Postback Sub ID</label>
-          <Input
-            id="postbackSubId"
-            {...register('postbackSubId')}
-            placeholder="Postback sub ID token"
-          />
-        </div>
+        <FormField label="Postback Sub ID" htmlFor="postbackSubId">
+          <Input id="postbackSubId" {...register('postbackSubId')} placeholder="Postback sub ID token" />
+        </FormField>
 
-        {/* Postback TX ID */}
-        <div className="space-y-1.5">
-          <label htmlFor="postbackTxId" className="text-sm font-medium">Postback TX ID</label>
-          <Input
-            id="postbackTxId"
-            {...register('postbackTxId')}
-            placeholder="Postback transaction ID token"
-          />
-        </div>
+        <FormField label="Postback TX ID" htmlFor="postbackTxId">
+          <Input id="postbackTxId" {...register('postbackTxId')} placeholder="Postback transaction ID token" />
+        </FormField>
 
-        {/* Postback Payout */}
-        <div className="space-y-1.5">
-          <label htmlFor="postbackPayout" className="text-sm font-medium">Postback Payout</label>
-          <Input
-            id="postbackPayout"
-            {...register('postbackPayout')}
-            placeholder="Postback payout token"
-          />
-        </div>
+        <FormField label="Postback Payout" htmlFor="postbackPayout">
+          <Input id="postbackPayout" {...register('postbackPayout')} placeholder="Postback payout token" />
+        </FormField>
 
-        {/* Submit */}
+        <FormField label="Notes" htmlFor="notes">
+          <Input.TextArea id="notes" {...register('notes')} placeholder="Optional notes..." rows={3} />
+        </FormField>
+
+        {isEditing && initialData && (
+          <FormField label="Postback URL">
+            <Input
+              value={`YOUR_DOMAIN/postback?subid=${initialData.postbackSubId || '{subid}'}&txid=${initialData.postbackTxId || '{txid}'}&payout=${initialData.postbackPayout || '{payout}'}`}
+              disabled
+              className="font-mono text-xs"
+            />
+          </FormField>
+        )}
+
         <div className="flex justify-end gap-2 pt-4">
-          <Button
-            htmlType="button"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
+          <Button htmlType="button" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="primary" htmlType="submit" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isEditing ? 'Save Changes' : 'Create'}
           </Button>
         </div>
       </form>
-    </Drawer>
+    </Modal>
   )
 }
 
 export function OfferSourcesPage() {
   const toast = useToastApi()
+  const gridRef = useRef<AgGridReact>(null)
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 365),
@@ -234,14 +217,9 @@ export function OfferSourcesPage() {
     rows,
     columns,
     metaById,
-    totalRows,
-    pagination,
-    onPaginationChange,
-    sorting,
-    onSortingChange,
     isLoading,
     reload,
-  } = useEntityPaginatedReport<OfferSourceMeta>({
+  } = useEntityGridReport<OfferSourceMeta>({
     groupBy: 'Third Parties: Offer Source',
     dateFrom: dateRange.from,
     dateTo: dateRange.to,
@@ -268,8 +246,11 @@ export function OfferSourcesPage() {
     })
   }, [archiveStatus, metaById, rows, search])
 
+  const onSelectionChanged = useCallback((e: SelectionChangedEvent<EntityGridRow>) => {
+    setSelectedIds(e.api.getSelectedRows().map(r => r.id))
+  }, [])
+
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
-  const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
 
   const handleSubmit = (data: OfferSourceFormData) => {
     saveMutation.mutate(data as unknown as Partial<OfferSource>, {
@@ -300,139 +281,77 @@ export function OfferSourcesPage() {
   const iPL = colMap.get('P/L') ?? 32
   const iROI = colMap.get('ROI') ?? 33
 
-  const tableCols: ColumnDef<EntityRow>[] = [
-    {
-      id: 'name',
-      header: 'Name',
-      accessorFn: (r) => r.name,
-      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
-    },
-    {
-      id: 'visits',
-      header: 'Visits',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iVisits]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iVisits])}</span>,
-    },
-    {
-      id: 'clicks',
-      header: 'Clicks',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iClicks]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iClicks])}</span>,
-    },
-    {
-      id: 'ctr',
-      header: 'CTR',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iCTR]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCTR])}</span>,
-    },
-    {
-      id: 'conv',
-      header: 'Conv',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iConv]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iConv])}</span>,
-    },
-    {
-      id: 'revenue',
-      header: 'Revenue',
-      size: 90,
-      accessorFn: (r) => cellRaw(r.cells[iRevenue]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iRevenue])}</span>,
-    },
-    {
-      id: 'cost',
-      header: 'Cost',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iCost]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCost])}</span>,
-    },
-    {
-      id: 'pl',
-      header: 'P/L',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iPL]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iPL])
-        return (
-          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
-            {cellFmt(row.original.cells[iPL])}
-          </span>
-        )
-      },
-    },
-    {
-      id: 'roi',
-      header: 'ROI',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iROI]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iROI])
-        return (
-          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
-            {cellFmt(row.original.cells[iROI])}
-          </span>
-        )
-      },
-    },
-    {
-      id: 'id',
-      header: 'ID',
-      size: 160,
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-muted-foreground">{row.original.id}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      size: 50,
-      cell: ({ row }) => (
-        <RowActionsMenu
+  const columnDefs = useMemo<ColDef[]>(() => [
+    nameColumn({
+      actions: (params) => (
+        <InlineActions
           actions={[
-            { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.original.id) },
-            { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.original.id), destructive: true },
+            { label: 'Edit', icon: Pencil, onClick: () => { setEditId(params.data.id); setSheetOpen(true) } },
+            { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(params.data.id), destructive: true },
           ]}
         />
       ),
-    },
-  ]
+    }),
+    idColumn(),
+    visitsColumn(iVisits),
+    clicksColumn(iClicks),
+    ctrColumn(iCTR),
+    convColumn(iConv),
+    revenueColumn(iRevenue),
+    costColumn(iCost),
+    plColumn(iPL),
+    roiColumn(iROI),
+  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Offer Sources">
-        <Button type="primary" onClick={handleCreate} size="small">Add Offer Source</Button>
-      </PageHeader>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search offer sources..." className="w-64" />
-        <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />
-        <DateRangePicker
-          value={{ from: dateRange.from, to: dateRange.to, preset: null }}
-          timezone={tz}
-          onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
-        />
-        <TimezoneSelect value={tz} onChange={setTz} />
-      </div>
+    <PageShell
+      title="Offer Sources"
+      actions={<Button type="primary" onClick={handleCreate}>Add Offer Source</Button>}
+    >
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search offer sources..."
+        filters={<ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />}
+        trailing={
+          <>
+            <DateRangePicker
+              value={{ from: dateRange.from, to: dateRange.to, preset: null }}
+              timezone={tz}
+              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+            />
+            <TimezoneSelect value={tz} onChange={setTz} />
+          </>
+        }
+        actions={<ColumnChooser columnDefs={columnDefs} gridRef={gridRef} storageKey="offer-sources" />}
+      />
 
       {!isLoading && filtered.length === 0 ? (
         <EmptyState message={search ? 'No offer sources match your search.' : 'No offer sources found.'} />
       ) : (
-        <DataTable
-          columns={tableCols}
-          data={filtered}
-          isLoading={isLoading}
-          totalRows={totalRows}
-          pagination={pagination}
-          onPaginationChange={onPaginationChange}
-          sorting={sorting}
-          onSortingChange={onSortingChange}
-          manualPagination
-          manualSorting
-          getRowId={(r) => r.id}
+        <DataGrid
+          gridRef={gridRef}
+          rowData={filtered}
+          columnDefs={columnDefs}
+          loading={isLoading}
+          rowSelection="multiple"
+          onSelectionChanged={onSelectionChanged}
+          getRowId={(params) => params.data.id}
         />
       )}
+
+      <BulkActionsBar
+        count={selectedIds.length}
+        onDeselectAll={() => setSelectedIds([])}
+        onDelete={async () => {
+          for (const id of selectedIds) {
+            await deleteMutation.mutateAsync(id)
+          }
+          toast.success('Selected offer sources deleted')
+          setSelectedIds([])
+          reload()
+        }}
+      />
 
       <OfferSourceForm
         open={sheetOpen}
@@ -451,6 +370,6 @@ export function OfferSourcesPage() {
         loading={deleteMutation.isPending}
         danger
       />
-    </div>
+    </PageShell>
   )
 }

@@ -11,6 +11,8 @@ import {
   LogOut,
   Menu,
   Bell,
+  Sun,
+  Moon,
   BarChart3,
   Shield,
   Tag,
@@ -23,6 +25,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { useNotificationStore } from "@/hooks/useNotifications"
+import { useThemeStore } from "@/store/theme"
 
 interface NavItem {
   label: string
@@ -294,6 +297,21 @@ function NotificationBell() {
   )
 }
 
+function ThemeToggle() {
+  const mode = useThemeStore((s) => s.mode)
+  const toggle = useThemeStore((s) => s.toggle)
+
+  return (
+    <button
+      onClick={toggle}
+      className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {mode === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  )
+}
+
 export function Navbar() {
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
@@ -313,6 +331,7 @@ export function Navbar() {
 
       <div className="ml-auto flex items-center gap-1">
         <NotificationBell />
+        <ThemeToggle />
         <SettingsDropdown permissions={permissions} />
         <UserDropdown />
       </div>

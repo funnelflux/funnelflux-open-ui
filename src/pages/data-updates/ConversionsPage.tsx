@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button, Input } from 'antd'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { useToastApi } from '@/components/ui-kit'
+import { PageShell, useToastApi } from '@/components/ui-kit'
 import { api } from '@/api/client'
 import { getErrorMessage } from '@/lib/utils'
 
@@ -31,12 +30,10 @@ export function ConversionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Update Conversions"
-        subtitle="Submit conversion data in CSV format"
-      />
-
+    <PageShell
+      title="Update Conversions"
+      subtitle="Submit conversion data in CSV format"
+    >
       <div className="max-w-2xl space-y-4">
         <div className="space-y-1.5">
           <label htmlFor="csv-data" className="text-sm font-medium">
@@ -60,6 +57,6 @@ export function ConversionsPage() {
           Submit Conversions
         </Button>
       </div>
-    </div>
+    </PageShell>
   )
 }

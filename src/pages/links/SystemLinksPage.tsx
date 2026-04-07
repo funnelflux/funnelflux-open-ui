@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Copy, Loader2, Link } from 'lucide-react'
 import { Button, Input, Select, Card } from 'antd'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { useToastApi } from '@/components/ui-kit'
+import { PageShell, SmartSelect, useToastApi } from '@/components/ui-kit'
+import type { SmartSelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
   useFunnels,
@@ -96,9 +96,29 @@ export function SystemLinksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mutation objects are stable (.mutate), only selection values should trigger
   }, [selectedCampaign, selectedDomain, selectedFunnel, selectedNode, selectedTrafficSource])
 
-  const campaigns = linksData?.campaigns ?? []
-  const trafficSources = linksData?.trafficSources ?? []
-  const domains = linksData?.domains ?? []
+  const campaignOptions: SmartSelectOption[] = useMemo(
+    () => (linksData?.campaigns ?? []).map((c) => ({ label: c.name, value: c.id, searchId: c.id })),
+    [linksData?.campaigns],
+  )
+
+  const funnelOptions: SmartSelectOption[] = useMemo(
+    () => (funnels ?? []).map((f) => ({ label: f.name, value: f.id, searchId: f.id })),
+    [funnels],
+  )
+
+  const trafficSourceOptions: SmartSelectOption[] = useMemo(
+    () => (linksData?.trafficSources ?? []).map((s) => ({ label: s.name, value: s.id, searchId: s.id })),
+    [linksData?.trafficSources],
+  )
+
+  const domainOptions: SmartSelectOption[] = useMemo(
+    () => [
+      { label: 'Default domain', value: '__default__' },
+      ...(linksData?.domains ?? []).map((d) => ({ label: d.domain, value: d.domain, searchId: d.id })),
+    ],
+    [linksData?.domains],
+  )
+
   const postbackUrl = trafficSource?.postback?.postbackCode ?? ''
   const isGenerating =
     generateEntranceLink.isPending ||
@@ -106,12 +126,10 @@ export function SystemLinksPage() {
     generateNoRedirectJS.isPending
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="System Links"
-        subtitle="Generate entrance links, action links, and postback helpers"
-      />
-
+    <PageShell
+      title="System Links"
+      subtitle="Generate entrance links, action links, and postback helpers"
+    >
       {loadingData ? (
         <p className="text-sm text-muted-foreground">Loading options...</p>
       ) : (
@@ -119,30 +137,19 @@ export function SystemLinksPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Campaign *</label>
-              <Select value={selectedCampaign || undefined} onChange={setSelectedCampaign} placeholder="Select campaign" className="w-full">
-                {campaigns.map((campaign) => (
-                  <Select.Option key={campaign.id} value={campaign.id}>
-                    {campaign.name}
-                  </Select.Option>
-                ))}
-              </Select>
+              <SmartSelect options={campaignOptions} value={selectedCampaign || undefined} onChange={setSelectedCampaign} placeholder="Select campaign" className="w-full" />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Funnel *</label>
-              <Select
+              <SmartSelect
+                options={funnelOptions}
                 value={selectedFunnel || undefined}
                 onChange={setSelectedFunnel}
                 disabled={!selectedCampaign}
                 placeholder={selectedCampaign ? 'Select funnel' : 'Select a campaign first'}
                 className="w-full"
-              >
-                {(funnels ?? []).map((funnel) => (
-                  <Select.Option key={funnel.id} value={funnel.id}>
-                    {funnel.name}
-                  </Select.Option>
-                ))}
-              </Select>
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -165,35 +172,18 @@ export function SystemLinksPage() {
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Traffic Source *</label>
-              <Select
-                value={selectedTrafficSource || undefined}
-                onChange={setSelectedTrafficSource}
-                placeholder="Select traffic source"
-                className="w-full"
-              >
-                {trafficSources.map((source) => (
-                  <Select.Option key={source.id} value={source.id}>
-                    {source.name}
-                  </Select.Option>
-                ))}
-              </Select>
+              <SmartSelect options={trafficSourceOptions} value={selectedTrafficSource || undefined} onChange={setSelectedTrafficSource} placeholder="Select traffic source" className="w-full" />
             </div>
 
             <div className="space-y-1.5 lg:col-span-2">
               <label className="text-sm font-medium">Domain</label>
-              <Select
+              <SmartSelect
+                options={domainOptions}
                 value={selectedDomain || '__default__'}
                 onChange={(value) => setSelectedDomain(value === '__default__' ? '' : value)}
                 placeholder="Default domain"
                 className="w-full"
-              >
-                <Select.Option value="__default__">Default domain</Select.Option>
-                {domains.map((domain) => (
-                  <Select.Option key={domain.id} value={domain.domain}>
-                    {domain.domain}
-                  </Select.Option>
-                ))}
-              </Select>
+              />
             </div>
           </div>
 
@@ -250,6 +240,6 @@ export function SystemLinksPage() {
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   )
 }

@@ -215,8 +215,6 @@ export function DrilldownToolbar({
         <TimezoneSelect value={timezone} onChange={setTimezone} />
         <Button
           htmlType="button"
-          size="small"
-          className="h-9"
           onClick={() => void handleSaveView()}
           disabled={saveView.isPending}
           icon={saveView.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -225,8 +223,6 @@ export function DrilldownToolbar({
         </Button>
         <Button
           htmlType="button"
-          size="small"
-          className="h-9"
           onClick={() => void handleDeleteView()}
           disabled={!selectedViewId || deleteView.isPending}
           icon={deleteView.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
@@ -235,8 +231,6 @@ export function DrilldownToolbar({
         </Button>
         <Button
           type="primary"
-          size="small"
-          className="h-9"
           onClick={handleApply}
           disabled={isLoading}
           icon={isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
@@ -245,8 +239,6 @@ export function DrilldownToolbar({
         </Button>
         <Button
           htmlType="button"
-          size="small"
-          className="h-9"
           onClick={() => void handleExport()}
           disabled={isExporting}
           icon={isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}

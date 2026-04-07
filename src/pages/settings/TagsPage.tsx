@@ -2,8 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Tags, Plus } from 'lucide-react'
 import { Button, Input, Tag } from 'antd'
 import type { InputRef } from 'antd'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState, useToastApi } from '@/components/ui-kit'
+import { EmptyState, PageShell, useToastApi } from '@/components/ui-kit'
 import { useTags, useSaveTag, useUpdateTag } from '@/api/hooks/useTags'
 
 export function TagsPage() {
@@ -84,10 +83,8 @@ export function TagsPage() {
   }
 
   return (
-    <div>
-      <PageHeader title="Tags" />
-
-      <div className="flex items-center gap-2 mb-6">
+    <PageShell title="Tags">
+      <div className="flex items-center gap-2">
         <Input
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
@@ -99,7 +96,6 @@ export function TagsPage() {
           type="primary"
           onClick={handleAddTags}
           disabled={!inputValue.trim() || saveTag.isPending}
-          size="small"
         >
           <Plus className="h-4 w-4 mr-1" />
           Add
@@ -142,6 +138,6 @@ export function TagsPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageShell>
   )
 }

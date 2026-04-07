@@ -1,15 +1,12 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Plus } from 'lucide-react'
+import type { ColDef } from 'ag-grid-community'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { DataTable } from '@/components/shared/DataTable'
-import { SearchInput } from '@/components/shared/SearchInput'
-import { ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
+import { PageShell, DataGrid, SearchToolbar, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
 import { Button, Tag } from 'antd'
 import { getErrorMessage } from '@/lib/utils'
-import type { ColumnDef } from '@tanstack/react-table'
 import type { Condition } from '@/types/funnel'
 
 export function GlobalConditionsPage() {
@@ -55,67 +52,79 @@ export function GlobalConditionsPage() {
     }
   }, [deleteId, deleteCondition, toast])
 
-  const columns = useMemo<ColumnDef<Condition>[]>(
+  const columns = useMemo<ColDef<Condition>[]>(
     () => [
       {
-        id: 'name',
-        header: 'Name',
-        accessorFn: (row) => row.conditionName,
-        cell: ({ row }) => <span className="font-medium">{row.original.conditionName}</span>,
-        enableSorting: true,
+        colId: 'name',
+        headerName: 'Name',
+        field: 'conditionName',
+        sortable: true,
+        cellRenderer: (params: { data: Condition }) => (
+          <span className="font-medium">{params.data.conditionName}</span>
+        ),
       },
       {
-        id: 'scope',
-        header: 'Scope',
-        accessorFn: (row) => row.scope,
-        cell: ({ row }) => (
+        colId: 'scope',
+        headerName: 'Scope',
+        field: 'scope',
+        cellRenderer: (params: { data: Condition }) => (
           <Tag className="text-xs capitalize">
-            {row.original.scope}
+            {params.data.scope}
           </Tag>
         ),
       },
       {
-        id: 'rules',
-        header: 'Rules',
-        cell: ({ row }) => {
-          const count = row.original.blocks.reduce((sum, b) => sum + b.rules.length, 0)
-          return <span className="text-muted-foreground text-sm">{count} rule{count !== 1 ? 's' : ''}</span>
+        colId: 'rules',
+        headerName: 'Rules',
+        valueGetter: (params: { data: Condition | undefined }) => {
+          if (!params.data) return 0
+          return params.data.blocks.reduce((sum, b) => sum + b.rules.length, 0)
         },
-      },
-      {
-        id: 'blocks',
-        header: 'Blocks',
-        cell: ({ row }) => (
+        cellRenderer: (params: { value: number }) => (
           <span className="text-muted-foreground text-sm">
-            {row.original.blocks.length} ({row.original.blockLogicOperator})
+            {params.value} rule{params.value !== 1 ? 's' : ''}
           </span>
         ),
       },
       {
-        id: 'id',
-        header: 'ID',
-        accessorFn: (row) => row.idCondition,
-        cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">{row.original.idCondition}</span>
+        colId: 'blocks',
+        headerName: 'Blocks',
+        valueGetter: (params: { data: Condition | undefined }) =>
+          params.data ? params.data.blocks.length : 0,
+        cellRenderer: (params: { data: Condition; value: number }) => (
+          <span className="text-muted-foreground text-sm">
+            {params.value} ({params.data.blockLogicOperator})
+          </span>
         ),
       },
       {
-        id: 'actions',
-        header: '',
-        cell: ({ row }) => (
-          <RowActionsMenu
+        colId: 'id',
+        headerName: 'ID',
+        field: 'idCondition',
+        cellRenderer: (params: { data: Condition }) => (
+          <span className="font-mono text-xs text-muted-foreground">{params.data.idCondition}</span>
+        ),
+      },
+      {
+        colId: 'actions',
+        headerName: '',
+        sortable: false,
+        cellRenderer: (params: { data: Condition }) => (
+          <InlineActions
             actions={[
               {
                 label: 'Edit',
+                icon: Pencil,
                 onClick: () => {
-                  setEditCondition(row.original)
+                  setEditCondition(params.data)
                   setEditorOpen(true)
                 },
               },
               {
                 label: 'Delete',
+                icon: Trash2,
                 destructive: true,
-                onClick: () => setDeleteId(row.original.idCondition),
+                onClick: () => setDeleteId(params.data.idCondition),
               },
             ]}
           />
@@ -126,11 +135,11 @@ export function GlobalConditionsPage() {
   )
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Global Conditions">
+    <PageShell
+      title="Global Conditions"
+      actions={
         <Button
           type="primary"
-          size="small"
           onClick={() => {
             setEditCondition(null)
             setEditorOpen(true)
@@ -139,20 +148,18 @@ export function GlobalConditionsPage() {
           <Plus className="h-4 w-4 mr-1" />
           Add Condition
         </Button>
-      </PageHeader>
-
-      <div className="flex items-center gap-3">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search conditions..." />
-      </div>
+      }
+    >
+      <SearchToolbar value={search} onChange={setSearch} placeholder="Search conditions..." />
 
       {filtered.length === 0 && !isLoading ? (
         <EmptyState message="No global conditions found. Create one to get started." />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          isLoading={isLoading}
-          getRowId={(row) => row.idCondition}
+        <DataGrid<Condition>
+          rowData={filtered}
+          columnDefs={columns}
+          getRowId={(p) => p.data.idCondition}
+          loading={isLoading}
         />
       )}
 
@@ -176,6 +183,6 @@ export function GlobalConditionsPage() {
         loading={deleteCondition.isPending}
         danger
       />
-    </div>
+    </PageShell>
   )
 }

@@ -1,35 +1,45 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { subDays } from 'date-fns'
-import { type ColumnDef, type RowSelectionState } from '@tanstack/react-table'
+import type { AgGridReact } from 'ag-grid-react'
+import type { ColDef, SelectionChangedEvent } from 'ag-grid-community'
 import { Archive, Copy, Pencil, Trash2, Upload } from 'lucide-react'
 import { Button } from 'antd'
-import { DataTable } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmModal, EmptyState, TimezoneSelect, useToastApi } from '@/components/ui-kit'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { SearchInput } from '@/components/shared/SearchInput'
+import {
+  ConfirmModal,
+  EmptyState,
+  TimezoneSelect,
+  useToastApi,
+  PageShell,
+  SearchToolbar,
+  DataGrid,
+} from '@/components/ui-kit'
+import {
+  nameColumn,
+  visitsColumn,
+  clicksColumn,
+  ctrColumn,
+  convColumn,
+  revenueColumn,
+  costColumn,
+  plColumn,
+  roiColumn,
+  idColumn,
+} from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
 import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
+import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
 import { useCategories, useDeletePage, useClonePage, useArchivePage } from '@/api/hooks'
-import { useEntityPaginatedReport, type EntityRow } from '@/api/hooks/useEntityPaginatedReport'
+import { useEntityGridReport, type EntityGridRow } from '@/api/hooks/useEntityGridReport'
 import { PageForm } from '@/components/forms/PageForm'
 import { api } from '@/api/client'
-import type { ReportCell } from '@/types/stats'
 import type { Page } from '@/types/entities'
 import type { PageFormData } from '@/schemas/page'
 import { useSavePage, usePage } from '@/api/hooks'
 import { getErrorMessage } from '@/lib/utils'
-
-function cellFmt(cell?: ReportCell): string {
-  return cell?.formatted ?? ''
-}
-function cellRaw(cell?: ReportCell): number {
-  if (!cell) return 0
-  return typeof cell.raw === 'number' ? cell.raw : Number(cell.raw) || 0
-}
 
 interface PageMeta {
   idPage: string
@@ -41,6 +51,7 @@ const META_PARAMS = { pageType: 'lander' }
 
 export function LandersPage() {
   const toast = useToastApi()
+  const gridRef = useRef<AgGridReact>(null)
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -48,7 +59,7 @@ export function LandersPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 365),
@@ -66,14 +77,9 @@ export function LandersPage() {
     rows,
     columns,
     metaById,
-    totalRows,
-    pagination,
-    onPaginationChange,
-    sorting,
-    onSortingChange,
     isLoading,
     reload,
-  } = useEntityPaginatedReport<PageMeta>({
+  } = useEntityGridReport<PageMeta>({
     groupBy: 'Element: Lander',
     dateFrom: dateRange.from,
     dateTo: dateRange.to,
@@ -89,10 +95,16 @@ export function LandersPage() {
     return m
   }, [columns])
 
-  // Client-side filtering on the current page of results
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const c of categories ?? []) map.set(c.idCategory, c.name)
+    return map
+  }, [categories])
+
+  // Client-side filtering + category grouping
   const filtered = useMemo(() => {
     const searchText = search.toLowerCase()
-    return rows.filter((row) => {
+    const base = rows.filter((row) => {
       const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
       const matchesCategory = !selectedCategoryId || metaById[row.id]?.categoryId === selectedCategoryId
       const meta = metaById[row.id]
@@ -101,12 +113,31 @@ export function LandersPage() {
         (archiveStatus === 'archived' ? meta?.isArchived === true : meta?.isArchived !== true)
       return matchesSearch && matchesCategory && matchesArchive
     })
-  }, [archiveStatus, metaById, rows, search, selectedCategoryId])
 
-  const selectedIds = useMemo(
-    () => Object.keys(rowSelection).filter((id) => rowSelection[id]),
-    [rowSelection],
-  )
+    // Group by category
+    const grouped = new Map<string, EntityGridRow[]>()
+    for (const row of base) {
+      const catId = metaById[row.id]?.categoryId ?? ''
+      const catName = catId ? (categoryMap.get(catId) ?? 'Unknown') : 'Uncategorized'
+      if (!grouped.has(catName)) grouped.set(catName, [])
+      grouped.get(catName)!.push(row)
+    }
+
+    // If only one group or no categories, return flat
+    if (grouped.size <= 1) return base
+
+    // Insert header rows
+    const result: EntityGridRow[] = []
+    for (const [catName, catRows] of grouped) {
+      result.push({ id: `cat-${catName}`, name: catName, cells: [], _isCategoryHeader: true } as EntityGridRow & { _isCategoryHeader: boolean })
+      result.push(...catRows)
+    }
+    return result
+  }, [archiveStatus, metaById, rows, search, selectedCategoryId, categoryMap])
+
+  const onSelectionChanged = useCallback((e: SelectionChangedEvent<EntityGridRow>) => {
+    setSelectedIds(e.api.getSelectedRows().map(r => r.id))
+  }, [])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
   const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
@@ -169,167 +200,119 @@ export function LandersPage() {
   const iPL = colMap.get('P/L') ?? 32
   const iROI = colMap.get('ROI') ?? 33
 
-  const tableCols: ColumnDef<EntityRow>[] = [
+  const handleEditRef = useRef(handleEdit)
+  handleEditRef.current = handleEdit
+  const handleCloneRef = useRef(handleClone)
+  handleCloneRef.current = handleClone
+  const handleArchiveRef = useRef(handleArchive)
+  handleArchiveRef.current = handleArchive
+
+  const columnDefs = useMemo<ColDef[]>(() => [
     {
-      id: 'name',
-      header: 'Name',
-      accessorFn: (r) => r.name,
-      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
-    },
-    {
-      id: 'visits',
-      header: 'Visits',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iVisits]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iVisits])}</span>,
-    },
-    {
-      id: 'clicks',
-      header: 'Clicks',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iClicks]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iClicks])}</span>,
-    },
-    {
-      id: 'ctr',
-      header: 'CTR',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iCTR]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCTR])}</span>,
-    },
-    {
-      id: 'conv',
-      header: 'Conv',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iConv]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iConv])}</span>,
-    },
-    {
-      id: 'revenue',
-      header: 'Revenue',
-      size: 90,
-      accessorFn: (r) => cellRaw(r.cells[iRevenue]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iRevenue])}</span>,
-    },
-    {
-      id: 'cost',
-      header: 'Cost',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iCost]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCost])}</span>,
-    },
-    {
-      id: 'pl',
-      header: 'P/L',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iPL]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iPL])
+      ...nameColumn(),
+      cellStyle: { position: 'relative', overflow: 'visible' },
+      cellRenderer: (params: { data: EntityGridRow & { _isCategoryHeader?: boolean } }) => {
+        if (params.data?._isCategoryHeader) {
+          return <span className="font-semibold text-muted-foreground uppercase text-xs">{params.data.name}</span>
+        }
         return (
-          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
-            {cellFmt(row.original.cells[iPL])}
-          </span>
+          <>
+            <span className="truncate">{params.data.name}</span>
+            <div className="name-actions">
+              <InlineActions
+                actions={[
+                  { label: 'Edit', icon: Pencil, onClick: () => handleEditRef.current(params.data.id) },
+                  { label: 'Clone', icon: Copy, onClick: () => handleCloneRef.current(params.data.id) },
+                  { label: 'Archive', icon: Archive, onClick: () => handleArchiveRef.current(params.data.id, true) },
+                  { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(params.data.id), destructive: true },
+                ]}
+              />
+            </div>
+          </>
         )
       },
     },
-    {
-      id: 'roi',
-      header: 'ROI',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iROI]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iROI])
-        return (
-          <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>
-            {cellFmt(row.original.cells[iROI])}
-          </span>
-        )
-      },
-    },
-    {
-      id: 'id',
-      header: 'ID',
-      size: 160,
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-muted-foreground">{row.original.id}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      size: 50,
-      cell: ({ row }) => (
-        <RowActionsMenu
-          actions={[
-            { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.original.id) },
-            { label: 'Clone', icon: Copy, onClick: () => handleClone(row.original.id) },
-            { label: 'Archive', icon: Archive, onClick: () => handleArchive(row.original.id, true) },
-            { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.original.id), destructive: true },
-          ]}
-        />
-      ),
-    },
-  ]
+    idColumn(),
+    visitsColumn(iVisits),
+    clicksColumn(iClicks),
+    ctrColumn(iCTR, { headerName: 'Lander CTR' }),
+    convColumn(iConv),
+    revenueColumn(iRevenue),
+    costColumn(iCost),
+    plColumn(iPL),
+    roiColumn(iROI),
+  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Landers">
+    <PageShell
+      title="Landers"
+      actions={
         <div className="flex items-center gap-2">
-          <Button onClick={() => setImportOpen(true)} size="small">
+          <Button onClick={() => setImportOpen(true)}>
             <Upload className="mr-1.5 h-3.5 w-3.5" />
             Import CSV
           </Button>
-          <Button type="primary" onClick={handleCreate} size="small">Add Lander</Button>
+          <Button type="primary" onClick={handleCreate}>Add Lander</Button>
         </div>
-      </PageHeader>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search landers..." className="w-64" />
-        <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />
-        <CategoryManager
-          entityType="page"
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={setSelectedCategoryId}
-        />
-        <DateRangePicker
-          value={{ from: dateRange.from, to: dateRange.to, preset: null }}
-          timezone={tz}
-          onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
-        />
-        <TimezoneSelect value={tz} onChange={setTz} />
-      </div>
+      }
+    >
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search landers..."
+        filters={
+          <>
+            <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />
+            <CategoryManager
+              entityType="page"
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={setSelectedCategoryId}
+            />
+          </>
+        }
+        trailing={
+          <>
+            <DateRangePicker
+              value={{ from: dateRange.from, to: dateRange.to, preset: null }}
+              timezone={tz}
+              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+            />
+            <TimezoneSelect value={tz} onChange={setTz} />
+          </>
+        }
+        actions={<ColumnChooser columnDefs={columnDefs} gridRef={gridRef} storageKey="landers" />}
+      />
 
       {!isLoading && filtered.length === 0 ? (
         <EmptyState message={search || selectedCategoryId ? 'No landers match your filters.' : 'No landers found.'} />
       ) : (
-        <DataTable
-          columns={tableCols}
-          data={filtered}
-          isLoading={isLoading}
-          totalRows={totalRows}
-          pagination={pagination}
-          onPaginationChange={onPaginationChange}
-          sorting={sorting}
-          onSortingChange={onSortingChange}
-          manualPagination
-          manualSorting
-          getRowId={(r) => r.id}
-          enableRowSelection
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
+        <DataGrid
+          gridRef={gridRef}
+          rowData={filtered}
+          columnDefs={columnDefs}
+          loading={isLoading}
+          rowSelection="multiple"
+          onSelectionChanged={onSelectionChanged}
+          getRowId={(params) => params.data.id}
+          getRowStyle={(params) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((params.data as any)?._isCategoryHeader) {
+              return { background: 'var(--surface-secondary)', fontWeight: 600 }
+            }
+            return undefined
+          }}
         />
       )}
 
       <BulkActionsBar
         count={selectedIds.length}
-        categories={categories}
-        onSelectAll={() => setRowSelection(Object.fromEntries(filtered.map((row) => [row.id, true])))}
-        onDeselectAll={() => setRowSelection({})}
+        onDeselectAll={() => setSelectedIds([])}
         onArchive={async () => {
           for (const id of selectedIds) {
             await archiveMutation.mutateAsync({ id, archive: true })
           }
           toast.success('Selected landers archived')
-          setRowSelection({})
+          setSelectedIds([])
           reload()
         }}
         onDelete={async () => {
@@ -337,16 +320,19 @@ export function LandersPage() {
             await deleteMutation.mutateAsync(id)
           }
           toast.success('Selected landers deleted')
-          setRowSelection({})
+          setSelectedIds([])
           reload()
         }}
-        onMoveToCategory={async (idCategory) => {
-          await api.post('/data/page/category/assign/', {
-            pageIds: selectedIds,
-            categoryId: idCategory,
-          })
-          toast.success('Selected landers moved')
-          reload()
+        onMoveToCategory={{
+          categories: categories ?? [],
+          onMove: async (idCategory) => {
+            await api.post('/data/page/category/assign/', {
+              pageIds: selectedIds,
+              categoryId: idCategory,
+            })
+            toast.success('Selected landers moved')
+            reload()
+          },
         }}
       />
 
@@ -383,6 +369,6 @@ export function LandersPage() {
         loading={deleteMutation.isPending}
         danger
       />
-    </div>
+    </PageShell>
   )
 }

@@ -1,14 +1,32 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { subDays } from 'date-fns'
-import { type ColumnDef, type ExpandedState, type PaginationState, type SortingState, type OnChangeFn } from '@tanstack/react-table'
+import type { AgGridReact } from 'ag-grid-react'
+import type { ColDef, SelectionChangedEvent, SortModelItem } from 'ag-grid-community'
 import { Copy, Pencil, Plus, Trash2, Workflow } from 'lucide-react'
 import { Button } from 'antd'
-import { TreeDataTable } from '@/components/shared/TreeDataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmModal, EmptyState, TimezoneSelect, useToastApi } from '@/components/ui-kit'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { SearchInput } from '@/components/shared/SearchInput'
+import {
+  PageShell,
+  SearchToolbar,
+  DataGrid,
+  ConfirmModal,
+  EmptyState,
+  TimezoneSelect,
+  useToastApi,
+  nameColumn,
+  visitsColumn,
+  clicksColumn,
+  ctrColumn,
+  convColumn,
+  revenueColumn,
+  costColumn,
+  plColumn,
+  roiColumn,
+  idColumn,
+} from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
+import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
+import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
   useSaveCampaign,
@@ -27,26 +45,16 @@ import type { Campaign, Funnel } from '@/types/entities'
 import type { CampaignFormData } from '@/schemas/campaign'
 import { getErrorMessage } from '@/lib/utils'
 
-function cellFmt(cell?: ReportCell): string {
-  return cell?.formatted ?? ''
-}
-function cellRaw(cell?: ReportCell): number {
-  if (!cell) return 0
-  return typeof cell.raw === 'number' ? cell.raw : Number(cell.raw) || 0
-}
-
-interface CampaignTreeRow {
+interface CampaignGridRow {
   id: string
   name: string
   cells: ReportCell[]
   kind: 'campaign' | 'funnel'
   campaignId: string
   funnelId?: string
-  _hasChildren?: boolean
-  subRows?: CampaignTreeRow[]
 }
 
-function reportRowsToRows(report: Report, kind: 'campaign' | 'funnel', campaignId?: string): CampaignTreeRow[] {
+function reportRowsToRows(report: Report, kind: 'campaign' | 'funnel', campaignId?: string): CampaignGridRow[] {
   return (report.rows ?? []).map((row, index) => {
     const cells = row.cells ?? []
     const id = String(cells[0]?.raw ?? index)
@@ -57,7 +65,6 @@ function reportRowsToRows(report: Report, kind: 'campaign' | 'funnel', campaignI
       kind,
       campaignId: campaignId ?? id,
       funnelId: kind === 'funnel' ? id : undefined,
-      _hasChildren: kind === 'campaign',
     }
   })
 }
@@ -65,10 +72,10 @@ function reportRowsToRows(report: Report, kind: 'campaign' | 'funnel', campaignI
 export function CampaignsPage() {
   const toast = useToastApi()
   const navigate = useNavigate()
+  const gridRef = useRef<AgGridReact>(null)
   const [search, setSearch] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<ExpandedState>({})
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; kind: 'campaign' | 'funnel' } | null>(null)
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
@@ -76,15 +83,13 @@ export function CampaignsPage() {
     to: new Date(),
   }))
 
-  const [rows, setRows] = useState<CampaignTreeRow[]>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [rows, setRows] = useState<CampaignGridRow[]>([])
   const [columns, setColumns] = useState<{ name: string; type: string }[]>([])
-  const [totalRows, setTotalRows] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 50,
-  })
-  const [sorting, setSorting] = useState<SortingState>([])
+  const page = 0
+  const pageSize = 50
+  const sortModel: SortModelItem[] = []
 
   const { data: editCampaign } = useCampaign(editId ?? '')
   const saveMutation = useSaveCampaign()
@@ -99,12 +104,12 @@ export function CampaignsPage() {
       groupings: DrilldownRequest['groupings'],
       topLevelFilters?: DrilldownRequest['topLevelFilters'],
       pag?: { start: number; length: number },
-      sort?: SortingState,
+      sort?: SortModelItem[],
     ) => {
       const sortParam = sort?.[0]
         ? {
-            column: Number(String(sort[0].id).replace('col-', '')),
-            direction: sort[0].desc ? ('desc' as const) : ('asc' as const),
+            column: Number(String(sort[0].colId).replace('col-', '')),
+            direction: sort[0].sort === 'desc' ? ('desc' as const) : ('asc' as const),
           }
         : undefined
 
@@ -122,7 +127,7 @@ export function CampaignsPage() {
   )
 
   const fetchData = useCallback(
-    (pag: PaginationState, sort: SortingState) => {
+    (currentPage: number, sort: SortModelItem[]) => {
       setIsLoading(true)
       api
         .post<Report>(
@@ -130,69 +135,80 @@ export function CampaignsPage() {
           buildRequest(
             [{ groupBy: 'Element: Campaign', whitelistFilters: [], blacklistFilters: [] }],
             undefined,
-            { start: pag.pageIndex * pag.pageSize, length: pag.pageSize },
+            { start: currentPage * pageSize, length: pageSize },
             sort,
           ),
         )
         .then((report) => {
           setColumns(report.columns ?? [])
-          setRows(reportRowsToRows(report, 'campaign'))
-          setTotalRows(report.paging?.totalRecords ?? (report.rows ?? []).length)
+          const campaignRows = reportRowsToRows(report, 'campaign')
+          setRows(campaignRows)
           setIsLoading(false)
+
+          // Auto-expand: load funnels for each campaign
+          for (const cRow of campaignRows) {
+            loadFunnels(cRow)
+          }
         })
         .catch(() => {
           setRows([])
-          setTotalRows(0)
           setIsLoading(false)
         })
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [buildRequest, pageSize],
+  )
+
+  const loadFunnels = useCallback(
+    (campaignRow: CampaignGridRow) => {
+      api
+        .post<Report>(
+          '/stats/reporting/drilldown/',
+          buildRequest(
+            [{ groupBy: 'Element: Funnel', whitelistFilters: [], blacklistFilters: [] }],
+            [{ groupBy: 'Element: Campaign', whitelistFilters: [campaignRow.campaignId], blacklistFilters: [] }],
+            { start: 0, length: 99999 },
+          ),
+        )
+        .then((report) => {
+          const funnelRows = reportRowsToRows(report, 'funnel', campaignRow.campaignId)
+          if (funnelRows.length > 0) {
+            setRows((current) => {
+              const idx = current.findIndex((r) => r.id === campaignRow.id)
+              if (idx === -1) return current
+              // Guard: skip if funnels already inserted for this campaign
+              if (idx + 1 < current.length && current[idx + 1].kind === 'funnel' && current[idx + 1].campaignId === campaignRow.campaignId) {
+                return current
+              }
+              const updated = [...current]
+              updated.splice(idx + 1, 0, ...funnelRows)
+              return updated
+            })
+          }
+        })
+        .catch(() => {})
     },
     [buildRequest],
   )
 
   useEffect(() => {
-    fetchData(pagination, sorting)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-fetch on date/tz change
+    fetchData(0, sortModel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildRequest])
 
-  const handlePaginationChange: OnChangeFn<PaginationState> = useCallback(
-    (updater) => {
-      const next = typeof updater === 'function' ? updater(pagination) : updater
-      setPagination(next)
-      setExpanded({})
-      fetchData(next, sorting)
-    },
-    [fetchData, pagination, sorting],
-  )
-
-  const handleSortingChange: OnChangeFn<SortingState> = useCallback(
-    (updater) => {
-      const next = typeof updater === 'function' ? updater(sorting) : updater
-      setSorting(next)
-      const resetPag = { ...pagination, pageIndex: 0 }
-      setPagination(resetPag)
-      setExpanded({})
-      fetchData(resetPag, next)
-    },
-    [fetchData, pagination, sorting],
-  )
-
   const loadData = useCallback(() => {
-    fetchData(pagination, sorting)
-  }, [fetchData, pagination, sorting])
-
-  const setChildren = useCallback((currentRows: CampaignTreeRow[], rowId: string, children: CampaignTreeRow[]): CampaignTreeRow[] =>
-    currentRows.map((row) => {
-      if (row.id === rowId) {
-        return { ...row, subRows: children }
-      }
-      return row.subRows ? { ...row, subRows: setChildren(row.subRows, rowId, children) } : row
-    }), [])
+    fetchData(page, sortModel)
+  }, [fetchData, page, sortModel])
 
   const filtered = useMemo(() => {
     if (!search) return rows
     const s = search.toLowerCase()
     return rows.filter((row) => row.name.toLowerCase().includes(s))
   }, [rows, search])
+
+  const onSelectionChanged = useCallback((e: SelectionChangedEvent<CampaignGridRow>) => {
+    setSelectedIds(e.api.getSelectedRows().map(r => r.id))
+  }, [])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
   const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
@@ -261,9 +277,7 @@ export function CampaignsPage() {
 
   const handleMoveFunnel = async (funnelId: string) => {
     const targetCampaignId = window.prompt('Move funnel to campaign ID')
-    if (!targetCampaignId?.trim()) {
-      return
-    }
+    if (!targetCampaignId?.trim()) return
 
     try {
       await api.put('/data/campaign/funnel/move/', {
@@ -276,29 +290,6 @@ export function CampaignsPage() {
       toast.error(getErrorMessage(err))
     }
   }
-
-  const handleExpandRow = useCallback(
-    async (rowId: string, row: CampaignTreeRow) => {
-      if (row.kind !== 'campaign') {
-        return []
-      }
-
-      // Child expansion keeps length: 99999 (few funnels per campaign)
-      const report = await api.post<Report>(
-        '/stats/reporting/drilldown/',
-        buildRequest(
-          [{ groupBy: 'Element: Funnel', whitelistFilters: [], blacklistFilters: [] }],
-          [{ groupBy: 'Element: Campaign', whitelistFilters: [row.campaignId], blacklistFilters: [] }],
-          { start: 0, length: 99999 },
-        ),
-      )
-
-      const childRows = reportRowsToRows(report, 'funnel', row.campaignId)
-      setRows((current) => setChildren(current, rowId, childRows))
-      return childRows
-    },
-    [buildRequest, setChildren],
-  )
 
   const colMap = useMemo(() => {
     const m = new Map<string, number>()
@@ -315,149 +306,128 @@ export function CampaignsPage() {
   const iPL = colMap.get('P/L') ?? 32
   const iROI = colMap.get('ROI') ?? 33
 
-  const tableCols: ColumnDef<CampaignTreeRow>[] = [
+  const handleEditRef = useRef(handleEdit)
+  handleEditRef.current = handleEdit
+  const handleCloneCampaignRef = useRef(handleCloneCampaign)
+  handleCloneCampaignRef.current = handleCloneCampaign
+  const handleAddFunnelRef = useRef(handleAddFunnel)
+  handleAddFunnelRef.current = handleAddFunnel
+  const handleCloneFunnelRef = useRef(handleCloneFunnel)
+  handleCloneFunnelRef.current = handleCloneFunnel
+  const handleMoveFunnelRef = useRef(handleMoveFunnel)
+  handleMoveFunnelRef.current = handleMoveFunnel
+
+  const columnDefs = useMemo<ColDef[]>(() => [
     {
-      id: 'name',
-      header: 'Name',
-      accessorFn: (r) => r.name,
-      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
-    },
-    {
-      id: 'visits',
-      header: 'Visits',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iVisits]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iVisits])}</span>,
-    },
-    {
-      id: 'clicks',
-      header: 'Clicks',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iClicks]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iClicks])}</span>,
-    },
-    {
-      id: 'ctr',
-      header: 'CTR',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iCTR]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCTR])}</span>,
-    },
-    {
-      id: 'conv',
-      header: 'Conv',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iConv]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iConv])}</span>,
-    },
-    {
-      id: 'revenue',
-      header: 'Revenue',
-      size: 90,
-      accessorFn: (r) => cellRaw(r.cells[iRevenue]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iRevenue])}</span>,
-    },
-    {
-      id: 'cost',
-      header: 'Cost',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iCost]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCost])}</span>,
-    },
-    {
-      id: 'pl',
-      header: 'P/L',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iPL]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iPL])
-        return <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>{cellFmt(row.original.cells[iPL])}</span>
-      },
-    },
-    {
-      id: 'roi',
-      header: 'ROI',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iROI]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iROI])
-        return <span className={`tabular-nums ${val > 0 ? 'text-profit' : val < 0 ? 'text-loss' : ''}`}>{cellFmt(row.original.cells[iROI])}</span>
-      },
-    },
-    {
-      id: 'id',
-      header: 'ID',
-      size: 160,
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-muted-foreground">
-          {row.original.kind === 'campaign' ? row.original.campaignId : row.original.funnelId}
-        </span>
-      ),
-    },
-    {
-      id: 'actions',
-      size: 50,
-      cell: ({ row }) => (
-        row.original.kind === 'campaign' ? (
-          <RowActionsMenu
+      ...nameColumn(),
+      cellStyle: { position: 'relative', overflow: 'visible' },
+      cellRenderer: (params: { data: CampaignGridRow }) => {
+        const row = params.data
+        const indent = row.kind === 'funnel' ? 'pl-6' : ''
+        const weight = row.kind === 'funnel' ? 'text-muted-foreground' : ''
+        const actions = row.kind === 'campaign' ? (
+          <InlineActions
             actions={[
-              { label: 'Manage Funnels', icon: Workflow, onClick: () => navigate(`/campaigns/${row.original.campaignId}/funnels/new`) },
-              { label: 'Add Funnel', icon: Plus, onClick: () => handleAddFunnel(row.original.campaignId) },
-              { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.original.campaignId) },
-              { label: 'Clone', icon: Copy, onClick: () => handleCloneCampaign(row.original.campaignId) },
-              { label: 'Delete', icon: Trash2, onClick: () => setDeleteTarget({ id: row.original.campaignId, kind: 'campaign' }), destructive: true },
+              { label: 'Edit', icon: Pencil, onClick: () => handleEditRef.current(row.campaignId) },
+              { label: 'Clone', icon: Copy, onClick: () => handleCloneCampaignRef.current(row.campaignId) },
+              { label: 'Add Funnel', icon: Plus, onClick: () => handleAddFunnelRef.current(row.campaignId) },
+              { label: 'Delete', icon: Trash2, onClick: () => setDeleteTarget({ id: row.campaignId, kind: 'campaign' }), destructive: true },
             ]}
           />
         ) : (
-          <RowActionsMenu
+          <InlineActions
             actions={[
-              { label: 'Edit', icon: Pencil, onClick: () => navigate(`/campaigns/${row.original.campaignId}/funnels/${row.original.funnelId}`) },
-              { label: 'Clone', icon: Copy, onClick: () => row.original.funnelId && handleCloneFunnel(row.original.funnelId) },
-              { label: 'Move', icon: Workflow, onClick: () => row.original.funnelId && handleMoveFunnel(row.original.funnelId) },
-              { label: 'Delete', icon: Trash2, onClick: () => row.original.funnelId && setDeleteTarget({ id: row.original.funnelId, kind: 'funnel' }), destructive: true },
+              { label: 'Edit', icon: Pencil, onClick: () => navigate(`/campaigns/${row.campaignId}/funnels/${row.funnelId}`) },
+              { label: 'Clone', icon: Copy, onClick: () => row.funnelId && handleCloneFunnelRef.current(row.funnelId) },
+              { label: 'Move', icon: Workflow, onClick: () => row.funnelId && handleMoveFunnelRef.current(row.funnelId) },
+              { label: 'Delete', icon: Trash2, onClick: () => row.funnelId && setDeleteTarget({ id: row.funnelId, kind: 'funnel' }), destructive: true },
             ]}
           />
         )
-      ),
+        return (
+          <>
+            <span className={`truncate ${indent} ${weight}`}>{row.name}</span>
+            <div className="name-actions">{actions}</div>
+          </>
+        )
+      },
     },
-  ]
+    {
+      ...idColumn(),
+      valueGetter: (p) => {
+        const row = p.data as CampaignGridRow
+        return row.kind === 'campaign' ? row.campaignId : row.funnelId
+      },
+    },
+    visitsColumn(iVisits),
+    clicksColumn(iClicks),
+    ctrColumn(iCTR),
+    convColumn(iConv),
+    revenueColumn(iRevenue),
+    costColumn(iCost),
+    plColumn(iPL),
+    roiColumn(iROI),
+  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI, navigate])
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Campaigns">
-        <Button type="primary" onClick={handleCreate} size="small">Add Campaign</Button>
-      </PageHeader>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search campaigns..." className="w-64" />
-        <DateRangePicker
-          value={{ from: dateRange.from, to: dateRange.to, preset: null }}
-          timezone={tz}
-          onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
-        />
-        <TimezoneSelect value={tz} onChange={setTz} />
-      </div>
+    <PageShell
+      title="Campaigns"
+      actions={<Button type="primary" onClick={handleCreate}>Add Campaign</Button>}
+    >
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search campaigns..."
+        trailing={
+          <>
+            <DateRangePicker
+              value={{ from: dateRange.from, to: dateRange.to, preset: null }}
+              timezone={tz}
+              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+            />
+            <TimezoneSelect value={tz} onChange={setTz} />
+          </>
+        }
+        actions={<ColumnChooser columnDefs={columnDefs} gridRef={gridRef} storageKey="campaigns" />}
+      />
 
       {!isLoading && filtered.length === 0 ? (
         <EmptyState message={search ? 'No campaigns match your search.' : 'No campaigns found.'} />
       ) : (
-        <TreeDataTable
-          columns={tableCols}
-          data={filtered}
-          isLoading={isLoading}
-          totalRows={totalRows}
-          pagination={pagination}
-          onPaginationChange={handlePaginationChange}
-          sorting={sorting}
-          onSortingChange={handleSortingChange}
-          manualPagination
-          manualSorting
-          expanded={expanded}
-          onExpandedChange={setExpanded}
-          onExpandRow={handleExpandRow}
-          getRowId={(row) => row.id}
+        <DataGrid
+          gridRef={gridRef}
+          rowData={filtered}
+          columnDefs={columnDefs}
+          loading={isLoading}
+          rowSelection="multiple"
+          onSelectionChanged={onSelectionChanged}
+          getRowId={(params) => params.data.id}
+          getRowStyle={(params) => {
+            if ((params.data as CampaignGridRow)?.kind === 'funnel') {
+              return { background: 'var(--color-muted)' }
+            }
+            return undefined
+          }}
         />
       )}
+
+      <BulkActionsBar
+        count={selectedIds.length}
+        onDeselectAll={() => setSelectedIds([])}
+        onDelete={async () => {
+          for (const id of selectedIds) {
+            const row = rows.find(r => r.id === id)
+            if (row?.kind === 'campaign') {
+              await deleteMutation.mutateAsync(row.campaignId)
+            } else if (row?.kind === 'funnel' && row.funnelId) {
+              await deleteFunnel.mutateAsync(row.funnelId)
+            }
+          }
+          toast.success('Selected items deleted')
+          setSelectedIds([])
+          loadData()
+        }}
+      />
 
       <CampaignEditForm
         open={sheetOpen}
@@ -476,6 +446,6 @@ export function CampaignsPage() {
         loading={deleteTarget?.kind === 'campaign' ? deleteMutation.isPending : deleteFunnel.isPending}
         danger
       />
-    </div>
+    </PageShell>
   )
 }

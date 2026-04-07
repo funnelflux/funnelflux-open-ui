@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { Button, Input, Select } from 'antd'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { TimezoneSelect, useToastApi } from '@/components/ui-kit'
+import { Button, Input } from 'antd'
+import { PageShell, SmartSelect, TimezoneSelect, useToastApi } from '@/components/ui-kit'
+import type { SmartSelectOption } from '@/components/ui-kit'
 import { useCampaignsList, useTrafficSources } from '@/api/hooks'
 import { api } from '@/api/client'
 import type { CostUpdateRequest } from '@/types/ui'
@@ -16,6 +16,19 @@ export function CostUpdatePage() {
   const toast = useToastApi()
   const { data: trafficSources } = useTrafficSources()
   const { data: campaigns } = useCampaignsList()
+
+  const trafficSourceOptions: SmartSelectOption[] = useMemo(
+    () => (trafficSources ?? []).map((ts) => ({ label: ts.trafficSourceName, value: ts.idTrafficSource, searchId: ts.idTrafficSource })),
+    [trafficSources],
+  )
+
+  const campaignOptions: SmartSelectOption[] = useMemo(
+    () => [
+      { label: 'All campaigns', value: '__none__' },
+      ...(campaigns ?? []).map((c) => ({ label: c.name, value: c.id, searchId: c.id })),
+    ],
+    [campaigns],
+  )
 
   const [idTrafficSource, setIdTrafficSource] = useState('')
   const [idCampaign, setIdCampaign] = useState('')
@@ -61,36 +74,21 @@ export function CostUpdatePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Update Cost"
-        subtitle="Manually update cost data for a traffic source"
-      />
-
+    <PageShell
+      title="Update Cost"
+      subtitle="Manually update cost data for a traffic source"
+    >
       <form onSubmit={handleSubmit} className="max-w-lg space-y-4">
         {/* Traffic Source */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Traffic Source *</label>
-          <Select value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="Select traffic source" className="w-full">
-            {(trafficSources ?? []).map((ts) => (
-              <Select.Option key={ts.idTrafficSource} value={ts.idTrafficSource}>
-                {ts.trafficSourceName}
-              </Select.Option>
-            ))}
-          </Select>
+          <SmartSelect options={trafficSourceOptions} value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="Select traffic source" className="w-full" />
         </div>
 
         {/* Campaign (optional) */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Campaign (optional)</label>
-          <Select value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full">
-            <Select.Option value="__none__">All campaigns</Select.Option>
-            {(campaigns ?? []).map((c) => (
-              <Select.Option key={c.id} value={c.id}>
-                {c.name}
-              </Select.Option>
-            ))}
-          </Select>
+          <SmartSelect options={campaignOptions} value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full" />
         </div>
 
         {/* Date Range */}
@@ -140,6 +138,6 @@ export function CostUpdatePage() {
           Update Cost
         </Button>
       </form>
-    </div>
+    </PageShell>
   )
 }

@@ -16,9 +16,9 @@ const sharedToken = {
   fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   fontSize: 14,
   borderRadius: 6,
-  controlHeight: 36,
-  controlHeightSM: 28,
-  controlHeightLG: 44,
+  controlHeight: 32,
+  controlHeightSM: 24,
+  controlHeightLG: 40,
 }
 
 const sharedComponents: ThemeConfig['components'] = {
@@ -38,17 +38,20 @@ const sharedComponents: ThemeConfig['components'] = {
     paddingLG: 20,
   },
   Input: {
-    controlHeight: 36,
+    controlHeight: 32,
     activeShadow: '0 0 0 2px rgba(37, 99, 235, 0.25)',
   },
   Select: {
-    controlHeight: 36,
+    controlHeight: 32,
   },
   DatePicker: {
-    controlHeight: 36,
+    controlHeight: 32,
   },
   InputNumber: {
-    controlHeight: 36,
+    controlHeight: 32,
+  },
+  Segmented: {
+    controlHeight: 32,
   },
   Tabs: {
     inkBarColor: '#2563EB',

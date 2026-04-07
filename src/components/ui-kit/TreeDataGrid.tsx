@@ -1,6 +1,6 @@
 import { AgGridReact } from 'ag-grid-react'
 import type { AgGridReactProps } from 'ag-grid-react'
-import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry, themeQuartz } from 'ag-grid-community'
 import '@/styles/ag-grid-theme.css'
 
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -14,8 +14,9 @@ export function TreeDataGrid<TData = unknown>({
   ...props
 }: TreeDataGridProps<TData>) {
   return (
-    <div className="ag-theme-funnelflux w-full" style={{ height: props.domLayout === 'autoHeight' ? undefined : '100%' }}>
+    <div className="ag-theme-quartz w-full" style={{ height: props.domLayout === 'autoHeight' ? undefined : '100%' }}>
       <AgGridReact<TData>
+        theme={themeQuartz}
         treeData
         getDataPath={getDataPath}
         autoGroupColumnDef={{
@@ -26,8 +27,8 @@ export function TreeDataGrid<TData = unknown>({
         pagination
         paginationPageSize={50}
         paginationPageSizeSelector={[25, 50, 100, 200]}
-        rowHeight={40}
-        headerHeight={36}
+        rowHeight={36}
+        headerHeight={32}
         animateRows={false}
         suppressCellFocus
         groupDefaultExpanded={1}

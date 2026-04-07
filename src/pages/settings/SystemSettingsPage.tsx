@@ -3,8 +3,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Save } from 'lucide-react'
 import { Button, Input, Switch, Select, Divider } from 'antd'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { useToastApi } from '@/components/ui-kit'
+import { PageShell, useToastApi } from '@/components/ui-kit'
 import { useSystemSettings, useSaveSystemSettings } from '@/api/hooks/useSystemSettings'
 import { DomainsManager } from '@/components/settings/DomainsManager'
 import {
@@ -70,17 +69,14 @@ export function SystemSettingsPage() {
 
   if (isLoading) {
     return (
-      <div>
-        <PageHeader title="System Settings" />
+      <PageShell title="System Settings">
         <p className="text-sm text-muted-foreground">Loading settings...</p>
-      </div>
+      </PageShell>
     )
   }
 
   return (
-    <div>
-      <PageHeader title="System Settings" />
-
+    <PageShell title="System Settings">
       <form
         onSubmit={(form.handleSubmit as any)(onSubmit)}
         className="max-w-2xl space-y-6"
@@ -233,6 +229,6 @@ export function SystemSettingsPage() {
       <div className="max-w-2xl">
         <DomainsManager />
       </div>
-    </div>
+    </PageShell>
   )
 }

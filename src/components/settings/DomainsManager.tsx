@@ -87,7 +87,6 @@ export function DomainsManager() {
           type="primary"
           onClick={handleAdd}
           disabled={!newDomain.trim() || saveDomain.isPending}
-          size="small"
         >
           {saveDomain.isPending ? (
             <Loader2 className="h-4 w-4 mr-1 animate-spin" />

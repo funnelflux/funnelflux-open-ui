@@ -1,7 +1,8 @@
+import type { Ref } from 'react'
 import { AgGridReact } from 'ag-grid-react'
 import type { AgGridReactProps } from 'ag-grid-react'
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
-import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry, themeQuartz } from 'ag-grid-community'
 import '@/styles/ag-grid-theme.css'
 
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -39,18 +40,25 @@ export const profitLossColumn: Partial<ColDef> = {
   },
 }
 
-export function DataGrid<TData = unknown>(props: AgGridReactProps<TData>) {
+interface DataGridProps<TData = unknown> extends AgGridReactProps<TData> {
+  gridRef?: Ref<AgGridReact<TData>>
+}
+
+export function DataGrid<TData = unknown>({ gridRef, ...props }: DataGridProps<TData>) {
   return (
-    <div className="ag-theme-funnelflux w-full" style={{ height: props.domLayout === 'autoHeight' ? undefined : '100%' }}>
+    <div className="ag-theme-quartz w-full" style={{ height: props.domLayout === 'autoHeight' ? undefined : '100%' }}>
       <AgGridReact<TData>
+        ref={gridRef}
+        theme={themeQuartz}
         pagination
         paginationPageSize={50}
         paginationPageSizeSelector={[25, 50, 100, 200]}
-        rowHeight={40}
-        headerHeight={36}
+        rowHeight={36}
+        headerHeight={32}
         animateRows={false}
         suppressCellFocus
         domLayout="autoHeight"
+        rowMultiSelectWithClick
         {...props}
       />
     </div>
