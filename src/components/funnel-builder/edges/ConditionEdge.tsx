@@ -46,9 +46,9 @@ function ConditionEdgeComponent({
             'nodrag nopan absolute rounded-full px-2 text-xs font-medium border',
             'pointer-events-auto',
             isYes
-              ? 'bg-green-50 text-green-700 border-green-200'
-              : 'bg-red-50 text-red-700 border-red-200',
-            selected && (isYes ? 'ring-1 ring-green-400' : 'ring-1 ring-red-400'),
+              ? 'bg-success/10 text-success border-success/20'
+              : 'bg-error/10 text-error border-error/20',
+            selected && (isYes ? 'ring-1 ring-success' : 'ring-1 ring-error'),
           )}
           style={{
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,

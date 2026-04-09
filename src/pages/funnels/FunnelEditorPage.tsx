@@ -9,8 +9,8 @@ import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { FunnelSettingsModal } from '@/components/funnel-builder/FunnelSettingsModal'
 import { FunnelQuickStatsModal } from '@/components/funnel-builder/FunnelQuickStatsModal'
 import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
-import { useToast } from '@/components/shared/Toaster'
-import { Button } from '@/components/ui/button'
+import { useToastApi } from '@/components/ui-kit'
+import { Button } from 'antd'
 import { useAuthStore } from '@/store/auth'
 import { ArrowLeft, BarChart3, Loader2, Save, Settings } from 'lucide-react'
 import { buildV2SavePayload, extractPersistExtras, type FunnelPersistExtras } from '@/lib/funnelApiV2'
@@ -18,7 +18,7 @@ import { buildV2SavePayload, extractPersistExtras, type FunnelPersistExtras } fr
 export function FunnelEditorPage() {
   const { campaignId, funnelId } = useParams<{ campaignId: string; funnelId: string }>()
   const navigate = useNavigate()
-  const toast = useToast()
+  const toast = useToastApi()
   const queryClient = useQueryClient()
   const [isSaving, setIsSaving] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -114,7 +114,7 @@ export function FunnelEditorPage() {
       <ReactFlowProvider>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
           <header className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
-            <Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1" onClick={handleBack}>
+            <Button type="text" size="small" className="shrink-0 gap-1" onClick={handleBack}>
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Campaigns</span>
             </Button>
@@ -132,9 +132,8 @@ export function FunnelEditorPage() {
             )}
 
             <Button
-              type="button"
-              variant="outline"
-              size="icon"
+              type="text"
+              size="small"
               className="shrink-0"
               title="Funnel settings"
               aria-label="Funnel settings"
@@ -145,9 +144,8 @@ export function FunnelEditorPage() {
 
             {!isNew && canViewStats && campaignId && funnelId && (
               <Button
-                type="button"
-                variant="outline"
-                size="icon"
+                type="text"
+                size="small"
                 className="shrink-0"
                 title="Quick Stats"
                 aria-label="Quick Stats"
@@ -158,8 +156,8 @@ export function FunnelEditorPage() {
             )}
 
             <Button
-              type="button"
-              size="sm"
+              type="primary"
+              size="small"
               className="shrink-0 bg-orange-600 text-white hover:bg-orange-600/90"
               onClick={() => void handleSave()}
               disabled={isSaving}

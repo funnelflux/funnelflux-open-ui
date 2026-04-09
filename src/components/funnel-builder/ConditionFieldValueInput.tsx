@@ -1,12 +1,4 @@
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Input, Select } from 'antd'
 import type { ConditionField, ConditionOperator } from '@/types/funnel'
 
 interface ConditionFieldValueInputProps {
@@ -101,7 +93,7 @@ export function ConditionFieldValueInput({
     const lines = arrayValue(value).join('\n')
 
     return (
-      <Textarea
+      <Input.TextArea
         className="h-16 min-h-[4rem] text-sm resize-none"
         value={lines}
         onChange={(e) => {
@@ -116,69 +108,53 @@ export function ConditionFieldValueInput({
   // Field-specific select inputs
   if (field === 'dayOfWeek') {
     return (
-      <Select value={stringValue(value)} onValueChange={onChange}>
-        <SelectTrigger className="h-8 text-sm w-32">
-          <SelectValue placeholder="Day" />
-        </SelectTrigger>
-        <SelectContent>
-          {DAY_OF_WEEK_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Select
+        value={stringValue(value) || undefined}
+        onChange={(val) => onChange(val)}
+        placeholder="Day"
+        className="w-32"
+        size="small"
+        options={DAY_OF_WEEK_OPTIONS}
+      />
     )
   }
 
   if (field === 'hourOfDay') {
     return (
-      <Select value={stringValue(value)} onValueChange={onChange}>
-        <SelectTrigger className="h-8 text-sm w-28">
-          <SelectValue placeholder="Hour" />
-        </SelectTrigger>
-        <SelectContent>
-          {HOUR_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Select
+        value={stringValue(value) || undefined}
+        onChange={(val) => onChange(val)}
+        placeholder="Hour"
+        className="w-28"
+        size="small"
+        options={HOUR_OPTIONS}
+      />
     )
   }
 
   if (field === 'deviceType') {
     return (
-      <Select value={stringValue(value)} onValueChange={onChange}>
-        <SelectTrigger className="h-8 text-sm w-32">
-          <SelectValue placeholder="Type" />
-        </SelectTrigger>
-        <SelectContent>
-          {DEVICE_TYPE_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Select
+        value={stringValue(value) || undefined}
+        onChange={(val) => onChange(val)}
+        placeholder="Type"
+        className="w-32"
+        size="small"
+        options={DEVICE_TYPE_OPTIONS}
+      />
     )
   }
 
   if (field === 'connectionType') {
     return (
-      <Select value={stringValue(value)} onValueChange={onChange}>
-        <SelectTrigger className="h-8 text-sm w-32">
-          <SelectValue placeholder="Type" />
-        </SelectTrigger>
-        <SelectContent>
-          {CONNECTION_TYPE_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Select
+        value={stringValue(value) || undefined}
+        onChange={(val) => onChange(val)}
+        placeholder="Type"
+        className="w-32"
+        size="small"
+        options={CONNECTION_TYPE_OPTIONS}
+      />
     )
   }
 

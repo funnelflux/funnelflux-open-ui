@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { type ColumnDef } from '@tanstack/react-table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DataTable } from '@/components/shared/DataTable'
+import type { ColDef } from 'ag-grid-community'
+import { Card } from 'antd'
+import { DataGrid } from '@/components/ui-kit'
 import type { DashboardData } from '@/types/ui'
 import type { ReportCell } from '@/types/stats'
 
@@ -12,7 +12,6 @@ interface DashboardTableProps {
   isLoading: boolean
 }
 
-// The report rows use numeric string keys for cell data
 interface FlatRow {
   id: string
   [key: string]: string
@@ -35,35 +34,29 @@ function flattenRows(data: TableStats): FlatRow[] {
 export function DashboardTable({ data, isLoading }: DashboardTableProps) {
   const rows = useMemo(() => flattenRows(data), [data])
 
-  const columns: ColumnDef<FlatRow>[] = useMemo(() => {
+  const columnDefs: ColDef[] = useMemo(() => {
     if (!data?.report?.columns) return []
-    return data.report.columns.map((col) => ({
-      accessorKey: col.name,
-      header: col.name,
-      cell: ({ getValue }) => {
-        const val = getValue() as string
-        return <span className="text-sm">{val}</span>
-      },
+    return data.report.columns.map((col, index) => ({
+      colId: col.name,
+      headerName: col.name,
+      field: col.name,
+      flex: index === 0 ? 1 : undefined,
+      width: index > 0 ? 100 : undefined,
     }))
   }, [data])
 
   if (!isLoading && !data) return null
 
   return (
-    <Card>
-      <CardHeader className="pb-2 p-4">
-        <CardTitle className="text-sm font-medium">
-          Top {data?.tableStatsOptions?.statsType ?? 'Campaigns'}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <DataTable
-          columns={columns}
-          data={rows}
-          isLoading={isLoading}
-          getRowId={(row) => row.id}
-        />
-      </CardContent>
+    <Card title={<span className="text-sm font-medium">Top {data?.tableStatsOptions?.statsType ?? 'Campaigns'}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
+      <DataGrid
+        rowData={rows}
+        columnDefs={columnDefs}
+        loading={isLoading}
+        getRowId={(params) => params.data.id}
+        pagination={false}
+        domLayout="autoHeight"
+      />
     </Card>
   )
 }

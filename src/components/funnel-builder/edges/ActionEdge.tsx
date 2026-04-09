@@ -42,9 +42,9 @@ function ActionEdgeComponent({
       <EdgeLabelRenderer>
         <div
           className={cn(
-            'nodrag nopan absolute bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 text-xs',
+            'nodrag nopan absolute bg-primary-subtle text-primary border border-primary/20 rounded-full px-2 text-xs',
             'pointer-events-auto',
-            selected && 'ring-1 ring-blue-400',
+            selected && 'ring-1 ring-primary',
           )}
           style={{
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,

@@ -1,23 +1,17 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColDef } from 'ag-grid-community'
 import { Pencil, Trash2, UserCheck, UserPlus, UserX, Users } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { DataTable } from '@/components/shared/DataTable'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
+import { Button, Tag, Switch } from 'antd'
+import { PageShell, DataGrid, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
 import { useUsers, useChangeUserStatus, useDeleteUser } from '@/api/hooks/useUserManagement'
 import type { ManagedUser } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 
 export function UserManagementPage() {
   const navigate = useNavigate()
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: users, isLoading } = useUsers()
   const changeStatus = useChangeUserStatus()
   const deleteUser = useDeleteUser()
@@ -55,80 +49,83 @@ export function UserManagementPage() {
     })
   }
 
-  const columns: ColumnDef<ManagedUser, unknown>[] = [
+  const columns: ColDef<ManagedUser>[] = [
     {
-      accessorKey: 'login',
-      header: 'Username',
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.login}</span>
+      colId: 'login',
+      headerName: 'Username',
+      field: 'login',
+      cellRenderer: (params: { data: ManagedUser }) => (
+        <span className="font-medium">{params.data.login}</span>
       ),
     },
     {
-      id: 'name',
-      header: 'Name',
-      cell: ({ row }) => {
-        const { firstname, lastname } = row.original
-        const name = [firstname, lastname].filter(Boolean).join(' ')
-        return name || <span className="text-muted-foreground">--</span>
+      colId: 'name',
+      headerName: 'Name',
+      valueGetter: (params: { data: ManagedUser | undefined }) => {
+        if (!params.data) return ''
+        return [params.data.firstname, params.data.lastname].filter(Boolean).join(' ')
       },
+      cellRenderer: (params: { value: string }) =>
+        params.value || <span className="text-muted-foreground">--</span>,
     },
     {
-      accessorKey: 'email',
-      header: 'Email',
-      cell: ({ row }) =>
-        row.original.email || (
-          <span className="text-muted-foreground">--</span>
-        ),
+      colId: 'email',
+      headerName: 'Email',
+      field: 'email',
+      cellRenderer: (params: { data: ManagedUser }) =>
+        params.data.email || <span className="text-muted-foreground">--</span>,
     },
     {
-      accessorKey: 'isAdmin',
-      header: 'Admin',
-      cell: ({ row }) =>
-        row.original.isAdmin ? (
-          <Badge variant="default" className="text-xs">
+      colId: 'isAdmin',
+      headerName: 'Admin',
+      field: 'isAdmin',
+      cellRenderer: (params: { data: ManagedUser }) =>
+        params.data.isAdmin ? (
+          <Tag color="blue" className="text-xs">
             Admin
-          </Badge>
+          </Tag>
         ) : null,
     },
     {
-      accessorKey: 'enabled',
-      header: 'Enabled',
-      cell: ({ row }) => (
+      colId: 'enabled',
+      headerName: 'Enabled',
+      field: 'enabled',
+      cellRenderer: (params: { data: ManagedUser }) => (
         <Switch
-          checked={row.original.enabled}
-          onCheckedChange={() => handleToggleEnabled(row.original)}
+          checked={params.data.enabled}
+          onChange={() => handleToggleEnabled(params.data)}
         />
       ),
     },
     {
-      accessorKey: 'lastLogin',
-      header: 'Last Login',
-      cell: ({ row }) =>
-        row.original.lastLogin || (
-          <span className="text-muted-foreground">Never</span>
-        ),
+      colId: 'lastLogin',
+      headerName: 'Last Login',
+      field: 'lastLogin',
+      cellRenderer: (params: { data: ManagedUser }) =>
+        params.data.lastLogin || <span className="text-muted-foreground">Never</span>,
     },
     {
-      id: 'actions',
-      header: '',
-      size: 50,
-      cell: ({ row }) => (
-        <RowActionsMenu
+      colId: 'actions',
+      headerName: '',
+      width: 50,
+      sortable: false,
+      cellRenderer: (params: { data: ManagedUser }) => (
+        <InlineActions
           actions={[
             {
               label: 'Edit',
               icon: Pencil,
-              onClick: () => navigate(`/settings/users/${row.original.id}/edit`),
+              onClick: () => navigate(`/settings/users/${params.data.id}/edit`),
             },
             {
-              label: row.original.enabled ? 'Disable' : 'Enable',
-              icon: row.original.enabled ? UserX : UserCheck,
-              onClick: () => handleToggleEnabled(row.original),
+              label: params.data.enabled ? 'Disable' : 'Enable',
+              icon: params.data.enabled ? UserX : UserCheck,
+              onClick: () => handleToggleEnabled(params.data),
             },
             {
               label: 'Delete',
               icon: Trash2,
-              onClick: () => setDeleteTarget(row.original),
+              onClick: () => setDeleteTarget(params.data),
               destructive: true,
             },
           ]}
@@ -138,37 +135,38 @@ export function UserManagementPage() {
   ]
 
   return (
-    <div>
-      <PageHeader title="User Management">
-        <Button size="sm" onClick={() => navigate('/settings/users/new')}>
+    <PageShell
+      title="User Management"
+      actions={
+        <Button type="primary" onClick={() => navigate('/settings/users/new')}>
           <UserPlus className="mr-1.5 h-3.5 w-3.5" />
           Add User
         </Button>
-      </PageHeader>
-
+      }
+    >
       {!isLoading && (!users || users.length === 0) ? (
         <EmptyState
           icon={<Users className="h-10 w-10" />}
           message="No users found."
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={users ?? []}
-          isLoading={isLoading}
-          getRowId={(row) => String(row.id)}
+        <DataGrid<ManagedUser>
+          rowData={users ?? []}
+          columnDefs={columns}
+          getRowId={(p) => String(p.data.id)}
+          loading={isLoading}
         />
       )}
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteTarget}
         title="Delete User"
         description={`Are you sure you want to delete user "${deleteTarget?.login}"? This cannot be undone.`}
         confirmText="Delete"
-        destructive
+        danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </PageShell>
   )
 }

@@ -1,33 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColDef } from 'ag-grid-community'
 import { Plus, Pencil, RotateCcw, Trash2, Loader2, Shield } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { DataTable } from '@/components/shared/DataTable'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
+import { Button, Input, Switch, Select, Modal } from 'antd'
+import { PageShell, DataGrid, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
 import {
   useTrafficFilters,
   useSaveTrafficFilter,
@@ -50,7 +28,7 @@ const FILTER_TYPE_LABELS: Record<FilterType, string> = {
 const FILTER_TYPES = Object.keys(FILTER_TYPE_LABELS) as FilterType[]
 
 export function TrafficFiltersPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: filters, isLoading } = useTrafficFilters()
   const saveFilter = useSaveTrafficFilter()
   const deleteFilter = useDeleteTrafficFilter()
@@ -123,64 +101,71 @@ export function TrafficFiltersPage() {
     })
   }
 
-  const columns: ColumnDef<TrafficFilter, unknown>[] = [
+  const columns: ColDef<TrafficFilter>[] = [
     {
-      accessorKey: 'trafficFilterName',
-      header: 'Name',
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.trafficFilterName}</span>
+      colId: 'trafficFilterName',
+      headerName: 'Name',
+      field: 'trafficFilterName',
+      cellRenderer: (params: { data: TrafficFilter }) => (
+        <span className="font-medium">{params.data.trafficFilterName}</span>
       ),
     },
     {
-      accessorKey: 'filterType',
-      header: 'Type',
-      cell: ({ row }) => FILTER_TYPE_LABELS[row.original.filterType] ?? row.original.filterType,
+      colId: 'filterType',
+      headerName: 'Type',
+      field: 'filterType',
+      valueFormatter: (params: { value: FilterType }) =>
+        FILTER_TYPE_LABELS[params.value] ?? params.value,
     },
     {
-      id: 'entriesCount',
-      header: 'Entries',
-      cell: ({ row }) => row.original.filterEntries?.length ?? 0,
+      colId: 'entriesCount',
+      headerName: 'Entries',
+      valueGetter: (params: { data: TrafficFilter | undefined }) =>
+        params.data?.filterEntries?.length ?? 0,
     },
     {
-      accessorKey: 'isEnabled',
-      header: 'Enabled',
-      cell: ({ row }) => (
+      colId: 'isEnabled',
+      headerName: 'Enabled',
+      field: 'isEnabled',
+      cellRenderer: (params: { data: TrafficFilter }) => (
         <Switch
-          checked={row.original.isEnabled}
-          onCheckedChange={() => handleToggleEnabled(row.original)}
+          checked={params.data.isEnabled}
+          onChange={() => handleToggleEnabled(params.data)}
         />
       ),
     },
     {
-      accessorKey: 'idTrafficFilter',
-      header: 'ID',
-      cell: ({ row }) => (
+      colId: 'idTrafficFilter',
+      headerName: 'ID',
+      field: 'idTrafficFilter',
+      cellRenderer: (params: { data: TrafficFilter }) => (
         <span className="font-mono text-xs text-muted-foreground">
-          {row.original.idTrafficFilter}
+          {params.data.idTrafficFilter}
         </span>
       ),
     },
     {
-      id: 'actions',
-      header: '',
-      size: 50,
-      cell: ({ row }) => (
-        <RowActionsMenu
+      colId: 'actions',
+      headerName: '',
+      width: 50,
+      sortable: false,
+      cellRenderer: (params: { data: TrafficFilter }) => (
+        <InlineActions
           actions={[
             {
               label: 'Edit',
               icon: Pencil,
-              onClick: () => openEdit(row.original),
+              onClick: () => openEdit(params.data),
             },
             {
               label: 'Apply Retroactively',
               icon: RotateCcw,
-              onClick: () => handleApplyRetroactively(row.original),
+              onClick: () => handleApplyRetroactively(params.data),
             },
             {
               label: 'Delete',
               icon: Trash2,
-              onClick: () => setDeleteTarget(row.original),
+              onClick: () => setDeleteTarget(params.data),
               destructive: true,
             },
           ]}
@@ -190,17 +175,15 @@ export function TrafficFiltersPage() {
   ]
 
   return (
-    <div>
-      <PageHeader
-        title="Traffic Filters"
-        actions={
-          <Button onClick={openCreate} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            Add Filter
-          </Button>
-        }
-      />
-
+    <PageShell
+      title="Traffic Filters"
+      actions={
+        <Button type="primary" onClick={openCreate}>
+          <Plus className="h-4 w-4 mr-1" />
+          Add Filter
+        </Button>
+      }
+    >
       {!isLoading && (!filters || filters.length === 0) ? (
         <EmptyState
           icon={<Shield className="h-10 w-10" />}
@@ -209,15 +192,15 @@ export function TrafficFiltersPage() {
           onAction={openCreate}
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filters ?? []}
-          isLoading={isLoading}
-          getRowId={(row) => row.idTrafficFilter}
+        <DataGrid<TrafficFilter>
+          rowData={filters ?? []}
+          columnDefs={columns}
+          getRowId={(p) => p.data.idTrafficFilter}
+          loading={isLoading}
         />
       )}
 
-      <TrafficFilterSheet
+      <TrafficFilterModal
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         initialData={editingFilter}
@@ -225,22 +208,20 @@ export function TrafficFiltersPage() {
         isSubmitting={saveFilter.isPending}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteTarget}
         title="Delete Traffic Filter"
         description={`Are you sure you want to delete "${deleteTarget?.trafficFilterName}"? This cannot be undone.`}
         confirmText="Delete"
-        destructive
+        danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </PageShell>
   )
 }
 
-// --- Sheet form for create/edit ---
-
-interface TrafficFilterSheetProps {
+interface TrafficFilterModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData?: TrafficFilter
@@ -248,13 +229,13 @@ interface TrafficFilterSheetProps {
   isSubmitting?: boolean
 }
 
-function TrafficFilterSheet({
+function TrafficFilterModal({
   open,
   onOpenChange,
   initialData,
   onSubmit,
   isSubmitting,
-}: TrafficFilterSheetProps) {
+}: TrafficFilterModalProps) {
   const form = useForm<TrafficFilterFormData>({
     resolver: zodResolver(trafficFilterSchema),
     defaultValues: {
@@ -303,114 +284,106 @@ function TrafficFilterSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[440px] sm:max-w-[440px] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>
-            {initialData ? 'Edit Traffic Filter' : 'New Traffic Filter'}
-          </SheetTitle>
-          <SheetDescription>
-            {initialData
-              ? 'Update the filter configuration below.'
-              : 'Configure a new traffic filter.'}
-          </SheetDescription>
-        </SheetHeader>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-6 mt-6"
-        >
-          <div className="space-y-2">
-            <Label htmlFor="trafficFilterName">Name</Label>
-            <Input
-              id="trafficFilterName"
-              {...form.register('trafficFilterName')}
-              placeholder="Filter name"
-            />
-            {form.formState.errors.trafficFilterName && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.trafficFilterName.message}
-              </p>
+    <Modal
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      title={initialData ? 'Edit Traffic Filter' : 'New Traffic Filter'}
+      footer={null}
+      width={640}
+      destroyOnHidden
+    >
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-6 pt-4"
+      >
+        <div className="space-y-2">
+          <label htmlFor="trafficFilterName" className="block text-sm font-medium text-foreground">Name</label>
+          <Input
+            id="trafficFilterName"
+            {...form.register('trafficFilterName')}
+            placeholder="Filter name"
+          />
+          {form.formState.errors.trafficFilterName && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.trafficFilterName.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-foreground">Filter Type</label>
+          <Controller
+            control={form.control}
+            name="filterType"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onChange={field.onChange}
+                className="w-full"
+                placeholder="Select type"
+                options={FILTER_TYPES.map((type) => ({
+                  value: type,
+                  label: FILTER_TYPE_LABELS[type],
+                }))}
+              />
             )}
-          </div>
+          />
+          {form.formState.errors.filterType && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.filterType.message}
+            </p>
+          )}
+        </div>
 
-          <div className="space-y-2">
-            <Label>Filter Type</Label>
-            <Controller
-              control={form.control}
-              name="filterType"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FILTER_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {FILTER_TYPE_LABELS[type]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {form.formState.errors.filterType && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.filterType.message}
-              </p>
+        <div className="space-y-2">
+          <label htmlFor="filterEntries" className="block text-sm font-medium text-foreground">Entries (one per line)</label>
+          <Input.TextArea
+            id="filterEntries"
+            value={entriesText}
+            onChange={(e) => handleEntriesChange(e.target.value)}
+            placeholder="Enter one entry per line"
+            rows={8}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="redirectToURL" className="block text-sm font-medium text-foreground">Redirect URL (optional)</label>
+          <Input
+            id="redirectToURL"
+            {...form.register('redirectToURL')}
+            placeholder="https://example.com"
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <label htmlFor="isEnabled" className="text-sm font-medium">Enabled</label>
+          <Controller
+            control={form.control}
+            name="isEnabled"
+            render={({ field }) => (
+              <Switch
+                id="isEnabled"
+                checked={field.value}
+                onChange={field.onChange}
+              />
             )}
-          </div>
+          />
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="filterEntries">Entries (one per line)</Label>
-            <Textarea
-              id="filterEntries"
-              value={entriesText}
-              onChange={(e) => handleEntriesChange(e.target.value)}
-              placeholder="Enter one entry per line"
-              rows={8}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="redirectToURL">Redirect URL (optional)</Label>
-            <Input
-              id="redirectToURL"
-              {...form.register('redirectToURL')}
-              placeholder="https://example.com"
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Label htmlFor="isEnabled">Enabled</Label>
-            <Controller
-              control={form.control}
-              name="isEnabled"
-              render={({ field }) => (
-                <Switch
-                  id="isEnabled"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              )}
-            />
-          </div>
-
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {initialData ? 'Save' : 'Create'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </SheetContent>
-    </Sheet>
+        <div className="flex gap-2 pt-4">
+          <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {initialData ? 'Save' : 'Create'}
+          </Button>
+          <Button
+            htmlType="button"
+            onClick={() => onOpenChange(false)}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }

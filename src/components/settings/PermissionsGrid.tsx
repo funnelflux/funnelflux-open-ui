@@ -1,6 +1,4 @@
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
+import { Input, Switch } from 'antd'
 import type { Permissions } from '@/types/api'
 
 interface PermissionsGridProps {
@@ -51,10 +49,10 @@ export function PermissionsGrid({ value, onChange }: PermissionsGridProps) {
             <div className="grid gap-3 md:grid-cols-3">
               {section.fields.map((field) => (
                 <div key={field} className="flex items-center justify-between rounded-md border p-3">
-                  <Label>{formatLabel(field)}</Label>
+                  <label className="text-sm font-medium">{formatLabel(field)}</label>
                   <Switch
                     checked={Boolean(sectionValue[field])}
-                    onCheckedChange={(checked) =>
+                    onChange={(checked) =>
                       onChange({
                         ...value,
                         [section.key]: {
@@ -70,7 +68,7 @@ export function PermissionsGrid({ value, onChange }: PermissionsGridProps) {
 
             {'restrictTo' in sectionValue ? (
               <div className="space-y-1.5">
-                <Label>Restrict To</Label>
+                <label className="block text-sm font-medium text-foreground">Restrict To</label>
                 <Input
                   value={Array.isArray(sectionValue.restrictTo) ? sectionValue.restrictTo.join(', ') : ''}
                   onChange={(event) =>
@@ -90,7 +88,7 @@ export function PermissionsGrid({ value, onChange }: PermissionsGridProps) {
             {section.assetRestrictions ? (
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Restrict To Asset IDs</Label>
+                  <label className="block text-sm font-medium text-foreground">Restrict To Asset IDs</label>
                   <Input
                     value={Array.isArray(sectionValue.restrictToAssetIds) ? sectionValue.restrictToAssetIds.join(', ') : ''}
                     onChange={(event) =>
@@ -106,7 +104,7 @@ export function PermissionsGrid({ value, onChange }: PermissionsGridProps) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Restrict To Category IDs</Label>
+                  <label className="block text-sm font-medium text-foreground">Restrict To Category IDs</label>
                   <Input
                     value={Array.isArray(sectionValue.restrictToCategoryIds) ? sectionValue.restrictToCategoryIds.join(', ') : ''}
                     onChange={(event) =>

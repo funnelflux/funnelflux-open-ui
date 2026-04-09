@@ -1,13 +1,6 @@
 import { GroupingFilterPopover } from "@/components/drilldown/GroupingFilterPopover"
 import { Plus, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Button, Select } from "antd"
 
 const MAX_LEVELS = 4
 
@@ -64,22 +57,18 @@ export function GroupingsCascade({
               <span className="text-xs text-muted-foreground mx-0.5">&gt;</span>
             )}
             <Select
-              value={grouping}
-              onValueChange={(v) => handleChange(index, v)}
-            >
-              <SelectTrigger className="h-9 w-[200px] text-xs">
-                <SelectValue placeholder="Select grouping" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableGroupings
-                  .filter((g) => !used.has(g))
-                  .map((g) => (
-                    <SelectItem key={g} value={g} className="text-xs">
-                      {g}
-                    </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              value={grouping || undefined}
+              onChange={(v) => handleChange(index, v)}
+              placeholder="Select grouping"
+              className="h-9 w-[200px] text-xs"
+              options={availableGroupings
+                .filter((g) => !used.has(g))
+                .map((g) => ({
+                  key: g,
+                  value: g,
+                  label: g,
+                }))}
+            />
             <GroupingFilterPopover
               grouping={grouping}
               filters={groupingFilters[index] ?? { whitelist: [], blacklist: [] }}
@@ -87,13 +76,11 @@ export function GroupingsCascade({
             />
             {index > 0 && (
               <Button
-                variant="ghost"
-                size="icon"
+                type="text"
                 className="h-7 w-7"
+                icon={<X className="h-3.5 w-3.5" />}
                 onClick={() => handleRemove(index)}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
+              />
             )}
           </div>
         )
@@ -101,12 +88,11 @@ export function GroupingsCascade({
 
       {groupings.length < MAX_LEVELS && groupings.length < availableGroupings.length && (
         <Button
-          variant="outline"
-          size="sm"
+          size="small"
           className="h-9 text-xs"
           onClick={handleAdd}
+          icon={<Plus className="h-3.5 w-3.5" />}
         >
-          <Plus className="h-3.5 w-3.5 mr-1" />
           Add level
         </Button>
       )}

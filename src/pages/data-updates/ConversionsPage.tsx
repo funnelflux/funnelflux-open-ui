@@ -1,15 +1,12 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { useToast } from '@/components/shared/Toaster'
+import { Button, Input } from 'antd'
+import { PageShell, useToastApi } from '@/components/ui-kit'
 import { api } from '@/api/client'
 import { getErrorMessage } from '@/lib/utils'
 
 export function ConversionsPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const [csvData, setCsvData] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -33,21 +30,19 @@ export function ConversionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Update Conversions"
-        subtitle="Submit conversion data in CSV format"
-      />
-
+    <PageShell
+      title="Update Conversions"
+      subtitle="Submit conversion data in CSV format"
+    >
       <div className="max-w-2xl space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="csv-data">
+          <label htmlFor="csv-data" className="text-sm font-medium">
             Conversion Data
-          </Label>
+          </label>
           <p className="text-xs text-muted-foreground">
             One conversion per line: hit_id, transaction_id, payout
           </p>
-          <Textarea
+          <Input.TextArea
             id="csv-data"
             value={csvData}
             onChange={(e) => setCsvData(e.target.value)}
@@ -57,11 +52,11 @@ export function ConversionsPage() {
           />
         </div>
 
-        <Button onClick={handleSubmit} disabled={isSubmitting || !csvData.trim()}>
+        <Button type="primary" onClick={handleSubmit} disabled={isSubmitting || !csvData.trim()}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Submit Conversions
         </Button>
       </div>
-    </div>
+    </PageShell>
   )
 }

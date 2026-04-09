@@ -47,6 +47,8 @@ export function DateRangePicker({
         }
       }}
       presets={presetRanges(timezone)}
+      size="middle"
+      className={className}
       allowClear={false}
       variant="outlined"
       aria-label={ariaLabel ?? 'Date range'}

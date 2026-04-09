@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { ConfigProvider } from "antd"
-import { antdTheme } from "@/lib/antd-theme"
+import { ConfigProvider, App as AntApp } from "antd"
+import { lightTheme, darkTheme } from "@/lib/antd-theme"
+import { useThemeStore } from "@/store/theme"
 import { useAuth } from "@/hooks/useAuth"
 import { useNotifications } from "@/hooks/useNotifications"
 import { useAuthStore } from "@/store/auth"
@@ -31,8 +32,15 @@ import { ResetStatsPage } from "@/pages/data-updates/ResetStatsPage"
 import { FunnelEditorPage } from "@/pages/funnels/FunnelEditorPage"
 import { FunnelBuilderLegacyRedirect } from "@/pages/funnels/FunnelBuilderLegacyRedirect"
 import { GlobalConditionsPage } from "@/pages/settings/GlobalConditionsPage"
-import { ToastProvider, useToast } from "@/components/shared/Toaster"
+import { useToastApi } from "@/components/ui-kit"
 import type { Permissions } from "@/types/api"
+import { lazy, Suspense } from "react"
+
+const DesignSystemPage = lazy(() =>
+  import("@/pages/design-system/DesignSystemPage").then((m) => ({
+    default: m.DesignSystemPage,
+  })),
+)
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,7 +70,7 @@ function guarded(check: (p: Permissions) => boolean, element: React.ReactNode) {
 }
 
 function NotificationPoller() {
-  const toast = useToast()
+  const toast = useToastApi()
   useNotifications((msg) => toast.info(msg))
   return null
 }
@@ -217,17 +225,30 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const themeMode = useThemeStore((s) => s.mode)
+  const antdTheme = themeMode === 'dark' ? darkTheme : lightTheme
+
   return (
     <ConfigProvider theme={antdTheme}>
-      <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <BrowserRouter basename="/v2-ui">
-            <AuthGate>
-              <AppRoutes />
-            </AuthGate>
-          </BrowserRouter>
-        </ToastProvider>
-      </QueryClientProvider>
+      <AntApp message={{ maxCount: 3 }}>
+        <QueryClientProvider client={queryClient}>
+            <BrowserRouter basename="/v2-ui">
+              <Routes>
+                {/* Design system reference (no auth required) */}
+                <Route
+                  path="design-system"
+                  element={
+                    <Suspense fallback={<div className="p-8">Loading...</div>}>
+                      <DesignSystemPage />
+                    </Suspense>
+                  }
+                />
+                {/* All other routes require auth */}
+                <Route path="*" element={<AuthGate><AppRoutes /></AuthGate>} />
+              </Routes>
+            </BrowserRouter>
+        </QueryClientProvider>
+      </AntApp>
     </ConfigProvider>
   )
 }

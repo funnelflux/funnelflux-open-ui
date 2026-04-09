@@ -3,7 +3,7 @@ import { useCombobox, useMultipleSelection } from "downshift"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { X, ChevronsUpDown, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import { Tag } from "antd"
 
 export interface MultiSelectOption {
   value: string
@@ -194,10 +194,9 @@ export function MultiSelect({
         )}
       >
         {displayChips.map((item, index) => (
-          <Badge
+          <span
             key={item.value}
-            variant="secondary"
-            className="text-xs gap-1 pr-1"
+            className="inline-flex items-center gap-1 text-xs rounded bg-muted px-1.5 py-0.5"
             {...getSelectedItemProps({ selectedItem: item.value, index })}
           >
             {item.label}
@@ -211,12 +210,12 @@ export function MultiSelect({
             >
               <X className="h-3 w-3" />
             </button>
-          </Badge>
+          </span>
         ))}
         {overflowCount > 0 && (
-          <Badge variant="outline" className="text-xs">
+          <Tag className="text-xs">
             +{overflowCount} more
-          </Badge>
+          </Tag>
         )}
         {searchable && (
           <input

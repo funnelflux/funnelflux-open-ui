@@ -1,18 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Copy, Loader2, Link } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { useToast } from '@/components/shared/Toaster'
+import { Button, Input, Select, Card } from 'antd'
+import { PageShell, SmartSelect, useToastApi } from '@/components/ui-kit'
+import type { SmartSelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
   useFunnels,
@@ -26,13 +16,12 @@ import type { FunnelNode } from '@/types/entities'
 import { getErrorMessage } from '@/lib/utils'
 
 function CopyButton({ value }: { value: string }) {
-  const toast = useToast()
+  const toast = useToastApi()
 
   return (
     <Button
-      type="button"
-      variant="outline"
-      size="icon"
+      htmlType="button"
+      type="text"
       onClick={() =>
         navigator.clipboard.writeText(value).then(
           () => toast.success('Copied to clipboard'),
@@ -46,7 +35,7 @@ function CopyButton({ value }: { value: string }) {
 }
 
 export function SystemLinksPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: linksData, isLoading: loadingData } = useSystemLinksData()
   const generateEntranceLink = useGenerateEntranceLink()
   const generateActionLink = useGenerateActionLink()
@@ -107,9 +96,29 @@ export function SystemLinksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mutation objects are stable (.mutate), only selection values should trigger
   }, [selectedCampaign, selectedDomain, selectedFunnel, selectedNode, selectedTrafficSource])
 
-  const campaigns = linksData?.campaigns ?? []
-  const trafficSources = linksData?.trafficSources ?? []
-  const domains = linksData?.domains ?? []
+  const campaignOptions: SmartSelectOption[] = useMemo(
+    () => (linksData?.campaigns ?? []).map((c) => ({ label: c.name, value: c.id, searchId: c.id })),
+    [linksData?.campaigns],
+  )
+
+  const funnelOptions: SmartSelectOption[] = useMemo(
+    () => (funnels ?? []).map((f) => ({ label: f.name, value: f.id, searchId: f.id })),
+    [funnels],
+  )
+
+  const trafficSourceOptions: SmartSelectOption[] = useMemo(
+    () => (linksData?.trafficSources ?? []).map((s) => ({ label: s.name, value: s.id, searchId: s.id })),
+    [linksData?.trafficSources],
+  )
+
+  const domainOptions: SmartSelectOption[] = useMemo(
+    () => [
+      { label: 'Default domain', value: '__default__' },
+      ...(linksData?.domains ?? []).map((d) => ({ label: d.domain, value: d.domain, searchId: d.id })),
+    ],
+    [linksData?.domains],
+  )
+
   const postbackUrl = trafficSource?.postback?.postbackCode ?? ''
   const isGenerating =
     generateEntranceLink.isPending ||
@@ -117,111 +126,64 @@ export function SystemLinksPage() {
     generateNoRedirectJS.isPending
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="System Links"
-        subtitle="Generate entrance links, action links, and postback helpers"
-      />
-
+    <PageShell
+      title="System Links"
+      subtitle="Generate entrance links, action links, and postback helpers"
+    >
       {loadingData ? (
         <p className="text-sm text-muted-foreground">Loading options...</p>
       ) : (
         <>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Campaign *</Label>
-              <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select campaign" />
-                </SelectTrigger>
-                <SelectContent>
-                  {campaigns.map((campaign) => (
-                    <SelectItem key={campaign.id} value={campaign.id}>
-                      {campaign.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Campaign *</label>
+              <SmartSelect options={campaignOptions} value={selectedCampaign || undefined} onChange={setSelectedCampaign} placeholder="Select campaign" className="w-full" />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Funnel *</Label>
-              <Select
-                value={selectedFunnel}
-                onValueChange={setSelectedFunnel}
+              <label className="text-sm font-medium">Funnel *</label>
+              <SmartSelect
+                options={funnelOptions}
+                value={selectedFunnel || undefined}
+                onChange={setSelectedFunnel}
                 disabled={!selectedCampaign}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={selectedCampaign ? 'Select funnel' : 'Select a campaign first'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(funnels ?? []).map((funnel) => (
-                    <SelectItem key={funnel.id} value={funnel.id}>
-                      {funnel.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder={selectedCampaign ? 'Select funnel' : 'Select a campaign first'}
+                className="w-full"
+              />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Node</Label>
+              <label className="text-sm font-medium">Node</label>
               <Select
                 value={selectedNode || '__default__'}
-                onValueChange={(value) => setSelectedNode(value === '__default__' ? '' : value)}
+                onChange={(value) => setSelectedNode(value === '__default__' ? '' : value)}
                 disabled={!selectedFunnel}
+                placeholder={selectedFunnel ? 'Select node' : 'Select a funnel first'}
+                className="w-full"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder={selectedFunnel ? 'Select node' : 'Select a funnel first'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Default funnel entry</SelectItem>
-                  {nodes.map((node) => (
-                    <SelectItem key={node.idNode} value={node.idNode}>
-                      {node.nodeName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                <Select.Option value="__default__">Default funnel entry</Select.Option>
+                {nodes.map((node) => (
+                  <Select.Option key={node.idNode} value={node.idNode}>
+                    {node.nodeName}
+                  </Select.Option>
+                ))}
               </Select>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Traffic Source *</Label>
-              <Select
-                value={selectedTrafficSource}
-                onValueChange={setSelectedTrafficSource}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select traffic source" />
-                </SelectTrigger>
-                <SelectContent>
-                  {trafficSources.map((source) => (
-                    <SelectItem key={source.id} value={source.id}>
-                      {source.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Traffic Source *</label>
+              <SmartSelect options={trafficSourceOptions} value={selectedTrafficSource || undefined} onChange={setSelectedTrafficSource} placeholder="Select traffic source" className="w-full" />
             </div>
 
             <div className="space-y-1.5 lg:col-span-2">
-              <Label>Domain</Label>
-              <Select
+              <label className="text-sm font-medium">Domain</label>
+              <SmartSelect
+                options={domainOptions}
                 value={selectedDomain || '__default__'}
-                onValueChange={(value) => setSelectedDomain(value === '__default__' ? '' : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Default domain" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Default domain</SelectItem>
-                  {domains.map((domain) => (
-                    <SelectItem key={domain.id} value={domain.domain}>
-                      {domain.domain}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(value) => setSelectedDomain(value === '__default__' ? '' : value)}
+                placeholder="Default domain"
+                className="w-full"
+              />
             </div>
           </div>
 
@@ -231,35 +193,24 @@ export function SystemLinksPage() {
           </div>
 
           {entranceLink ? (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Entrance Link</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <Input value={entranceLink} readOnly className="font-mono text-xs" />
-                  <CopyButton value={entranceLink} />
-                </div>
-              </CardContent>
+            <Card title={<span className="text-sm">Entrance Link</span>}>
+              <div className="flex items-center gap-2">
+                <Input value={entranceLink} readOnly className="font-mono text-xs" />
+                <CopyButton value={entranceLink} />
+              </div>
             </Card>
           ) : null}
 
           <div className="grid gap-4 xl:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Universal JS</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <Card title={<span className="text-sm">Universal JS</span>}>
+              <div className="space-y-2">
                 <Input value={universalJs} readOnly className="font-mono text-xs" />
                 {universalJs ? <CopyButton value={universalJs} /> : null}
-              </CardContent>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Action Click URLs</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <Card title={<span className="text-sm">Action Click URLs</span>}>
+              <div className="space-y-2">
                 {actionLinks.length > 0 ? (
                   actionLinks.map((actionLink, index) => (
                     <div key={actionLink} className="flex items-center gap-2">
@@ -271,14 +222,11 @@ export function SystemLinksPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground">Select a campaign, funnel, and traffic source to generate action URLs.</p>
                 )}
-              </CardContent>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Conversion Postback URLs</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <Card title={<span className="text-sm">Conversion Postback URLs</span>}>
+              <div className="space-y-2">
                 {postbackUrl ? (
                   <>
                     <Input value={postbackUrl} readOnly className="font-mono text-xs" />
@@ -287,11 +235,11 @@ export function SystemLinksPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground">Choose a traffic source with postback configuration to preview its conversion URL.</p>
                 )}
-              </CardContent>
+              </div>
             </Card>
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   )
 }

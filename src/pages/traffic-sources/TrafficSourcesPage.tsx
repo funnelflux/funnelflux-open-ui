@@ -1,36 +1,41 @@
-import { useState, useMemo } from 'react'
-import { type ColumnDef, type RowSelectionState } from '@tanstack/react-table'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { subDays } from 'date-fns'
 import { Copy, Pencil, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { SearchInput } from '@/components/shared/SearchInput'
+import { Button } from 'antd'
+import type { AgGridReact } from 'ag-grid-react'
+import type { ColDef, SelectionChangedEvent } from 'ag-grid-community'
+import {
+  ConfirmModal,
+  EmptyState,
+  TimezoneSelect,
+  useToastApi,
+  PageShell,
+  SearchToolbar,
+  DataGrid,
+  nameColumn,
+  visitsColumn,
+  clicksColumn,
+  ctrColumn,
+  convColumn,
+  revenueColumn,
+  costColumn,
+  plColumn,
+  roiColumn,
+  idColumn,
+} from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
 import { CategoryManager } from '@/components/shared/CategoryManager'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
+import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
-import { useToast } from '@/components/shared/Toaster'
 import { useArchiveTrafficSource, useCategories, useSaveTrafficSource, useDeleteTrafficSource, useCloneTrafficSource, useTrafficSource } from '@/api/hooks'
-import { useEntityPaginatedReport, type EntityRow } from '@/api/hooks/useEntityPaginatedReport'
+import { useEntityGridReport, type EntityGridRow } from '@/api/hooks/useEntityGridReport'
 import { TrafficSourceForm } from '@/components/forms/TrafficSourceForm'
 import { api } from '@/api/client'
-import type { ReportCell } from '@/types/stats'
 import type { TrafficSource } from '@/types/entities'
 import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 import { getErrorMessage } from '@/lib/utils'
-
-function cellFmt(cell?: ReportCell): string {
-  return cell?.formatted ?? ''
-}
-function cellRaw(cell?: ReportCell): number {
-  if (!cell) return 0
-  return typeof cell.raw === 'number' ? cell.raw : Number(cell.raw) || 0
-}
 
 interface TrafficSourceMeta {
   idTrafficSource: string
@@ -39,14 +44,15 @@ interface TrafficSourceMeta {
 }
 
 export function TrafficSourcesPage() {
-  const toast = useToast()
+  const toast = useToastApi()
+  const gridRef = useRef<AgGridReact>(null)
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 365),
@@ -64,14 +70,9 @@ export function TrafficSourcesPage() {
     rows,
     columns,
     metaById,
-    totalRows,
-    pagination,
-    onPaginationChange,
-    sorting,
-    onSortingChange,
     isLoading,
     reload,
-  } = useEntityPaginatedReport<TrafficSourceMeta>({
+  } = useEntityGridReport<TrafficSourceMeta>({
     groupBy: 'Third Parties: Traffic Source',
     dateFrom: dateRange.from,
     dateTo: dateRange.to,
@@ -99,10 +100,9 @@ export function TrafficSourcesPage() {
     })
   }, [archiveStatus, metaById, rows, search, selectedCategoryId])
 
-  const selectedIds = useMemo(
-    () => Object.keys(rowSelection).filter((id) => rowSelection[id]),
-    [rowSelection],
-  )
+  const onSelectionChanged = useCallback((e: SelectionChangedEvent<EntityGridRow>) => {
+    setSelectedIds(e.api.getSelectedRows().map(r => r.id))
+  }, [])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
   const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
@@ -143,158 +143,91 @@ export function TrafficSourcesPage() {
   const iPL = colMap.get('P/L') ?? 32
   const iROI = colMap.get('ROI') ?? 33
 
-  const tableCols: ColumnDef<EntityRow>[] = [
-    {
-      id: 'name',
-      header: 'Name',
-      accessorFn: (r) => r.name,
-      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
-    },
-    {
-      id: 'visits',
-      header: 'Visits',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iVisits]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iVisits])}</span>,
-    },
-    {
-      id: 'clicks',
-      header: 'Clicks',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iClicks]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iClicks])}</span>,
-    },
-    {
-      id: 'ctr',
-      header: 'CTR',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iCTR]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCTR])}</span>,
-    },
-    {
-      id: 'conv',
-      header: 'Conv',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iConv]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iConv])}</span>,
-    },
-    {
-      id: 'revenue',
-      header: 'Revenue',
-      size: 90,
-      accessorFn: (r) => cellRaw(r.cells[iRevenue]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iRevenue])}</span>,
-    },
-    {
-      id: 'cost',
-      header: 'Cost',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iCost]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCost])}</span>,
-    },
-    {
-      id: 'pl',
-      header: 'P/L',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iPL]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iPL])
+  const handleEditRef = useRef(handleEdit)
+  handleEditRef.current = handleEdit
+  const handleCloneRef = useRef(handleClone)
+  handleCloneRef.current = handleClone
+
+  const columnDefs = useMemo<ColDef[]>(() => [
+    nameColumn({
+      actions: (params) => {
+        const isOrganic = params.data.id === '1'
+        if (isOrganic) return null
         return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
-            {cellFmt(row.original.cells[iPL])}
-          </span>
+          <InlineActions
+            actions={[
+              { label: 'Edit', icon: Pencil, onClick: () => handleEditRef.current(params.data.id) },
+              { label: 'Clone', icon: Copy, onClick: () => handleCloneRef.current(params.data.id) },
+              { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(params.data.id), destructive: true },
+            ]}
+          />
         )
       },
-    },
-    {
-      id: 'roi',
-      header: 'ROI',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iROI]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iROI])
-        return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
-            {cellFmt(row.original.cells[iROI])}
-          </span>
-        )
-      },
-    },
-    {
-      id: 'id',
-      header: 'ID',
-      size: 160,
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-muted-foreground">{row.original.id}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      size: 50,
-      cell: ({ row }) => (
-        <RowActionsMenu
-          actions={[
-            { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.original.id) },
-            { label: 'Clone', icon: Copy, onClick: () => handleClone(row.original.id) },
-            { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.original.id), destructive: true },
-          ]}
-        />
-      ),
-    },
-  ]
+    }),
+    idColumn(),
+    visitsColumn(iVisits),
+    clicksColumn(iClicks),
+    ctrColumn(iCTR),
+    convColumn(iConv),
+    revenueColumn(iRevenue),
+    costColumn(iCost),
+    plColumn(iPL),
+    roiColumn(iROI),
+  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Traffic Sources">
-        <Button onClick={handleCreate} size="sm">Add Traffic Source</Button>
-      </PageHeader>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search traffic sources..." className="w-64" />
-        <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />
-        <CategoryManager
-          entityType="trafficsource"
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={setSelectedCategoryId}
-        />
-        <DateRangePicker
-          value={{ from: dateRange.from, to: dateRange.to, preset: null }}
-          timezone={tz}
-          onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
-        />
-        <TimezoneSelector value={tz} onChange={setTz} />
-      </div>
+    <PageShell
+      title="Traffic Sources"
+      actions={<Button type="primary" onClick={handleCreate}>Add Traffic Source</Button>}
+    >
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search traffic sources..."
+        filters={
+          <>
+            <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />
+            <CategoryManager
+              entityType="trafficsource"
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={setSelectedCategoryId}
+            />
+          </>
+        }
+        trailing={
+          <>
+            <DateRangePicker
+              value={{ from: dateRange.from, to: dateRange.to, preset: null }}
+              timezone={tz}
+              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+            />
+            <TimezoneSelect value={tz} onChange={setTz} />
+          </>
+        }
+        actions={<ColumnChooser columnDefs={columnDefs} gridRef={gridRef} storageKey="traffic-sources" />}
+      />
 
       {!isLoading && filtered.length === 0 ? (
         <EmptyState message={search || selectedCategoryId ? 'No traffic sources match your filters.' : 'No traffic sources found.'} />
       ) : (
-        <DataTable
-          columns={tableCols}
-          data={filtered}
-          isLoading={isLoading}
-          totalRows={totalRows}
-          pagination={pagination}
-          onPaginationChange={onPaginationChange}
-          sorting={sorting}
-          onSortingChange={onSortingChange}
-          manualPagination
-          manualSorting
-          getRowId={(r) => r.id}
-          enableRowSelection
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
+        <DataGrid
+          gridRef={gridRef}
+          rowData={filtered}
+          columnDefs={columnDefs}
+          loading={isLoading}
+          rowSelection="multiple"
+          onSelectionChanged={onSelectionChanged}
+          getRowId={(params) => params.data.id}
         />
       )}
 
       <BulkActionsBar
         count={selectedIds.length}
-        categories={categories}
-        onSelectAll={() => setRowSelection(Object.fromEntries(filtered.map((row) => [row.id, true])))}
-        onDeselectAll={() => setRowSelection({})}
+        onDeselectAll={() => setSelectedIds([])}
         onArchive={async () => {
           await archiveMutation.mutateAsync({ id: selectedIds.join(','), archive: true })
           toast.success('Selected traffic sources archived')
-          setRowSelection({})
+          setSelectedIds([])
           reload()
         }}
         onDelete={async () => {
@@ -302,16 +235,19 @@ export function TrafficSourcesPage() {
             await deleteMutation.mutateAsync(id)
           }
           toast.success('Selected traffic sources deleted')
-          setRowSelection({})
+          setSelectedIds([])
           reload()
         }}
-        onMoveToCategory={async (idCategory) => {
-          await api.post('/data/trafficsource/category/assign/', {
-            tsIds: selectedIds,
-            categoryId: idCategory,
-          })
-          toast.success('Selected traffic sources moved')
-          reload()
+        onMoveToCategory={{
+          categories: categories ?? [],
+          onMove: async (idCategory) => {
+            await api.post('/data/trafficsource/category/assign/', {
+              tsIds: selectedIds,
+              categoryId: idCategory,
+            })
+            toast.success('Selected traffic sources moved')
+            reload()
+          },
         }}
       />
 
@@ -323,14 +259,15 @@ export function TrafficSourcesPage() {
         isSubmitting={saveMutation.isPending}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteId}
-        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onCancel={() => setDeleteId(null)}
         title="Delete Traffic Source"
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}
-        isLoading={deleteMutation.isPending}
+        loading={deleteMutation.isPending}
+        danger
       />
-    </div>
+    </PageShell>
   )
 }

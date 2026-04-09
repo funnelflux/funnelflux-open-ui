@@ -1,14 +1,6 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { BarChart3, Loader2, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button, Tag, Select } from 'antd'
 import { useDrilldownReport } from '@/api/hooks'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { DrilldownRequest, Report } from '@/types/stats'
@@ -132,7 +124,7 @@ export function HeatmapOverlay({ funnelId, active, onToggle }: HeatmapOverlayPro
     return (
       <HeatmapContext.Provider value={contextValue}>
         <div className="bg-background border-b px-4 py-2 flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onToggle}>
+          <Button size="small" onClick={onToggle}>
             <BarChart3 className="h-4 w-4 mr-1" />
             Show Heatmap
           </Button>
@@ -144,29 +136,20 @@ export function HeatmapOverlay({ funnelId, active, onToggle }: HeatmapOverlayPro
   return (
     <HeatmapContext.Provider value={contextValue}>
       <div className="bg-background border-b px-4 py-2 flex items-center gap-3">
-        <Badge variant="default" className="gap-1">
+        <Tag color="blue" className="gap-1">
           <BarChart3 className="h-3 w-3" />
           Heatmap Active
-        </Badge>
+        </Tag>
 
-        <Select value={metric} onValueChange={setMetric}>
-          <SelectTrigger className="w-[150px] h-8 text-xs">
-            <SelectValue placeholder="Select metric" />
-          </SelectTrigger>
-          <SelectContent>
-            {METRIC_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Select value={metric} onChange={setMetric} placeholder="Select metric" className="w-[150px]" size="small"
+          options={METRIC_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+        />
 
         {drilldown.isPending && (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         )}
 
-        <Button variant="ghost" size="sm" onClick={onToggle} className="ml-auto">
+        <Button type="text" size="small" onClick={onToggle} className="ml-auto">
           <X className="h-4 w-4" />
         </Button>
       </div>

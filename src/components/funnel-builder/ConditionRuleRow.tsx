@@ -1,13 +1,5 @@
 import { X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button, Input, Select } from 'antd'
 import type { ConditionRule, ConditionField, ConditionOperator } from '@/types/funnel'
 import { CONDITION_FIELDS, CONDITION_OPERATORS } from '@/types/funnel'
 import { ConditionFieldValueInput } from './ConditionFieldValueInput'
@@ -69,22 +61,15 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
     <div className="flex items-start gap-2">
       {/* Field selector */}
       <Select
-        value={rule.field}
-        onValueChange={(val) =>
+        value={rule.field || undefined}
+        onChange={(val) =>
           onChange({ ...rule, field: val as ConditionField, value: '', extraKey: undefined })
         }
-      >
-        <SelectTrigger className="h-8 text-sm w-40 shrink-0">
-          <SelectValue placeholder="Field" />
-        </SelectTrigger>
-        <SelectContent>
-          {CONDITION_FIELDS.map((f) => (
-            <SelectItem key={f} value={f}>
-              {FIELD_LABELS[f]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        placeholder="Field"
+        className="w-40 shrink-0"
+        size="small"
+        options={CONDITION_FIELDS.map((f) => ({ value: f, label: FIELD_LABELS[f] }))}
+      />
 
       {/* Extra key input for visitorTag, queryParam, customField */}
       {needsExtraKey && (
@@ -98,22 +83,15 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
 
       {/* Operator selector */}
       <Select
-        value={rule.operator}
-        onValueChange={(val) =>
+        value={rule.operator || undefined}
+        onChange={(val) =>
           onChange({ ...rule, operator: val as ConditionOperator })
         }
-      >
-        <SelectTrigger className="h-8 text-sm w-40 shrink-0">
-          <SelectValue placeholder="Operator" />
-        </SelectTrigger>
-        <SelectContent>
-          {CONDITION_OPERATORS.map((op) => (
-            <SelectItem key={op} value={op}>
-              {OPERATOR_LABELS[op]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        placeholder="Operator"
+        className="w-40 shrink-0"
+        size="small"
+        options={CONDITION_OPERATORS.map((op) => ({ value: op, label: OPERATOR_LABELS[op] }))}
+      />
 
       {/* Value input */}
       <ConditionFieldValueInput
@@ -125,9 +103,8 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
 
       {/* Remove button */}
       <Button
-        type="button"
-        variant="ghost"
-        size="icon"
+        htmlType="button"
+        type="text"
         className="h-8 w-8 shrink-0"
         onClick={onRemove}
       >

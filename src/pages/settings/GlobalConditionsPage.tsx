@@ -1,25 +1,17 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Loader2, Plus } from 'lucide-react'
-import { useConditions, useCondition, useSaveCondition, useDeleteCondition } from '@/api/hooks'
-import type { ConditionListRow } from '@/api/hooks/useConditions'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { DataTable } from '@/components/shared/DataTable'
-import { SearchInput } from '@/components/shared/SearchInput'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
+import type { ColDef } from 'ag-grid-community'
+import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks'
+import { PageShell, DataGrid, SearchToolbar, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
-import { Button } from '@/components/ui/button'
+import { Button, Tag } from 'antd'
 import { getErrorMessage } from '@/lib/utils'
-import type { ColumnDef } from '@tanstack/react-table'
 import type { Condition } from '@/types/funnel'
 
 export function GlobalConditionsPage() {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: conditionRows, isLoading } = useConditions()
-  const [editId, setEditId] = useState<string | null>(null)
-  const { data: loadedCondition, isLoading: loadingCondition } = useCondition(editId ?? '')
   const saveCondition = useSaveCondition()
   const deleteCondition = useDeleteCondition()
 
@@ -38,15 +30,12 @@ export function GlobalConditionsPage() {
     async (condition: Condition) => {
       try {
         await saveCondition.mutateAsync(condition)
-        toast.success(editId ? 'Condition updated' : 'Condition created')
+        toast.success('Condition saved')
         setEditorOpen(false)
-        setEditId(null)
       } catch (err) {
         toast.error(getErrorMessage(err))
       }
-    },
-    [saveCondition, toast, editId],
-  )
+    }, [saveCondition, toast])
 
   const handleDelete = useCallback(async () => {
     if (!deleteId) return
@@ -59,40 +48,78 @@ export function GlobalConditionsPage() {
     }
   }, [deleteId, deleteCondition, toast])
 
-  const columns = useMemo<ColumnDef<ConditionListRow>[]>(
+  const columns = useMemo<ColDef<Condition>[]>(
     () => [
       {
-        id: 'name',
-        header: 'Name',
-        accessorFn: (row) => row.name,
-        cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
-        enableSorting: true,
-      },
-      {
-        id: 'id',
-        header: 'ID',
-        accessorFn: (row) => row.id,
-        cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">{row.original.id}</span>
+        colId: 'name',
+        headerName: 'Name',
+        field: 'conditionName',
+        sortable: true,
+        cellRenderer: (params: { data: Condition }) => (
+          <span className="font-medium">{params.data.conditionName}</span>
         ),
       },
       {
-        id: 'actions',
-        header: '',
-        cell: ({ row }) => (
-          <RowActionsMenu
+        colId: 'scope',
+        headerName: 'Scope',
+        field: 'scope',
+        cellRenderer: (params: { data: Condition }) => (
+          <Tag className="text-xs capitalize">
+            {params.data.scope}
+          </Tag>
+        ),
+      },
+      {
+        colId: 'rules',
+        headerName: 'Rules',
+        valueGetter: (params: { data: Condition | undefined }) => {
+          if (!params.data) return 0
+          return params.data.blocks.reduce((sum, b) => sum + b.rules.length, 0)
+        },
+        cellRenderer: (params: { value: number }) => (
+          <span className="text-muted-foreground text-sm">
+            {params.value} rule{params.value !== 1 ? 's' : ''}
+          </span>
+        ),
+      },
+      {
+        colId: 'blocks',
+        headerName: 'Blocks',
+        valueGetter: (params: { data: Condition | undefined }) =>
+          params.data ? params.data.blocks.length : 0,
+        cellRenderer: (params: { data: Condition; value: number }) => (
+          <span className="text-muted-foreground text-sm">
+            {params.value} ({params.data.blockLogicOperator})
+          </span>
+        ),
+      },
+      {
+        colId: 'id',
+        headerName: 'ID',
+        field: 'idCondition',
+        cellRenderer: (params: { data: Condition }) => (
+          <span className="font-mono text-xs text-muted-foreground">{params.data.idCondition}</span>
+        ),
+      },
+      {
+        colId: 'actions',
+        headerName: '',
+        sortable: false,
+        cellRenderer: (params: { data: Condition }) => (
+          <InlineActions
             actions={[
               {
                 label: 'Edit',
+                icon: Pencil,
                 onClick: () => {
-                  setEditId(row.original.id)
                   setEditorOpen(true)
                 },
               },
               {
                 label: 'Delete',
+                icon: Trash2,
                 destructive: true,
-                onClick: () => setDeleteId(row.original.id),
+                onClick: () => setDeleteId(params.data.idCondition),
               },
             ]}
           />
@@ -102,67 +129,59 @@ export function GlobalConditionsPage() {
     [],
   )
 
-  const editorLoading = editorOpen && !!editId && loadingCondition
-  const editorReady = editorOpen && (!editId || !!loadedCondition)
-
   return (
-    <div className="space-y-4">
-      <PageHeader title="Global Conditions">
+    <PageShell
+      title="Global Conditions"
+      actions={
         <Button
-          size="sm"
+          type="primary"
           onClick={() => {
-            setEditId(null)
             setEditorOpen(true)
           }}
         >
           <Plus className="h-4 w-4 mr-1" />
           Add Condition
         </Button>
-      </PageHeader>
-
-      <div className="flex items-center gap-3">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search conditions..." />
-      </div>
+      }
+    >
+      <SearchToolbar value={search} onChange={setSearch} placeholder="Search conditions..." />
 
       {filtered.length === 0 && !isLoading ? (
         <EmptyState message="No global conditions found. Create one to get started." />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          isLoading={isLoading}
-          getRowId={(row) => row.id}
+        <DataGrid<Condition>
+          rowData={conditionRows ?? []}
+          columnDefs={columns}
+          getRowId={(p) => p.data.idCondition}
+          loading={isLoading}
         />
       )}
 
-      {editorLoading ? (
+      {editorOpen ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : null}
 
       <ConditionEditor
-        open={editorReady}
+        open={editorOpen}
         onClose={() => {
           setEditorOpen(false)
-          setEditId(null)
         }}
-        condition={editId ? loadedCondition ?? null : null}
+        condition={null}
         onSave={handleSave}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteId}
-        onOpenChange={(open) => {
-          if (!open) setDeleteId(null)
-        }}
+        onCancel={() => setDeleteId(null)}
         title="Delete Condition"
         description="Are you sure? This condition will be permanently deleted and removed from any funnels using it."
         confirmText="Delete"
         onConfirm={handleDelete}
-        isLoading={deleteCondition.isPending}
-        destructive
+        loading={deleteCondition.isPending}
+        danger
       />
-    </div>
+    </PageShell>
   )
 }

@@ -1,19 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { useToast } from '@/components/shared/Toaster'
+import { Button, Input, Switch, Select } from 'antd'
+import { PageShell, useToastApi } from '@/components/ui-kit'
 import { PermissionsGrid } from '@/components/settings/PermissionsGrid'
 import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
@@ -56,7 +45,7 @@ function normalizePermissions(value: unknown): Permissions {
 
 export function UserEditPage() {
   const navigate = useNavigate()
-  const toast = useToast()
+  const toast = useToastApi()
   const { userId } = useParams()
   const isNew = !userId || userId === 'new'
   const { data: users } = useUsers()
@@ -174,8 +163,7 @@ export function UserEditPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={isNew ? 'New User' : 'Edit User'} />
+    <PageShell title={isNew ? 'New User' : 'Edit User'}>
 
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading user...</div>
@@ -183,47 +171,44 @@ export function UserEditPage() {
         <>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="login">Login</Label>
+              <label htmlFor="login" className="block text-sm font-medium text-foreground">Login</label>
               <Input id="login" value={form.login} onChange={(event) => setForm((current) => ({ ...current, login: event.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <label htmlFor="email" className="block text-sm font-medium text-foreground">Email</label>
               <Input id="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="firstname">First name</Label>
+              <label htmlFor="firstname" className="block text-sm font-medium text-foreground">First name</label>
               <Input id="firstname" value={form.firstname} onChange={(event) => setForm((current) => ({ ...current, firstname: event.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="lastname">Last name</Label>
+              <label htmlFor="lastname" className="block text-sm font-medium text-foreground">Last name</label>
               <Input id="lastname" value={form.lastname} onChange={(event) => setForm((current) => ({ ...current, lastname: event.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <label htmlFor="password" className="block text-sm font-medium text-foreground">Password</label>
               <Input id="password" type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>Copy Rights From</Label>
-              <Select onValueChange={(value) => void handleCopyRights(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {copyOptions.map((user) => (
-                    <SelectItem key={user.id} value={String(user.id)}>
-                      {user.login}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="block text-sm font-medium text-foreground">Copy Rights From</label>
+              <Select
+                onChange={(value) => void handleCopyRights(value)}
+                placeholder="Select a user"
+                className="w-full"
+                options={copyOptions.map((user) => ({
+                  value: String(user.id),
+                  label: user.login,
+                }))}
+              />
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
-              <Label>Enabled</Label>
-              <Switch checked={form.enabled} onCheckedChange={(checked) => setForm((current) => ({ ...current, enabled: checked }))} />
+              <label className="text-sm font-medium">Enabled</label>
+              <Switch checked={form.enabled} onChange={(checked) => setForm((current) => ({ ...current, enabled: checked }))} />
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
-              <Label>Admin</Label>
-              <Switch checked={form.isAdmin} onCheckedChange={(checked) => setForm((current) => ({ ...current, isAdmin: checked }))} />
+              <label className="text-sm font-medium">Admin</label>
+              <Switch checked={form.isAdmin} onChange={(checked) => setForm((current) => ({ ...current, isAdmin: checked }))} />
             </div>
           </div>
 
@@ -233,16 +218,16 @@ export function UserEditPage() {
           />
 
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate('/settings/users')}>
+            <Button htmlType="button" onClick={() => navigate('/settings/users')}>
               Cancel
             </Button>
-            <Button type="button" onClick={() => void handleSave()} disabled={isSaving}>
+            <Button type="primary" htmlType="button" onClick={() => void handleSave()} disabled={isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save
             </Button>
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   )
 }
