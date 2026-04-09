@@ -1,25 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Copy, Loader2, Plus } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useToast } from '@/components/shared/Toaster'
+import { Button, Input, Modal } from 'antd'
+import { SmartSelect, useToastApi, type SmartSelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
   useFunnel,
@@ -28,33 +11,31 @@ import {
 } from '@/api/hooks'
 import type { FunnelNode } from '@/types/entities'
 import { NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel'
-import { cn, getErrorMessage } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/utils'
 
 function CopyIconButton({ value, disabled }: { value: string; disabled?: boolean }) {
-  const toast = useToast()
+  const toast = useToastApi()
   return (
     <Button
-      type="button"
-      variant="secondary"
-      size="icon"
+      htmlType="button"
+      type="default"
       disabled={disabled || !value}
       title="Copy"
+      icon={<Copy className="h-4 w-4" />}
       onClick={() =>
         navigator.clipboard.writeText(value).then(
           () => toast.success('Copied'),
           () => toast.error('Copy failed'),
         )
       }
-    >
-      <Copy className="h-4 w-4" />
-    </Button>
+    />
   )
 }
 
 function ReadonlyField({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <span className="block text-sm font-medium text-foreground">{label}</span>
       <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-foreground">
         {value || '—'}
       </div>
@@ -84,7 +65,7 @@ export function FunnelUrlModal({
   idFunnel,
   contextNodeId,
 }: FunnelUrlModalProps) {
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: linksData, isLoading: loadingData } = useSystemLinksData()
   const generateEntrance = useGenerateEntranceLink()
 
@@ -106,6 +87,19 @@ export function FunnelUrlModal({
   const campaigns = linksData?.campaigns ?? []
   const trafficSources = (linksData?.trafficSources ?? []) as TrafficSourceOption[]
   const domains = linksData?.domains ?? []
+
+  const trafficSourceOptions = useMemo<SmartSelectOption[]>(
+    () => trafficSources.map((ts) => ({ value: ts.id, label: ts.name })),
+    [trafficSources],
+  )
+
+  const domainOptions = useMemo<SmartSelectOption[]>(
+    () => [
+      { value: '__default__', label: 'Default domain' },
+      ...domains.map((d) => ({ value: d.domain, label: d.domain })),
+    ],
+    [domains],
+  )
 
   const campaignName = useMemo(() => {
     const row = campaigns.find((c) => c.id === idCampaign)
@@ -197,124 +191,118 @@ export function FunnelUrlModal({
   const canUseWizard = Boolean(idCampaign && idFunnel)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Funnel URL</DialogTitle>
-          <DialogDescription>
+    <Modal
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      destroyOnClose
+      width={520}
+      title={
+        <div className="space-y-1 pr-8">
+          <div className="text-lg font-semibold text-foreground">Funnel URL</div>
+          <p className="text-sm font-normal text-muted-foreground">
             Follow the steps below to get the URL of one of your funnels.
-          </DialogDescription>
-        </DialogHeader>
-
-        {!canUseWizard ? (
-          <p className="text-sm text-destructive">
-            Save your funnel first, then open “Send Traffic Here” again.
           </p>
-        ) : loadingData ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading…
-          </div>
-        ) : (
-          <div className="space-y-4 py-1">
-            <ReadonlyField label="1. Campaign" value={campaignName} />
-            <ReadonlyField label="2. Funnel" value={funnelName} />
-            <ReadonlyField label="3. (Optional) Node" value={nodeDisplay} />
-
-            <div className="space-y-1.5">
-              <Label>
-                <span className="text-primary font-medium">4.</span> Select a traffic source
-              </Label>
-              <div className="flex gap-2">
-                <Select value={selectedTrafficSource} onValueChange={setSelectedTrafficSource}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Traffic source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {trafficSources.map((ts) => (
-                      <SelectItem key={ts.id} value={ts.id}>
-                        {ts.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Link
-                  to="/traffic-sources"
-                  target="_blank"
-                  rel="noreferrer"
-                  title="Add traffic source"
-                  className={cn(buttonVariants({ variant: 'secondary', size: 'icon' }))}
-                >
-                  <Plus className="h-4 w-4" />
-                </Link>
-              </div>
-            </div>
-
-            {selectedTrafficSource ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="funnel-url-cpc">{costLabel}</Label>
-                <Input
-                  id="funnel-url-cpc"
-                  type="number"
-                  step="0.001"
-                  min={0}
-                  value={costCpc}
-                  onChange={(e) => setCostCpc(e.target.value)}
-                  className="font-mono text-sm"
-                />
-              </div>
-            ) : null}
-
-            <div className="space-y-1.5">
-              <Label>Domain (optional)</Label>
-              <Select
-                value={selectedDomain || '__default__'}
-                onValueChange={(v) => setSelectedDomain(v === '__default__' ? '' : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Default domain" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Default domain</SelectItem>
-                  {domains.map((d) => (
-                    <SelectItem key={d.id} value={d.domain}>
-                      {d.domain}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Entrance URL</Label>
-              <div className="flex gap-2">
-                <Input
-                  readOnly
-                  value={entranceLink}
-                  placeholder={
-                    selectedTrafficSource ? 'Generating…' : 'Choose a traffic source'
-                  }
-                  className="font-mono text-xs"
-                />
-                {generateEntrance.isPending ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin self-center text-muted-foreground" />
-                ) : (
-                  <CopyIconButton value={entranceLink} />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+        </div>
+      }
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button htmlType="button" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => onOpenChange(false)}>
+          <Button type="primary" htmlType="button" onClick={() => onOpenChange(false)}>
             OK
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      }
+      styles={{ body: { paddingTop: 8 } }}
+    >
+      {!canUseWizard ? (
+        <p className="text-sm text-destructive">
+          Save your funnel first, then open “Send Traffic Here” again.
+        </p>
+      ) : loadingData ? (
+        <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading…
+        </div>
+      ) : (
+        <div className="space-y-4 py-1">
+          <ReadonlyField label="1. Campaign" value={campaignName} />
+          <ReadonlyField label="2. Funnel" value={funnelName} />
+          <ReadonlyField label="3. (Optional) Node" value={nodeDisplay} />
+
+          <div className="space-y-1.5">
+            <span className="block text-sm font-medium text-foreground">
+              <span className="font-medium text-primary">4.</span> Select a traffic source
+            </span>
+            <div className="flex gap-2">
+              <SmartSelect
+                className="min-h-9 flex-1"
+                value={selectedTrafficSource || undefined}
+                onChange={(v) => setSelectedTrafficSource(v)}
+                options={trafficSourceOptions}
+                placeholder="Traffic source"
+              />
+              <Link
+                to="/traffic-sources"
+                target="_blank"
+                rel="noreferrer"
+                title="Add traffic source"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted"
+              >
+                <Plus className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+
+          {selectedTrafficSource ? (
+            <div className="space-y-1.5">
+              <label htmlFor="funnel-url-cpc" className="block text-sm font-medium text-foreground">
+                {costLabel}
+              </label>
+              <Input
+                id="funnel-url-cpc"
+                type="number"
+                step={0.001}
+                min={0}
+                value={costCpc}
+                onChange={(e) => setCostCpc(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+          ) : null}
+
+          <div className="space-y-1.5">
+            <span className="block text-sm font-medium text-foreground">Domain (optional)</span>
+            <SmartSelect
+              className="min-h-9 w-full"
+              value={selectedDomain || '__default__'}
+              onChange={(v) => setSelectedDomain(v === '__default__' ? '' : v)}
+              options={domainOptions}
+              placeholder="Default domain"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="block text-sm font-medium text-foreground">Entrance URL</span>
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={entranceLink}
+                placeholder={
+                  selectedTrafficSource ? 'Generating…' : 'Choose a traffic source'
+                }
+                className="font-mono text-xs"
+              />
+              {generateEntrance.isPending ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin self-center text-muted-foreground" />
+              ) : (
+                <CopyIconButton value={entranceLink} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
   )
 }

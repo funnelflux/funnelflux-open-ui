@@ -1,29 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Modal as AntModal } from 'antd'
+import { Button, Input, Modal, Select, Switch } from 'antd'
 import { ExternalLink, Loader2, Plus, Trash2 } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useToast } from '@/components/shared/Toaster'
+import { useToastApi, SmartSelect, type SmartSelectOption } from '@/components/ui-kit'
 import { useCategories, usePage, useSaveCategory, useSavePage } from '@/api/hooks'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/api/queryKeys'
@@ -61,7 +41,7 @@ interface LanderNodeEditModalProps {
 }
 
 export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditModalProps) {
-  const toast = useToast()
+  const toast = useToastApi()
   const qc = useQueryClient()
   const node = useFunnelEditorStore((s) =>
     nodeId ? s.nodes.find((n) => n.id === nodeId) : undefined,
@@ -152,6 +132,23 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
   const orphanCategory =
     rawTag && rawTag !== UNCATEGORIZED && !categoryNamesFromApi.has(rawTag) ? rawTag : null
 
+  const categorySmartOptions = useMemo<SmartSelectOption[]>(() => {
+    const out: SmartSelectOption[] = [{ value: '__none__', label: '—' }]
+    if (orphanCategory) out.push({ value: orphanCategory, label: orphanCategory })
+    for (const c of categories?.filter((c) => c.name && c.name !== UNCATEGORIZED) ?? []) {
+      out.push({ value: c.name, label: c.name })
+    }
+    return out
+  }, [categories, orphanCategory])
+
+  const tokenSelectOptions = useMemo<SmartSelectOption[]>(
+    () => [
+      { value: '__pick__', label: '—' },
+      ...FUNNEL_URL_TOKEN_OPTIONS.map((t) => ({ value: t, label: t })),
+    ],
+    [],
+  )
+
   const openAddCategoryModal = () => {
     setNewCategoryName('')
     setAddCategoryOpen(true)
@@ -229,29 +226,44 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
 
   return (
     <>
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent
+      <Modal
+        open={open}
+        onCancel={onClose}
+        destroyOnClose
+        maskClosable={false}
         width="min(1200px, 96vw)"
-        styles={{
-          body: {
-            padding: 0,
-            maxHeight: '90vh',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        }}
-        className="[&_.ant-modal-content]:flex [&_.ant-modal-content]:max-h-[90vh] [&_.ant-modal-content]:flex-col [&_.ant-modal-content]:overflow-hidden"
-      >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <DialogHeader className="shrink-0 space-y-1 border-b px-6 py-4">
-            <DialogTitle className="text-lg">Lander identification</DialogTitle>
-            <DialogDescription>
+        zIndex={1050}
+        title={
+          <div className="space-y-1 pr-8">
+            <div className="text-lg font-semibold text-foreground">Lander identification</div>
+            <p className="text-sm font-normal text-muted-foreground">
               Edit the landing page record and how this funnel node passes traffic to it.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
+            </p>
+          </div>
+        }
+        styles={{
+          body: { maxHeight: 'calc(90vh - 200px)', overflowY: 'auto', padding: '16px 24px' },
+          header: { marginBottom: 0 },
+          footer: { marginTop: 0 },
+        }}
+        footer={
+          <div className="flex w-full flex-wrap justify-between gap-2">
+            <Button htmlType="button" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              form="lander-node-edit-form"
+              disabled={busy || noPage || pageLoading || isError}
+              loading={busy}
+              className="min-w-[100px] !bg-orange-600 hover:!bg-orange-500"
+            >
+              OK
+            </Button>
+          </div>
+        }
+      >
           {noPage ? (
             <p className="text-sm text-muted-foreground">
               This node has no lander page assigned. Set a page ID from the funnel context or pick a
@@ -273,9 +285,12 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                 {/* Name, category, ID on one row on large screens */}
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-end">
                   <div className="space-y-2 lg:col-span-5">
-                    <Label htmlFor="lander-name">Name</Label>
+                    <label htmlFor="lander-name" className="block text-sm font-medium text-foreground">
+                      Name
+                    </label>
                     <Input
                       id="lander-name"
+                      size="middle"
                       className="h-10"
                       {...form.register('pageName')}
                       autoComplete="off"
@@ -285,48 +300,33 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                     )}
                   </div>
                   <div className="space-y-2 lg:col-span-4">
-                    <Label>Category</Label>
+                    <span className="block text-sm font-medium text-foreground">Category</span>
                     <div className="flex gap-2">
-                      <Select
+                      <SmartSelect
+                        className="min-h-10 flex-1"
                         value={categorySelectValue}
-                        onValueChange={(v) => {
+                        onChange={(v) => {
                           if (v === '__none__' || v === UNCATEGORIZED) {
                             form.setValue('tags', [], { shouldDirty: true })
                           } else {
                             form.setValue('tags', [v], { shouldDirty: true })
                           }
                         }}
-                      >
-                        <SelectTrigger className="h-10 min-h-10 flex-1">
-                          <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">—</SelectItem>
-                          {orphanCategory ? (
-                            <SelectItem value={orphanCategory}>{orphanCategory}</SelectItem>
-                          ) : null}
-                          {categories
-                            ?.filter((c) => c.name && c.name !== UNCATEGORIZED)
-                            .map((c) => (
-                              <SelectItem key={c.idCategory || c.name} value={c.name}>
-                                {c.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                        options={categorySmartOptions}
+                        placeholder="Category"
+                      />
                       <Button
-                        type="button"
-                        variant="secondary"
+                        htmlType="button"
+                        type="default"
                         className="h-10 w-10 shrink-0 p-0"
                         title="Add category"
+                        icon={<Plus className="h-4 w-4" />}
                         onClick={openAddCategoryModal}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
+                      />
                     </div>
                   </div>
                   <div className="space-y-2 lg:col-span-3">
-                    <Label>ID</Label>
+                    <span className="block text-sm font-medium text-foreground">ID</span>
                     <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 font-mono text-xs text-muted-foreground">
                       {form.watch('idPage') || page?.idPage || '—'}
                     </div>
@@ -334,23 +334,25 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="lander-url">Lander URL</Label>
+                  <label htmlFor="lander-url" className="block text-sm font-medium text-foreground">
+                    Lander URL
+                  </label>
                   <div className="flex gap-2">
                     <Input
                       id="lander-url"
+                      size="middle"
                       className="h-10 flex-1"
                       {...form.register('url')}
                       placeholder="https://…"
                     />
                     <Button
-                      type="button"
-                      variant="secondary"
+                      htmlType="button"
+                      type="default"
                       className="h-10 w-10 shrink-0 p-0"
                       title="Open URL"
+                      icon={<ExternalLink className="h-4 w-4" />}
                       onClick={openLanderUrl}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+                    />
                   </div>
                   {form.formState.errors.url && (
                     <p className="text-xs text-destructive">{form.formState.errors.url.message}</p>
@@ -359,37 +361,32 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
 
                 <div className="grid grid-cols-1 gap-4 border-t pt-4 lg:grid-cols-2 lg:items-start">
                   <div className="space-y-2">
-                    <Label>Redirect type</Label>
+                    <span className="block text-sm font-medium text-foreground">Redirect type</span>
                     <Select
+                      className="w-full"
+                      size="middle"
                       value={redirectType}
-                      onValueChange={(v) =>
+                      onChange={(v) =>
                         form.setValue('redirectType', v as LanderNodeEditFormData['redirectType'], {
                           shouldDirty: true,
                         })
                       }
-                    >
-                      <SelectTrigger className="h-10 min-h-10 w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {REDIRECT_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={REDIRECT_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
+                    />
                     {REDIRECT_NOTES[redirectType] && (
                       <p className="text-xs leading-relaxed text-muted-foreground">{REDIRECT_NOTES[redirectType]}</p>
                     )}
                   </div>
                   <div className="flex min-h-[11rem] flex-col space-y-2">
-                    <Label htmlFor="lander-notes">Notes</Label>
-                    <Textarea
+                    <label htmlFor="lander-notes" className="block text-sm font-medium text-foreground">
+                      Notes
+                    </label>
+                    <Input.TextArea
                       id="lander-notes"
                       className="min-h-[9.5rem] flex-1 resize-y text-sm"
                       {...form.register('notes')}
                       placeholder="Optional"
+                      autoSize={{ minRows: 6 }}
                     />
                   </div>
                 </div>
@@ -406,9 +403,9 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
 
                 <div className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2">
                   <div className="space-y-0.5">
-                    <Label htmlFor="acc-url" className="text-sm font-normal">
+                    <label htmlFor="acc-url" className="text-sm font-normal text-foreground">
                       Pass accumulated URL parameters
-                    </Label>
+                    </label>
                     <p className="text-xs text-muted-foreground">
                       Include all accumulated query parameters from the visitor journey on the redirect URL.
                     </p>
@@ -416,7 +413,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                   <Switch
                     id="acc-url"
                     checked={form.watch('accumulateUrlParams')}
-                    onCheckedChange={(c) => form.setValue('accumulateUrlParams', c, { shouldDirty: true })}
+                    onChange={(c) => form.setValue('accumulateUrlParams', c, { shouldDirty: true })}
                   />
                 </div>
 
@@ -427,88 +424,65 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                       className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center"
                     >
                       <div className="space-y-1.5">
-                        <Label className={cn(index > 0 && 'sr-only')}>Query field</Label>
+                        <span className={cn('block text-sm font-medium text-foreground', index > 0 && 'sr-only')}>
+                          Query field
+                        </span>
                         <Input
                           placeholder="field_name"
                           {...form.register(`additionalTokens.${index}.field` as const)}
+                          size="middle"
                           className="h-10 font-mono text-sm"
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className={cn(index > 0 && 'sr-only')}>Token</Label>
+                        <span className={cn('block text-sm font-medium text-foreground', index > 0 && 'sr-only')}>
+                          Token
+                        </span>
                         <Controller
                           control={form.control}
                           name={`additionalTokens.${index}.token`}
                           render={({ field }) => (
-                            <Select
+                            <SmartSelect
+                              className="min-h-10 w-full font-mono text-xs"
                               value={field.value || '__pick__'}
-                              onValueChange={(v) => {
+                              onChange={(v) => {
                                 field.onChange(v === '__pick__' ? '' : v)
                               }}
-                            >
-                              <SelectTrigger className="h-10 min-h-10 w-full">
-                                <SelectValue placeholder="Insert…" />
-                              </SelectTrigger>
-                              <SelectContent className="max-h-60">
-                                <SelectItem value="__pick__">—</SelectItem>
-                                {FUNNEL_URL_TOKEN_OPTIONS.map((t) => (
-                                  <SelectItem key={t} value={t} className="font-mono text-xs">
-                                    {t}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              options={tokenSelectOptions}
+                              placeholder="Insert…"
+                              alphabetical={false}
+                            />
                           )}
                         />
                       </div>
                       <div className="flex justify-end sm:justify-center">
                         <Button
-                          type="button"
-                          variant="ghost"
+                          htmlType="button"
+                          type="text"
                           className="h-10 w-10 text-muted-foreground"
                           title="Remove row"
                           disabled={fields.length <= 1}
+                          icon={<Trash2 className="h-4 w-4" />}
                           onClick={() => remove(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        />
                       </div>
                     </div>
                   ))}
                   <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
+                    htmlType="button"
+                    size="small"
+                    icon={<Plus className="h-3.5 w-3.5" />}
                     onClick={() => append({ field: '', token: '' })}
                   >
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />
                     Pass another token
                   </Button>
                 </div>
               </section>
             </form>
           )}
-          </div>
+      </Modal>
 
-          <DialogFooter className="shrink-0 border-t bg-background px-6 py-4 sm:justify-between">
-            <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              form="lander-node-edit-form"
-              disabled={busy || noPage || pageLoading || isError}
-              className="min-w-[100px] bg-orange-600 text-white hover:bg-orange-600/90"
-            >
-              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              OK
-            </Button>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    <AntModal
+    <Modal
       title="Add category"
       open={addCategoryOpen}
       zIndex={1100}
@@ -523,11 +497,12 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
       destroyOnClose
     >
       <p className="mb-2 text-sm text-muted-foreground">Letters, numbers, and spaces only.</p>
-      <Label htmlFor="lander-new-category-name" className="sr-only">
+      <label htmlFor="lander-new-category-name" className="sr-only">
         Category name
-      </Label>
+      </label>
       <Input
         id="lander-new-category-name"
+        size="middle"
         className="h-10"
         value={newCategoryName}
         onChange={(e) => setNewCategoryName(e.target.value)}
@@ -540,7 +515,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
         }}
         autoFocus
       />
-    </AntModal>
+    </Modal>
     </>
   )
 }

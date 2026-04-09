@@ -25,7 +25,7 @@ import { EdgeContextMenu } from './EdgeContextMenu'
 import { NodePropertiesModal } from './NodePropertiesModal'
 import { FunnelUrlModal } from './FunnelUrlModal'
 import { EdgeHandleSync } from './EdgeHandleSync'
-import { useToast } from '@/components/shared/Toaster'
+import { useToastApi } from '@/components/ui-kit'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { cn } from '@/lib/utils'
 import type { FunnelFlowNode, FunnelFlowEdge } from '@/types/funnel'
@@ -64,7 +64,7 @@ function edgeChangesShouldMarkDirty(changes: EdgeChange<FunnelFlowEdge>[]): bool
 
 export function FunnelCanvas(props: FunnelCanvasProps = {}) {
   const { variant = 'default', className } = props
-  const toast = useToast()
+  const toast = useToastApi()
   const meta = useFunnelEditorStore((s) => s.meta)
   const nodes = useFunnelEditorStore((s) => s.nodes)
   const edges = useFunnelEditorStore((s) => s.edges)

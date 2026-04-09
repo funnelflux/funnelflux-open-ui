@@ -62,17 +62,19 @@ function normalizeTimezone(tz: string): string {
 }
 
 interface TimezoneSelectProps {
+  id?: string
   value?: string
   onChange?: (timezone: string) => void
   className?: string
 }
 
-export function TimezoneSelect({ value, onChange, className }: TimezoneSelectProps) {
+export function TimezoneSelect({ id, value, onChange, className }: TimezoneSelectProps) {
   const currentTz = value || getStoredTimezone()
   const normalized = normalizeTimezone(currentTz)
 
   return (
     <SmartSelect
+      id={id}
       value={normalized}
       onChange={(tz) => {
         storeTimezone(tz)

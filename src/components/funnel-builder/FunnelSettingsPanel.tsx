@@ -1,17 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Input, Select } from 'antd'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { useCampaignsList } from '@/api/hooks'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { FunnelAdvancedSettings } from '@/components/funnel-builder/FunnelAdvancedSettings'
 
 interface FunnelSettingsPanelProps {
@@ -25,17 +16,23 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
 
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
+  const campaignOptions = useMemo(
+    () => campaigns?.map((c) => ({ label: c.name, value: c.id })) ?? [],
+    [campaigns],
+  )
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="funnel-settings-name">
+        <label htmlFor="funnel-settings-name" className="block text-sm font-medium text-foreground">
           Funnel name <span className="text-destructive">*</span>
-        </Label>
+        </label>
         <Input
           id="funnel-settings-name"
+          size="middle"
           className="h-10 max-w-3xl"
           value={meta.funnelName}
-          onChange={(e) => updateMeta({ funnelName: e.target.value })}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => updateMeta({ funnelName: e.target.value })}
           placeholder="Funnel name"
           autoComplete="off"
         />
@@ -43,19 +40,24 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
 
       <div className="grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="funnel-settings-cost">Default cost per entrance</Label>
+          <label htmlFor="funnel-settings-cost" className="block text-sm font-medium text-foreground">
+            Default cost per entrance
+          </label>
           <Input
             id="funnel-settings-cost"
             type="number"
-            step="0.001"
+            step={0.001}
             min={0}
+            size="middle"
             className="h-10"
             value={meta.defaultCostPerEntrance}
-            onChange={(e) => updateMeta({ defaultCostPerEntrance: Number(e.target.value) })}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              updateMeta({ defaultCostPerEntrance: Number(e.target.value) })
+            }
           />
         </div>
         <div className="space-y-2">
-          <Label>Funnel ID</Label>
+          <span className="block text-sm font-medium text-foreground">Funnel ID</span>
           <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 font-mono text-xs text-muted-foreground">
             {meta.idFunnel || '—'}
           </div>
@@ -63,41 +65,37 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
       </div>
 
       <div className="space-y-2 max-w-3xl">
-        <Label htmlFor="funnel-settings-notes">Notes</Label>
-        <Textarea
+        <label htmlFor="funnel-settings-notes" className="block text-sm font-medium text-foreground">
+          Notes
+        </label>
+        <Input.TextArea
           id="funnel-settings-notes"
           className="min-h-[5.5rem] resize-y text-sm"
           value={meta.notes}
-          onChange={(e) => updateMeta({ notes: e.target.value })}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updateMeta({ notes: e.target.value })}
           placeholder="Optional notes for this funnel…"
+          autoSize={{ minRows: 3 }}
         />
       </div>
 
       <div className="grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>Campaign name</Label>
+          <span className="block text-sm font-medium text-foreground">Campaign name</span>
           <Select
-            value={meta.idCampaign}
-            onValueChange={(v) => updateMeta({ idCampaign: v })}
+            className="h-10 w-full"
+            size="middle"
+            value={meta.idCampaign || undefined}
+            onChange={(v: string) => updateMeta({ idCampaign: v })}
             disabled={!isNew}
-          >
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Select campaign…" />
-            </SelectTrigger>
-            <SelectContent>
-              {campaigns?.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Select campaign…"
+            options={campaignOptions}
+          />
           {!isNew && (
             <p className="text-[11px] text-muted-foreground">Campaign is fixed after the funnel is created.</p>
           )}
         </div>
         <div className="space-y-2">
-          <Label>Campaign ID</Label>
+          <span className="block text-sm font-medium text-foreground">Campaign ID</span>
           <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 font-mono text-xs text-muted-foreground">
             {meta.idCampaign || '—'}
           </div>

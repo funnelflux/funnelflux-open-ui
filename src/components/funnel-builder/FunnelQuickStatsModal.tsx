@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Modal } from 'antd'
+import { Button, Input, Modal, Tabs } from 'antd'
 
 import { api } from '@/api/client'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
-import { Button } from '@/components/ui/button'
-import { useToast } from '@/components/shared/Toaster'
+import {
+  SmartSelect,
+  TimezoneSelect,
+  useToastApi,
+  type SmartSelectOption,
+} from '@/components/ui-kit'
 import { getPresetRange } from '@/lib/date-presets'
 import {
   buildDrilldownRequestForTab,
@@ -20,15 +23,6 @@ import { useDrilldownStore } from '@/store/drilldown'
 import type { Report } from '@/types/stats'
 import { Loader2, Printer, RefreshCw, BarChart3, Globe2, LayoutGrid, Network } from 'lucide-react'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import {
   DataGrid,
   dataGridColumnClass,
   type ColDef,
@@ -36,7 +30,6 @@ import {
   type GridApi,
   type GridReadyEvent,
 } from '@/components/ui/data-grid'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface QuickStatsApiResponse {
   report?: Report
@@ -121,7 +114,7 @@ export function FunnelQuickStatsModal({
   funnelId,
   funnelName,
 }: FunnelQuickStatsModalProps) {
-  const toast = useToast()
+  const toast = useToastApi()
   const navigate = useNavigate()
   const setGroupings = useDrilldownStore((s) => s.setGroupings)
   const setGroupingFilters = useDrilldownStore((s) => s.setGroupingFilters)
@@ -248,6 +241,19 @@ export function FunnelQuickStatsModal({
     }
   }, [campaignId, funnelId, trafficSourceId, countryCode, trackingField, tab, datePickerValue.from, datePickerValue.to, timezone, toast])
 
+  const trafficSelectOptions = useMemo<SmartSelectOption[]>(
+    () => [
+      { value: '__all__', label: 'All Traffic Sources' },
+      ...trafficOptions.map((t) => ({ value: t.value, label: t.label })),
+    ],
+    [trafficOptions],
+  )
+
+  const trackingFieldSelectOptions = useMemo<SmartSelectOption[]>(
+    () => [{ value: '__none__', label: '—' }, ...trackingFieldOptions],
+    [trackingFieldOptions],
+  )
+
   useEffect(() => {
     if (open) {
       void loadMeta()
@@ -354,9 +360,9 @@ export function FunnelQuickStatsModal({
   const tabButton = (id: FunnelQuickStatsTab, label: string) => (
     <Button
       key={id}
-      type="button"
-      size="sm"
-      variant={tab === id ? 'default' : 'outline'}
+      htmlType="button"
+      type={tab === id ? 'primary' : 'default'}
+      size="small"
       className={
         tab === id
           ? 'h-8 px-2.5 text-xs shadow-sm'
@@ -368,12 +374,7 @@ export function FunnelQuickStatsModal({
     </Button>
   )
 
-  /** Breakdown buttons for one category (title/icon unused — labels come from parent `Tabs`). Kept for stable API / HMR. */
-  const tabSection = (
-    _title: string,
-    _icon: ReactNode,
-    row: { id: FunnelQuickStatsTab; label: string }[],
-  ) => (
+  const breakdownRow = (row: { id: FunnelQuickStatsTab; label: string }[]) => (
     <div className="flex flex-wrap gap-1 border-t border-border/50 bg-background/80 px-0.5 py-1.5 sm:px-1">
       {row.map((r) => tabButton(r.id, r.label))}
     </div>
@@ -421,25 +422,17 @@ export function FunnelQuickStatsModal({
               aria-label="Report filters"
             >
               <div className="flex shrink-0 items-center gap-1.5">
-                <Label htmlFor="funnel-qs-traffic" className="sr-only">
+                <label htmlFor="funnel-qs-traffic" className="sr-only">
                   Traffic source
-                </Label>
-                <Select
+                </label>
+                <SmartSelect
+                  id="funnel-qs-traffic"
                   value={trafficSourceId || '__all__'}
-                  onValueChange={(v) => setTrafficSourceId(v === '__all__' ? '' : v)}
-                >
-                  <SelectTrigger id="funnel-qs-traffic" className="h-9 w-[min(200px,42vw)] shadow-sm">
-                    <SelectValue placeholder="All Traffic Sources" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">All Traffic Sources</SelectItem>
-                    {trafficOptions.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setTrafficSourceId(v === '__all__' ? '' : v)}
+                  options={trafficSelectOptions}
+                  placeholder="All Traffic Sources"
+                  className="min-h-9 w-[min(200px,42vw)] shadow-sm"
+                />
               </div>
               <div className="min-w-[220px] shrink-0 sm:min-w-[260px]">
                 <DateRangePicker
@@ -459,37 +452,38 @@ export function FunnelQuickStatsModal({
                 />
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <Label htmlFor="funnel-qs-tz" className="sr-only">
+                <label htmlFor="funnel-qs-tz" className="sr-only">
                   Timezone
-                </Label>
-                <TimezoneSelector
+                </label>
+                <TimezoneSelect
                   id="funnel-qs-tz"
                   value={timezone}
                   onChange={setTimezone}
-                  triggerClassName="h-9 w-[min(180px,28vw)] shadow-sm"
+                  className="min-h-9 w-[min(180px,28vw)] shadow-sm"
                 />
               </div>
               <Button
-                type="button"
-                variant="default"
-                size="sm"
+                htmlType="button"
+                type="primary"
+                size="small"
                 className="gap-1.5 shadow-sm"
+                icon={<RefreshCw className="h-4 w-4" />}
+                loading={loading}
                 onClick={() => void loadReport()}
-                disabled={loading}
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Refresh
               </Button>
             </div>
 
             {(tab === 'region' || tab === 'city') && (
               <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border/50 pt-2">
-                <Label htmlFor="funnel-qs-country" className="shrink-0 text-xs text-muted-foreground">
+                <label htmlFor="funnel-qs-country" className="shrink-0 text-xs text-muted-foreground">
                   Country
-                </Label>
+                </label>
                 <Input
                   id="funnel-qs-country"
-                  className="h-9 w-32 uppercase shadow-sm"
+                  className="w-32 uppercase shadow-sm"
+                  size="middle"
                   maxLength={2}
                   placeholder="US"
                   value={countryCode}
@@ -501,22 +495,17 @@ export function FunnelQuickStatsModal({
 
             {tab === 'tracking-fields' && (
               <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border/50 pt-2">
-                <Label htmlFor="funnel-qs-tf" className="shrink-0 text-xs text-muted-foreground">
+                <label htmlFor="funnel-qs-tf" className="shrink-0 text-xs text-muted-foreground">
                   Field
-                </Label>
-                <Select value={trackingField || '__none__'} onValueChange={(v) => setTrackingField(v === '__none__' ? '' : v)}>
-                  <SelectTrigger id="funnel-qs-tf" className="h-9 w-[min(320px,85vw)] shadow-sm">
-                    <SelectValue placeholder={metaLoaded ? 'Select field' : 'Loading…'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {trackingFieldOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                </label>
+                <SmartSelect
+                  id="funnel-qs-tf"
+                  value={trackingField || '__none__'}
+                  onChange={(v) => setTrackingField(v === '__none__' ? '' : v)}
+                  options={trackingFieldSelectOptions}
+                  placeholder={metaLoaded ? 'Select field' : 'Loading…'}
+                  className="min-h-9 w-[min(320px,85vw)] shadow-sm"
+                />
               </div>
             )}
           </div>
@@ -524,61 +513,50 @@ export function FunnelQuickStatsModal({
 
         <div className="shrink-0 border-b border-border/80 bg-muted/15 px-3 pb-2 pt-1.5 sm:px-5">
           <Tabs
-            value={categoryForTab(tab)}
-            onValueChange={handleCategoryTabChange}
+            activeKey={categoryForTab(tab)}
+            onChange={handleCategoryTabChange}
             className="quick-stats-category-tabs [&_.ant-tabs-content]:mt-0 [&_.ant-tabs-nav]:mb-0 [&_.ant-tabs-nav]:before:border-border/50 [&_.ant-tabs-tab]:px-3 [&_.ant-tabs-tab]:py-1.5 [&_.ant-tabs-tab-active]:bg-background [&_.ant-tabs-tab-active]:shadow-sm [&_.ant-tabs-tab-btn]:text-xs [&_.ant-tabs-tab-btn]:font-medium [&_.ant-tabs-tab-btn]:text-muted-foreground [&_.ant-tabs-tab-active_.ant-tabs-tab-btn]:text-foreground"
-          >
-            <TabsList>
-              <TabsTrigger value="conversion">
-                <span className="inline-flex items-center gap-1.5">
-                  <LayoutGrid className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-                  {'Conversion & traffic'}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="device">
-                <span className="inline-flex items-center gap-1.5">
-                  <Network className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-                  {'Device & network'}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="geo">
-                <span className="inline-flex items-center gap-1.5">
-                  <Globe2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-                  {'Geography & drilldown'}
-                </span>
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="conversion">
-              {tabSection(
-                'Conversion & traffic',
-                <LayoutGrid className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />,
-                ROW1,
-              )}
-            </TabsContent>
-            <TabsContent value="device">
-              {tabSection(
-                'Device & network',
-                <Network className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />,
-                ROW2,
-              )}
-            </TabsContent>
-            <TabsContent value="geo">
-              {tabSection(
-                'Geography & drilldown',
-                <Globe2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />,
-                ROW3,
-              )}
-            </TabsContent>
-          </Tabs>
+            items={[
+              {
+                key: 'conversion',
+                label: (
+                  <span className="inline-flex items-center gap-1.5">
+                    <LayoutGrid className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                    Conversion & traffic
+                  </span>
+                ),
+                children: breakdownRow(ROW1),
+              },
+              {
+                key: 'device',
+                label: (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Network className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                    Device & network
+                  </span>
+                ),
+                children: breakdownRow(ROW2),
+              },
+              {
+                key: 'geo',
+                label: (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Globe2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                    Geography & drilldown
+                  </span>
+                ),
+                children: breakdownRow(ROW3),
+              },
+            ]}
+          />
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-background px-4 py-2 sm:px-5">
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" className="gap-1.5 shadow-sm" onClick={handlePrint}>
-              <Printer className="h-4 w-4" />
+            <Button htmlType="button" size="small" className="gap-1.5 shadow-sm" icon={<Printer className="h-4 w-4" />} onClick={handlePrint}>
               Print
             </Button>
-            <Button type="button" variant="outline" size="sm" className="shadow-sm" onClick={handleCsv} disabled={!report}>
+            <Button htmlType="button" size="small" className="shadow-sm" onClick={handleCsv} disabled={!report}>
               Export CSV
             </Button>
           </div>
@@ -601,7 +579,7 @@ export function FunnelQuickStatsModal({
                   Open the drilldown tree with the current date range and timezone. This funnel stays pre-filtered.
                 </p>
               </div>
-              <Button type="button" size="lg" className="shadow-md" onClick={handleOpenDrilldown}>
+              <Button htmlType="button" type="primary" size="large" className="shadow-md" onClick={handleOpenDrilldown}>
                 Open drilldown
               </Button>
             </div>
