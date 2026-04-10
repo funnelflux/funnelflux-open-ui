@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from 'react'
-import type { ColDef } from 'ag-grid-community'
+import type { ColumnDef } from '@tanstack/react-table'
 import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks'
-import { PageShell, DataGrid, SearchToolbar, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { PageShell, DataTable, SearchToolbar, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import { InlineActions } from '@/components/shared/InlineActions'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
 import { Button, Tag } from 'antd'
@@ -23,7 +23,7 @@ export function GlobalConditionsPage() {
     const list = conditionRows ?? []
     if (!search) return list
     const q = search.toLowerCase()
-    return list.filter((c) => c.name.toLowerCase().includes(q))
+    return list.filter((c) => c.conditionName.toLowerCase().includes(q))
   }, [conditionRows, search])
 
   const handleSave = useCallback(
@@ -48,64 +48,67 @@ export function GlobalConditionsPage() {
     }
   }, [deleteId, deleteCondition, toast])
 
-  const columns = useMemo<ColDef<Condition>[]>(
+  const columns = useMemo<ColumnDef<Condition, unknown>[]>(
     () => [
       {
-        colId: 'name',
-        headerName: 'Name',
-        field: 'conditionName',
-        sortable: true,
-        cellRenderer: (params: { data: Condition }) => (
-          <span className="font-medium">{params.data.conditionName}</span>
+        id: 'name',
+        header: 'Name',
+        accessorKey: 'conditionName',
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.conditionName}</span>
         ),
       },
       {
-        colId: 'scope',
-        headerName: 'Scope',
-        field: 'scope',
-        cellRenderer: (params: { data: Condition }) => (
+        id: 'scope',
+        header: 'Scope',
+        accessorKey: 'scope',
+        cell: ({ row }) => (
           <Tag className="text-xs capitalize">
-            {params.data.scope}
+            {row.original.scope}
           </Tag>
         ),
       },
       {
-        colId: 'rules',
-        headerName: 'Rules',
-        valueGetter: (params: { data: Condition | undefined }) => {
-          if (!params.data) return 0
-          return params.data.blocks.reduce((sum, b) => sum + b.rules.length, 0)
+        id: 'rules',
+        header: 'Rules',
+        accessorFn: (row) =>
+          row.blocks.reduce((sum, b) => sum + b.rules.length, 0),
+        cell: ({ getValue }) => {
+          const n = getValue() as number
+          return (
+            <span className="text-muted-foreground text-sm">
+              {n} rule{n !== 1 ? 's' : ''}
+            </span>
+          )
         },
-        cellRenderer: (params: { value: number }) => (
-          <span className="text-muted-foreground text-sm">
-            {params.value} rule{params.value !== 1 ? 's' : ''}
-          </span>
+      },
+      {
+        id: 'blocks',
+        header: 'Blocks',
+        accessorFn: (row) => row.blocks.length,
+        cell: ({ row, getValue }) => {
+          const n = getValue() as number
+          return (
+            <span className="text-muted-foreground text-sm">
+              {n} ({row.original.blockLogicOperator})
+            </span>
+          )
+        },
+      },
+      {
+        id: 'id',
+        header: 'ID',
+        accessorKey: 'idCondition',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">{row.original.idCondition}</span>
         ),
       },
       {
-        colId: 'blocks',
-        headerName: 'Blocks',
-        valueGetter: (params: { data: Condition | undefined }) =>
-          params.data ? params.data.blocks.length : 0,
-        cellRenderer: (params: { data: Condition; value: number }) => (
-          <span className="text-muted-foreground text-sm">
-            {params.value} ({params.data.blockLogicOperator})
-          </span>
-        ),
-      },
-      {
-        colId: 'id',
-        headerName: 'ID',
-        field: 'idCondition',
-        cellRenderer: (params: { data: Condition }) => (
-          <span className="font-mono text-xs text-muted-foreground">{params.data.idCondition}</span>
-        ),
-      },
-      {
-        colId: 'actions',
-        headerName: '',
-        sortable: false,
-        cellRenderer: (params: { data: Condition }) => (
+        id: 'actions',
+        header: '',
+        size: 50,
+        enableSorting: false,
+        cell: ({ row }) => (
           <InlineActions
             actions={[
               {
@@ -119,7 +122,7 @@ export function GlobalConditionsPage() {
                 label: 'Delete',
                 icon: Trash2,
                 destructive: true,
-                onClick: () => setDeleteId(params.data.idCondition),
+                onClick: () => setDeleteId(row.original.idCondition),
               },
             ]}
           />
@@ -149,11 +152,12 @@ export function GlobalConditionsPage() {
       {filtered.length === 0 && !isLoading ? (
         <EmptyState message="No global conditions found. Create one to get started." />
       ) : (
-        <DataGrid<Condition>
-          rowData={conditionRows ?? []}
-          columnDefs={columns}
-          getRowId={(p) => p.data.idCondition}
+        <DataTable<Condition>
+          data={filtered}
+          columns={columns}
+          getRowId={(row) => row.idCondition}
           loading={isLoading}
+          noPagination
         />
       )}
 

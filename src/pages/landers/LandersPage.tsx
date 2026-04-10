@@ -1,7 +1,6 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { subDays } from 'date-fns'
-import type { AgGridReact } from 'ag-grid-react'
-import type { ColDef, SelectionChangedEvent } from 'ag-grid-community'
+import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import { Archive, Copy, Pencil, Trash2, Upload } from 'lucide-react'
 import { Button } from 'antd'
 import {
@@ -11,7 +10,7 @@ import {
   useToastApi,
   PageShell,
   SearchToolbar,
-  DataGrid,
+  DataTable,
 } from '@/components/ui-kit'
 import {
   nameColumn,
@@ -24,7 +23,8 @@ import {
   plColumn,
   roiColumn,
   idColumn,
-} from '@/components/ui-kit'
+  selectionColumn,
+} from '@/components/ui-kit/data-table'
 import { InlineActions } from '@/components/shared/InlineActions'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
@@ -49,9 +49,11 @@ interface PageMeta {
 
 const META_PARAMS = { pageType: 'lander' }
 
+type LanderGridRow = EntityGridRow & { _isCategoryHeader?: boolean } & Record<string, unknown>
+
 export function LandersPage() {
   const toast = useToastApi()
-  const gridRef = useRef<AgGridReact>(null)
+  const tableRef = useRef<Table<LanderGridRow> | null>(null)
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -59,7 +61,7 @@ export function LandersPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 365),
@@ -124,20 +126,18 @@ export function LandersPage() {
     }
 
     // If only one group or no categories, return flat
-    if (grouped.size <= 1) return base
+    if (grouped.size <= 1) return base as LanderGridRow[]
 
     // Insert header rows
-    const result: EntityGridRow[] = []
+    const result: LanderGridRow[] = []
     for (const [catName, catRows] of grouped) {
-      result.push({ id: `cat-${catName}`, name: catName, cells: [], _isCategoryHeader: true } as EntityGridRow & { _isCategoryHeader: boolean })
-      result.push(...catRows)
+      result.push({ id: `cat-${catName}`, name: catName, cells: [], _isCategoryHeader: true })
+      result.push(...(catRows as LanderGridRow[]))
     }
     return result
   }, [archiveStatus, metaById, rows, search, selectedCategoryId, categoryMap])
 
-  const onSelectionChanged = useCallback((e: SelectionChangedEvent<EntityGridRow>) => {
-    setSelectedIds(e.api.getSelectedRows().map(r => r.id))
-  }, [])
+  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
   const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
@@ -200,47 +200,39 @@ export function LandersPage() {
   const iPL = colMap.get('P/L') ?? 32
   const iROI = colMap.get('ROI') ?? 33
 
-  const handleEditRef = useRef(handleEdit)
-  handleEditRef.current = handleEdit
-  const handleCloneRef = useRef(handleClone)
-  handleCloneRef.current = handleClone
-  const handleArchiveRef = useRef(handleArchive)
-  handleArchiveRef.current = handleArchive
-
-  const columnDefs = useMemo<ColDef[]>(() => [
-    {
-      ...nameColumn(),
-      cellStyle: { position: 'relative', overflow: 'visible' },
-      cellRenderer: (params: { data: EntityGridRow & { _isCategoryHeader?: boolean } }) => {
-        if (params.data?._isCategoryHeader) {
-          return <span className="font-semibold text-muted-foreground uppercase text-xs">{params.data.name}</span>
+  const columnDefs = useMemo<ColumnDef<LanderGridRow, unknown>[]>(() => [
+    selectionColumn<LanderGridRow>(),
+    nameColumn<LanderGridRow>({
+      cellContent: (row) => {
+        if (row._isCategoryHeader) {
+          return <span className="font-semibold text-muted-foreground uppercase text-xs">{row.name}</span>
         }
+        return <span className="truncate">{row.name}</span>
+      },
+      actions: (row) => {
+        if (row._isCategoryHeader) return null
         return (
-          <>
-            <span className="truncate">{params.data.name}</span>
-            <div className="name-actions">
-              <InlineActions
-                actions={[
-                  { label: 'Edit', icon: Pencil, onClick: () => handleEditRef.current(params.data.id) },
-                  { label: 'Clone', icon: Copy, onClick: () => handleCloneRef.current(params.data.id) },
-                  { label: 'Archive', icon: Archive, onClick: () => handleArchiveRef.current(params.data.id, true) },
-                  { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(params.data.id), destructive: true },
-                ]}
-              />
-            </div>
-          </>
+          <InlineActions
+            actions={[
+              { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.id) },
+              { label: 'Clone', icon: Copy, onClick: () => handleClone(row.id) },
+              { label: 'Archive', icon: Archive, onClick: () => handleArchive(row.id, true) },
+              { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.id), destructive: true },
+            ]}
+          />
         )
       },
-    },
-    idColumn(),
-    visitsColumn(iVisits),
-    clicksColumn(iClicks),
-    ctrColumn(iCTR, { headerName: 'Lander CTR' }),
-    convColumn(iConv),
-    revenueColumn(iRevenue),
-    costColumn(iCost),
-    plColumn(iPL),
-    roiColumn(iROI),
+    }),
+    idColumn<LanderGridRow>(),
+    visitsColumn<LanderGridRow>(iVisits),
+    clicksColumn<LanderGridRow>(iClicks),
+    ctrColumn<LanderGridRow>(iCTR, { headerName: 'Lander CTR' }),
+    convColumn<LanderGridRow>(iConv),
+    revenueColumn<LanderGridRow>(iRevenue),
+    costColumn<LanderGridRow>(iCost),
+    plColumn<LanderGridRow>(iPL),
+    roiColumn<LanderGridRow>(iROI),
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers close over latest mutate/toast; indices drive column layout
   ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
 
   return (
@@ -280,39 +272,34 @@ export function LandersPage() {
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={<ColumnChooser columnDefs={columnDefs} gridRef={gridRef} storageKey="landers" />}
+        actions={tableRef.current ? <ColumnChooser columns={columnDefs} table={tableRef.current} storageKey="landers" /> : null}
       />
 
       {!isLoading && filtered.length === 0 ? (
         <EmptyState message={search || selectedCategoryId ? 'No landers match your filters.' : 'No landers found.'} />
       ) : (
-        <DataGrid
-          gridRef={gridRef}
-          rowData={filtered}
-          columnDefs={columnDefs}
+        <DataTable<LanderGridRow>
+          data={filtered}
+          columns={columnDefs}
           loading={isLoading}
-          rowSelection="multiple"
-          onSelectionChanged={onSelectionChanged}
-          getRowId={(params) => params.data.id}
-          getRowStyle={(params) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if ((params.data as any)?._isCategoryHeader) {
-              return { background: 'var(--surface-secondary)', fontWeight: 600 }
-            }
-            return undefined
-          }}
+          getRowId={(row) => row.id}
+          enableRowSelection={(row) => !row.original._isCategoryHeader}
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
+          rowClassName={(row) => row._isCategoryHeader ? 'dt-row--depth-1' : undefined}
+          tableRef={tableRef}
         />
       )}
 
       <BulkActionsBar
         count={selectedIds.length}
-        onDeselectAll={() => setSelectedIds([])}
+        onDeselectAll={() => setRowSelection({})}
         onArchive={async () => {
           for (const id of selectedIds) {
             await archiveMutation.mutateAsync({ id, archive: true })
           }
           toast.success('Selected landers archived')
-          setSelectedIds([])
+          setRowSelection({})
           reload()
         }}
         onDelete={async () => {
@@ -320,7 +307,7 @@ export function LandersPage() {
             await deleteMutation.mutateAsync(id)
           }
           toast.success('Selected landers deleted')
-          setSelectedIds([])
+          setRowSelection({})
           reload()
         }}
         onMoveToCategory={{

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import type { ColDef } from "ag-grid-community"
+import type { ColumnDef } from "@tanstack/react-table"
 import { ArrowRight } from "lucide-react"
 import { api } from "@/api/client"
-import { PageShell, DataGrid, TimezoneSelect } from "@/components/ui-kit"
+import { PageShell, DataTable, TimezoneSelect } from "@/components/ui-kit"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
 import { Button, Card } from "antd"
 import { useDrilldownStore } from "@/store/drilldown"
@@ -139,17 +139,31 @@ export function QuickViewPage() {
     void loadReport()
   }, [loadReport])
 
-  const columnDefs: ColDef[] = useMemo(() => {
+  const columns = useMemo<ColumnDef<QuickViewRow, unknown>[]>(() => {
     if (!report) return []
-    return report.columns.map((column, index) => ({
-      colId: `col-${index}`,
-      headerName: column.name,
-      valueGetter: (p: { data: QuickViewRow }) => p.data?.cells[index]?.formatted ?? "",
-      cellClass: index === 0 ? "font-medium" : undefined,
-      cellStyle: index > 0 ? { fontVariantNumeric: "tabular-nums" } : undefined,
-      flex: index === 0 ? 1 : undefined,
-      width: index > 0 ? 110 : undefined,
-    }))
+    return report.columns.map((column, index) => {
+      const base = {
+        id: `col-${index}`,
+        header: column.name,
+        accessorFn: (row: QuickViewRow) => row.cells[index]?.formatted ?? "",
+        enableSorting: false,
+      } as const
+      if (index === 0) {
+        return {
+          ...base,
+          size: 250,
+          meta: { flex: 1 },
+          cell: (info: { getValue: () => unknown }) => (
+            <span className="font-medium">{String(info.getValue())}</span>
+          ),
+        } satisfies ColumnDef<QuickViewRow, unknown>
+      }
+      return {
+        ...base,
+        size: 110,
+        meta: { numeric: true },
+      } satisfies ColumnDef<QuickViewRow, unknown>
+    })
   }, [report])
 
   const rows = useMemo(() => (report ? reportRowsToFlatData(report) : []), [report])
@@ -214,11 +228,12 @@ export function QuickViewPage() {
       </div>
 
       <Card styles={{ body: { padding: 16 } }}>
-        <DataGrid
-          rowData={rows}
-          columnDefs={columnDefs}
+        <DataTable<QuickViewRow>
+          data={rows}
+          columns={columns}
           loading={isLoading}
-          getRowId={(params) => params.data.id}
+          getRowId={(row) => row.id}
+          noPagination
         />
       </Card>
     </PageShell>

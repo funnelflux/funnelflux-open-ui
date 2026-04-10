@@ -1,0 +1,409 @@
+/*
+  DataTable theme — mirrors the AG Grid Quartz look.
+  Uses semantic CSS vars from design-tokens.css.
+  Dark mode is automatic via .dark on <html>.
+*/
+
+.dt-wrapper {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  font-family: var(--font-grid);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+/* Scroll container: handles both vertical and horizontal scroll */
+.dt-scroll-container {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Inner container: sets min-width for horizontal scroll when columns overflow */
+.dt-scroll-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* ---- Header ---- */
+.dt-header {
+  display: flex;
+  flex-shrink: 0;
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.dt-header-cell {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: var(--muted-fg);
+  user-select: none;
+  position: relative;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.dt-header-cell-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dt-header-cell--sortable .dt-header-cell-content {
+  cursor: pointer;
+}
+
+.dt-header-cell--sortable .dt-header-cell-content:hover {
+  color: var(--foreground);
+}
+
+.dt-sort-icon {
+  margin-left: 4px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.dt-sort-icon--active {
+  opacity: 1;
+  color: var(--primary);
+}
+
+/* Checkbox column — reduce padding to fit in narrow column */
+.dt-header-cell .dt-checkbox {
+  margin-right: 0;
+}
+
+.dt-cell .dt-checkbox {
+  margin-right: 0;
+}
+
+/* ---- Column Resizer ---- */
+.dt-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 1;
+}
+
+.dt-resizer::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 25%;
+  bottom: 25%;
+  width: 2px;
+  background: transparent;
+  border-radius: 1px;
+  transition: background 150ms;
+}
+
+.dt-header-cell:hover .dt-resizer::after,
+.dt-resizer--active::after {
+  background: var(--border-strong);
+}
+
+.dt-resizer--active::after {
+  background: var(--primary);
+}
+
+/* ---- Body ---- */
+.dt-body {
+  flex: 1 0 auto;
+  position: relative;
+}
+
+/* ---- Row ---- */
+.dt-row {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  transition: background 80ms ease;
+}
+
+.dt-row:last-child {
+  border-bottom: none;
+}
+
+.dt-row:hover {
+  background: var(--surface-secondary);
+}
+
+.dt-row--selected {
+  background: var(--primary-subtle) !important;
+}
+
+.dt-row--depth-0 {}
+.dt-row--depth-1 {
+  background: var(--surface-secondary);
+}
+.dt-row--depth-2,
+.dt-row--depth-3 {
+  background: var(--muted);
+}
+
+/* ---- Cell ---- */
+.dt-cell {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.dt-cell--numeric {
+  justify-content: flex-end;
+}
+
+/* Profit/loss coloring */
+.dt-cell--profit {
+  color: var(--ff-profit);
+}
+
+.dt-cell--loss {
+  color: var(--ff-loss);
+}
+
+/* ---- Actions overlay ---- */
+.dt-row .dt-actions {
+  opacity: 0;
+  transition: opacity 150ms;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  background: var(--surface);
+}
+
+.dt-row:hover .dt-actions {
+  opacity: 1;
+}
+
+/* ---- Expand toggle ---- */
+.dt-expand-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted-fg);
+  border-radius: 3px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.dt-expand-toggle:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.dt-expand-toggle svg {
+  transition: transform 150ms ease;
+}
+
+.dt-expand-toggle--expanded svg {
+  transform: rotate(90deg);
+}
+
+/* Depth indentation */
+.dt-indent {
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ---- Pinned bottom (totals row) ---- */
+.dt-pinned-bottom {
+  flex-shrink: 0;
+  border-top: 2px solid var(--border-strong);
+  background: var(--surface-secondary);
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.dt-pinned-bottom .dt-cell {
+  font-weight: 600;
+}
+
+/* ---- Footer / Pagination ---- */
+.dt-footer {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted-fg);
+  background: var(--surface);
+}
+
+.dt-footer-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dt-footer-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dt-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+.dt-page-btn:hover:not(:disabled) {
+  background: var(--surface-secondary);
+}
+
+.dt-page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dt-page-btn--active {
+  background: var(--primary);
+  color: var(--primary-fg);
+  border-color: var(--primary);
+}
+
+.dt-page-btn--active:hover {
+  background: var(--primary-hover);
+}
+
+.dt-page-size-select {
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+/* ---- Loading overlay ---- */
+.dt-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  z-index: 5;
+}
+
+.dt-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: dt-spin 0.6s linear infinite;
+}
+
+@keyframes dt-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Empty state ---- */
+.dt-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  color: var(--muted-fg);
+  font-size: 14px;
+}
+
+/* ---- Checkbox ---- */
+.dt-checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dt-checkbox:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.dt-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--primary-fg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.dt-checkbox:indeterminate {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.dt-checkbox:indeterminate::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 3px;
+  width: 8px;
+  height: 0;
+  border-bottom: 2px solid var(--primary-fg);
+}

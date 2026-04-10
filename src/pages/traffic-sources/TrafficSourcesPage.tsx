@@ -1,9 +1,8 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { subDays } from 'date-fns'
 import { Copy, Pencil, Trash2 } from 'lucide-react'
 import { Button } from 'antd'
-import type { AgGridReact } from 'ag-grid-react'
-import type { ColDef, SelectionChangedEvent } from 'ag-grid-community'
+import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import {
   ConfirmModal,
   EmptyState,
@@ -11,7 +10,9 @@ import {
   useToastApi,
   PageShell,
   SearchToolbar,
-  DataGrid,
+  DataTable,
+} from '@/components/ui-kit'
+import {
   nameColumn,
   visitsColumn,
   clicksColumn,
@@ -22,7 +23,8 @@ import {
   plColumn,
   roiColumn,
   idColumn,
-} from '@/components/ui-kit'
+  selectionColumn,
+} from '@/components/ui-kit/data-table'
 import { InlineActions } from '@/components/shared/InlineActions'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
@@ -43,21 +45,27 @@ interface TrafficSourceMeta {
   isArchived?: boolean
 }
 
+/** Satisfies data-table column helpers (`HasName` / `HasCells` index signatures). */
+type TrafficSourceGridRow = EntityGridRow & Record<string, unknown>
+
 export function TrafficSourcesPage() {
   const toast = useToastApi()
-  const gridRef = useRef<AgGridReact>(null)
+  const tableRef = useRef<Table<TrafficSourceGridRow> | null>(null)
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [tableForChooser, setTableForChooser] = useState<Table<TrafficSourceGridRow> | null>(null)
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 365),
     to: new Date(),
   }))
+
+  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
   const { data: categories } = useCategories('trafficsource')
   const { data: editSource } = useTrafficSource(editId ?? '')
@@ -100,10 +108,6 @@ export function TrafficSourcesPage() {
     })
   }, [archiveStatus, metaById, rows, search, selectedCategoryId])
 
-  const onSelectionChanged = useCallback((e: SelectionChangedEvent<EntityGridRow>) => {
-    setSelectedIds(e.api.getSelectedRows().map(r => r.id))
-  }, [])
-
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
   const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
 
@@ -143,36 +147,33 @@ export function TrafficSourcesPage() {
   const iPL = colMap.get('P/L') ?? 32
   const iROI = colMap.get('ROI') ?? 33
 
-  const handleEditRef = useRef(handleEdit)
-  handleEditRef.current = handleEdit
-  const handleCloneRef = useRef(handleClone)
-  handleCloneRef.current = handleClone
-
-  const columnDefs = useMemo<ColDef[]>(() => [
-    nameColumn({
-      actions: (params) => {
-        const isOrganic = params.data.id === '1'
-        if (isOrganic) return null
+  const columnDefs = useMemo<ColumnDef<TrafficSourceGridRow, unknown>[]>(() => [
+    selectionColumn<TrafficSourceGridRow>(),
+    nameColumn<TrafficSourceGridRow>({
+      actions: (row) => {
+        if (row.id === '1') return null
         return (
           <InlineActions
             actions={[
-              { label: 'Edit', icon: Pencil, onClick: () => handleEditRef.current(params.data.id) },
-              { label: 'Clone', icon: Copy, onClick: () => handleCloneRef.current(params.data.id) },
-              { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(params.data.id), destructive: true },
+              { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.id) },
+              { label: 'Clone', icon: Copy, onClick: () => handleClone(row.id) },
+              { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.id), destructive: true },
             ]}
           />
         )
       },
     }),
-    idColumn(),
-    visitsColumn(iVisits),
-    clicksColumn(iClicks),
-    ctrColumn(iCTR),
-    convColumn(iConv),
-    revenueColumn(iRevenue),
-    costColumn(iCost),
-    plColumn(iPL),
-    roiColumn(iROI),
+    idColumn<TrafficSourceGridRow>(),
+    visitsColumn<TrafficSourceGridRow>(iVisits),
+    clicksColumn<TrafficSourceGridRow>(iClicks),
+    ctrColumn<TrafficSourceGridRow>(iCTR),
+    convColumn<TrafficSourceGridRow>(iConv),
+    revenueColumn<TrafficSourceGridRow>(iRevenue),
+    costColumn<TrafficSourceGridRow>(iCost),
+    plColumn<TrafficSourceGridRow>(iPL),
+    roiColumn<TrafficSourceGridRow>(iROI),
+  // Handlers omitted from deps for stable column memo; action callbacks use latest closures on click.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
 
   return (
@@ -204,30 +205,32 @@ export function TrafficSourcesPage() {
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={<ColumnChooser columnDefs={columnDefs} gridRef={gridRef} storageKey="traffic-sources" />}
+        actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="traffic-sources" /> : null}
       />
 
       {!isLoading && filtered.length === 0 ? (
         <EmptyState message={search || selectedCategoryId ? 'No traffic sources match your filters.' : 'No traffic sources found.'} />
       ) : (
-        <DataGrid
-          gridRef={gridRef}
-          rowData={filtered}
-          columnDefs={columnDefs}
+        <DataTable
+          data={filtered as TrafficSourceGridRow[]}
+          columns={columnDefs}
           loading={isLoading}
-          rowSelection="multiple"
-          onSelectionChanged={onSelectionChanged}
-          getRowId={(params) => params.data.id}
+          getRowId={(row) => row.id}
+          enableRowSelection
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
+          tableRef={tableRef}
+          onTableInstance={setTableForChooser}
         />
       )}
 
       <BulkActionsBar
         count={selectedIds.length}
-        onDeselectAll={() => setSelectedIds([])}
+        onDeselectAll={() => setRowSelection({})}
         onArchive={async () => {
           await archiveMutation.mutateAsync({ id: selectedIds.join(','), archive: true })
           toast.success('Selected traffic sources archived')
-          setSelectedIds([])
+          setRowSelection({})
           reload()
         }}
         onDelete={async () => {
@@ -235,7 +238,7 @@ export function TrafficSourcesPage() {
             await deleteMutation.mutateAsync(id)
           }
           toast.success('Selected traffic sources deleted')
-          setSelectedIds([])
+          setRowSelection({})
           reload()
         }}
         onMoveToCategory={{

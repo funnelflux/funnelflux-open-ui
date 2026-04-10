@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from "react"
-import type { ColDef, SortChangedEvent } from "ag-grid-community"
-import { PageShell, EmptyState, DataGrid } from "@/components/ui-kit"
+import { useState, useMemo, useCallback, useRef } from "react"
+import type { ColumnDef, SortingState, Table } from "@tanstack/react-table"
+import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
 import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
@@ -30,13 +30,14 @@ export function DrilldownFlatPage() {
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
   const [page, setPage] = useState(0)
   const pageSize = 50
-  const [sortColId, setSortColId] = useState<string | null>(null)
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [sorting, setSorting] = useState<SortingState>([])
+  const tableRef = useRef<Table<FlatRowData> | null>(null)
 
   const handleApply = useCallback(
     (request: DrilldownRequest) => {
-      const sortParam = sortColId
-        ? { column: Number(sortColId.replace("col-", "")), direction: sortDir }
+      const sortCol = sorting[0]
+      const sortParam = sortCol
+        ? { column: Number(sortCol.id.replace("col-", "")), direction: sortCol.desc ? "desc" as const : "asc" as const }
         : undefined
       const paginatedRequest: DrilldownRequest = {
         ...request,
@@ -49,25 +50,21 @@ export function DrilldownFlatPage() {
         onSuccess: (data) => setReport(data),
       })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [page, pageSize, sortColId, sortDir],
+    [page, pageSize, sorting, drilldownMutation],
   )
 
-  const handleSortChanged = useCallback(
-    (e: SortChangedEvent) => {
-      const colState = e.api.getColumnState().find((c) => c.sort)
-      const newSortColId = colState?.colId ?? null
-      const newSortDir = (colState?.sort ?? "asc") as "asc" | "desc"
-      setSortColId(newSortColId)
-      setSortDir(newSortDir)
+  const handleSortingChange = useCallback(
+    (newSorting: SortingState) => {
+      setSorting(newSorting)
       setPage(0)
 
       if (!lastRequest) return
 
+      const sortCol = newSorting[0]
       const nextRequest: DrilldownRequest = {
         ...lastRequest,
-        sorting: newSortColId
-          ? { column: Number(newSortColId.replace("col-", "")), direction: newSortDir }
+        sorting: sortCol
+          ? { column: Number(sortCol.id.replace("col-", "")), direction: sortCol.desc ? "desc" as const : "asc" as const }
           : undefined,
         paging: { start: 0, length: pageSize },
       }
@@ -76,8 +73,7 @@ export function DrilldownFlatPage() {
         onSuccess: (data) => setReport(data),
       })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [lastRequest, pageSize],
+    [lastRequest, pageSize, drilldownMutation],
   )
 
   const flatData = useMemo(
@@ -85,21 +81,22 @@ export function DrilldownFlatPage() {
     [report],
   )
 
-  const columnDefs: ColDef[] = useMemo(() => {
+  const columnDefs: ColumnDef<FlatRowData, unknown>[] = useMemo(() => {
     if (!report) return []
     return report.columns.map((col, colIndex) => ({
-      colId: `col-${colIndex}`,
-      headerName: col.name,
-      valueGetter: (p: { data: FlatRowData }) => p.data?.cells[colIndex]?.formatted ?? "",
-      cellClass: colIndex === 0 ? "font-medium" : undefined,
-      cellStyle: colIndex > 0 ? { fontVariantNumeric: "tabular-nums" } : undefined,
-      sortable: colIndex > 0,
-      flex: colIndex === 0 ? 1 : undefined,
-      width: colIndex > 0 ? 110 : undefined,
+      id: `col-${colIndex}`,
+      header: col.name,
+      accessorFn: (row: FlatRowData) => row.cells[colIndex]?.formatted ?? "",
+      enableSorting: colIndex > 0,
+      size: colIndex === 0 ? 250 : 110,
+      meta: colIndex === 0 ? { flex: 1 } : { numeric: true },
+      cell: colIndex === 0
+        ? (info: { getValue: () => unknown }) => <span className="font-medium">{String(info.getValue())}</span>
+        : undefined,
     }))
   }, [report])
 
-  const pinnedBottomRowData = useMemo(() => {
+  const pinnedBottomRows = useMemo(() => {
     if (!report?.totals?.cells) return undefined
     return [{
       _id: "totals",
@@ -117,13 +114,17 @@ export function DrilldownFlatPage() {
       />
 
       {report ? (
-        <DataGrid
-          rowData={flatData}
-          columnDefs={columnDefs}
+        <DataTable
+          data={flatData}
+          columns={columnDefs}
           loading={drilldownMutation.isPending}
-          getRowId={(params) => params.data._id}
-          onSortChanged={handleSortChanged}
-          pinnedBottomRowData={pinnedBottomRowData}
+          getRowId={(row) => row._id}
+          sorting={sorting}
+          onSortingChange={handleSortingChange}
+          manualSorting
+          pinnedBottomRows={pinnedBottomRows}
+          tableRef={tableRef}
+          noPagination
         />
       ) : (
         !drilldownMutation.isPending && (

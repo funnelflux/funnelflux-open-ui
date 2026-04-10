@@ -1,54 +1,54 @@
-import { useState, useMemo, useCallback } from "react"
-import type { ColDef, SortChangedEvent } from "ag-grid-community"
-import { PageShell, EmptyState, DataGrid } from "@/components/ui-kit"
+import { useState, useMemo, useCallback, useRef } from "react"
+import type { ColumnDef, SortingState, ExpandedState, Table } from "@tanstack/react-table"
+import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
 import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
+import { api } from "@/api/client"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
 
 interface TreeRowData {
   _id: string
   cells: ReportCell[]
   depth: number
-  expandableInfo?: {
-    groupIds: string[]
-    children?: TreeRowData[]
-  }
+  _children?: TreeRowData[]
+  _groupIds?: string[]
+  _loaded?: boolean
 }
 
-function reportRowsToFlatList(report: Report, depth = 0): TreeRowData[] {
-  const result: TreeRowData[] = []
-  for (let index = 0; index < report.rows.length; index++) {
-    const row = report.rows[index]
-    const cells: ReportCell[] = []
-    for (let i = 0; i < report.columns.length; i++) {
-      const cell = row[String(i)] as ReportCell | undefined
-      cells.push(cell ?? { raw: "", formatted: "" })
-    }
-    result.push({
+function parseReportCells(row: Record<string, unknown>, columnCount: number): ReportCell[] {
+  const cells: ReportCell[] = []
+  for (let i = 0; i < columnCount; i++) {
+    const cell = row[String(i)] as ReportCell | undefined
+    cells.push(cell ?? { raw: "", formatted: "" })
+  }
+  return cells
+}
+
+function reportToTreeRows(report: Report, depth = 0): TreeRowData[] {
+  return report.rows.map((row, index) => {
+    const cells = parseReportCells(row, report.columns.length)
+    const expandInfo = row.expandableInfo as { groupIds?: string[]; children?: Record<string, unknown>[] } | undefined
+
+    const treeRow: TreeRowData = {
       _id: `row-${depth}-${index}-${String(cells[0]?.raw ?? index)}`,
       cells,
       depth,
-      expandableInfo: row.expandableInfo as TreeRowData["expandableInfo"],
-    })
-
-    // Flatten children inline
-    if (row.expandableInfo?.children) {
-      for (let childIdx = 0; childIdx < row.expandableInfo.children.length; childIdx++) {
-        const child = row.expandableInfo.children[childIdx] as Record<string, unknown>
-        const childCells: ReportCell[] = []
-        for (let i = 0; i < report.columns.length; i++) {
-          const cell = child[String(i)] as ReportCell | undefined
-          childCells.push(cell ?? { raw: "", formatted: "" })
-        }
-        result.push({
-          _id: `row-${depth}-${index}-child-${childIdx}`,
-          cells: childCells,
-          depth: depth + 1,
-        })
-      }
+      _groupIds: expandInfo?.groupIds,
+      _loaded: false,
     }
-  }
-  return result
+
+    if (expandInfo?.children?.length) {
+      treeRow._children = expandInfo.children.map((child, ci) => ({
+        _id: `row-${depth + 1}-${index}-${ci}`,
+        cells: parseReportCells(child, report.columns.length),
+        depth: depth + 1,
+        _loaded: true,
+      }))
+      treeRow._loaded = true
+    }
+
+    return treeRow
+  })
 }
 
 export function DrilldownTreePage() {
@@ -58,6 +58,9 @@ export function DrilldownTreePage() {
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
   const [page, setPage] = useState(0)
   const pageSize = 50
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [expanded, setExpanded] = useState<ExpandedState>({})
+  const tableRef = useRef<Table<TreeRowData> | null>(null)
 
   const loadReport = useCallback(
     (request: DrilldownRequest) => {
@@ -65,12 +68,12 @@ export function DrilldownTreePage() {
       drilldownMutation.mutate(request, {
         onSuccess: (data) => {
           setReport(data)
-          setTreeData(reportRowsToFlatList(data))
+          setTreeData(reportToTreeRows(data))
+          setExpanded({})
         },
       })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [drilldownMutation],
   )
 
   const handleApply = useCallback(
@@ -85,53 +88,80 @@ export function DrilldownTreePage() {
     [loadReport, pageSize],
   )
 
-  const handleSortChanged = useCallback(
-    (e: SortChangedEvent) => {
-      const colState = e.api.getColumnState().find((c) => c.sort)
-      const newSortColId = colState?.colId ?? null
-      const newSortDir = (colState?.sort ?? "asc") as "asc" | "desc"
+  const handleSortingChange = useCallback(
+    (newSorting: SortingState) => {
+      setSorting(newSorting)
       setPage(0)
 
       if (!lastRequest) return
 
+      const sortCol = newSorting[0]
       loadReport({
         ...lastRequest,
-        sorting: newSortColId
-          ? { column: Number(newSortColId.replace("col-", "")), direction: newSortDir }
+        sorting: sortCol
+          ? { column: Number(sortCol.id.replace("col-", "")), direction: sortCol.desc ? "desc" as const : "asc" as const }
           : undefined,
         paging: { start: 0, length: pageSize },
       })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [lastRequest, loadReport, pageSize],
   )
 
-  const columnDefs: ColDef[] = useMemo(() => {
+  const handleExpandRow = useCallback(
+    async (row: TreeRowData) => {
+      if (row._loaded || row._children?.length) return
+      if (!lastRequest || !row._groupIds?.length) return
+
+      const groupings = lastRequest.groupings.slice(0, row.depth + 2)
+      const topLevelFilters = row._groupIds.map((gid, i) => ({
+        groupBy: lastRequest.groupings[row.depth + i]?.groupBy ?? '',
+        whitelistFilters: [gid],
+        blacklistFilters: [] as string[],
+      }))
+
+      const childReport = await api.post<Report>('/stats/reporting/drilldown/', {
+        ...lastRequest,
+        groupings,
+        topLevelFilters,
+        paging: { start: 0, length: 99999 },
+      })
+
+      const childRows = reportToTreeRows(childReport, row.depth + 1)
+
+      setTreeData((prev) => {
+        const clone = [...prev]
+        const updateChildren = (rows: TreeRowData[]): TreeRowData[] =>
+          rows.map((r) => {
+            if (r._id === row._id) {
+              return { ...r, _children: childRows, _loaded: true }
+            }
+            if (r._children) {
+              return { ...r, _children: updateChildren(r._children) }
+            }
+            return r
+          })
+        return updateChildren(clone)
+      })
+    },
+    [lastRequest],
+  )
+
+  const columnDefs: ColumnDef<TreeRowData, unknown>[] = useMemo(() => {
     if (!report) return []
     return report.columns.map((col, colIndex) => ({
-      colId: `col-${colIndex}`,
-      headerName: col.name,
-      valueGetter: (p: { data: TreeRowData }) => p.data?.cells[colIndex]?.formatted ?? "",
-      cellRenderer: colIndex === 0
-        ? (params: { data: TreeRowData }) => {
-            const row = params.data
-            if (!row) return ""
-            const indent = row.depth * 1.5
-            return (
-              <span style={{ paddingLeft: `${indent}rem` }} className="font-medium">
-                {row.cells[0]?.formatted ?? ""}
-              </span>
-            )
-          }
+      id: `col-${colIndex}`,
+      header: col.name,
+      accessorFn: (row: TreeRowData) => row.cells[colIndex]?.formatted ?? "",
+      enableSorting: colIndex > 0,
+      size: colIndex === 0 ? 300 : 110,
+      meta: colIndex === 0 ? { flex: 1 } : { numeric: true },
+      cell: colIndex === 0
+        ? (info: { getValue: () => unknown }) => <span className="font-medium">{String(info.getValue())}</span>
         : undefined,
-      cellStyle: colIndex > 0 ? { fontVariantNumeric: "tabular-nums" } : undefined,
-      sortable: colIndex > 0,
-      flex: colIndex === 0 ? 1 : undefined,
-      width: colIndex > 0 ? 110 : undefined,
     }))
   }, [report])
 
-  const pinnedBottomRowData = useMemo(() => {
+  const pinnedBottomRows = useMemo(() => {
     if (!report?.totals?.cells) return undefined
     return [{
       _id: "totals",
@@ -139,6 +169,8 @@ export function DrilldownTreePage() {
       depth: 0,
     }]
   }, [report])
+
+  const getSubRows = useCallback((row: TreeRowData) => row._children, [])
 
   return (
     <PageShell title="Drilldown Report (Tree)">
@@ -150,13 +182,22 @@ export function DrilldownTreePage() {
       />
 
       {report ? (
-        <DataGrid
-          rowData={treeData}
-          columnDefs={columnDefs}
+        <DataTable
+          data={treeData}
+          columns={columnDefs}
           loading={drilldownMutation.isPending}
-          getRowId={(params) => params.data._id}
-          onSortChanged={handleSortChanged}
-          pinnedBottomRowData={pinnedBottomRowData}
+          getRowId={(row) => row._id}
+          sorting={sorting}
+          onSortingChange={handleSortingChange}
+          manualSorting
+          treeMode
+          getSubRows={getSubRows}
+          onExpandRow={handleExpandRow}
+          expanded={expanded}
+          onExpandedChange={setExpanded}
+          pinnedBottomRows={pinnedBottomRows}
+          tableRef={tableRef}
+          noPagination
         />
       ) : (
         !drilldownMutation.isPending && (

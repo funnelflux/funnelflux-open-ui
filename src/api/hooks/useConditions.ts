@@ -4,12 +4,12 @@ import { queryKeys } from '@/api/queryKeys'
 import type { Condition } from '@/types/funnel'
 
 /** Row from `GET /data/campaign/funnel/condition/list/` */
-export type ConditionListRow = { id: string; name: string }
+export type ConditionListRow = Pick<Condition, 'idCondition' | 'conditionName'>
 
 export function useConditions() {
   return useQuery({
     queryKey: queryKeys.conditions.list(),
-    queryFn: () => api.get<ConditionListRow[]>('/data/campaign/funnel/condition/list/'),
+    queryFn: () => api.get<Condition[]>('/data/campaign/funnel/condition/list/'),
   })
 }
 

@@ -1,7 +1,6 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { subDays } from 'date-fns'
-import type { AgGridReact } from 'ag-grid-react'
-import type { ColDef, SelectionChangedEvent } from 'ag-grid-community'
+import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pencil, Trash2, Loader2 } from 'lucide-react'
@@ -9,12 +8,14 @@ import { Button, Input, Select, Modal } from 'antd'
 import {
   PageShell,
   SearchToolbar,
-  DataGrid,
+  DataTable,
   FormField,
   ConfirmModal,
   EmptyState,
   TimezoneSelect,
   useToastApi,
+} from '@/components/ui-kit'
+import {
   nameColumn,
   visitsColumn,
   clicksColumn,
@@ -25,7 +26,8 @@ import {
   plColumn,
   roiColumn,
   idColumn,
-} from '@/components/ui-kit'
+  selectionColumn,
+} from '@/components/ui-kit/data-table'
 import { InlineActions } from '@/components/shared/InlineActions'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
@@ -47,6 +49,9 @@ interface OfferSourceMeta {
   idOfferSource: string
   isArchived?: boolean
 }
+
+/** Row type for TanStack columns (`HasName` / `HasCells` require a string index signature). */
+type OfferSourceGridRow = EntityGridRow & Record<string, unknown>
 
 const defaultValues: OfferSourceFormData = {
   offerSourceName: '',
@@ -196,13 +201,14 @@ function OfferSourceForm({
 
 export function OfferSourcesPage() {
   const toast = useToastApi()
-  const gridRef = useRef<AgGridReact>(null)
+  const tableRef = useRef<Table<OfferSourceGridRow> | null>(null)
+  const [tableForChooser, setTableForChooser] = useState<Table<OfferSourceGridRow> | null>(null)
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 365),
@@ -234,7 +240,7 @@ export function OfferSourcesPage() {
     return m
   }, [columns])
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo((): OfferSourceGridRow[] => {
     const searchText = search.toLowerCase()
     return rows.filter((row) => {
       const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
@@ -243,12 +249,21 @@ export function OfferSourcesPage() {
         archiveStatus === 'all' ||
         (archiveStatus === 'archived' ? meta?.isArchived === true : meta?.isArchived !== true)
       return matchesSearch && matchesArchive
-    })
+    }) as OfferSourceGridRow[]
   }, [archiveStatus, metaById, rows, search])
 
-  const onSelectionChanged = useCallback((e: SelectionChangedEvent<EntityGridRow>) => {
-    setSelectedIds(e.api.getSelectedRows().map(r => r.id))
-  }, [])
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      if (!isLoading && filtered.length === 0) {
+        setTableForChooser(null)
+      } else {
+        setTableForChooser(tableRef.current)
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [isLoading, filtered.length])
+
+  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
 
@@ -281,26 +296,27 @@ export function OfferSourcesPage() {
   const iPL = colMap.get('P/L') ?? 32
   const iROI = colMap.get('ROI') ?? 33
 
-  const columnDefs = useMemo<ColDef[]>(() => [
-    nameColumn({
-      actions: (params) => (
+  const columnDefs = useMemo<ColumnDef<OfferSourceGridRow, unknown>[]>(() => [
+    selectionColumn<OfferSourceGridRow>(),
+    nameColumn<OfferSourceGridRow>({
+      actions: (row) => (
         <InlineActions
           actions={[
-            { label: 'Edit', icon: Pencil, onClick: () => { setEditId(params.data.id); setSheetOpen(true) } },
-            { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(params.data.id), destructive: true },
+            { label: 'Edit', icon: Pencil, onClick: () => { setEditId(row.id); setSheetOpen(true) } },
+            { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.id), destructive: true },
           ]}
         />
       ),
     }),
-    idColumn(),
-    visitsColumn(iVisits),
-    clicksColumn(iClicks),
-    ctrColumn(iCTR),
-    convColumn(iConv),
-    revenueColumn(iRevenue),
-    costColumn(iCost),
-    plColumn(iPL),
-    roiColumn(iROI),
+    idColumn<OfferSourceGridRow>(),
+    visitsColumn<OfferSourceGridRow>(iVisits),
+    clicksColumn<OfferSourceGridRow>(iClicks),
+    ctrColumn<OfferSourceGridRow>(iCTR),
+    convColumn<OfferSourceGridRow>(iConv),
+    revenueColumn<OfferSourceGridRow>(iRevenue),
+    costColumn<OfferSourceGridRow>(iCost),
+    plColumn<OfferSourceGridRow>(iPL),
+    roiColumn<OfferSourceGridRow>(iROI),
   ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
 
   return (
@@ -323,32 +339,33 @@ export function OfferSourcesPage() {
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={<ColumnChooser columnDefs={columnDefs} gridRef={gridRef} storageKey="offer-sources" />}
+        actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="offer-sources" /> : null}
       />
 
       {!isLoading && filtered.length === 0 ? (
         <EmptyState message={search ? 'No offer sources match your search.' : 'No offer sources found.'} />
       ) : (
-        <DataGrid
-          gridRef={gridRef}
-          rowData={filtered}
-          columnDefs={columnDefs}
+        <DataTable
+          data={filtered}
+          columns={columnDefs}
           loading={isLoading}
-          rowSelection="multiple"
-          onSelectionChanged={onSelectionChanged}
-          getRowId={(params) => params.data.id}
+          getRowId={(row) => row.id}
+          enableRowSelection
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
+          tableRef={tableRef}
         />
       )}
 
       <BulkActionsBar
         count={selectedIds.length}
-        onDeselectAll={() => setSelectedIds([])}
+        onDeselectAll={() => setRowSelection({})}
         onDelete={async () => {
           for (const id of selectedIds) {
             await deleteMutation.mutateAsync(id)
           }
           toast.success('Selected offer sources deleted')
-          setSelectedIds([])
+          setRowSelection({})
           reload()
         }}
       />

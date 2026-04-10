@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Modal, Input, List } from 'antd'
 import { usePages, useConditions, useCodeSnippets } from '@/api/hooks'
-import type { ConditionListRow } from '@/api/hooks/useConditions'
+import type { Condition } from '@/types/funnel'
 import type { CodeSnippetListRow } from '@/api/hooks/useCodeSnippets'
 import { asArray } from '@/lib/utils'
 
@@ -43,9 +43,9 @@ export function EntityPickerDialog({
       }))
     }
     if (entityType === 'condition') {
-      return asArray<ConditionListRow>(conditionsQuery.data).map((c) => ({
-        id: c.id,
-        name: c.name,
+      return asArray<Condition>(conditionsQuery.data).map((c) => ({
+        id: c.idCondition,
+        name: c.conditionName,
       }))
     }
     // jsCode or phpCode — list API returns `{ id, name, codeType? }`

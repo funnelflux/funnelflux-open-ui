@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import type { ColDef } from 'ag-grid-community'
+import type { ColumnDef } from '@tanstack/react-table'
 import { Card } from 'antd'
-import { DataGrid } from '@/components/ui-kit'
+import { DataTable } from '@/components/ui-kit/data-table'
 import type { DashboardData } from '@/types/ui'
 import type { ReportCell } from '@/types/stats'
 
@@ -34,14 +34,14 @@ function flattenRows(data: TableStats): FlatRow[] {
 export function DashboardTable({ data, isLoading }: DashboardTableProps) {
   const rows = useMemo(() => flattenRows(data), [data])
 
-  const columnDefs: ColDef[] = useMemo(() => {
+  const columnDefs: ColumnDef<FlatRow, unknown>[] = useMemo(() => {
     if (!data?.report?.columns) return []
     return data.report.columns.map((col, index) => ({
-      colId: col.name,
-      headerName: col.name,
-      field: col.name,
-      flex: index === 0 ? 1 : undefined,
-      width: index > 0 ? 100 : undefined,
+      id: col.name,
+      header: col.name,
+      accessorKey: col.name,
+      size: index === 0 ? 200 : 100,
+      meta: index === 0 ? { flex: 1 } : { numeric: true },
     }))
   }, [data])
 
@@ -49,13 +49,12 @@ export function DashboardTable({ data, isLoading }: DashboardTableProps) {
 
   return (
     <Card title={<span className="text-sm font-medium">Top {data?.tableStatsOptions?.statsType ?? 'Campaigns'}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
-      <DataGrid
-        rowData={rows}
-        columnDefs={columnDefs}
+      <DataTable
+        data={rows}
+        columns={columnDefs}
         loading={isLoading}
-        getRowId={(params) => params.data.id}
-        pagination={false}
-        domLayout="autoHeight"
+        getRowId={(row) => row.id}
+        noPagination
       />
     </Card>
   )

@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import type { ColDef } from 'ag-grid-community'
+import { useState, useMemo, useCallback } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
 import { Plus, Pencil, Trash2, RotateCcw, Loader2 } from 'lucide-react'
 import { Button, Input, Modal } from 'antd'
-import { PageShell, DataGrid, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { PageShell, DataTable, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import { InlineActions } from '@/components/shared/InlineActions'
 import {
   useStoredLinks,
@@ -36,12 +36,12 @@ export function StoredLinksPage() {
     setSheetOpen(true)
   }
 
-  function openEdit(link: StoredLink) {
+  const openEdit = useCallback((link: StoredLink) => {
     setEditingLink(link)
     setFormName(link.name)
     setFormUrl(link.url)
     setSheetOpen(true)
-  }
+  }, [])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -92,70 +92,74 @@ export function StoredLinksPage() {
     })
   }
 
-  const columns: ColDef<StoredLink>[] = [
-    {
-      colId: 'name',
-      headerName: 'Name',
-      field: 'name',
-      cellRenderer: (params: { data: StoredLink }) => (
-        <span className="font-medium">{params.data.name}</span>
-      ),
-    },
-    {
-      colId: 'url',
-      headerName: 'URL',
-      field: 'url',
-      cellRenderer: (params: { data: StoredLink }) => (
-        <span className="text-xs text-muted-foreground truncate max-w-[300px] block">
-          {params.data.url}
-        </span>
-      ),
-    },
-    {
-      colId: 'clicks',
-      headerName: 'Clicks',
-      field: 'clicks',
-      width: 100,
-      cellRenderer: (params: { data: StoredLink }) => (
-        <span className="tabular-nums">{params.data.clicks ?? 0}</span>
-      ),
-    },
-    {
-      colId: 'lastClickDate',
-      headerName: 'Last Click',
-      field: 'lastClickDate',
-      width: 160,
-      cellRenderer: (params: { data: StoredLink }) => (
-        <span className="text-xs text-muted-foreground">
-          {params.data.lastClickDate || '--'}
-        </span>
-      ),
-    },
-    {
-      colId: 'actions',
-      headerName: '',
-      width: 50,
-      sortable: false,
-      filter: false,
-      cellRenderer: (params: { data: StoredLink }) => {
-        const link = params.data
-        return (
-          <InlineActions
-            actions={[
-              { label: 'Edit', icon: Pencil, onClick: () => openEdit(link) },
-              { label: 'Reset Stats', icon: RotateCcw, onClick: () => setResetId(link.id) },
-              {
-                label: 'Delete',
-                icon: Trash2,
-                onClick: () => setDeleteId(link.id),
-                destructive: true,
-              },
-            ]}
-          />
-        )
+  const columns = useMemo<ColumnDef<StoredLink, unknown>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Name',
+        accessorKey: 'name',
+        size: 200,
+        cell: (info) => <span className="font-medium">{info.row.original.name}</span>,
       },
-    },
-  ]
+      {
+        id: 'url',
+        header: 'URL',
+        accessorKey: 'url',
+        meta: { flex: 1 },
+        size: 250,
+        cell: (info) => (
+          <span className="font-mono text-xs text-muted-foreground truncate max-w-[300px] block">
+            {info.row.original.url}
+          </span>
+        ),
+      },
+      {
+        id: 'clicks',
+        header: 'Clicks',
+        accessorKey: 'clicks',
+        size: 100,
+        cell: (info) => (
+          <span className="tabular-nums">{info.row.original.clicks ?? 0}</span>
+        ),
+      },
+      {
+        id: 'lastClickDate',
+        header: 'Last Click',
+        accessorKey: 'lastClickDate',
+        size: 160,
+        cell: (info) => (
+          <span className="text-xs text-muted-foreground">
+            {info.row.original.lastClickDate || '--'}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: '',
+        accessorFn: () => '',
+        enableSorting: false,
+        size: 50,
+        cell: (info) => {
+          const link = info.row.original
+          return (
+            <InlineActions
+              actions={[
+                { label: 'Edit', icon: Pencil, onClick: () => openEdit(link) },
+                { label: 'Reset Stats', icon: RotateCcw, onClick: () => setResetId(link.id) },
+                {
+                  label: 'Delete',
+                  icon: Trash2,
+                  onClick: () => setDeleteId(link.id),
+                  destructive: true,
+                },
+              ]}
+            />
+          )
+        },
+      },
+    ],
+    [openEdit],
+  )
 
   return (
     <PageShell
@@ -174,11 +178,12 @@ export function StoredLinksPage() {
           onAction={openCreate}
         />
       ) : (
-        <DataGrid<StoredLink>
-          rowData={links ?? []}
-          columnDefs={columns}
-          getRowId={(p) => p.data.id}
+        <DataTable<StoredLink>
+          data={links ?? []}
+          columns={columns}
+          getRowId={(row) => row.id}
           loading={isLoading}
+          noPagination
         />
       )}
 

@@ -1,17 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { subDays } from 'date-fns'
 import { RefreshCw } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import type { ColDef } from 'ag-grid-community'
+import type { ColumnDef } from '@tanstack/react-table'
 import { api } from '@/api/client'
 import { useDashboardStore } from '@/store/dashboard'
 import { StatsCards } from '@/components/dashboard/StatsCards'
 import { DashboardChart } from '@/components/dashboard/DashboardChart'
-import { PageShell, DataGrid, TimezoneSelect } from '@/components/ui-kit'
+import { PageShell, DataTable, TimezoneSelect } from '@/components/ui-kit'
+import { cellRaw } from '@/components/ui-kit/data-table'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { Button, Card, Tag } from 'antd'
 import { toApiDateTimeRange } from '@/types/stats'
-import type { Report, ReportCell } from '@/types/stats'
+import type { Report } from '@/types/stats'
 import type { LiveStats } from '@/types/ui'
 
 const ZERO_STATS: LiveStats = { visits: 0, clicks: 0, conversions: 0, revenue: 0, cost: 0, net: 0, roi: 'N/A' }
@@ -45,11 +45,6 @@ interface WidgetState {
   quickviewType: string
   rows: WidgetRow[]
   isLoading: boolean
-}
-
-function cellRaw(cell: ReportCell | undefined): number {
-  if (!cell) return 0
-  return typeof cell.raw === 'number' ? cell.raw : Number(cell.raw) || 0
 }
 
 function buildColMap(report: Report): Map<string, number> {
@@ -117,21 +112,21 @@ function statsChanged(previous: LiveStats | undefined, next: LiveStats): boolean
   return Object.keys(next).some((key) => previous[key as keyof LiveStats] !== next[key as keyof LiveStats])
 }
 
-const widgetColumnDefs: ColDef[] = [
+const widgetColumnDefs: ColumnDef<WidgetRow, unknown>[] = [
   {
-    colId: 'name',
-    headerName: 'Name',
-    field: 'name',
-    flex: 1,
-    cellClass: 'font-medium',
+    id: 'name',
+    header: 'Name',
+    accessorKey: 'name',
+    size: 250,
+    meta: { flex: 1 },
+    cell: (info) => <span className="font-medium">{String(info.getValue())}</span>,
   },
   {
-    colId: 'visits',
-    headerName: 'Visits',
-    field: 'visitsFormatted',
-    width: 100,
-    type: 'rightAligned',
-    cellStyle: { fontVariantNumeric: 'tabular-nums' },
+    id: 'visits',
+    header: 'Visits',
+    accessorKey: 'visitsFormatted',
+    size: 100,
+    meta: { numeric: true },
   },
 ]
 
@@ -139,34 +134,27 @@ function WidgetTable({
   title,
   rows,
   isLoading,
-  onRowClick,
   pulse,
 }: {
   title: string
   rows: WidgetRow[]
   isLoading: boolean
-  onRowClick: (row: WidgetRow) => void
   pulse: boolean
 }) {
   return (
     <Card className={pulse ? 'animate-pulse' : undefined} title={<span className="text-sm font-medium">{title}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
-      <DataGrid
-        rowData={rows}
-        columnDefs={widgetColumnDefs}
+      <DataTable
+        data={rows}
+        columns={widgetColumnDefs}
         loading={isLoading}
-        getRowId={(params) => params.data.id}
-        pagination={false}
-        headerHeight={32}
-        rowHeight={36}
-        onRowClicked={(e) => { if (e.data) onRowClick(e.data) }}
-        domLayout="autoHeight"
+        getRowId={(row) => row.id}
+        noPagination
       />
     </Card>
   )
 }
 
 export function DashboardPage() {
-  const navigate = useNavigate()
   const { chartMetric, setChartMetric } = useDashboardStore()
   const [tz, setTz] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone)
   const [dateRange, setDateRange] = useState(() => ({
@@ -350,11 +338,6 @@ export function DashboardPage() {
             rows={widget.rows}
             isLoading={widget.isLoading}
             pulse={pulseWidgets}
-            onRowClick={(row) =>
-              navigate(
-                `/quickview?groupBy=${encodeURIComponent(widget.quickviewType)}&id=${encodeURIComponent(row.id)}`,
-              )
-            }
           />
         ))}
       </div>

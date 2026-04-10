@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, Modal, Tabs } from 'antd'
 
@@ -22,14 +23,7 @@ import {
 import { useDrilldownStore } from '@/store/drilldown'
 import type { Report } from '@/types/stats'
 import { Loader2, Printer, RefreshCw, BarChart3, Globe2, LayoutGrid, Network } from 'lucide-react'
-import {
-  DataGrid,
-  dataGridColumnClass,
-  type ColDef,
-  type GetRowIdParams,
-  type GridApi,
-  type GridReadyEvent,
-} from '@/components/ui/data-grid'
+import { DataTable } from '@/components/ui-kit/data-table'
 
 interface QuickStatsApiResponse {
   report?: Report
@@ -138,7 +132,6 @@ export function FunnelQuickStatsModal({
   const [loading, setLoading] = useState(false)
   const [metaLoaded, setMetaLoaded] = useState(false)
 
-  const gridRef = useRef<GridApi | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
 
   const loadMeta = useCallback(async () => {
@@ -275,56 +268,18 @@ export function FunnelQuickStatsModal({
     return t ? [t] : undefined
   }, [report])
 
-  const columnDefs = useMemo<ColDef[]>(() => {
+  const columnDefs = useMemo((): ColumnDef<Record<string, string>, unknown>[] => {
     if (!report?.columns?.length) return []
     return report.columns.map((col, i) => ({
-      field: `c${i}`,
-      headerName: col.name,
-      headerTooltip: col.name,
-      sortable: i > 0,
-      minWidth: i === 0 ? 200 : 96,
-      headerClass: i === 0 ? dataGridColumnClass.headerDim : dataGridColumnClass.headerMetric,
-      cellClass: i === 0 ? dataGridColumnClass.cellDim : dataGridColumnClass.cellMetric,
+      id: `c${i}`,
+      accessorKey: `c${i}`,
+      header: col.name,
+      enableSorting: i > 0,
+      size: i === 0 ? 200 : 96,
+      minSize: i === 0 ? 200 : 96,
+      meta: i === 0 ? { flex: 1 } : { numeric: true },
     }))
   }, [report])
-
-  const defaultColDef = useMemo<ColDef>(
-    () => ({
-      resizable: true,
-      wrapHeaderText: true,
-      autoHeaderHeight: true,
-    }),
-    [],
-  )
-
-  const onGridReady = useCallback((e: GridReadyEvent) => {
-    gridRef.current = e.api
-  }, [])
-
-  const autoSizeQuickStatsColumns = useCallback(() => {
-    const api = gridRef.current
-    if (!api) return
-    if (typeof api.isDestroyed === 'function' && api.isDestroyed()) return
-    try {
-      api.autoSizeAllColumns(false)
-    } catch {
-      /* ignore */
-    }
-  }, [])
-
-  const onFirstDataRendered = useCallback(() => {
-    requestAnimationFrame(() => autoSizeQuickStatsColumns())
-  }, [autoSizeQuickStatsColumns])
-
-  const onRowDataUpdated = useCallback(() => {
-    requestAnimationFrame(() => autoSizeQuickStatsColumns())
-  }, [autoSizeQuickStatsColumns])
-
-  const handleCsv = useCallback(() => {
-    gridRef.current?.exportDataAsCsv({
-      fileName: `funnel-quick-stats-${funnelId}.csv`,
-    })
-  }, [funnelId])
 
   const handlePrint = useCallback(() => {
     window.print()
@@ -556,14 +511,14 @@ export function FunnelQuickStatsModal({
             <Button htmlType="button" size="small" className="gap-1.5 shadow-sm" icon={<Printer className="h-4 w-4" />} onClick={handlePrint}>
               Print
             </Button>
-            <Button htmlType="button" size="small" className="shadow-sm" onClick={handleCsv} disabled={!report}>
+            <Button htmlType="button" size="small" className="shadow-sm" disabled title="CSV export is not available for this table view.">
               Export CSV
             </Button>
           </div>
           <p className="max-w-xl text-right text-xs leading-relaxed text-muted-foreground">
             {!metaLoaded && 'Loading filters…'}
             {metaLoaded && tab === 'drilldown' && 'Opens the full drilldown report for this funnel.'}
-            {metaLoaded && tab !== 'drilldown' && 'Columns auto-size to labels and values; scroll horizontally if needed.'}
+            {metaLoaded && tab !== 'drilldown' && 'Scroll horizontally if columns exceed the viewport.'}
           </p>
         </div>
 
@@ -590,23 +545,13 @@ export function FunnelQuickStatsModal({
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
-              <DataGrid
-                className="min-h-0 flex-1"
-                rowData={rowData}
-                columnDefs={columnDefs}
-                defaultColDef={defaultColDef}
-                pinnedBottomRowData={pinnedBottomRowData}
-                onGridReady={onGridReady}
-                onFirstDataRendered={onFirstDataRendered}
-                onRowDataUpdated={onRowDataUpdated}
-                animateRows
-                suppressCellFocus
-                enableCellTextSelection
-                getRowId={(p: GetRowIdParams) => {
-                  const d = p.data as Record<string, string> | undefined
-                  if (!d) return 'qs-row'
-                  return `qs-${Object.values(d).join('\u001e')}`
-                }}
+              <DataTable
+                data={rowData}
+                columns={columnDefs}
+                pinnedBottomRows={pinnedBottomRowData}
+                getRowId={(row) => `qs-${Object.values(row).join('\u001e')}`}
+                noPagination
+                maxHeight="100%"
               />
             </div>
           )}

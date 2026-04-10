@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import type { ColDef } from 'ag-grid-community'
-import { DataGrid, numericColumn, currencyColumn, percentColumn, profitLossColumn } from '@/components/ui-kit'
+import type { ColumnDef } from '@tanstack/react-table'
+import { DataTable } from '@/components/ui-kit/data-table'
 
 interface SampleRow {
   name: string
@@ -25,40 +25,39 @@ const sampleData: SampleRow[] = [
 ]
 
 export function TablesSection() {
-  const columnDefs = useMemo(
-    (): ColDef[] => [
-      { field: 'name', headerName: 'Campaign', flex: 1, minWidth: 180 },
-      { field: 'source', headerName: 'Source', width: 120 },
-      { field: 'visits', headerName: 'Visits', width: 100, ...numericColumn },
-      { field: 'clicks', headerName: 'Clicks', width: 100, ...numericColumn },
-      { field: 'conversions', headerName: 'Conv', width: 90, ...numericColumn },
-      { field: 'revenue', headerName: 'Revenue', width: 120, ...currencyColumn },
-      { field: 'cost', headerName: 'Cost', width: 120, ...currencyColumn },
-      { field: 'profit', headerName: 'Profit', width: 120, ...profitLossColumn },
-      { field: 'roi', headerName: 'ROI', width: 90, ...percentColumn },
-      { field: 'cr', headerName: 'CR', width: 80, ...percentColumn },
-    ],
-    [],
-  )
+  const columnDefs = useMemo((): ColumnDef<SampleRow, unknown>[] => [
+    { id: 'name', header: 'Campaign', accessorKey: 'name', size: 250, meta: { flex: 1 } },
+    { id: 'source', header: 'Source', accessorKey: 'source', size: 120 },
+    { id: 'visits', header: 'Visits', accessorKey: 'visits', size: 100, meta: { numeric: true }, cell: (info) => Number(info.getValue()).toLocaleString() },
+    { id: 'clicks', header: 'Clicks', accessorKey: 'clicks', size: 100, meta: { numeric: true }, cell: (info) => Number(info.getValue()).toLocaleString() },
+    { id: 'conversions', header: 'Conv', accessorKey: 'conversions', size: 90, meta: { numeric: true }, cell: (info) => Number(info.getValue()).toLocaleString() },
+    { id: 'revenue', header: 'Revenue', accessorKey: 'revenue', size: 120, meta: { numeric: true }, cell: (info) => Number(info.getValue()).toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }) },
+    { id: 'cost', header: 'Cost', accessorKey: 'cost', size: 120, meta: { numeric: true }, cell: (info) => Number(info.getValue()).toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }) },
+    { id: 'profit', header: 'Profit', accessorKey: 'profit', size: 120, meta: { numeric: true }, cell: (info) => {
+      const v = Number(info.getValue())
+      const cls = v > 0 ? 'dt-cell--profit' : v < 0 ? 'dt-cell--loss' : ''
+      return <span className={cls}>{v.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2 })}</span>
+    } },
+    { id: 'roi', header: 'ROI', accessorKey: 'roi', size: 90, meta: { numeric: true }, cell: (info) => `${Number(info.getValue()).toFixed(2)}%` },
+    { id: 'cr', header: 'CR', accessorKey: 'cr', size: 80, meta: { numeric: true }, cell: (info) => `${Number(info.getValue()).toFixed(2)}%` },
+  ], [])
 
   return (
     <section id="tables">
-      <h2 className="text-xl font-semibold text-foreground mb-6">Tables (AG-Grid)</h2>
+      <h2 className="text-xl font-semibold text-foreground mb-6">Tables (DataTable)</h2>
       <p className="text-sm text-muted-foreground mb-4">
-        Import: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{'import { DataGrid, currencyColumn } from "@/components/ui-kit"'}</code>
+        Import: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{'import { DataTable } from "@/components/ui-kit"'}</code>
       </p>
 
       <div className="mb-4 p-3 bg-muted rounded-lg">
         <p className="text-xs text-muted-foreground">
-          Column type helpers: <code>numericColumn</code>, <code>currencyColumn</code>,{' '}
-          <code>percentColumn</code>, <code>profitLossColumn</code> (green/red coloring).
+          Columns are TanStack <code>ColumnDef</code> entries: use <code>accessorKey</code>, <code>meta.numeric</code> for alignment, and <code>cell</code> for formatting.
         </p>
       </div>
 
-      <DataGrid<SampleRow>
-        rowData={sampleData}
-        columnDefs={columnDefs}
-        rowSelection={{ mode: 'multiRow' }}
+      <DataTable<SampleRow>
+        data={sampleData}
+        columns={columnDefs}
       />
     </section>
   )

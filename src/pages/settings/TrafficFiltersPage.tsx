@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import type { ColDef } from 'ag-grid-community'
+import type { ColumnDef } from '@tanstack/react-table'
 import { Plus, Pencil, RotateCcw, Trash2, Loader2, Shield } from 'lucide-react'
 import { Button, Input, Switch, Select, Modal } from 'antd'
-import { PageShell, DataGrid, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { PageShell, DataTable, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import { InlineActions } from '@/components/shared/InlineActions'
 import {
   useTrafficFilters,
@@ -101,78 +101,93 @@ export function TrafficFiltersPage() {
     })
   }
 
-  const columns: ColDef<TrafficFilter>[] = [
-    {
-      colId: 'trafficFilterName',
-      headerName: 'Name',
-      field: 'trafficFilterName',
-      cellRenderer: (params: { data: TrafficFilter }) => (
-        <span className="font-medium">{params.data.trafficFilterName}</span>
-      ),
-    },
-    {
-      colId: 'filterType',
-      headerName: 'Type',
-      field: 'filterType',
-      valueFormatter: (params: { value: FilterType }) =>
-        FILTER_TYPE_LABELS[params.value] ?? params.value,
-    },
-    {
-      colId: 'entriesCount',
-      headerName: 'Entries',
-      valueGetter: (params: { data: TrafficFilter | undefined }) =>
-        params.data?.filterEntries?.length ?? 0,
-    },
-    {
-      colId: 'isEnabled',
-      headerName: 'Enabled',
-      field: 'isEnabled',
-      cellRenderer: (params: { data: TrafficFilter }) => (
-        <Switch
-          checked={params.data.isEnabled}
-          onChange={() => handleToggleEnabled(params.data)}
-        />
-      ),
-    },
-    {
-      colId: 'idTrafficFilter',
-      headerName: 'ID',
-      field: 'idTrafficFilter',
-      cellRenderer: (params: { data: TrafficFilter }) => (
-        <span className="font-mono text-xs text-muted-foreground">
-          {params.data.idTrafficFilter}
-        </span>
-      ),
-    },
-    {
-      colId: 'actions',
-      headerName: '',
-      width: 50,
-      sortable: false,
-      cellRenderer: (params: { data: TrafficFilter }) => (
-        <InlineActions
-          actions={[
-            {
-              label: 'Edit',
-              icon: Pencil,
-              onClick: () => openEdit(params.data),
-            },
-            {
-              label: 'Apply Retroactively',
-              icon: RotateCcw,
-              onClick: () => handleApplyRetroactively(params.data),
-            },
-            {
-              label: 'Delete',
-              icon: Trash2,
-              onClick: () => setDeleteTarget(params.data),
-              destructive: true,
-            },
-          ]}
-        />
-      ),
-    },
-  ]
+  const openEditRef = useRef(openEdit)
+  const handleApplyRetroactivelyRef = useRef(handleApplyRetroactively)
+  const handleToggleEnabledRef = useRef(handleToggleEnabled)
+  const setDeleteTargetRef = useRef(setDeleteTarget)
+
+  useEffect(() => {
+    openEditRef.current = openEdit
+    handleApplyRetroactivelyRef.current = handleApplyRetroactively
+    handleToggleEnabledRef.current = handleToggleEnabled
+    setDeleteTargetRef.current = setDeleteTarget
+  }, [openEdit, handleApplyRetroactively, handleToggleEnabled, setDeleteTarget])
+
+  const columns = useMemo<ColumnDef<TrafficFilter, unknown>[]>(
+    () => [
+      {
+        id: 'trafficFilterName',
+        header: 'Name',
+        accessorKey: 'trafficFilterName',
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.trafficFilterName}</span>
+        ),
+      },
+      {
+        id: 'filterType',
+        header: 'Type',
+        accessorKey: 'filterType',
+        cell: ({ row }) =>
+          FILTER_TYPE_LABELS[row.original.filterType] ?? row.original.filterType,
+      },
+      {
+        id: 'entriesCount',
+        header: 'Entries',
+        accessorFn: (row) => row.filterEntries?.length ?? 0,
+      },
+      {
+        id: 'isEnabled',
+        header: 'Enabled',
+        accessorKey: 'isEnabled',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Switch
+            checked={row.original.isEnabled}
+            onChange={() => handleToggleEnabledRef.current(row.original)}
+          />
+        ),
+      },
+      {
+        id: 'idTrafficFilter',
+        header: 'ID',
+        accessorKey: 'idTrafficFilter',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.original.idTrafficFilter}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: '',
+        size: 50,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <InlineActions
+            actions={[
+              {
+                label: 'Edit',
+                icon: Pencil,
+                onClick: () => openEditRef.current(row.original),
+              },
+              {
+                label: 'Apply Retroactively',
+                icon: RotateCcw,
+                onClick: () => handleApplyRetroactivelyRef.current(row.original),
+              },
+              {
+                label: 'Delete',
+                icon: Trash2,
+                onClick: () => setDeleteTargetRef.current(row.original),
+                destructive: true,
+              },
+            ]}
+          />
+        ),
+      },
+    ],
+    [],
+  )
 
   return (
     <PageShell
@@ -192,11 +207,12 @@ export function TrafficFiltersPage() {
           onAction={openCreate}
         />
       ) : (
-        <DataGrid<TrafficFilter>
-          rowData={filters ?? []}
-          columnDefs={columns}
-          getRowId={(p) => p.data.idTrafficFilter}
+        <DataTable<TrafficFilter>
+          data={filters ?? []}
+          columns={columns}
+          getRowId={(row) => row.idTrafficFilter}
           loading={isLoading}
+          noPagination
         />
       )}
 

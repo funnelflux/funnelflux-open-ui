@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { SortModelItem } from 'ag-grid-community'
 import { api } from '@/api/client'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { Report, ReportCell } from '@/types/stats'
@@ -10,16 +9,18 @@ export interface EntityGridRow {
   cells: ReportCell[]
 }
 
+export interface SortItem {
+  colId: string
+  sort: 'asc' | 'desc'
+}
+
 export interface UseEntityGridReportOptions {
   groupBy: string
   dateFrom: Date
   dateTo: Date
   timezone: string
-  /** Metadata endpoint, e.g. '/data/page/list/' */
   metaEndpoint: string
-  /** Query params for metadata endpoint */
   metaParams?: Record<string, string>
-  /** Key used to index metadata by ID, e.g. 'idPage' */
   metaIdKey: string
   pageSize?: number
 }
@@ -33,8 +34,8 @@ export interface UseEntityGridReportResult<TMeta> {
   pageSize: number
   onPageChange: (page: number) => void
   onPageSizeChange: (pageSize: number) => void
-  sortModel: SortModelItem[]
-  onSortChange: (sortModel: SortModelItem[]) => void
+  sortModel: SortItem[]
+  onSortChange: (sortModel: SortItem[]) => void
   isLoading: boolean
   reload: () => void
 }
@@ -57,10 +58,10 @@ export function useEntityGridReport<TMeta extends Record<string, any>>({
   const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(initialPageSize)
-  const [sortModel, setSortModel] = useState<SortModelItem[]>([])
+  const [sortModel, setSortModel] = useState<SortItem[]>([])
 
   const fetchReport = useCallback(
-    (currentPage: number, currentPageSize: number, sort: SortModelItem[]) => {
+    (currentPage: number, currentPageSize: number, sort: SortItem[]) => {
       setIsLoading(true)
 
       const sortParam = sort[0]
@@ -117,7 +118,6 @@ export function useEntityGridReport<TMeta extends Record<string, any>>({
     [groupBy, dateFrom, dateTo, timezone, metaEndpoint, metaParams, metaIdKey],
   )
 
-  // Load on mount and when date/tz/groupBy changes — reset to page 0
   useEffect(() => {
     setPage(0)
     fetchReport(0, pageSize, sortModel)
@@ -142,7 +142,7 @@ export function useEntityGridReport<TMeta extends Record<string, any>>({
   )
 
   const onSortChange = useCallback(
-    (newSort: SortModelItem[]) => {
+    (newSort: SortItem[]) => {
       setSortModel(newSort)
       setPage(0)
       fetchReport(0, pageSize, newSort)

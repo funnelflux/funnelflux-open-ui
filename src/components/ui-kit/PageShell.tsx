@@ -7,6 +7,8 @@ interface PageShellProps {
   actions?: ReactNode
   children: ReactNode
   className?: string
+  /** When true the shell fills the remaining viewport height and its last child (the table) stretches. */
+  fillHeight?: boolean
 }
 
 export function PageShell({
@@ -15,10 +17,11 @@ export function PageShell({
   actions,
   children,
   className,
+  fillHeight,
 }: PageShellProps) {
   return (
-    <div className={cn('flex flex-col gap-6', className)}>
-      <div className="flex items-center justify-between">
+    <div className={cn('flex flex-col gap-6', fillHeight && 'flex-1 min-h-0 overflow-hidden', className)}>
+      <div className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
           {subtitle && (
