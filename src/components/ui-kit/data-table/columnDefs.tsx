@@ -15,6 +15,8 @@ export function cellFmt(cell?: ReportCell): string {
 
 // ---------- Types ----------
 
+export type ColumnAlign = 'left' | 'center' | 'right'
+
 interface HasCells {
   cells: ReportCell[]
 }
@@ -30,6 +32,7 @@ interface ColumnOpts {
   minSize?: number
   maxSize?: number
   enableSorting?: boolean
+  align?: ColumnAlign
 }
 
 interface NameColumnOpts<T> extends ColumnOpts {
@@ -64,7 +67,7 @@ function statColumn<T extends HasCells>(
       }
       return formatted
     },
-    meta: { numeric: true },
+    meta: { numeric: true, ...(opts?.align ? { align: opts.align } : {}) },
   }
 }
 
@@ -78,15 +81,15 @@ export function nameColumn<T extends HasName>(opts?: NameColumnOpts<T>): ColumnD
     size: opts?.size ?? 250,
     minSize: opts?.minSize ?? 180,
     enableSorting: opts?.enableSorting ?? true,
-    meta: { flex: 1 },
+    meta: { flex: 1, ...(opts?.align ? { align: opts.align } : {}) },
     cell: (info) => {
       const row = info.row.original
       const content = opts?.cellContent ? opts.cellContent(row) : (
-        <span className="truncate">{row.name}</span>
+        <span className="dt-cell-text">{row.name}</span>
       )
       if (opts?.actions) {
         return (
-          <div style={{ position: 'relative', overflow: 'visible', display: 'flex', alignItems: 'center', width: '100%' }}>
+          <div className="dt-cell-name-wrap">
             {content}
             <div className="dt-actions">{opts.actions(row)}</div>
           </div>
@@ -105,8 +108,9 @@ export function idColumn<T extends HasName>(opts?: ColumnOpts): ColumnDef<T, unk
     size: opts?.size ?? 170,
     minSize: 100,
     enableSorting: false,
+    meta: { ...(opts?.align ? { align: opts.align } : {}) },
     cell: (info) => (
-      <span className="text-xs" style={{ color: 'var(--muted-fg)' }}>{String(info.getValue())}</span>
+      <span className="dt-cell-text" style={{ color: 'var(--muted-fg)', fontSize: '12px' }}>{String(info.getValue())}</span>
     ),
   }
 }
@@ -152,6 +156,7 @@ export function actionsColumn<T>(
     header: '',
     size: opts?.size ?? 140,
     enableSorting: false,
+    enableResizing: false,
     cell: (info) => (
       <div className="flex items-center justify-end w-full">
         {renderActions(info.row.original)}

@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks'
-import { PageShell, DataTable, SearchToolbar, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { PageShell, DataTable, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { InlineActions } from '@/components/shared/InlineActions'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
 import { Button, Tag } from 'antd'
@@ -133,7 +133,7 @@ export function GlobalConditionsPage() {
   )
 
   return (
-    <PageShell
+    <PageShell fillHeight
       title="Global Conditions"
       actions={
         <Button
@@ -149,17 +149,14 @@ export function GlobalConditionsPage() {
     >
       <SearchToolbar value={search} onChange={setSearch} placeholder="Search conditions..." />
 
-      {filtered.length === 0 && !isLoading ? (
-        <EmptyState message="No global conditions found. Create one to get started." />
-      ) : (
-        <DataTable<Condition>
-          data={filtered}
-          columns={columns}
-          getRowId={(row) => row.idCondition}
-          loading={isLoading}
-          noPagination
-        />
-      )}
+      <DataTable<Condition>
+        data={filtered}
+        columns={columns}
+        getRowId={(row) => row.idCondition}
+        loading={isLoading}
+        noPagination
+        emptyMessage="No global conditions found. Create one to get started."
+      />
 
       {editorOpen ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80">

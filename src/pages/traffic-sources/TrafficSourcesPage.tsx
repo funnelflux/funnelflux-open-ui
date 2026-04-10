@@ -5,7 +5,6 @@ import { Button } from 'antd'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import {
   ConfirmModal,
-  EmptyState,
   TimezoneSelect,
   useToastApi,
   PageShell,
@@ -178,6 +177,7 @@ export function TrafficSourcesPage() {
 
   return (
     <PageShell
+      fillHeight
       title="Traffic Sources"
       actions={<Button type="primary" onClick={handleCreate}>Add Traffic Source</Button>}
     >
@@ -208,21 +208,18 @@ export function TrafficSourcesPage() {
         actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="traffic-sources" /> : null}
       />
 
-      {!isLoading && filtered.length === 0 ? (
-        <EmptyState message={search || selectedCategoryId ? 'No traffic sources match your filters.' : 'No traffic sources found.'} />
-      ) : (
-        <DataTable
-          data={filtered as TrafficSourceGridRow[]}
-          columns={columnDefs}
-          loading={isLoading}
-          getRowId={(row) => row.id}
-          enableRowSelection
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
-          tableRef={tableRef}
-          onTableInstance={setTableForChooser}
-        />
-      )}
+      <DataTable
+        data={filtered as TrafficSourceGridRow[]}
+        columns={columnDefs}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        enableRowSelection
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        tableRef={tableRef}
+        onTableInstance={setTableForChooser}
+        emptyMessage={search || selectedCategoryId ? 'No traffic sources match your filters.' : 'No traffic sources found.'}
+      />
 
       <BulkActionsBar
         count={selectedIds.length}

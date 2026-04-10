@@ -5,7 +5,6 @@ import { Archive, Copy, Pencil, Trash2, Upload } from 'lucide-react'
 import { Button } from 'antd'
 import {
   ConfirmModal,
-  EmptyState,
   TimezoneSelect,
   useToastApi,
   PageShell,
@@ -237,6 +236,7 @@ export function LandersPage() {
 
   return (
     <PageShell
+      fillHeight
       title="Landers"
       actions={
         <div className="flex items-center gap-2">
@@ -275,21 +275,18 @@ export function LandersPage() {
         actions={tableRef.current ? <ColumnChooser columns={columnDefs} table={tableRef.current} storageKey="landers" /> : null}
       />
 
-      {!isLoading && filtered.length === 0 ? (
-        <EmptyState message={search || selectedCategoryId ? 'No landers match your filters.' : 'No landers found.'} />
-      ) : (
-        <DataTable<LanderGridRow>
-          data={filtered}
-          columns={columnDefs}
-          loading={isLoading}
-          getRowId={(row) => row.id}
-          enableRowSelection={(row) => !row.original._isCategoryHeader}
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
-          rowClassName={(row) => row._isCategoryHeader ? 'dt-row--depth-1' : undefined}
-          tableRef={tableRef}
-        />
-      )}
+      <DataTable<LanderGridRow>
+        data={filtered}
+        columns={columnDefs}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        enableRowSelection={(row) => !row.original._isCategoryHeader}
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        rowClassName={(row) => row._isCategoryHeader ? 'dt-row--depth-1' : undefined}
+        tableRef={tableRef}
+        emptyMessage={search || selectedCategoryId ? 'No landers match your filters.' : 'No landers found.'}
+      />
 
       <BulkActionsBar
         count={selectedIds.length}

@@ -293,6 +293,7 @@ export function DashboardPage() {
 
   return (
     <PageShell
+      fillHeight
       title="Dashboard"
       subtitle={isAutoRefresh ? undefined : undefined}
       actions={

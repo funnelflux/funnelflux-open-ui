@@ -26,3 +26,4 @@ export {
   actionsColumn,
   selectionColumn,
 } from './columnDefs'
+export type { ColumnAlign } from './columnDefs'

@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Plus, Pencil, Trash2, RotateCcw, Loader2 } from 'lucide-react'
 import { Button, Input, Modal } from 'antd'
-import { PageShell, DataTable, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { InlineActions } from '@/components/shared/InlineActions'
 import {
   useStoredLinks,
@@ -163,6 +163,7 @@ export function StoredLinksPage() {
 
   return (
     <PageShell
+      fillHeight
       title="Stored Links"
       actions={
         <Button type="primary" onClick={openCreate}>
@@ -171,21 +172,14 @@ export function StoredLinksPage() {
         </Button>
       }
     >
-      {!isLoading && (!links || links.length === 0) ? (
-        <EmptyState
-          message="No stored links yet. Create one to get started."
-          actionLabel="Add Link"
-          onAction={openCreate}
-        />
-      ) : (
-        <DataTable<StoredLink>
-          data={links ?? []}
-          columns={columns}
-          getRowId={(row) => row.id}
-          loading={isLoading}
-          noPagination
-        />
-      )}
+      <DataTable<StoredLink>
+        data={links ?? []}
+        columns={columns}
+        getRowId={(row) => row.id}
+        loading={isLoading}
+        noPagination
+        emptyMessage="No stored links yet. Create one to get started."
+      />
 
       <Modal open={sheetOpen} onCancel={() => setSheetOpen(false)} title={editingLink ? 'Edit Link' : 'Add Link'} footer={null} width={480} destroyOnHidden>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">

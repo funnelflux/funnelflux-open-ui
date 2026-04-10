@@ -6,16 +6,22 @@ import {
   getExpandedRowModel,
   getFilteredRowModel,
   flexRender,
-  type ColumnResizeMode,
   type Header,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRef, useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
+import type { ColumnAlign } from './columnDefs'
 import type { DataTableProps, SortingState, VisibilityState, RowSelectionState, PaginationState, ExpandedState, Row } from './types'
 import './data-table.css'
 
 const DEFAULT_PAGE_SIZES = [25, 50, 100, 200]
+
+function alignClass(align?: ColumnAlign): string {
+  if (align === 'center') return ' dt-align-center'
+  if (align === 'right') return ' dt-align-right'
+  return ''
+}
 
 export function DataTable<TData>({
   data,
@@ -50,6 +56,8 @@ export function DataTable<TData>({
   emptyMessage = 'No data.',
   noPagination,
   enableColumnResizing = true,
+  columnSizing: controlledSizing,
+  onColumnSizingChange,
 }: DataTableProps<TData>) {
   const [internalSorting, setInternalSorting] = useState<SortingState>([])
   const [internalSelection, setInternalSelection] = useState<RowSelectionState>({})
@@ -57,13 +65,14 @@ export function DataTable<TData>({
   const [internalVisibility, setInternalVisibility] = useState<VisibilityState>({})
   const [internalExpanded, setInternalExpanded] = useState<ExpandedState>({})
   const [expandingRowId, setExpandingRowId] = useState<string | null>(null)
-  const [columnSizing, setColumnSizing] = useState({})
+  const [internalSizing, setInternalSizing] = useState<Record<string, number>>({})
 
   const sorting = controlledSorting ?? internalSorting
   const selection = controlledSelection ?? internalSelection
   const pagination = controlledPagination ?? internalPagination
   const visibility = controlledVisibility ?? internalVisibility
   const expanded = controlledExpanded ?? internalExpanded
+  const columnSizing = controlledSizing ?? internalSizing
 
   const handleSortingChange = useCallback(
     (updater: SortingState | ((old: SortingState) => SortingState)) => {
@@ -105,9 +114,15 @@ export function DataTable<TData>({
     [expanded, onExpandedChange],
   )
 
-  const usePagination = !noPagination && !treeMode
+  const handleSizingChange = useCallback(
+    (updater: Record<string, number> | ((old: Record<string, number>) => Record<string, number>)) => {
+      const next = typeof updater === 'function' ? updater(columnSizing) : updater
+      ;(onColumnSizingChange ?? setInternalSizing)(next)
+    },
+    [columnSizing, onColumnSizingChange],
+  )
 
-  const columnResizeMode: ColumnResizeMode = 'onChange'
+  const usePagination = !noPagination && !treeMode
 
   const table = useReactTable({
     data,
@@ -126,7 +141,7 @@ export function DataTable<TData>({
     onPaginationChange: handlePaginationChange as never,
     onColumnVisibilityChange: handleVisibilityChange as never,
     onExpandedChange: handleExpandedChange as never,
-    onColumnSizingChange: setColumnSizing,
+    onColumnSizingChange: handleSizingChange as never,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
     getPaginationRowModel: usePagination && !manualPagination ? getPaginationRowModel() : undefined,
@@ -135,7 +150,7 @@ export function DataTable<TData>({
     getSubRows: getSubRows as never,
     enableRowSelection: enableRowSelection as never,
     enableColumnResizing,
-    columnResizeMode,
+    columnResizeMode: 'onChange',
     manualSorting,
     manualPagination,
     pageCount,
@@ -190,29 +205,17 @@ export function DataTable<TData>({
   const visibleColumns = table.getVisibleLeafColumns()
 
   const totalTableWidth = useMemo(() => {
-    return visibleColumns.reduce((sum, col) => {
-      const meta = col.columnDef.meta as Record<string, unknown> | undefined
-      if (meta?.flex) return sum + (col.columnDef.minSize ?? 150)
-      return sum + col.getSize()
-    }, 0)
+    return visibleColumns.reduce((sum, col) => sum + col.getSize(), 0)
   }, [visibleColumns])
 
-  const getColStyle = useCallback(
-    (col: { getSize: () => number; columnDef: { meta?: unknown; minSize?: number; maxSize?: number } }): React.CSSProperties => {
-      const meta = col.columnDef.meta as Record<string, unknown> | undefined
-      const minW = col.columnDef.minSize ?? 50
-      const maxW = col.columnDef.maxSize
-      if (meta?.flex) {
-        return { flex: `${meta.flex as number} 1 0%`, minWidth: minW, maxWidth: maxW }
-      }
-      return { width: col.getSize(), minWidth: minW, maxWidth: maxW, flexShrink: 0, flexGrow: 0 }
-    },
+  const getColWidth = useCallback(
+    (col: { getSize: () => number }): number => col.getSize(),
     [],
   )
 
   const renderResizer = useCallback(
     (header: Header<TData, unknown>) => {
-      if (!enableColumnResizing) return null
+      if (!enableColumnResizing || header.column.columnDef.enableResizing === false) return null
       return (
         <div
           onMouseDown={header.getResizeHandler()}
@@ -233,20 +236,19 @@ export function DataTable<TData>({
         <div
           key={row.id}
           className={`dt-row${row.getIsSelected() ? ' dt-row--selected' : ''} dt-row--depth-${Math.min(depth, 3)}${rowClassValue ? ` ${rowClassValue}` : ''}`}
-          style={style}
+          style={{ ...style, minWidth: totalTableWidth }}
           data-row-id={row.id}
         >
           {row.getVisibleCells().map((cell, cellIndex) => {
             const meta = cell.column.columnDef.meta as Record<string, unknown> | undefined
-            const isNumeric = meta?.numeric === true
-            const cellClasses = ['dt-cell']
-            if (isNumeric) cellClasses.push('dt-cell--numeric')
+            const cellAlign = (meta?.align as ColumnAlign | undefined)
+            const cellClasses = 'dt-cell' + alignClass(cellAlign)
 
             return (
               <div
                 key={cell.id}
-                className={cellClasses.join(' ')}
-                style={getColStyle(cell.column)}
+                className={cellClasses}
+                style={{ width: getColWidth(cell.column) }}
               >
                 {cellIndex === 0 && treeMode && (
                   <>
@@ -268,14 +270,16 @@ export function DataTable<TData>({
                     )}
                   </>
                 )}
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                <span className="dt-cell-text">
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </span>
               </div>
             )
           })}
         </div>
       )
     },
-    [rowClassName, getColStyle, treeMode, handleToggleExpand, expandingRowId],
+    [rowClassName, getColWidth, totalTableWidth, treeMode, handleToggleExpand, expandingRowId],
   )
 
   const renderPinnedBottom = () => {
@@ -286,22 +290,24 @@ export function DataTable<TData>({
       state: { columnVisibility: visibility, columnSizing },
       getCoreRowModel: getCoreRowModel(),
       enableColumnResizing,
-      columnResizeMode,
+      columnResizeMode: 'onChange',
     })
     return (
-      <div className="dt-pinned-bottom">
+      <div className="dt-pinned-bottom" style={{ minWidth: totalTableWidth }}>
         {pinnedTable.getRowModel().rows.map((row) => (
           <div key={row.id} className="dt-row">
             {row.getVisibleCells().map((cell) => {
               const meta = cell.column.columnDef.meta as Record<string, unknown> | undefined
-              const isNumeric = meta?.numeric === true
+              const cellAlign = (meta?.align as ColumnAlign | undefined)
               return (
                 <div
                   key={cell.id}
-                  className={`dt-cell${isNumeric ? ' dt-cell--numeric' : ''}`}
-                  style={getColStyle(cell.column)}
+                  className={'dt-cell' + alignClass(cellAlign)}
+                  style={{ width: getColWidth(cell.column) }}
                 >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  <span className="dt-cell-text">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </span>
                 </div>
               )
             })}
@@ -330,86 +336,79 @@ export function DataTable<TData>({
     return pages
   }, [totalPages, currentPage])
 
-  const hasFlexColumn = visibleColumns.some(
-    (c) => (c.columnDef.meta as Record<string, unknown> | undefined)?.flex,
-  )
-
   return (
     <div
       className="dt-wrapper"
       style={maxHeight ? { maxHeight } : undefined}
     >
-      {/* Scroll container for header + body (synced horizontal scroll) */}
       <div className="dt-scroll-container" ref={scrollRef}>
-        <div className="dt-scroll-inner" style={!hasFlexColumn ? { minWidth: totalTableWidth } : undefined}>
-          {/* Header */}
-          <div className="dt-header">
-            {headerGroups.map((hg) =>
-              hg.headers.map((header, hi) => {
-                const canSort = header.column.getCanSort()
-                const sorted = header.column.getIsSorted()
-                const isFirstDataCol = treeMode && hi === (enableRowSelection ? 1 : 0)
-                return (
+        {loading && (
+          <div className="dt-loading">
+            <div className="dt-spinner" />
+          </div>
+        )}
+
+        {/* Header — sticky top, scrolls horizontally with body */}
+        <div className="dt-header" style={{ minWidth: totalTableWidth }}>
+          {headerGroups.map((hg) =>
+            hg.headers.map((header, hi) => {
+              const canSort = header.column.getCanSort()
+              const sorted = header.column.getIsSorted()
+              const meta = header.column.columnDef.meta as Record<string, unknown> | undefined
+              const headerAlign = (meta?.align as ColumnAlign | undefined)
+              const isFirstDataCol = treeMode && hi === (enableRowSelection ? 1 : 0)
+              return (
+                <div
+                  key={header.id}
+                  className={`dt-header-cell${canSort ? ' dt-header-cell--sortable' : ''}${alignClass(headerAlign)}`}
+                  style={{ width: getColWidth(header.column) }}
+                >
+                  {isFirstDataCol && <span style={{ width: 20, flexShrink: 0 }} />}
                   <div
-                    key={header.id}
-                    className={`dt-header-cell${canSort ? ' dt-header-cell--sortable' : ''}`}
-                    style={getColStyle(header.column)}
+                    className="dt-header-cell-content"
+                    onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                   >
-                    {isFirstDataCol && <span style={{ width: 20, flexShrink: 0 }} />}
-                    <div
-                      className="dt-header-cell-content"
-                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                      {canSort && (
-                        <span className={`dt-sort-icon${sorted ? ' dt-sort-icon--active' : ''}`}>
-                          {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
-                        </span>
-                      )}
-                    </div>
-                    {renderResizer(header)}
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                    {canSort && (
+                      <span className={`dt-sort-icon${sorted ? ' dt-sort-icon--active' : ''}`}>
+                        {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
+                      </span>
+                    )}
                   </div>
-                )
-              }),
-            )}
-          </div>
-
-          {/* Body */}
-          <div className="dt-body">
-            {loading && (
-              <div className="dt-loading">
-                <div className="dt-spinner" />
-              </div>
-            )}
-
-            {!loading && tableRows.length === 0 ? (
-              <div className="dt-empty">{emptyMessage}</div>
-            ) : shouldVirtualize ? (
-              <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-                {virtualizer.getVirtualItems().map((virtualRow) => {
-                  const row = tableRows[virtualRow.index]
-                  return renderRow(row, {
-                    position: 'absolute',
-                    top: 0,
-                    transform: `translateY(${virtualRow.start}px)`,
-                    width: '100%',
-                    height: rowHeight,
-                  })
-                })}
-              </div>
-            ) : (
-              tableRows.map((row) => renderRow(row))
-            )}
-          </div>
-
-          {/* Pinned bottom (totals) */}
-          {renderPinnedBottom()}
+                  {renderResizer(header)}
+                </div>
+              )
+            }),
+          )}
         </div>
+
+        {/* Body */}
+        <div className="dt-body">
+
+          {!loading && tableRows.length === 0 ? (
+            <div className="dt-empty">{emptyMessage}</div>
+          ) : shouldVirtualize ? (
+            <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const row = tableRows[virtualRow.index]
+                return renderRow(row, {
+                  position: 'absolute',
+                  top: 0,
+                  transform: `translateY(${virtualRow.start}px)`,
+                  height: rowHeight,
+                })
+              })}
+            </div>
+          ) : (
+            tableRows.map((row) => renderRow(row))
+          )}
+        </div>
+
+        {renderPinnedBottom()}
       </div>
 
-      {/* Pagination (outside scroll so it's always visible) */}
       {showPagination && (
         <div className="dt-footer">
           <div className="dt-footer-info">

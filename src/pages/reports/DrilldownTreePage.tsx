@@ -173,7 +173,7 @@ export function DrilldownTreePage() {
   const getSubRows = useCallback((row: TreeRowData) => row._children, [])
 
   return (
-    <PageShell title="Drilldown Report (Tree)">
+    <PageShell title="Drilldown Report (Tree)" fillHeight>
       <DrilldownToolbar
         onApply={handleApply}
         isLoading={drilldownMutation.isPending}

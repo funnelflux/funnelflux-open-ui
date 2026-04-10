@@ -1,10 +1,9 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { FileText } from 'lucide-react'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import { PageShell, DataTable, EmptyState } from '@/components/ui-kit'
+import { PageShell, DataTable } from '@/components/ui-kit'
 import type { AccessLogEntry } from '@/types/ui'
 
 export function AccessLogPage() {
@@ -50,21 +49,15 @@ export function AccessLogPage() {
   )
 
   return (
-    <PageShell title="Access Log">
-      {!isLoading && (!entries || entries.length === 0) ? (
-        <EmptyState
-          icon={<FileText className="h-10 w-10" />}
-          message="No access log entries."
-        />
-      ) : (
-        <DataTable<AccessLogEntry>
-          data={entries ?? []}
-          columns={columns}
-          getRowId={(row) => row.id}
-          loading={isLoading}
-          noPagination
-        />
-      )}
+    <PageShell title="Access Log" fillHeight>
+      <DataTable<AccessLogEntry>
+        data={entries ?? []}
+        columns={columns}
+        getRowId={(row) => row.id}
+        loading={isLoading}
+        noPagination
+        emptyMessage="No access log entries."
+      />
     </PageShell>
   )
 }

@@ -9,7 +9,6 @@ import {
   SearchToolbar,
   DataTable,
   ConfirmModal,
-  EmptyState,
   TimezoneSelect,
   useToastApi,
 } from '@/components/ui-kit'
@@ -30,6 +29,7 @@ import { InlineActions } from '@/components/shared/InlineActions'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { useTableConfigStore, selectTableConfig } from '@/store/tableConfig'
 import {
   useSaveCampaign,
   useDeleteCampaign,
@@ -110,6 +110,8 @@ function buildTreeFromReport(report: Report): CampaignTreeRow[] {
   })
 }
 
+const TABLE_KEY = 'campaigns'
+
 export function CampaignsPage() {
   const toast = useToastApi()
   const navigate = useNavigate()
@@ -129,6 +131,10 @@ export function CampaignsPage() {
   const [treeData, setTreeData] = useState<CampaignTreeRow[]>([])
   const [columns, setColumns] = useState<{ name: string; type: string }[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  const tableConfig = useTableConfigStore(selectTableConfig(TABLE_KEY))
+  const setColumnSizing = useTableConfigStore((s) => s.setColumnSizing)
+  const setColumnVisibility = useTableConfigStore((s) => s.setColumnVisibility)
 
   const { data: editCampaign } = useCampaign(editId ?? '')
   const saveMutation = useSaveCampaign()
@@ -338,24 +344,25 @@ export function CampaignsPage() {
         actions={tableRef.current ? <ColumnChooser columns={columnDefs} table={tableRef.current} storageKey="campaigns" /> : null}
       />
 
-      {!isLoading && filtered.length === 0 ? (
-        <EmptyState message={search ? 'No campaigns match your search.' : 'No campaigns found.'} />
-      ) : (
-        <DataTable
-          data={filtered}
-          columns={columnDefs}
-          loading={isLoading}
-          getRowId={(row) => row.id}
-          enableRowSelection
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
-          treeMode
-          getSubRows={getSubRows}
-          expanded={expanded}
-          onExpandedChange={setExpanded}
-          tableRef={tableRef}
-        />
-      )}
+      <DataTable
+        data={filtered}
+        columns={columnDefs}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        enableRowSelection
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        treeMode
+        getSubRows={getSubRows}
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+        tableRef={tableRef}
+        columnSizing={tableConfig.columnSizing}
+        onColumnSizingChange={(sizing) => setColumnSizing(TABLE_KEY, sizing)}
+        columnVisibility={tableConfig.columnVisibility}
+        onColumnVisibilityChange={(vis) => setColumnVisibility(TABLE_KEY, vis)}
+        emptyMessage={search ? 'No campaigns match your search.' : 'No campaigns found.'}
+      />
 
       <BulkActionsBar
         count={selectedIds.length}

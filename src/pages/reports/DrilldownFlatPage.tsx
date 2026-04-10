@@ -105,7 +105,7 @@ export function DrilldownFlatPage() {
   }, [report])
 
   return (
-    <PageShell title="Drilldown Report (Flat)">
+    <PageShell title="Drilldown Report (Flat)" fillHeight>
       <DrilldownToolbar
         onApply={handleApply}
         isLoading={drilldownMutation.isPending}

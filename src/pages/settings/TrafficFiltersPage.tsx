@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Plus, Pencil, RotateCcw, Trash2, Loader2, Shield } from 'lucide-react'
+import { Plus, Pencil, RotateCcw, Trash2, Loader2 } from 'lucide-react'
 import { Button, Input, Switch, Select, Modal } from 'antd'
-import { PageShell, DataTable, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { InlineActions } from '@/components/shared/InlineActions'
 import {
   useTrafficFilters,
@@ -190,7 +190,7 @@ export function TrafficFiltersPage() {
   )
 
   return (
-    <PageShell
+    <PageShell fillHeight
       title="Traffic Filters"
       actions={
         <Button type="primary" onClick={openCreate}>
@@ -199,22 +199,14 @@ export function TrafficFiltersPage() {
         </Button>
       }
     >
-      {!isLoading && (!filters || filters.length === 0) ? (
-        <EmptyState
-          icon={<Shield className="h-10 w-10" />}
-          message="No traffic filters configured."
-          actionLabel="Add Filter"
-          onAction={openCreate}
-        />
-      ) : (
-        <DataTable<TrafficFilter>
-          data={filters ?? []}
-          columns={columns}
-          getRowId={(row) => row.idTrafficFilter}
-          loading={isLoading}
-          noPagination
-        />
-      )}
+      <DataTable<TrafficFilter>
+        data={filters ?? []}
+        columns={columns}
+        getRowId={(row) => row.idTrafficFilter}
+        loading={isLoading}
+        noPagination
+        emptyMessage="No traffic filters configured."
+      />
 
       <TrafficFilterModal
         open={sheetOpen}

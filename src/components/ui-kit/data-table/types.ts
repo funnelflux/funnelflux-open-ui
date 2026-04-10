@@ -74,4 +74,8 @@ export interface DataTableProps<TData> {
 
   /** Enable column resizing by dragging header borders. Default true. */
   enableColumnResizing?: boolean
+
+  /** Controlled column sizing state (column id → pixel width). */
+  columnSizing?: Record<string, number>
+  onColumnSizingChange?: (sizing: Record<string, number>) => void
 }

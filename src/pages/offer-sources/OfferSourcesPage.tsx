@@ -11,7 +11,6 @@ import {
   DataTable,
   FormField,
   ConfirmModal,
-  EmptyState,
   TimezoneSelect,
   useToastApi,
 } from '@/components/ui-kit'
@@ -321,6 +320,7 @@ export function OfferSourcesPage() {
 
   return (
     <PageShell
+      fillHeight
       title="Offer Sources"
       actions={<Button type="primary" onClick={handleCreate}>Add Offer Source</Button>}
     >
@@ -342,20 +342,17 @@ export function OfferSourcesPage() {
         actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="offer-sources" /> : null}
       />
 
-      {!isLoading && filtered.length === 0 ? (
-        <EmptyState message={search ? 'No offer sources match your search.' : 'No offer sources found.'} />
-      ) : (
-        <DataTable
-          data={filtered}
-          columns={columnDefs}
-          loading={isLoading}
-          getRowId={(row) => row.id}
-          enableRowSelection
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
-          tableRef={tableRef}
-        />
-      )}
+      <DataTable
+        data={filtered}
+        columns={columnDefs}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        enableRowSelection
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        tableRef={tableRef}
+        emptyMessage={search ? 'No offer sources match your search.' : 'No offer sources found.'}
+      />
 
       <BulkActionsBar
         count={selectedIds.length}

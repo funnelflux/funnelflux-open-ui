@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Trash2, UserCheck, UserPlus, UserX, Users } from 'lucide-react'
+import { Pencil, Trash2, UserCheck, UserPlus, UserX } from 'lucide-react'
 import { Button, Tag, Switch } from 'antd'
-import { PageShell, DataTable, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { InlineActions } from '@/components/shared/InlineActions'
 import { useUsers, useChangeUserStatus, useDeleteUser } from '@/api/hooks/useUserManagement'
 import type { ManagedUser } from '@/types/ui'
@@ -148,7 +148,7 @@ export function UserManagementPage() {
   )
 
   return (
-    <PageShell
+    <PageShell fillHeight
       title="User Management"
       actions={
         <Button type="primary" onClick={() => navigate('/settings/users/new')}>
@@ -157,20 +157,14 @@ export function UserManagementPage() {
         </Button>
       }
     >
-      {!isLoading && (!users || users.length === 0) ? (
-        <EmptyState
-          icon={<Users className="h-10 w-10" />}
-          message="No users found."
-        />
-      ) : (
-        <DataTable<ManagedUser>
-          data={users ?? []}
-          columns={columns}
-          getRowId={(row) => String(row.id)}
-          loading={isLoading}
-          noPagination
-        />
-      )}
+      <DataTable<ManagedUser>
+        data={users ?? []}
+        columns={columns}
+        getRowId={(row) => String(row.id)}
+        loading={isLoading}
+        noPagination
+        emptyMessage="No users found."
+      />
 
       <ConfirmModal
         open={!!deleteTarget}

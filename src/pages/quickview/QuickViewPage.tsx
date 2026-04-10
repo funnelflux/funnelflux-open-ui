@@ -188,6 +188,7 @@ export function QuickViewPage() {
 
   return (
     <PageShell
+      fillHeight
       title={`${entityName} Quick View`}
       subtitle={`${entityGroupBy} · ${entityId}`}
       actions={
