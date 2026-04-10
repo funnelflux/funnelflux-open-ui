@@ -1,10 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Trash2, UserCheck, UserPlus, UserX } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
 import { Button, Tag, Switch } from 'antd'
 import { PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
-import { InlineActions } from '@/components/shared/InlineActions'
+import { editBtnColumn, deleteBtnColumn, enableBtnColumn, disableBtnColumn } from '@/components/ui-kit/data-table'
 import { useUsers, useChangeUserStatus, useDeleteUser } from '@/api/hooks/useUserManagement'
 import type { ManagedUser } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
@@ -67,6 +67,10 @@ export function UserManagementPage() {
         accessorKey: 'login',
         cell: ({ row }) => <span className="font-medium">{row.original.login}</span>,
       },
+      editBtnColumn<ManagedUser>((row) => navigateRef.current(`/settings/users/${row.id}/edit`)),
+      enableBtnColumn<ManagedUser>((row) => handleToggleEnabledRef.current(row), { hidden: (row) => row.enabled }),
+      disableBtnColumn<ManagedUser>((row) => handleToggleEnabledRef.current(row), { hidden: (row) => !row.enabled }),
+      deleteBtnColumn<ManagedUser>((row) => setDeleteTargetRef.current(row)),
       {
         id: 'name',
         header: 'Name',
@@ -113,35 +117,6 @@ export function UserManagementPage() {
           row.original.lastLogin || (
             <span className="text-muted-foreground">Never</span>
           ),
-      },
-      {
-        id: 'actions',
-        header: '',
-        size: 50,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <InlineActions
-            actions={[
-              {
-                label: 'Edit',
-                icon: Pencil,
-                onClick: () =>
-                  navigateRef.current(`/settings/users/${row.original.id}/edit`),
-              },
-              {
-                label: row.original.enabled ? 'Disable' : 'Enable',
-                icon: row.original.enabled ? UserX : UserCheck,
-                onClick: () => handleToggleEnabledRef.current(row.original),
-              },
-              {
-                label: 'Delete',
-                icon: Trash2,
-                onClick: () => setDeleteTargetRef.current(row.original),
-                destructive: true,
-              },
-            ]}
-          />
-        ),
       },
     ],
     [],

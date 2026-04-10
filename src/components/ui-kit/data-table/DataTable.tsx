@@ -239,10 +239,13 @@ export function DataTable<TData>({
           style={{ ...style, minWidth: totalTableWidth }}
           data-row-id={row.id}
         >
-          {row.getVisibleCells().map((cell, cellIndex) => {
+          {row.getVisibleCells().map((cell) => {
             const meta = cell.column.columnDef.meta as Record<string, unknown> | undefined
             const cellAlign = (meta?.align as ColumnAlign | undefined)
+            const isActionBtn = !!meta?.actionBtn
             const cellClasses = 'dt-cell' + alignClass(cellAlign)
+            const isTreeTarget = treeMode && cell.column.id === 'name'
+            const content = flexRender(cell.column.columnDef.cell, cell.getContext())
 
             return (
               <div
@@ -250,7 +253,7 @@ export function DataTable<TData>({
                 className={cellClasses}
                 style={{ width: getColWidth(cell.column) }}
               >
-                {cellIndex === 0 && treeMode && (
+                {isTreeTarget && (
                   <>
                     <span className="dt-indent" style={{ width: depth * 20 }} />
                     {row.getCanExpand() ? (
@@ -270,9 +273,7 @@ export function DataTable<TData>({
                     )}
                   </>
                 )}
-                <span className="dt-cell-text">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </span>
+                {isActionBtn ? content : <span className="dt-cell-text">{content}</span>}
               </div>
             )
           })}
@@ -282,16 +283,17 @@ export function DataTable<TData>({
     [rowClassName, getColWidth, totalTableWidth, treeMode, handleToggleExpand, expandingRowId],
   )
 
+  const pinnedTable = useReactTable({
+    data: pinnedBottomRows ?? [],
+    columns,
+    state: { columnVisibility: visibility, columnSizing },
+    getCoreRowModel: getCoreRowModel(),
+    enableColumnResizing,
+    columnResizeMode: 'onChange',
+  })
+
   const renderPinnedBottom = () => {
     if (!pinnedBottomRows?.length) return null
-    const pinnedTable = useReactTable({
-      data: pinnedBottomRows,
-      columns,
-      state: { columnVisibility: visibility, columnSizing },
-      getCoreRowModel: getCoreRowModel(),
-      enableColumnResizing,
-      columnResizeMode: 'onChange',
-    })
     return (
       <div className="dt-pinned-bottom" style={{ minWidth: totalTableWidth }}>
         {pinnedTable.getRowModel().rows.map((row) => (
@@ -351,12 +353,12 @@ export function DataTable<TData>({
         {/* Header — sticky top, scrolls horizontally with body */}
         <div className="dt-header" style={{ minWidth: totalTableWidth }}>
           {headerGroups.map((hg) =>
-            hg.headers.map((header, hi) => {
+            hg.headers.map((header) => {
               const canSort = header.column.getCanSort()
               const sorted = header.column.getIsSorted()
               const meta = header.column.columnDef.meta as Record<string, unknown> | undefined
               const headerAlign = (meta?.align as ColumnAlign | undefined)
-              const isFirstDataCol = treeMode && hi === (enableRowSelection ? 1 : 0)
+              const isFirstDataCol = treeMode && header.column.id === 'name'
               return (
                 <div
                   key={header.id}

@@ -11,12 +11,16 @@ interface ColumnChooserProps<TData = unknown> {
 
 const ALWAYS_VISIBLE = new Set(['name', 'select'])
 
+function isActionBtnColumn(col: ColumnDef<unknown, unknown>): boolean {
+  return !!col.id?.startsWith('btn_') || !!(col.meta as Record<string, unknown> | undefined)?.actionBtn
+}
+
 export function ColumnChooser<TData>({ columns: columnDefs, table, storageKey }: ColumnChooserProps<TData>) {
   const lsKey = `ff_columns_${storageKey}`
 
   const columnsInfo = useMemo(() => {
     return columnDefs
-      .filter((c) => c.id && !ALWAYS_VISIBLE.has(c.id))
+      .filter((c) => c.id && !ALWAYS_VISIBLE.has(c.id) && !isActionBtnColumn(c as ColumnDef<unknown, unknown>))
       .map((c) => ({
         id: c.id!,
         headerName: typeof c.header === 'string' ? c.header : c.id!,

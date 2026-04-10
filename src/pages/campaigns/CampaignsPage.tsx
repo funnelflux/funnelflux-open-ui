@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, ExpandedState, Table } from '@tanstack/react-table'
-import { Copy, Pencil, Plus, Trash2, Workflow } from 'lucide-react'
 import { Button } from 'antd'
 import {
   PageShell,
@@ -24,8 +23,12 @@ import {
   roiColumn,
   idColumn,
   selectionColumn,
+  editBtnColumn,
+  cloneBtnColumn,
+  deleteBtnColumn,
+  addFunnelBtnColumn,
+  moveBtnColumn,
 } from '@/components/ui-kit/data-table'
-import { InlineActions } from '@/components/shared/InlineActions'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -280,31 +283,26 @@ export function CampaignsPage() {
 
   const columnDefs = useMemo<ColumnDef<CampaignTreeRow, unknown>[]>(() => [
     selectionColumn<CampaignTreeRow>(),
-    nameColumn<CampaignTreeRow>({
-      actions: (row) => {
-        if (row.kind === 'campaign') {
-          return (
-            <InlineActions
-              actions={[
-                { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.campaignId) },
-                { label: 'Clone', icon: Copy, onClick: () => handleCloneCampaign(row.campaignId) },
-                { label: 'Add Funnel', icon: Plus, onClick: () => handleAddFunnel(row.campaignId) },
-                { label: 'Delete', icon: Trash2, onClick: () => setDeleteTarget({ id: row.campaignId, kind: 'campaign' }), destructive: true },
-              ]}
-            />
-          )
-        }
-        return (
-          <InlineActions
-            actions={[
-              { label: 'Edit', icon: Pencil, onClick: () => navigate(`/campaigns/${row.campaignId}/funnels/${row.funnelId}`) },
-              { label: 'Clone', icon: Copy, onClick: () => row.funnelId && handleCloneFunnel(row.funnelId) },
-              { label: 'Move', icon: Workflow, onClick: () => row.funnelId && handleMoveFunnel(row.funnelId) },
-              { label: 'Delete', icon: Trash2, onClick: () => row.funnelId && setDeleteTarget({ id: row.funnelId, kind: 'funnel' }), destructive: true },
-            ]}
-          />
-        )
-      },
+    nameColumn<CampaignTreeRow>(),
+    editBtnColumn<CampaignTreeRow>((row) => {
+      if (row.kind === 'campaign') handleEdit(row.campaignId)
+      else navigate(`/campaigns/${row.campaignId}/funnels/${row.funnelId}`)
+    }),
+    cloneBtnColumn<CampaignTreeRow>((row) => {
+      if (row.kind === 'campaign') handleCloneCampaign(row.campaignId)
+      else if (row.funnelId) handleCloneFunnel(row.funnelId)
+    }),
+    addFunnelBtnColumn<CampaignTreeRow>(
+      (row) => handleAddFunnel(row.campaignId),
+      { hidden: (row) => row.kind !== 'campaign' },
+    ),
+    moveBtnColumn<CampaignTreeRow>(
+      (row) => { if (row.funnelId) handleMoveFunnel(row.funnelId) },
+      { hidden: (row) => row.kind !== 'funnel' },
+    ),
+    deleteBtnColumn<CampaignTreeRow>((row) => {
+      if (row.kind === 'campaign') setDeleteTarget({ id: row.campaignId, kind: 'campaign' })
+      else if (row.funnelId) setDeleteTarget({ id: row.funnelId, kind: 'funnel' })
     }),
     {
       ...idColumn<CampaignTreeRow>(),

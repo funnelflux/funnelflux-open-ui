@@ -3,7 +3,7 @@ import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { Button, Input, Select, Modal } from 'antd'
 import {
   PageShell,
@@ -26,8 +26,9 @@ import {
   roiColumn,
   idColumn,
   selectionColumn,
+  editBtnColumn,
+  deleteBtnColumn,
 } from '@/components/ui-kit/data-table'
-import { InlineActions } from '@/components/shared/InlineActions'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -297,16 +298,9 @@ export function OfferSourcesPage() {
 
   const columnDefs = useMemo<ColumnDef<OfferSourceGridRow, unknown>[]>(() => [
     selectionColumn<OfferSourceGridRow>(),
-    nameColumn<OfferSourceGridRow>({
-      actions: (row) => (
-        <InlineActions
-          actions={[
-            { label: 'Edit', icon: Pencil, onClick: () => { setEditId(row.id); setSheetOpen(true) } },
-            { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.id), destructive: true },
-          ]}
-        />
-      ),
-    }),
+    nameColumn<OfferSourceGridRow>(),
+    editBtnColumn<OfferSourceGridRow>((row) => { setEditId(row.id); setSheetOpen(true) }),
+    deleteBtnColumn<OfferSourceGridRow>((row) => setDeleteId(row.id)),
     idColumn<OfferSourceGridRow>(),
     visitsColumn<OfferSourceGridRow>(iVisits),
     clicksColumn<OfferSourceGridRow>(iClicks),

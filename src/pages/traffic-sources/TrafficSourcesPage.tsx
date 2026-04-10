@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
 import { subDays } from 'date-fns'
-import { Copy, Pencil, Trash2 } from 'lucide-react'
 import { Button } from 'antd'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import {
@@ -23,8 +22,10 @@ import {
   roiColumn,
   idColumn,
   selectionColumn,
+  editBtnColumn,
+  cloneBtnColumn,
+  deleteBtnColumn,
 } from '@/components/ui-kit/data-table'
-import { InlineActions } from '@/components/shared/InlineActions'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
@@ -146,22 +147,14 @@ export function TrafficSourcesPage() {
   const iPL = colMap.get('P/L') ?? 32
   const iROI = colMap.get('ROI') ?? 33
 
+  const isDefaultSource = (row: TrafficSourceGridRow) => row.id === '1'
+
   const columnDefs = useMemo<ColumnDef<TrafficSourceGridRow, unknown>[]>(() => [
     selectionColumn<TrafficSourceGridRow>(),
-    nameColumn<TrafficSourceGridRow>({
-      actions: (row) => {
-        if (row.id === '1') return null
-        return (
-          <InlineActions
-            actions={[
-              { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.id) },
-              { label: 'Clone', icon: Copy, onClick: () => handleClone(row.id) },
-              { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.id), destructive: true },
-            ]}
-          />
-        )
-      },
-    }),
+    nameColumn<TrafficSourceGridRow>(),
+    editBtnColumn<TrafficSourceGridRow>((row) => handleEdit(row.id), { hidden: isDefaultSource }),
+    cloneBtnColumn<TrafficSourceGridRow>((row) => handleClone(row.id), { hidden: isDefaultSource }),
+    deleteBtnColumn<TrafficSourceGridRow>((row) => setDeleteId(row.id), { hidden: isDefaultSource }),
     idColumn<TrafficSourceGridRow>(),
     visitsColumn<TrafficSourceGridRow>(iVisits),
     clicksColumn<TrafficSourceGridRow>(iClicks),
@@ -171,7 +164,6 @@ export function TrafficSourcesPage() {
     costColumn<TrafficSourceGridRow>(iCost),
     plColumn<TrafficSourceGridRow>(iPL),
     roiColumn<TrafficSourceGridRow>(iROI),
-  // Handlers omitted from deps for stable column memo; action callbacks use latest closures on click.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
 

@@ -25,5 +25,14 @@ export {
   roiColumn,
   actionsColumn,
   selectionColumn,
+  editBtnColumn,
+  cloneBtnColumn,
+  deleteBtnColumn,
+  archiveBtnColumn,
+  addFunnelBtnColumn,
+  moveBtnColumn,
+  resetStatsBtnColumn,
+  enableBtnColumn,
+  disableBtnColumn,
 } from './columnDefs'
 export type { ColumnAlign } from './columnDefs'

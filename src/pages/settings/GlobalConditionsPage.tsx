@@ -1,9 +1,9 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks'
 import { PageShell, DataTable, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
-import { InlineActions } from '@/components/shared/InlineActions'
+import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
 import { Button, Tag } from 'antd'
 import { getErrorMessage } from '@/lib/utils'
@@ -58,6 +58,8 @@ export function GlobalConditionsPage() {
           <span className="font-medium">{row.original.conditionName}</span>
         ),
       },
+      editBtnColumn<Condition>(() => setEditorOpen(true)),
+      deleteBtnColumn<Condition>((row) => setDeleteId(row.idCondition)),
       {
         id: 'scope',
         header: 'Scope',
@@ -101,31 +103,6 @@ export function GlobalConditionsPage() {
         accessorKey: 'idCondition',
         cell: ({ row }) => (
           <span className="font-mono text-xs text-muted-foreground">{row.original.idCondition}</span>
-        ),
-      },
-      {
-        id: 'actions',
-        header: '',
-        size: 50,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <InlineActions
-            actions={[
-              {
-                label: 'Edit',
-                icon: Pencil,
-                onClick: () => {
-                  setEditorOpen(true)
-                },
-              },
-              {
-                label: 'Delete',
-                icon: Trash2,
-                destructive: true,
-                onClick: () => setDeleteId(row.original.idCondition),
-              },
-            ]}
-          />
         ),
       },
     ],

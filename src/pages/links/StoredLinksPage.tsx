@@ -1,9 +1,9 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Plus, Pencil, Trash2, RotateCcw, Loader2 } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 import { Button, Input, Modal } from 'antd'
 import { PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
-import { InlineActions } from '@/components/shared/InlineActions'
+import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import {
   useStoredLinks,
   useSaveStoredLink,
@@ -101,6 +101,9 @@ export function StoredLinksPage() {
         size: 200,
         cell: (info) => <span className="font-medium">{info.row.original.name}</span>,
       },
+      editBtnColumn<StoredLink>((row) => openEdit(row)),
+      resetStatsBtnColumn<StoredLink>((row) => setResetId(row.id)),
+      deleteBtnColumn<StoredLink>((row) => setDeleteId(row.id)),
       {
         id: 'url',
         header: 'URL',
@@ -132,30 +135,6 @@ export function StoredLinksPage() {
             {info.row.original.lastClickDate || '--'}
           </span>
         ),
-      },
-      {
-        id: 'actions',
-        header: '',
-        accessorFn: () => '',
-        enableSorting: false,
-        size: 50,
-        cell: (info) => {
-          const link = info.row.original
-          return (
-            <InlineActions
-              actions={[
-                { label: 'Edit', icon: Pencil, onClick: () => openEdit(link) },
-                { label: 'Reset Stats', icon: RotateCcw, onClick: () => setResetId(link.id) },
-                {
-                  label: 'Delete',
-                  icon: Trash2,
-                  onClick: () => setDeleteId(link.id),
-                  destructive: true,
-                },
-              ]}
-            />
-          )
-        },
       },
     ],
     [openEdit],

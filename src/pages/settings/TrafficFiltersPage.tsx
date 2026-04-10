@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Plus, Pencil, RotateCcw, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 import { Button, Input, Switch, Select, Modal } from 'antd'
 import { PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
-import { InlineActions } from '@/components/shared/InlineActions'
+import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import {
   useTrafficFilters,
   useSaveTrafficFilter,
@@ -123,6 +123,9 @@ export function TrafficFiltersPage() {
           <span className="font-medium">{row.original.trafficFilterName}</span>
         ),
       },
+      editBtnColumn<TrafficFilter>((row) => openEditRef.current(row)),
+      resetStatsBtnColumn<TrafficFilter>((row) => handleApplyRetroactivelyRef.current(row)),
+      deleteBtnColumn<TrafficFilter>((row) => setDeleteTargetRef.current(row)),
       {
         id: 'filterType',
         header: 'Type',
@@ -155,34 +158,6 @@ export function TrafficFiltersPage() {
           <span className="font-mono text-xs text-muted-foreground">
             {row.original.idTrafficFilter}
           </span>
-        ),
-      },
-      {
-        id: 'actions',
-        header: '',
-        size: 50,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <InlineActions
-            actions={[
-              {
-                label: 'Edit',
-                icon: Pencil,
-                onClick: () => openEditRef.current(row.original),
-              },
-              {
-                label: 'Apply Retroactively',
-                icon: RotateCcw,
-                onClick: () => handleApplyRetroactivelyRef.current(row.original),
-              },
-              {
-                label: 'Delete',
-                icon: Trash2,
-                onClick: () => setDeleteTargetRef.current(row.original),
-                destructive: true,
-              },
-            ]}
-          />
         ),
       },
     ],

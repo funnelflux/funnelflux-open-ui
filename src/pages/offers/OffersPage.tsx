@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
-import { Archive, Copy, Pencil, Trash2, Upload } from 'lucide-react'
+import { Upload } from 'lucide-react'
 import { Button } from 'antd'
 import {
   ConfirmModal,
@@ -23,8 +23,11 @@ import {
   roiColumn,
   idColumn,
   selectionColumn,
+  editBtnColumn,
+  cloneBtnColumn,
+  archiveBtnColumn,
+  deleteBtnColumn,
 } from '@/components/ui-kit/data-table'
-import { InlineActions } from '@/components/shared/InlineActions'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
 import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
@@ -210,18 +213,11 @@ export function OffersPage() {
         }
         return <span className="truncate">{row.name}</span>
       },
-      actions: (row) => {
-        if (row._isCategoryHeader) return null
-        return (
-          <InlineActions actions={[
-            { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.id) },
-            { label: 'Clone', icon: Copy, onClick: () => handleClone(row.id) },
-            { label: 'Archive', icon: Archive, onClick: () => handleArchive(row.id, true) },
-            { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.id), destructive: true },
-          ]} />
-        )
-      },
     }),
+    editBtnColumn<OfferGridRow>((row) => handleEdit(row.id), { hidden: (row) => !!row._isCategoryHeader }),
+    cloneBtnColumn<OfferGridRow>((row) => handleClone(row.id), { hidden: (row) => !!row._isCategoryHeader }),
+    archiveBtnColumn<OfferGridRow>((row) => handleArchive(row.id, true), { hidden: (row) => !!row._isCategoryHeader }),
+    deleteBtnColumn<OfferGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader }),
     idColumn<OfferGridRow>(),
     visitsColumn<OfferGridRow>(iVisits),
     clicksColumn<OfferGridRow>(iClicks, { headerName: 'Clicks' }),
