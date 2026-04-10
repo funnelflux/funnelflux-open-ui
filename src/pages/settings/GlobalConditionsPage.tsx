@@ -1,51 +1,41 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Plus } from 'lucide-react'
-import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { DataTable } from '@/components/shared/DataTable'
-import { SearchInput } from '@/components/shared/SearchInput'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
-import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { getErrorMessage } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
+import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks'
+import { PageShell, DataTable, SearchToolbar, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
+import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
+import { Button, Tag } from 'antd'
+import { getErrorMessage } from '@/lib/utils'
 import type { Condition } from '@/types/funnel'
 
 export function GlobalConditionsPage() {
-  const toast = useToast()
-  const { data: conditions, isLoading } = useConditions('global')
+  const toast = useToastApi()
+  const { data: conditionRows, isLoading } = useConditions()
   const saveCondition = useSaveCondition()
   const deleteCondition = useDeleteCondition()
 
   const [search, setSearch] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
-  const [editCondition, setEditCondition] = useState<Condition | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
-    const list = conditions ?? []
+    const list = conditionRows ?? []
     if (!search) return list
     const q = search.toLowerCase()
     return list.filter((c) => c.conditionName.toLowerCase().includes(q))
-  }, [conditions, search])
+  }, [conditionRows, search])
 
   const handleSave = useCallback(
     async (condition: Condition) => {
       try {
         await saveCondition.mutateAsync(condition)
-        toast.success(editCondition ? 'Condition updated' : 'Condition created')
+        toast.success('Condition saved')
         setEditorOpen(false)
-        setEditCondition(null)
       } catch (err) {
         toast.error(getErrorMessage(err))
       }
-    },
-    [saveCondition, toast, editCondition],
-  )
+    }, [saveCondition, toast])
 
   const handleDelete = useCallback(async () => {
     if (!deleteId) return
@@ -58,46 +48,57 @@ export function GlobalConditionsPage() {
     }
   }, [deleteId, deleteCondition, toast])
 
-  const columns = useMemo<ColumnDef<Condition>[]>(
+  const columns = useMemo<ColumnDef<Condition, unknown>[]>(
     () => [
       {
         id: 'name',
         header: 'Name',
-        accessorFn: (row) => row.conditionName,
-        cell: ({ row }) => <span className="font-medium">{row.original.conditionName}</span>,
-        enableSorting: true,
+        accessorKey: 'conditionName',
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.conditionName}</span>
+        ),
       },
       {
         id: 'scope',
         header: 'Scope',
-        accessorFn: (row) => row.scope,
+        accessorKey: 'scope',
         cell: ({ row }) => (
-          <Badge variant="outline" className="text-xs capitalize">
+          <Tag className="text-xs capitalize">
             {row.original.scope}
-          </Badge>
+          </Tag>
         ),
       },
       {
         id: 'rules',
         header: 'Rules',
-        cell: ({ row }) => {
-          const count = row.original.blocks.reduce((sum, b) => sum + b.rules.length, 0)
-          return <span className="text-muted-foreground text-sm">{count} rule{count !== 1 ? 's' : ''}</span>
+        accessorFn: (row) =>
+          row.blocks.reduce((sum, b) => sum + b.rules.length, 0),
+        cell: ({ getValue }) => {
+          const n = getValue() as number
+          return (
+            <span className="text-muted-foreground text-sm">
+              {n} rule{n !== 1 ? 's' : ''}
+            </span>
+          )
         },
       },
       {
         id: 'blocks',
         header: 'Blocks',
-        cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">
-            {row.original.blocks.length} ({row.original.blockLogicOperator})
-          </span>
-        ),
+        accessorFn: (row) => row.blocks.length,
+        cell: ({ row, getValue }) => {
+          const n = getValue() as number
+          return (
+            <span className="text-muted-foreground text-sm">
+              {n} ({row.original.blockLogicOperator})
+            </span>
+          )
+        },
       },
       {
         id: 'id',
         header: 'ID',
-        accessorFn: (row) => row.idCondition,
+        accessorKey: 'idCondition',
         cell: ({ row }) => (
           <span className="font-mono text-xs text-muted-foreground">{row.original.idCondition}</span>
         ),
@@ -105,18 +106,21 @@ export function GlobalConditionsPage() {
       {
         id: 'actions',
         header: '',
+        size: 50,
+        enableSorting: false,
         cell: ({ row }) => (
-          <RowActionsMenu
+          <InlineActions
             actions={[
               {
                 label: 'Edit',
+                icon: Pencil,
                 onClick: () => {
-                  setEditCondition(row.original)
                   setEditorOpen(true)
                 },
               },
               {
                 label: 'Delete',
+                icon: Trash2,
                 destructive: true,
                 onClick: () => setDeleteId(row.original.idCondition),
               },
@@ -129,57 +133,59 @@ export function GlobalConditionsPage() {
   )
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Global Conditions">
+    <PageShell
+      title="Global Conditions"
+      actions={
         <Button
-          size="sm"
+          type="primary"
           onClick={() => {
-            setEditCondition(null)
             setEditorOpen(true)
           }}
         >
           <Plus className="h-4 w-4 mr-1" />
           Add Condition
         </Button>
-      </PageHeader>
-
-      <div className="flex items-center gap-3">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search conditions..." />
-      </div>
+      }
+    >
+      <SearchToolbar value={search} onChange={setSearch} placeholder="Search conditions..." />
 
       {filtered.length === 0 && !isLoading ? (
         <EmptyState message="No global conditions found. Create one to get started." />
       ) : (
-        <DataTable
-          columns={columns}
+        <DataTable<Condition>
           data={filtered}
-          isLoading={isLoading}
+          columns={columns}
           getRowId={(row) => row.idCondition}
+          loading={isLoading}
+          noPagination
         />
       )}
+
+      {editorOpen ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : null}
 
       <ConditionEditor
         open={editorOpen}
         onClose={() => {
           setEditorOpen(false)
-          setEditCondition(null)
         }}
-        condition={editCondition}
+        condition={null}
         onSave={handleSave}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteId}
-        onOpenChange={(open) => {
-          if (!open) setDeleteId(null)
-        }}
+        onCancel={() => setDeleteId(null)}
         title="Delete Condition"
         description="Are you sure? This condition will be permanently deleted and removed from any funnels using it."
         confirmText="Delete"
         onConfirm={handleDelete}
-        isLoading={deleteCondition.isPending}
-        destructive
+        loading={deleteCondition.isPending}
+        danger
       />
-    </div>
+    </PageShell>
   )
 }

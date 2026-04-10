@@ -1,8 +1,6 @@
-import { useState, useMemo, useCallback } from "react"
-import { type ColumnDef, type OnChangeFn, type PaginationState, type SortingState } from "@tanstack/react-table"
-import { PageHeader } from "@/components/shared/PageHeader"
-import { EmptyState } from "@/components/shared/EmptyState"
-import { DataTable } from "@/components/shared/DataTable"
+import { useState, useMemo, useCallback, useRef } from "react"
+import type { ColumnDef, SortingState, Table } from "@tanstack/react-table"
+import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
 import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
@@ -30,94 +28,52 @@ export function DrilldownFlatPage() {
   const drilldownMutation = useDrilldownReport()
   const [report, setReport] = useState<Report | null>(null)
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 50,
-  })
+  const [page, setPage] = useState(0)
+  const pageSize = 50
   const [sorting, setSorting] = useState<SortingState>([])
+  const tableRef = useRef<Table<FlatRowData> | null>(null)
 
   const handleApply = useCallback(
     (request: DrilldownRequest) => {
+      const sortCol = sorting[0]
+      const sortParam = sortCol
+        ? { column: Number(sortCol.id.replace("col-", "")), direction: sortCol.desc ? "desc" as const : "asc" as const }
+        : undefined
       const paginatedRequest: DrilldownRequest = {
         ...request,
         options: { viewType: "flat" },
-        paging: {
-          start: pagination.pageIndex * pagination.pageSize,
-          length: pagination.pageSize,
-        },
-        sorting: sorting[0]
-          ? {
-              column: Number(String(sorting[0].id).replace("col-", "")),
-              direction: sorting[0].desc ? "desc" : "asc",
-            }
-          : undefined,
+        paging: { start: page * pageSize, length: pageSize },
+        sorting: sortParam,
       }
       setLastRequest(paginatedRequest)
       drilldownMutation.mutate(paginatedRequest, {
         onSuccess: (data) => setReport(data),
       })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- .mutate is stable
-    [pagination, sorting],
+    [page, pageSize, sorting, drilldownMutation],
   )
 
-  // Re-fetch when pagination changes and we have a previous request
-  const handlePaginationChange = useCallback(
-    (updater: PaginationState | ((old: PaginationState) => PaginationState)) => {
-      const nextPagination =
-        typeof updater === "function" ? updater(pagination) : updater
-      setPagination(nextPagination)
+  const handleSortingChange = useCallback(
+    (newSorting: SortingState) => {
+      setSorting(newSorting)
+      setPage(0)
 
-      if (lastRequest) {
-        const paginatedRequest: DrilldownRequest = {
-          ...lastRequest,
-          paging: {
-            start: nextPagination.pageIndex * nextPagination.pageSize,
-            length: nextPagination.pageSize,
-          },
-        }
-        drilldownMutation.mutate(paginatedRequest, {
-          onSuccess: (data) => setReport(data),
-        })
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- .mutate is stable
-    [lastRequest, pagination],
-  )
+      if (!lastRequest) return
 
-  const handleSortingChange = useCallback<OnChangeFn<SortingState>>(
-    (updater) => {
-      const nextSorting =
-        typeof updater === "function" ? updater(sorting) : updater
-      setSorting(nextSorting)
-
-      if (!lastRequest) {
-        return
-      }
-
-      const nextSort = nextSorting[0]
+      const sortCol = newSorting[0]
       const nextRequest: DrilldownRequest = {
         ...lastRequest,
-        sorting: nextSort
-          ? {
-              column: Number(String(nextSort.id).replace("col-", "")),
-              direction: nextSort.desc ? "desc" : "asc",
-            }
+        sorting: sortCol
+          ? { column: Number(sortCol.id.replace("col-", "")), direction: sortCol.desc ? "desc" as const : "asc" as const }
           : undefined,
-        paging: {
-          start: 0,
-          length: pagination.pageSize,
-        },
+        paging: { start: 0, length: pageSize },
       }
-
-      setPagination((current) => ({ ...current, pageIndex: 0 }))
       setLastRequest(nextRequest)
       drilldownMutation.mutate(nextRequest, {
         onSuccess: (data) => setReport(data),
       })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- .mutate is stable
-    [lastRequest, pagination.pageSize, sorting],
+    [lastRequest, pageSize, drilldownMutation],
   )
 
   const flatData = useMemo(
@@ -125,72 +81,56 @@ export function DrilldownFlatPage() {
     [report],
   )
 
-  const totalRows = report?.paging?.totalRecords ?? flatData.length
-
-  const columns: ColumnDef<FlatRowData, unknown>[] = useMemo(() => {
+  const columnDefs: ColumnDef<FlatRowData, unknown>[] = useMemo(() => {
     if (!report) return []
     return report.columns.map((col, colIndex) => ({
       id: `col-${colIndex}`,
       header: col.name,
       accessorFn: (row: FlatRowData) => row.cells[colIndex]?.formatted ?? "",
-      cell: ({ row }: { row: { original: FlatRowData } }) => {
-        const cell = row.original.cells[colIndex]
-        return (
-          <span className={colIndex === 0 ? "font-medium" : "tabular-nums"}>
-            {cell?.formatted ?? ""}
-          </span>
-        )
-      },
       enableSorting: colIndex > 0,
+      size: colIndex === 0 ? 250 : 110,
+      meta: colIndex === 0 ? { flex: 1 } : { numeric: true },
+      cell: colIndex === 0
+        ? (info: { getValue: () => unknown }) => <span className="font-medium">{String(info.getValue())}</span>
+        : undefined,
     }))
   }, [report])
 
-  const totalsRow = useMemo(() => {
+  const pinnedBottomRows = useMemo(() => {
     if (!report?.totals?.cells) return undefined
-    const row: Record<string, React.ReactNode> = {}
-    report.columns.forEach((_, colIndex) => {
-      const cell = report.totals.cells[colIndex]
-      row[`col-${colIndex}`] = colIndex === 0
-        ? <span className="font-semibold">Totals</span>
-        : <span className="tabular-nums">{cell?.formatted ?? ""}</span>
-    })
-    return row
+    return [{
+      _id: "totals",
+      cells: report.totals.cells,
+    }]
   }, [report])
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Drilldown Report (Flat)" />
-
+    <PageShell title="Drilldown Report (Flat)">
       <DrilldownToolbar
         onApply={handleApply}
         isLoading={drilldownMutation.isPending}
         viewType="flat"
-        paging={{
-          start: pagination.pageIndex * pagination.pageSize,
-          length: pagination.pageSize,
-        }}
+        paging={{ start: page * pageSize, length: pageSize }}
       />
 
       {report ? (
         <DataTable
-          columns={columns}
           data={flatData}
-          isLoading={drilldownMutation.isPending}
-          totalRows={totalRows}
-          pagination={pagination}
-          onPaginationChange={handlePaginationChange}
+          columns={columnDefs}
+          loading={drilldownMutation.isPending}
+          getRowId={(row) => row._id}
           sorting={sorting}
           onSortingChange={handleSortingChange}
-          manualPagination
           manualSorting
-          totalsRow={totalsRow}
-          getRowId={(row) => row._id}
+          pinnedBottomRows={pinnedBottomRows}
+          tableRef={tableRef}
+          noPagination
         />
       ) : (
         !drilldownMutation.isPending && (
           <EmptyState message="Select your groupings and date range, then click Apply to generate a report." />
         )
       )}
-    </div>
+    </PageShell>
   )
 }

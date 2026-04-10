@@ -4,9 +4,12 @@ import {
   Background,
   Controls,
   MiniMap,
+  MarkerType,
   useReactFlow,
   type OnNodesChange,
   type OnEdgesChange,
+  type NodeChange,
+  type EdgeChange,
   type OnConnect,
   type Connection,
   applyNodeChanges,
@@ -19,63 +22,107 @@ import { isValidConnection, getDefaultEdgeData } from './validation'
 import { CanvasContextMenu } from './CanvasContextMenu'
 import { NodeContextMenu } from './NodeContextMenu'
 import { EdgeContextMenu } from './EdgeContextMenu'
+import { NodePropertiesModal } from './NodePropertiesModal'
+import { FunnelUrlModal } from './FunnelUrlModal'
+import { EdgeHandleSync } from './EdgeHandleSync'
+import { useToastApi } from '@/components/ui-kit'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
+import { cn } from '@/lib/utils'
 import type { FunnelFlowNode, FunnelFlowEdge } from '@/types/funnel'
 import { generateId } from '@/lib/id-generator'
 
 interface MenuState {
-  position: { x: number; y: number } | null
+  /** Screen coords for fixed menu position */
+  screen: { x: number; y: number } | null
+  /** Flow coords for placing new nodes */
+  flow: { x: number; y: number } | null
 }
 
-interface NodeMenuState extends MenuState {
+interface NodeMenuState {
+  position: { x: number; y: number } | null
   nodeId: string | null
 }
 
-interface EdgeMenuState extends MenuState {
+interface EdgeMenuState {
+  position: { x: number; y: number } | null
   edgeId: string | null
 }
 
-export function FunnelCanvas() {
+interface FunnelCanvasProps {
+  variant?: 'default' | 'builder'
+  className?: string
+}
+
+/** React Flow emits dimension/measurement and selection updates on mount; those are not user edits. */
+function nodeChangesShouldMarkDirty(changes: NodeChange<FunnelFlowNode>[]): boolean {
+  return changes.some((c) => c.type !== 'dimensions' && c.type !== 'select')
+}
+
+function edgeChangesShouldMarkDirty(changes: EdgeChange<FunnelFlowEdge>[]): boolean {
+  return changes.some((c) => c.type !== 'select')
+}
+
+export function FunnelCanvas(props: FunnelCanvasProps = {}) {
+  const { variant = 'default', className } = props
+  const toast = useToastApi()
+  const meta = useFunnelEditorStore((s) => s.meta)
   const nodes = useFunnelEditorStore((s) => s.nodes)
   const edges = useFunnelEditorStore((s) => s.edges)
-  const setNodes = useFunnelEditorStore((s) => s.setNodes)
-  const setEdges = useFunnelEditorStore((s) => s.setEdges)
   const setSelectedNodeId = useFunnelEditorStore((s) => s.setSelectedNodeId)
   const setSelectedEdgeId = useFunnelEditorStore((s) => s.setSelectedEdgeId)
 
-  const [canvasMenu, setCanvasMenu] = useState<MenuState>({ position: null })
+  const [canvasMenu, setCanvasMenu] = useState<MenuState>({ screen: null, flow: null })
   const [nodeMenu, setNodeMenu] = useState<NodeMenuState>({ position: null, nodeId: null })
   const [edgeMenu, setEdgeMenu] = useState<EdgeMenuState>({ position: null, edgeId: null })
+  const [editNodeId, setEditNodeId] = useState<string | null>(null)
+  const [funnelUrlOpen, setFunnelUrlOpen] = useState(false)
+  const [funnelUrlNodeId, setFunnelUrlNodeId] = useState<string | null>(null)
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition } = useReactFlow()
 
   const closeAllMenus = useCallback(() => {
-    setCanvasMenu({ position: null })
+    setCanvasMenu({ screen: null, flow: null })
     setNodeMenu({ position: null, nodeId: null })
     setEdgeMenu({ position: null, edgeId: null })
   }, [])
 
-  const onNodesChange: OnNodesChange<FunnelFlowNode> = useCallback(
-    (changes) => {
-      setNodes(applyNodeChanges(changes, nodes))
+  const handleSendTrafficHere = useCallback(
+    (nodeId: string) => {
+      const idFunnel = useFunnelEditorStore.getState().meta.idFunnel
+      if (!idFunnel) {
+        toast.error('Save your funnel first')
+        return
+      }
+      setFunnelUrlNodeId(nodeId)
+      setFunnelUrlOpen(true)
     },
-    [nodes, setNodes],
+    [toast],
   )
 
-  const onEdgesChange: OnEdgesChange<FunnelFlowEdge> = useCallback(
-    (changes) => {
-      setEdges(applyEdgeChanges(changes, edges))
-    },
-    [edges, setEdges],
-  )
+  /** Always apply changes to `getState().nodes` so rapid drag events cannot overwrite each other (stale closure). */
+  const onNodesChange: OnNodesChange<FunnelFlowNode> = useCallback((changes) => {
+    const markDirty = nodeChangesShouldMarkDirty(changes)
+    useFunnelEditorStore.setState((s) => ({
+      nodes: applyNodeChanges(changes, s.nodes),
+      isDirty: markDirty ? true : s.isDirty,
+    }))
+  }, [])
 
-  const onConnect: OnConnect = useCallback(
-    (connection: Connection) => {
-      const sourceNode = nodes.find((n) => n.id === connection.source)
-      if (!sourceNode) return
+  const onEdgesChange: OnEdgesChange<FunnelFlowEdge> = useCallback((changes) => {
+    const markDirty = edgeChangesShouldMarkDirty(changes)
+    useFunnelEditorStore.setState((s) => ({
+      edges: applyEdgeChanges(changes, s.edges),
+      isDirty: markDirty ? true : s.isDirty,
+    }))
+  }, [])
 
-      const edgeData = getDefaultEdgeData(sourceNode, connection.sourceHandle, edges)
+  const onConnect: OnConnect = useCallback((connection: Connection) => {
+    useFunnelEditorStore.setState((s) => {
+      const sourceNode = s.nodes.find((n) => n.id === connection.source)
+      if (!sourceNode) return {}
+
+      const edgeData = getDefaultEdgeData(sourceNode, connection.sourceHandle, s.edges)
       const newEdge: FunnelFlowEdge = {
         id: generateId(),
         source: connection.source,
@@ -85,23 +132,23 @@ export function FunnelCanvas() {
         type: edgeData.edgeType,
         data: edgeData,
       }
-      setEdges([...edges, newEdge])
-    },
-    [nodes, edges, setEdges],
-  )
-
-  const handleIsValidConnection = useCallback(
-    (connection: Connection | FunnelFlowEdge) => {
-      const conn: Connection = {
-        source: connection.source,
-        target: connection.target,
-        sourceHandle: connection.sourceHandle ?? null,
-        targetHandle: connection.targetHandle ?? null,
+      return {
+        edges: [...s.edges, newEdge],
+        isDirty: true,
       }
-      return isValidConnection(conn, nodes, edges)
-    },
-    [nodes, edges],
-  )
+    })
+  }, [])
+
+  const handleIsValidConnection = useCallback((connection: Connection | FunnelFlowEdge) => {
+    const { nodes: nds, edges: eds } = useFunnelEditorStore.getState()
+    const conn: Connection = {
+      source: connection.source,
+      target: connection.target,
+      sourceHandle: connection.sourceHandle ?? null,
+      targetHandle: connection.targetHandle ?? null,
+    }
+    return isValidConnection(conn, nds, eds)
+  }, [])
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: FunnelFlowNode) => {
@@ -130,9 +177,13 @@ export function FunnelCanvas() {
     (event: MouseEvent | React.MouseEvent) => {
       event.preventDefault()
       closeAllMenus()
-      setCanvasMenu({ position: { x: event.clientX, y: event.clientY } })
+      const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      setCanvasMenu({
+        screen: { x: event.clientX, y: event.clientY },
+        flow,
+      })
     },
-    [closeAllMenus],
+    [closeAllMenus, screenToFlowPosition],
   )
 
   const onNodeContextMenu = useCallback(
@@ -177,8 +228,12 @@ export function FunnelCanvas() {
   )
 
   return (
-    <div ref={reactFlowWrapper} className="flex-1 relative">
+    <div
+      ref={reactFlowWrapper}
+      className={cn('relative h-full min-h-0 min-w-0', className)}
+    >
       <ReactFlow
+        style={{ width: '100%', height: '100%' }}
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
@@ -199,9 +254,26 @@ export function FunnelCanvas() {
         snapToGrid
         snapGrid={[15, 15]}
         deleteKeyCode={['Backspace', 'Delete']}
-        className="bg-muted/30"
+        className={cn(
+          variant === 'builder'
+            ? 'bg-gradient-to-br from-slate-950/[0.03] via-background to-violet-950/[0.04]'
+            : 'bg-muted/30',
+        )}
+        defaultEdgeOptions={{
+          style: { strokeWidth: 2 },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 18,
+            height: 18,
+          },
+        }}
       >
-        <Background gap={15} size={1} />
+        <EdgeHandleSync />
+        <Background
+          gap={variant === 'builder' ? 20 : 15}
+          size={1}
+          className={variant === 'builder' ? '[&>*]:stroke-border/60' : undefined}
+        />
         <Controls position="bottom-left" />
         <MiniMap
           position="bottom-right"
@@ -213,13 +285,28 @@ export function FunnelCanvas() {
 
       {/* Context Menus */}
       <CanvasContextMenu
-        position={canvasMenu.position}
+        screenPosition={canvasMenu.screen}
+        flowPosition={canvasMenu.flow}
         onClose={closeAllMenus}
       />
       <NodeContextMenu
         nodeId={nodeMenu.nodeId}
         position={nodeMenu.position}
         onClose={closeAllMenus}
+        onEditNode={(id) => setEditNodeId(id)}
+        onSendTrafficHere={handleSendTrafficHere}
+      />
+      <FunnelUrlModal
+        open={funnelUrlOpen}
+        onOpenChange={setFunnelUrlOpen}
+        idCampaign={meta.idCampaign}
+        idFunnel={meta.idFunnel}
+        contextNodeId={funnelUrlNodeId ?? ''}
+      />
+      <NodePropertiesModal
+        nodeId={editNodeId}
+        open={!!editNodeId}
+        onClose={() => setEditNodeId(null)}
       />
       <EdgeContextMenu
         edgeId={edgeMenu.edgeId}

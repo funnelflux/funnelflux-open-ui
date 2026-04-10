@@ -5,20 +5,23 @@ import type { FunnelNodeData } from '@/types/funnel'
 import { BaseNode } from './BaseNode'
 
 function RotatorNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>) {
+  const sub =
+    data.label && data.label !== 'Rotator'
+      ? data.label
+      : undefined
+
   return (
-    <BaseNode selected={selected} isEntrance={data.isEntrance}>
-      <div className="flex items-center gap-2">
-        <Shuffle className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0">
-          <div className="text-sm font-medium">Rotator</div>
-          {data.label && data.label !== 'Rotator' && (
-            <div className="truncate text-xs text-muted-foreground">
-              {data.label}
-            </div>
-          )}
-        </div>
-      </div>
-    </BaseNode>
+    <BaseNode
+      selected={selected}
+      isEntrance={data.isEntrance}
+      card={{
+        accent: 'amber',
+        kind: 'Rotator',
+        title: data.label || 'Rotator',
+        subtitle: sub,
+        icon: <Shuffle className="h-5 w-5" />,
+      }}
+    />
   )
 }
 

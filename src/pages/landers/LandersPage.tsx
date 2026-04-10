@@ -1,38 +1,45 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { subDays } from 'date-fns'
-import { type ColumnDef, type RowSelectionState } from '@tanstack/react-table'
+import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import { Archive, Copy, Pencil, Trash2, Upload } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { SearchInput } from '@/components/shared/SearchInput'
+import { Button } from 'antd'
+import {
+  ConfirmModal,
+  EmptyState,
+  TimezoneSelect,
+  useToastApi,
+  PageShell,
+  SearchToolbar,
+  DataTable,
+} from '@/components/ui-kit'
+import {
+  nameColumn,
+  visitsColumn,
+  clicksColumn,
+  ctrColumn,
+  convColumn,
+  revenueColumn,
+  costColumn,
+  plColumn,
+  roiColumn,
+  idColumn,
+  selectionColumn,
+} from '@/components/ui-kit/data-table'
+import { InlineActions } from '@/components/shared/InlineActions'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
 import { CategoryManager } from '@/components/shared/CategoryManager'
 import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
+import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
-import { useToast } from '@/components/shared/Toaster'
 import { useCategories, useDeletePage, useClonePage, useArchivePage } from '@/api/hooks'
-import { useEntityPaginatedReport, type EntityRow } from '@/api/hooks/useEntityPaginatedReport'
+import { useEntityGridReport, type EntityGridRow } from '@/api/hooks/useEntityGridReport'
 import { PageForm } from '@/components/forms/PageForm'
 import { api } from '@/api/client'
-import type { ReportCell } from '@/types/stats'
 import type { Page } from '@/types/entities'
 import type { PageFormData } from '@/schemas/page'
 import { useSavePage, usePage } from '@/api/hooks'
 import { getErrorMessage } from '@/lib/utils'
-
-function cellFmt(cell?: ReportCell): string {
-  return cell?.formatted ?? ''
-}
-function cellRaw(cell?: ReportCell): number {
-  if (!cell) return 0
-  return typeof cell.raw === 'number' ? cell.raw : Number(cell.raw) || 0
-}
 
 interface PageMeta {
   idPage: string
@@ -42,8 +49,11 @@ interface PageMeta {
 
 const META_PARAMS = { pageType: 'lander' }
 
+type LanderGridRow = EntityGridRow & { _isCategoryHeader?: boolean } & Record<string, unknown>
+
 export function LandersPage() {
-  const toast = useToast()
+  const toast = useToastApi()
+  const tableRef = useRef<Table<LanderGridRow> | null>(null)
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -69,14 +79,9 @@ export function LandersPage() {
     rows,
     columns,
     metaById,
-    totalRows,
-    pagination,
-    onPaginationChange,
-    sorting,
-    onSortingChange,
     isLoading,
     reload,
-  } = useEntityPaginatedReport<PageMeta>({
+  } = useEntityGridReport<PageMeta>({
     groupBy: 'Element: Lander',
     dateFrom: dateRange.from,
     dateTo: dateRange.to,
@@ -92,10 +97,16 @@ export function LandersPage() {
     return m
   }, [columns])
 
-  // Client-side filtering on the current page of results
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const c of categories ?? []) map.set(c.idCategory, c.name)
+    return map
+  }, [categories])
+
+  // Client-side filtering + category grouping
   const filtered = useMemo(() => {
     const searchText = search.toLowerCase()
-    return rows.filter((row) => {
+    const base = rows.filter((row) => {
       const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
       const matchesCategory = !selectedCategoryId || metaById[row.id]?.categoryId === selectedCategoryId
       const meta = metaById[row.id]
@@ -104,12 +115,29 @@ export function LandersPage() {
         (archiveStatus === 'archived' ? meta?.isArchived === true : meta?.isArchived !== true)
       return matchesSearch && matchesCategory && matchesArchive
     })
-  }, [archiveStatus, metaById, rows, search, selectedCategoryId])
 
-  const selectedIds = useMemo(
-    () => Object.keys(rowSelection).filter((id) => rowSelection[id]),
-    [rowSelection],
-  )
+    // Group by category
+    const grouped = new Map<string, EntityGridRow[]>()
+    for (const row of base) {
+      const catId = metaById[row.id]?.categoryId ?? ''
+      const catName = catId ? (categoryMap.get(catId) ?? 'Unknown') : 'Uncategorized'
+      if (!grouped.has(catName)) grouped.set(catName, [])
+      grouped.get(catName)!.push(row)
+    }
+
+    // If only one group or no categories, return flat
+    if (grouped.size <= 1) return base as LanderGridRow[]
+
+    // Insert header rows
+    const result: LanderGridRow[] = []
+    for (const [catName, catRows] of grouped) {
+      result.push({ id: `cat-${catName}`, name: catName, cells: [], _isCategoryHeader: true })
+      result.push(...(catRows as LanderGridRow[]))
+    }
+    return result
+  }, [archiveStatus, metaById, rows, search, selectedCategoryId, categoryMap])
+
+  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
   const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
@@ -172,160 +200,99 @@ export function LandersPage() {
   const iPL = colMap.get('P/L') ?? 32
   const iROI = colMap.get('ROI') ?? 33
 
-  const tableCols: ColumnDef<EntityRow>[] = [
-    {
-      id: 'name',
-      header: 'Name',
-      accessorFn: (r) => r.name,
-      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
-    },
-    {
-      id: 'visits',
-      header: 'Visits',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iVisits]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iVisits])}</span>,
-    },
-    {
-      id: 'clicks',
-      header: 'Clicks',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iClicks]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iClicks])}</span>,
-    },
-    {
-      id: 'ctr',
-      header: 'CTR',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iCTR]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCTR])}</span>,
-    },
-    {
-      id: 'conv',
-      header: 'Conv',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iConv]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iConv])}</span>,
-    },
-    {
-      id: 'revenue',
-      header: 'Revenue',
-      size: 90,
-      accessorFn: (r) => cellRaw(r.cells[iRevenue]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iRevenue])}</span>,
-    },
-    {
-      id: 'cost',
-      header: 'Cost',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iCost]),
-      cell: ({ row }) => <span className="tabular-nums">{cellFmt(row.original.cells[iCost])}</span>,
-    },
-    {
-      id: 'pl',
-      header: 'P/L',
-      size: 80,
-      accessorFn: (r) => cellRaw(r.cells[iPL]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iPL])
+  const columnDefs = useMemo<ColumnDef<LanderGridRow, unknown>[]>(() => [
+    selectionColumn<LanderGridRow>(),
+    nameColumn<LanderGridRow>({
+      cellContent: (row) => {
+        if (row._isCategoryHeader) {
+          return <span className="font-semibold text-muted-foreground uppercase text-xs">{row.name}</span>
+        }
+        return <span className="truncate">{row.name}</span>
+      },
+      actions: (row) => {
+        if (row._isCategoryHeader) return null
         return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
-            {cellFmt(row.original.cells[iPL])}
-          </span>
+          <InlineActions
+            actions={[
+              { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.id) },
+              { label: 'Clone', icon: Copy, onClick: () => handleClone(row.id) },
+              { label: 'Archive', icon: Archive, onClick: () => handleArchive(row.id, true) },
+              { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.id), destructive: true },
+            ]}
+          />
         )
       },
-    },
-    {
-      id: 'roi',
-      header: 'ROI',
-      size: 70,
-      accessorFn: (r) => cellRaw(r.cells[iROI]),
-      cell: ({ row }) => {
-        const val = cellRaw(row.original.cells[iROI])
-        return (
-          <span className={`tabular-nums ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : ''}`}>
-            {cellFmt(row.original.cells[iROI])}
-          </span>
-        )
-      },
-    },
-    {
-      id: 'id',
-      header: 'ID',
-      size: 160,
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-muted-foreground">{row.original.id}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      size: 50,
-      cell: ({ row }) => (
-        <RowActionsMenu
-          actions={[
-            { label: 'Edit', icon: Pencil, onClick: () => handleEdit(row.original.id) },
-            { label: 'Clone', icon: Copy, onClick: () => handleClone(row.original.id) },
-            { label: 'Archive', icon: Archive, onClick: () => handleArchive(row.original.id, true) },
-            { label: 'Delete', icon: Trash2, onClick: () => setDeleteId(row.original.id), destructive: true },
-          ]}
-        />
-      ),
-    },
-  ]
+    }),
+    idColumn<LanderGridRow>(),
+    visitsColumn<LanderGridRow>(iVisits),
+    clicksColumn<LanderGridRow>(iClicks),
+    ctrColumn<LanderGridRow>(iCTR, { headerName: 'Lander CTR' }),
+    convColumn<LanderGridRow>(iConv),
+    revenueColumn<LanderGridRow>(iRevenue),
+    costColumn<LanderGridRow>(iCost),
+    plColumn<LanderGridRow>(iPL),
+    roiColumn<LanderGridRow>(iROI),
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- handlers close over latest mutate/toast; indices drive column layout
+  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Landers">
+    <PageShell
+      title="Landers"
+      actions={
         <div className="flex items-center gap-2">
-          <Button onClick={() => setImportOpen(true)} size="sm" variant="outline">
+          <Button onClick={() => setImportOpen(true)}>
             <Upload className="mr-1.5 h-3.5 w-3.5" />
             Import CSV
           </Button>
-          <Button onClick={handleCreate} size="sm">Add Lander</Button>
+          <Button type="primary" onClick={handleCreate}>Add Lander</Button>
         </div>
-      </PageHeader>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search landers..." className="w-64" />
-        <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />
-        <CategoryManager
-          entityType="page"
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={setSelectedCategoryId}
-        />
-        <DateRangePicker
-          value={{ from: dateRange.from, to: dateRange.to, preset: null }}
-          timezone={tz}
-          onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
-        />
-        <TimezoneSelector value={tz} onChange={setTz} />
-      </div>
+      }
+    >
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search landers..."
+        filters={
+          <>
+            <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />
+            <CategoryManager
+              entityType="page"
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={setSelectedCategoryId}
+            />
+          </>
+        }
+        trailing={
+          <>
+            <DateRangePicker
+              value={{ from: dateRange.from, to: dateRange.to, preset: null }}
+              timezone={tz}
+              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+            />
+            <TimezoneSelect value={tz} onChange={setTz} />
+          </>
+        }
+        actions={tableRef.current ? <ColumnChooser columns={columnDefs} table={tableRef.current} storageKey="landers" /> : null}
+      />
 
       {!isLoading && filtered.length === 0 ? (
         <EmptyState message={search || selectedCategoryId ? 'No landers match your filters.' : 'No landers found.'} />
       ) : (
-        <DataTable
-          columns={tableCols}
+        <DataTable<LanderGridRow>
           data={filtered}
-          isLoading={isLoading}
-          totalRows={totalRows}
-          pagination={pagination}
-          onPaginationChange={onPaginationChange}
-          sorting={sorting}
-          onSortingChange={onSortingChange}
-          manualPagination
-          manualSorting
-          getRowId={(r) => r.id}
-          enableRowSelection
+          columns={columnDefs}
+          loading={isLoading}
+          getRowId={(row) => row.id}
+          enableRowSelection={(row) => !row.original._isCategoryHeader}
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
+          rowClassName={(row) => row._isCategoryHeader ? 'dt-row--depth-1' : undefined}
+          tableRef={tableRef}
         />
       )}
 
       <BulkActionsBar
         count={selectedIds.length}
-        categories={categories}
-        onSelectAll={() => setRowSelection(Object.fromEntries(filtered.map((row) => [row.id, true])))}
         onDeselectAll={() => setRowSelection({})}
         onArchive={async () => {
           for (const id of selectedIds) {
@@ -343,13 +310,16 @@ export function LandersPage() {
           setRowSelection({})
           reload()
         }}
-        onMoveToCategory={async (idCategory) => {
-          await api.post('/data/page/category/assign/', {
-            pageIds: selectedIds,
-            categoryId: idCategory,
-          })
-          toast.success('Selected landers moved')
-          reload()
+        onMoveToCategory={{
+          categories: categories ?? [],
+          onMove: async (idCategory) => {
+            await api.post('/data/page/category/assign/', {
+              pageIds: selectedIds,
+              categoryId: idCategory,
+            })
+            toast.success('Selected landers moved')
+            reload()
+          },
         }}
       />
 
@@ -377,14 +347,15 @@ export function LandersPage() {
         isSubmitting={saveMutation.isPending}
       />
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteId}
-        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onCancel={() => setDeleteId(null)}
         title="Delete Lander"
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}
-        isLoading={deleteMutation.isPending}
+        loading={deleteMutation.isPending}
+        danger
       />
-    </div>
+    </PageShell>
   )
 }

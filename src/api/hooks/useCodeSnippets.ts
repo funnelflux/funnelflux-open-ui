@@ -3,13 +3,20 @@ import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { CodeSnippet } from '@/types/funnel'
 
+/** Row from `GET /data/campaign/funnel/codesnippet/list/` */
+export type CodeSnippetListRow = {
+  id: string
+  name: string
+  codeType?: string
+}
+
 export function useCodeSnippets(type?: 'javascript' | 'php') {
   return useQuery({
     queryKey: queryKeys.codeSnippets.list(type),
     queryFn: () =>
-      api.get<CodeSnippet[]>(
-        '/data/code-snippet/list/',
-        type ? { type } : undefined,
+      api.get<CodeSnippetListRow[]>(
+        '/data/campaign/funnel/codesnippet/list/',
+        type ? { codeType: type } : undefined,
       ),
   })
 }
@@ -17,7 +24,8 @@ export function useCodeSnippets(type?: 'javascript' | 'php') {
 export function useCodeSnippet(id: string) {
   return useQuery({
     queryKey: queryKeys.codeSnippets.detail(id),
-    queryFn: () => api.get<CodeSnippet>('/data/code-snippet/find/byId/', { id }),
+    queryFn: () =>
+      api.get<CodeSnippet>('/data/campaign/funnel/codesnippet/find/byId/', { idCode: id }),
     enabled: !!id,
   })
 }
@@ -28,8 +36,8 @@ export function useSaveCodeSnippet() {
     mutationFn: (snippet: Partial<CodeSnippet>) => {
       const isNew = !snippet.idSnippet || snippet.idSnippet === '0'
       return isNew
-        ? api.post<CodeSnippet>('/data/code-snippet/save/', snippet)
-        : api.put<CodeSnippet>('/data/code-snippet/save/', snippet)
+        ? api.post<CodeSnippet>('/data/campaign/funnel/codesnippet/save/', snippet)
+        : api.put<CodeSnippet>('/data/campaign/funnel/codesnippet/save/', snippet)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.codeSnippets.all })
@@ -40,7 +48,8 @@ export function useSaveCodeSnippet() {
 export function useDeleteCodeSnippet() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete('/data/code-snippet/delete/', { id }),
+    mutationFn: (id: string) =>
+      api.delete('/data/campaign/funnel/codesnippet/delete/', { idCode: id }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.codeSnippets.all })
     },

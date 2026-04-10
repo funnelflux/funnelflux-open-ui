@@ -31,9 +31,16 @@ export function useSaveTrafficSource() {
   return useMutation({
     mutationFn: (ts: Partial<TrafficSource>) => {
       const isNew = !ts.idTrafficSource || ts.idTrafficSource === '0'
-      return isNew
-        ? api.post<TrafficSource>('/data/trafficsource/save/', ts)
-        : api.put<TrafficSource>('/data/trafficsource/save/', ts)
+      // Backend Postback model requires idTrafficSource in the nested object.
+      // For updates, inject it; for creates, omit postback so the backend uses its default.
+      if (isNew) {
+        const { postback: _, ...rest } = ts
+        return api.post<TrafficSource>('/data/trafficsource/save/', rest)
+      }
+      if (ts.postback) {
+        ts = { ...ts, postback: { ...ts.postback, idTrafficSource: ts.idTrafficSource! } }
+      }
+      return api.put<TrafficSource>('/data/trafficsource/save/', ts)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.trafficSources.all })

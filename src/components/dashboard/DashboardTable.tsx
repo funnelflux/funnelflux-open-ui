@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { type ColumnDef } from '@tanstack/react-table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DataTable } from '@/components/shared/DataTable'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Card } from 'antd'
+import { DataTable } from '@/components/ui-kit/data-table'
 import type { DashboardData } from '@/types/ui'
 import type { ReportCell } from '@/types/stats'
 
@@ -12,7 +12,6 @@ interface DashboardTableProps {
   isLoading: boolean
 }
 
-// The report rows use numeric string keys for cell data
 interface FlatRow {
   id: string
   [key: string]: string
@@ -35,35 +34,28 @@ function flattenRows(data: TableStats): FlatRow[] {
 export function DashboardTable({ data, isLoading }: DashboardTableProps) {
   const rows = useMemo(() => flattenRows(data), [data])
 
-  const columns: ColumnDef<FlatRow>[] = useMemo(() => {
+  const columnDefs: ColumnDef<FlatRow, unknown>[] = useMemo(() => {
     if (!data?.report?.columns) return []
-    return data.report.columns.map((col) => ({
-      accessorKey: col.name,
+    return data.report.columns.map((col, index) => ({
+      id: col.name,
       header: col.name,
-      cell: ({ getValue }) => {
-        const val = getValue() as string
-        return <span className="text-sm">{val}</span>
-      },
+      accessorKey: col.name,
+      size: index === 0 ? 200 : 100,
+      meta: index === 0 ? { flex: 1 } : { numeric: true },
     }))
   }, [data])
 
   if (!isLoading && !data) return null
 
   return (
-    <Card>
-      <CardHeader className="pb-2 p-4">
-        <CardTitle className="text-sm font-medium">
-          Top {data?.tableStatsOptions?.statsType ?? 'Campaigns'}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <DataTable
-          columns={columns}
-          data={rows}
-          isLoading={isLoading}
-          getRowId={(row) => row.id}
-        />
-      </CardContent>
+    <Card title={<span className="text-sm font-medium">Top {data?.tableStatsOptions?.statsType ?? 'Campaigns'}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
+      <DataTable
+        data={rows}
+        columns={columnDefs}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        noPagination
+      />
     </Card>
   )
 }

@@ -12,42 +12,40 @@ function ConditionNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeDat
     <BaseNode
       selected={selected}
       isEntrance={data.isEntrance}
-      className="border-l-2 border-l-purple-500"
       hideSource
+      card={{
+        accent: 'fuchsia',
+        kind: 'Condition',
+        title: data.label || 'Condition',
+        subtitle: params.conditionName,
+        icon: <GitBranch className="h-5 w-5" />,
+      }}
     >
-      <div className="flex items-center gap-2">
-        <GitBranch className="h-4 w-4 shrink-0 text-purple-500" />
-        <div className="min-w-0">
-          <div className="text-sm font-medium">Condition</div>
-          {params.conditionName && (
-            <div className="truncate text-xs text-muted-foreground">
-              {params.conditionName}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Yes handle at 33% vertical on the right */}
       <Handle
         type="source"
         id="yes"
         position={Position.Right}
         style={{ top: '33%' }}
-        className="!h-2 !w-2 !border-border !bg-green-500"
+        className="!h-2.5 !w-2.5 !border-2 !border-background !bg-emerald-500"
       />
-      <span className="absolute right-3 text-xs font-medium text-green-600" style={{ top: 'calc(33% - 7px)' }}>
+      <span
+        className="absolute right-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
+        style={{ top: 'calc(33% - 8px)' }}
+      >
         Yes
       </span>
 
-      {/* No handle at 66% vertical on the right */}
       <Handle
         type="source"
         id="no"
         position={Position.Right}
         style={{ top: '66%' }}
-        className="!h-2 !w-2 !border-border !bg-red-500"
+        className="!h-2.5 !w-2.5 !border-2 !border-background !bg-red-500"
       />
-      <span className="absolute right-3 text-xs font-medium text-red-600" style={{ top: 'calc(66% - 7px)' }}>
+      <span
+        className="absolute right-2 text-[10px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-400"
+        style={{ top: 'calc(66% - 8px)' }}
+      >
         No
       </span>
     </BaseNode>

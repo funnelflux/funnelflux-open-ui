@@ -1,33 +1,46 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ReactFlowProvider } from '@xyflow/react'
-import { useFunnel, useSaveFunnel } from '@/api/hooks'
+import { useQueryClient } from '@tanstack/react-query'
+import { useFunnel } from '@/api/hooks'
+import { api } from '@/api/client'
+import { queryKeys } from '@/api/queryKeys'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import { FunnelTopForm } from '@/components/funnel-builder/FunnelTopForm'
+import { FunnelSettingsModal } from '@/components/funnel-builder/FunnelSettingsModal'
+import { FunnelQuickStatsModal } from '@/components/funnel-builder/FunnelQuickStatsModal'
 import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
-import { FunnelAdvancedSettings } from '@/components/funnel-builder/FunnelAdvancedSettings'
-import { useToast } from '@/components/shared/Toaster'
-import { Button } from '@/components/ui/button'
-import { Save, ArrowLeft, Loader2 } from 'lucide-react'
-import type { ApiFunnel } from '@/types/funnel'
+import { useToastApi } from '@/components/ui-kit'
+import { Button } from 'antd'
+import { useAuthStore } from '@/store/auth'
+import { ArrowLeft, BarChart3, Loader2, Save, Settings } from 'lucide-react'
+import { buildV2SavePayload, extractPersistExtras, type FunnelPersistExtras } from '@/lib/funnelApiV2'
 
 export function FunnelEditorPage() {
   const { campaignId, funnelId } = useParams<{ campaignId: string; funnelId: string }>()
   const navigate = useNavigate()
-  const toast = useToast()
+  const toast = useToastApi()
+  const queryClient = useQueryClient()
+  const [isSaving, setIsSaving] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [quickStatsOpen, setQuickStatsOpen] = useState(false)
+  const canViewStats = useAuthStore((s) => s.user?.permissions.stats.canView)
 
   const isNew = funnelId === 'new'
-  const { data: funnel, isLoading } = useFunnel(isNew ? '' : funnelId ?? '')
-  const saveFunnel = useSaveFunnel()
+  const { data: funnel, isLoading } = useFunnel(isNew ? '' : funnelId ?? '', {
+    loadDependencies: true,
+  })
 
   const hydrate = useFunnelEditorStore((s) => s.hydrate)
   const reset = useFunnelEditorStore((s) => s.reset)
-  const serialize = useFunnelEditorStore((s) => s.serialize)
+  const meta = useFunnelEditorStore((s) => s.meta)
+  const nodes = useFunnelEditorStore((s) => s.nodes)
+  const edges = useFunnelEditorStore((s) => s.edges)
   const isDirty = useFunnelEditorStore((s) => s.isDirty)
   const markClean = useFunnelEditorStore((s) => s.markClean)
   const updateMeta = useFunnelEditorStore((s) => s.updateMeta)
 
-  // Hydrate store from API data
+  const persistExtrasRef = useRef<FunnelPersistExtras>({})
+
   useEffect(() => {
     if (isNew) {
       reset()
@@ -35,11 +48,11 @@ export function FunnelEditorPage() {
         updateMeta({ idCampaign: campaignId })
       }
     } else if (funnel) {
-      hydrate(funnel as ApiFunnel)
+      persistExtrasRef.current = extractPersistExtras(funnel)
+      hydrate(funnel)
     }
   }, [funnel, isNew, campaignId, hydrate, reset, updateMeta])
 
-  // Unsaved changes warning
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (isDirty) {
@@ -51,18 +64,32 @@ export function FunnelEditorPage() {
   }, [isDirty])
 
   const handleSave = useCallback(async () => {
-    const data = serialize()
+    const body = buildV2SavePayload(meta, nodes, edges, persistExtrasRef.current)
+    setIsSaving(true)
     try {
-      await saveFunnel.mutateAsync(data)
-      markClean()
-      toast.success('Funnel saved successfully')
       if (isNew) {
-        navigate(`/campaigns/${campaignId}/funnels/${data.idFunnel}`, { replace: true })
+        const created = await api.post<{ idFunnel: string }>('/data/campaign/funnel/save/', body)
+        markClean()
+        await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all })
+        toast.success('Funnel saved successfully')
+        setSettingsOpen(false)
+        navigate(`/campaigns/${campaignId}/funnels/${created.idFunnel}`, { replace: true })
+      } else {
+        await api.put('/data/campaign/funnel/save/', body, { deleteDependencies: 'true' })
+        markClean()
+        await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all })
+        if (funnelId) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.detail(funnelId) })
+        }
+        toast.success('Funnel saved successfully')
+        setSettingsOpen(false)
       }
     } catch {
       toast.error('Failed to save funnel')
+    } finally {
+      setIsSaving(false)
     }
-  }, [serialize, saveFunnel, markClean, toast, isNew, navigate, campaignId])
+  }, [meta, nodes, edges, markClean, toast, isNew, navigate, campaignId, queryClient, funnelId])
 
   const handleBack = useCallback(() => {
     if (isDirty) {
@@ -74,54 +101,96 @@ export function FunnelEditorPage() {
 
   if (isLoading && !isNew) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
+  const titleName = meta.funnelName?.trim() || (isNew ? 'New funnel' : 'Funnel')
+
   return (
-    <ReactFlowProvider>
-      <div className="flex flex-col h-[calc(100vh-3.5rem)]">
-        {/* Header bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={handleBack}>
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <ReactFlowProvider>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+          <header className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
+            <Button type="text" size="small" className="shrink-0 gap-1" onClick={handleBack}>
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Campaigns</span>
             </Button>
-            <span className="text-sm text-muted-foreground">
-              {isNew ? 'New Funnel' : 'Edit Funnel'}
-            </span>
+
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-sm font-semibold sm:text-base" title={titleName}>
+                {titleName}
+              </h1>
+            </div>
+
             {isDirty && (
-              <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+              <span className="shrink-0 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded-md px-2 py-0.5">
                 Unsaved
               </span>
             )}
-          </div>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saveFunnel.isPending}
-          >
-            {saveFunnel.isPending ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-1" />
+
+            <Button
+              type="text"
+              size="small"
+              className="shrink-0"
+              title="Funnel settings"
+              aria-label="Funnel settings"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+
+            {!isNew && canViewStats && campaignId && funnelId && (
+              <Button
+                type="text"
+                size="small"
+                className="shrink-0"
+                title="Quick Stats"
+                aria-label="Quick Stats"
+                onClick={() => setQuickStatsOpen(true)}
+              >
+                <BarChart3 className="h-4 w-4" />
+              </Button>
             )}
-            Save
-          </Button>
+
+            <Button
+              type="primary"
+              size="small"
+              className="shrink-0 bg-orange-600 text-white hover:bg-orange-600/90"
+              onClick={() => void handleSave()}
+              disabled={isSaving}
+            >
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+              Save
+            </Button>
+          </header>
+
+          <div className="relative min-h-0 flex-1">
+            <FunnelCanvas className="absolute inset-0 min-h-0" />
+          </div>
         </div>
+      </ReactFlowProvider>
 
-        {/* Top form */}
-        <FunnelTopForm isNew={isNew} />
+      <FunnelSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        isNew={isNew}
+        titleName={titleName}
+        onSave={handleSave}
+        isSaving={isSaving}
+      />
 
-        {/* Canvas */}
-        <FunnelCanvas />
-
-        {/* Advanced settings */}
-        <FunnelAdvancedSettings />
-      </div>
-    </ReactFlowProvider>
+      {!isNew && campaignId && funnelId && (
+        <FunnelQuickStatsModal
+          open={quickStatsOpen}
+          onClose={() => setQuickStatsOpen(false)}
+          campaignId={campaignId}
+          funnelId={funnelId}
+          funnelName={titleName}
+        />
+      )}
+    </div>
   )
 }

@@ -1,20 +1,17 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { subDays } from 'date-fns'
 import { RefreshCw } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import type { ColumnDef } from '@tanstack/react-table'
 import { api } from '@/api/client'
 import { useDashboardStore } from '@/store/dashboard'
 import { StatsCards } from '@/components/dashboard/StatsCards'
 import { DashboardChart } from '@/components/dashboard/DashboardChart'
-import { DataTable } from '@/components/shared/DataTable'
+import { PageShell, DataTable, TimezoneSelect } from '@/components/ui-kit'
+import { cellRaw } from '@/components/ui-kit/data-table'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Button, Card, Tag } from 'antd'
 import { toApiDateTimeRange } from '@/types/stats'
-import type { ColumnDef } from '@tanstack/react-table'
-import type { Report, ReportCell } from '@/types/stats'
+import type { Report } from '@/types/stats'
 import type { LiveStats } from '@/types/ui'
 
 const ZERO_STATS: LiveStats = { visits: 0, clicks: 0, conversions: 0, revenue: 0, cost: 0, net: 0, roi: 'N/A' }
@@ -48,11 +45,6 @@ interface WidgetState {
   quickviewType: string
   rows: WidgetRow[]
   isLoading: boolean
-}
-
-function cellRaw(cell: ReportCell | undefined): number {
-  if (!cell) return 0
-  return typeof cell.raw === 'number' ? cell.raw : Number(cell.raw) || 0
 }
 
 function buildColMap(report: Report): Map<string, number> {
@@ -120,59 +112,49 @@ function statsChanged(previous: LiveStats | undefined, next: LiveStats): boolean
   return Object.keys(next).some((key) => previous[key as keyof LiveStats] !== next[key as keyof LiveStats])
 }
 
+const widgetColumnDefs: ColumnDef<WidgetRow, unknown>[] = [
+  {
+    id: 'name',
+    header: 'Name',
+    accessorKey: 'name',
+    size: 250,
+    meta: { flex: 1 },
+    cell: (info) => <span className="font-medium">{String(info.getValue())}</span>,
+  },
+  {
+    id: 'visits',
+    header: 'Visits',
+    accessorKey: 'visitsFormatted',
+    size: 100,
+    meta: { numeric: true },
+  },
+]
+
 function WidgetTable({
   title,
   rows,
   isLoading,
-  onRowClick,
   pulse,
 }: {
   title: string
   rows: WidgetRow[]
   isLoading: boolean
-  onRowClick: (row: WidgetRow) => void
   pulse: boolean
 }) {
-  const columns = useMemo<ColumnDef<WidgetRow>[]>(
-    () => [
-      {
-        id: 'name',
-        header: 'Name',
-        accessorFn: (row) => row.name,
-        cell: ({ row }) => (
-          <button
-            type="button"
-            className="font-medium text-left hover:text-primary"
-            onClick={() => onRowClick(row.original)}
-          >
-            {row.original.name}
-          </button>
-        ),
-      },
-      {
-        id: 'visits',
-        header: 'Visits',
-        accessorFn: (row) => row.visits,
-        cell: ({ row }) => <span className="tabular-nums">{row.original.visitsFormatted}</span>,
-      },
-    ],
-    [onRowClick],
-  )
-
   return (
-    <Card className={pulse ? 'animate-pulse' : undefined}>
-      <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <DataTable columns={columns} data={rows} isLoading={isLoading} getRowId={(row) => row.id} />
-      </CardContent>
+    <Card className={pulse ? 'animate-pulse' : undefined} title={<span className="text-sm font-medium">{title}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
+      <DataTable
+        data={rows}
+        columns={widgetColumnDefs}
+        loading={isLoading}
+        getRowId={(row) => row.id}
+        noPagination
+      />
     </Card>
   )
 }
 
 export function DashboardPage() {
-  const navigate = useNavigate()
   const { chartMetric, setChartMetric } = useDashboardStore()
   const [tz, setTz] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone)
   const [dateRange, setDateRange] = useState(() => ({
@@ -212,7 +194,6 @@ export function DashboardPage() {
     }
   }, [])
 
-  // Cleanup pulse timers on unmount
   useEffect(() => {
     return () => {
       if (pulseTimerRef.current) {
@@ -229,7 +210,6 @@ export function DashboardPage() {
     setChartLoaded(false)
     setWidgets((current) => current.map((widget) => ({ ...widget, isLoading: true })))
 
-    // Stats request
     api.post<Report>('/stats/reporting/drilldown/', {
       timeRange,
       timeZone,
@@ -248,7 +228,6 @@ export function DashboardPage() {
       setStatsLoaded(true)
     })
 
-    // Chart request
     api.post<Report>('/stats/reporting/drilldown/', {
       timeRange,
       timeZone,
@@ -263,7 +242,6 @@ export function DashboardPage() {
       setChartLoaded(true)
     })
 
-    // Widget requests
     Promise.all(
       WIDGETS.map(async (widget) => {
         const report = await api.post<Report>('/stats/reporting/drilldown/', {
@@ -314,18 +292,15 @@ export function DashboardPage() {
   }, [isAutoRefresh, loadData])
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          {isAutoRefresh ? <Badge variant="secondary">Live</Badge> : null}
-        </div>
+    <PageShell
+      title="Dashboard"
+      subtitle={isAutoRefresh ? undefined : undefined}
+      actions={
         <div className="flex items-center gap-2">
+          {isAutoRefresh && <Tag>Live</Tag>}
           <Button
-            type="button"
-            variant={isAutoRefresh ? 'default' : 'outline'}
-            size="sm"
-            className="h-9"
+            htmlType="button"
+            type={isAutoRefresh ? 'primary' : 'default'}
             onClick={() => setIsAutoRefresh((current) => !current)}
           >
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isAutoRefresh ? 'animate-spin' : ''}`} />
@@ -340,10 +315,10 @@ export function DashboardPage() {
               }
             }}
           />
-          <TimezoneSelector value={tz} onChange={setTz} />
+          <TimezoneSelect value={tz} onChange={setTz} />
         </div>
-      </div>
-
+      }
+    >
       <div className={pulseStats ? 'animate-pulse' : undefined}>
         <StatsCards stats={stats} isLoading={!statsLoaded} />
       </div>
@@ -363,14 +338,9 @@ export function DashboardPage() {
             rows={widget.rows}
             isLoading={widget.isLoading}
             pulse={pulseWidgets}
-            onRowClick={(row) =>
-              navigate(
-                `/quickview?groupBy=${encodeURIComponent(widget.quickviewType)}&id=${encodeURIComponent(row.id)}`,
-              )
-            }
           />
         ))}
       </div>
-    </div>
+    </PageShell>
   )
 }

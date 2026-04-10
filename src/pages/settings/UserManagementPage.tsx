@@ -1,23 +1,17 @@
-import { useState } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Trash2, UserCheck, UserPlus, UserX, Users } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { DataTable } from '@/components/shared/DataTable'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
+import { Button, Tag, Switch } from 'antd'
+import { PageShell, DataTable, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { InlineActions } from '@/components/shared/InlineActions'
 import { useUsers, useChangeUserStatus, useDeleteUser } from '@/api/hooks/useUserManagement'
 import type { ManagedUser } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 
 export function UserManagementPage() {
   const navigate = useNavigate()
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: users, isLoading } = useUsers()
   const changeStatus = useChangeUserStatus()
   const deleteUser = useDeleteUser()
@@ -55,120 +49,138 @@ export function UserManagementPage() {
     })
   }
 
-  const columns: ColumnDef<ManagedUser, unknown>[] = [
-    {
-      accessorKey: 'login',
-      header: 'Username',
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.login}</span>
-      ),
-    },
-    {
-      id: 'name',
-      header: 'Name',
-      cell: ({ row }) => {
-        const { firstname, lastname } = row.original
-        const name = [firstname, lastname].filter(Boolean).join(' ')
-        return name || <span className="text-muted-foreground">--</span>
+  const navigateRef = useRef(navigate)
+  const handleToggleEnabledRef = useRef(handleToggleEnabled)
+  const setDeleteTargetRef = useRef(setDeleteTarget)
+
+  useEffect(() => {
+    navigateRef.current = navigate
+    handleToggleEnabledRef.current = handleToggleEnabled
+    setDeleteTargetRef.current = setDeleteTarget
+  }, [navigate, handleToggleEnabled, setDeleteTarget])
+
+  const columns = useMemo<ColumnDef<ManagedUser, unknown>[]>(
+    () => [
+      {
+        id: 'login',
+        header: 'Username',
+        accessorKey: 'login',
+        cell: ({ row }) => <span className="font-medium">{row.original.login}</span>,
       },
-    },
-    {
-      accessorKey: 'email',
-      header: 'Email',
-      cell: ({ row }) =>
-        row.original.email || (
-          <span className="text-muted-foreground">--</span>
+      {
+        id: 'name',
+        header: 'Name',
+        accessorFn: (row) =>
+          [row.firstname, row.lastname].filter(Boolean).join(' '),
+        cell: ({ getValue }) =>
+          getValue() || <span className="text-muted-foreground">--</span>,
+      },
+      {
+        id: 'email',
+        header: 'Email',
+        accessorKey: 'email',
+        cell: ({ row }) =>
+          row.original.email || <span className="text-muted-foreground">--</span>,
+      },
+      {
+        id: 'isAdmin',
+        header: 'Admin',
+        accessorKey: 'isAdmin',
+        cell: ({ row }) =>
+          row.original.isAdmin ? (
+            <Tag color="blue" className="text-xs">
+              Admin
+            </Tag>
+          ) : null,
+      },
+      {
+        id: 'enabled',
+        header: 'Enabled',
+        accessorKey: 'enabled',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Switch
+            checked={row.original.enabled}
+            onChange={() => handleToggleEnabledRef.current(row.original)}
+          />
         ),
-    },
-    {
-      accessorKey: 'isAdmin',
-      header: 'Admin',
-      cell: ({ row }) =>
-        row.original.isAdmin ? (
-          <Badge variant="default" className="text-xs">
-            Admin
-          </Badge>
-        ) : null,
-    },
-    {
-      accessorKey: 'enabled',
-      header: 'Enabled',
-      cell: ({ row }) => (
-        <Switch
-          checked={row.original.enabled}
-          onCheckedChange={() => handleToggleEnabled(row.original)}
-        />
-      ),
-    },
-    {
-      accessorKey: 'lastLogin',
-      header: 'Last Login',
-      cell: ({ row }) =>
-        row.original.lastLogin || (
-          <span className="text-muted-foreground">Never</span>
+      },
+      {
+        id: 'lastLogin',
+        header: 'Last Login',
+        accessorKey: 'lastLogin',
+        cell: ({ row }) =>
+          row.original.lastLogin || (
+            <span className="text-muted-foreground">Never</span>
+          ),
+      },
+      {
+        id: 'actions',
+        header: '',
+        size: 50,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <InlineActions
+            actions={[
+              {
+                label: 'Edit',
+                icon: Pencil,
+                onClick: () =>
+                  navigateRef.current(`/settings/users/${row.original.id}/edit`),
+              },
+              {
+                label: row.original.enabled ? 'Disable' : 'Enable',
+                icon: row.original.enabled ? UserX : UserCheck,
+                onClick: () => handleToggleEnabledRef.current(row.original),
+              },
+              {
+                label: 'Delete',
+                icon: Trash2,
+                onClick: () => setDeleteTargetRef.current(row.original),
+                destructive: true,
+              },
+            ]}
+          />
         ),
-    },
-    {
-      id: 'actions',
-      header: '',
-      size: 50,
-      cell: ({ row }) => (
-        <RowActionsMenu
-          actions={[
-            {
-              label: 'Edit',
-              icon: Pencil,
-              onClick: () => navigate(`/settings/users/${row.original.id}/edit`),
-            },
-            {
-              label: row.original.enabled ? 'Disable' : 'Enable',
-              icon: row.original.enabled ? UserX : UserCheck,
-              onClick: () => handleToggleEnabled(row.original),
-            },
-            {
-              label: 'Delete',
-              icon: Trash2,
-              onClick: () => setDeleteTarget(row.original),
-              destructive: true,
-            },
-          ]}
-        />
-      ),
-    },
-  ]
+      },
+    ],
+    [],
+  )
 
   return (
-    <div>
-      <PageHeader title="User Management">
-        <Button size="sm" onClick={() => navigate('/settings/users/new')}>
+    <PageShell
+      title="User Management"
+      actions={
+        <Button type="primary" onClick={() => navigate('/settings/users/new')}>
           <UserPlus className="mr-1.5 h-3.5 w-3.5" />
           Add User
         </Button>
-      </PageHeader>
-
+      }
+    >
       {!isLoading && (!users || users.length === 0) ? (
         <EmptyState
           icon={<Users className="h-10 w-10" />}
           message="No users found."
         />
       ) : (
-        <DataTable
-          columns={columns}
+        <DataTable<ManagedUser>
           data={users ?? []}
-          isLoading={isLoading}
+          columns={columns}
           getRowId={(row) => String(row.id)}
+          loading={isLoading}
+          noPagination
         />
       )}
 
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteTarget}
         title="Delete User"
         description={`Are you sure you want to delete user "${deleteTarget?.login}"? This cannot be undone.`}
         confirmText="Delete"
-        destructive
+        danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </PageShell>
   )
 }

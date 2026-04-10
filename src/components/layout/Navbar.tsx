@@ -2,16 +2,8 @@ import { useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth"
 import type { Permissions } from "@/types/api"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Badge, Drawer, Dropdown, Button } from "antd"
+import type { MenuProps } from "antd"
 import {
   ChevronDown,
   Settings,
@@ -19,6 +11,8 @@ import {
   LogOut,
   Menu,
   Bell,
+  Sun,
+  Moon,
   BarChart3,
   Shield,
   Tag,
@@ -31,6 +25,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { useNotificationStore } from "@/hooks/useNotifications"
+import { useThemeStore } from "@/store/theme"
 
 interface NavItem {
   label: string
@@ -98,28 +93,22 @@ function NavDropdown({
 
   const active = isRouteActive(pathname, item.to, visibleChildren)
 
+  const items: MenuProps['items'] = visibleChildren.map((child) => ({
+    key: child.to,
+    label: <Link to={child.to} className="cursor-pointer">{child.label}</Link>,
+  }))
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={`px-3 py-2 text-sm rounded flex items-center gap-1 outline-none ${
-            active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700"
-          }`}
-        >
-          {item.label}
-          <ChevronDown className="h-3 w-3" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[180px]">
-        {visibleChildren.map((child) => (
-          <DropdownMenuItem key={child.to} asChild>
-            <Link to={child.to} className="cursor-pointer">
-              {child.label}
-            </Link>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Dropdown menu={{ items }} trigger={['click']}>
+      <button
+        className={`px-3 py-2 text-sm rounded flex items-center gap-1 outline-none ${
+          active ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700"
+        }`}
+      >
+        {item.label}
+        <ChevronDown className="h-3 w-3" />
+      </button>
+    </Dropdown>
   )
 }
 
@@ -146,7 +135,7 @@ function DesktopNav({ permissions, pathname }: { permissions: Permissions; pathn
             key={item.to}
             to={item.to}
             className={`px-3 py-2 text-sm rounded no-underline ${
-              active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700"
+              active ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700"
             }`}
           >
             {item.label}
@@ -174,113 +163,87 @@ function MobileNav({ permissions, pathname }: { permissions: Permissions; pathna
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden text-slate-300 hover:text-white hover:bg-slate-700">
-          <Menu className="h-5 w-5" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="w-64 bg-slate-800 text-white border-slate-700 p-0">
-        <div className="p-4 border-b border-slate-700">
-          <span className="font-bold text-lg">FunnelFlux</span>
+    <>
+      <Button type="text" className="md:hidden text-gray-300 hover:text-white hover:bg-gray-700" onClick={() => setOpen(true)} icon={<Menu className="h-5 w-5" />} />
+      <Drawer open={open} onClose={() => setOpen(false)} placement="left" width={256} closable={false} styles={{ body: { padding: 0 }, header: { display: 'none' } }} className="bg-nav-bg">
+        <div className="h-full bg-nav-bg text-white">
+          <div className="p-4 border-b border-gray-700">
+            <span className="font-bold text-lg">FunnelFlux</span>
+          </div>
+          <nav className="p-2">
+            {allLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                onClick={() => setOpen(false)}
+                className={`block px-3 py-2 text-sm rounded no-underline ${
+                  pathname === link.to ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
-        <nav className="p-2">
-          {allLinks.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              onClick={() => setOpen(false)}
-              className={`block px-3 py-2 text-sm rounded no-underline ${
-                pathname === link.to ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      </SheetContent>
-    </Sheet>
+      </Drawer>
+    </>
   )
 }
 
 function SettingsDropdown({ permissions }: { permissions: Permissions }) {
   const isAdmin = useAuthStore((s) => s.user?.isAdmin)
 
+  const items: MenuProps['items'] = [
+    ...(isAdmin ? [{
+      key: 'system',
+      label: <Link to="/settings/system" className="cursor-pointer"><BarChart3 className="h-4 w-4 mr-2 inline" /> System Settings</Link>,
+    }] : []),
+    ...(permissions.trafficFilters?.canView ? [{
+      key: 'traffic-filters',
+      label: <Link to="/settings/traffic-filters" className="cursor-pointer"><Filter className="h-4 w-4 mr-2 inline" /> Traffic Filters</Link>,
+    }] : []),
+    {
+      key: 'tags',
+      label: <Link to="/settings/tags" className="cursor-pointer"><Tag className="h-4 w-4 mr-2 inline" /> Visitor Tags</Link>,
+    },
+    {
+      key: 'conditions',
+      label: <Link to="/settings/conditions" className="cursor-pointer"><Shield className="h-4 w-4 mr-2 inline" /> Global Conditions</Link>,
+    },
+    ...(isAdmin ? [
+      { key: 'admin-sep', type: 'divider' as const },
+      {
+        key: 'access-log',
+        label: <Link to="/settings/access-log" className="cursor-pointer"><History className="h-4 w-4 mr-2 inline" /> Access Log</Link>,
+      },
+      {
+        key: 'users',
+        label: <Link to="/settings/users" className="cursor-pointer"><Users className="h-4 w-4 mr-2 inline" /> User Management</Link>,
+      },
+    ] : []),
+    ...(permissions.dataUpdates?.enabled ? [
+      { key: 'data-sep', type: 'divider' as const },
+      ...(permissions.dataUpdates.canUpdateConversions ? [{
+        key: 'conversions',
+        label: <Link to="/data-updates/conversions" className="cursor-pointer"><Database className="h-4 w-4 mr-2 inline" /> Conversions</Link>,
+      }] : []),
+      ...(permissions.dataUpdates.canUpdateTrafficCost ? [{
+        key: 'costs',
+        label: <Link to="/data-updates/costs" className="cursor-pointer"><DollarSign className="h-4 w-4 mr-2 inline" /> Cost Update</Link>,
+      }] : []),
+      ...(permissions.dataUpdates.canResetStats ? [{
+        key: 'reset',
+        label: <Link to="/data-updates/reset" className="cursor-pointer"><Trash2 className="h-4 w-4 mr-2 inline" /> Reset Stats</Link>,
+      }] : []),
+    ] : []),
+  ]
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded outline-none">
-          <Settings className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        {isAdmin && (
-          <DropdownMenuItem asChild>
-            <Link to="/settings/system" className="cursor-pointer">
-              <BarChart3 className="h-4 w-4 mr-2" /> System Settings
-            </Link>
-          </DropdownMenuItem>
-        )}
-        {permissions.trafficFilters?.canView && (
-          <DropdownMenuItem asChild>
-            <Link to="/settings/traffic-filters" className="cursor-pointer">
-              <Filter className="h-4 w-4 mr-2" /> Traffic Filters
-            </Link>
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem asChild>
-          <Link to="/settings/tags" className="cursor-pointer">
-            <Tag className="h-4 w-4 mr-2" /> Visitor Tags
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/settings/conditions" className="cursor-pointer">
-            <Shield className="h-4 w-4 mr-2" /> Global Conditions
-          </Link>
-        </DropdownMenuItem>
-        {isAdmin && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link to="/settings/access-log" className="cursor-pointer">
-                <History className="h-4 w-4 mr-2" /> Access Log
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/settings/users" className="cursor-pointer">
-                <Users className="h-4 w-4 mr-2" /> User Management
-              </Link>
-            </DropdownMenuItem>
-          </>
-        )}
-        {permissions.dataUpdates?.enabled && (
-          <>
-            <DropdownMenuSeparator />
-            {permissions.dataUpdates.canUpdateConversions && (
-              <DropdownMenuItem asChild>
-                <Link to="/data-updates/conversions" className="cursor-pointer">
-                  <Database className="h-4 w-4 mr-2" /> Conversions
-                </Link>
-              </DropdownMenuItem>
-            )}
-            {permissions.dataUpdates.canUpdateTrafficCost && (
-              <DropdownMenuItem asChild>
-                <Link to="/data-updates/costs" className="cursor-pointer">
-                  <DollarSign className="h-4 w-4 mr-2" /> Cost Update
-                </Link>
-              </DropdownMenuItem>
-            )}
-            {permissions.dataUpdates.canResetStats && (
-              <DropdownMenuItem asChild>
-                <Link to="/data-updates/reset" className="cursor-pointer">
-                  <Trash2 className="h-4 w-4 mr-2" /> Reset Stats
-                </Link>
-              </DropdownMenuItem>
-            )}
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Dropdown menu={{ items }} trigger={['click']}>
+      <button className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Settings className="h-4 w-4" />
+      </button>
+    </Dropdown>
   )
 }
 
@@ -293,27 +256,28 @@ function UserDropdown() {
     window.location.href = "/admin/login.php?logout=1"
   }
 
+  const items: MenuProps['items'] = [
+    {
+      key: 'inbox',
+      label: <Link to="/inbox" className="cursor-pointer"><Inbox className="h-4 w-4 mr-2 inline" /> Inbox</Link>,
+    },
+    { key: 'user-sep', type: 'divider' },
+    {
+      key: 'logout',
+      label: <><LogOut className="h-4 w-4 mr-2 inline" /> Log Out</>,
+      danger: true,
+      onClick: handleLogout,
+    },
+  ]
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded outline-none">
-          <User className="h-4 w-4" />
-          <span className="hidden sm:inline">{user?.firstname || user?.login}</span>
-          <ChevronDown className="h-3 w-3" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem asChild>
-          <Link to="/inbox" className="cursor-pointer">
-            <Inbox className="h-4 w-4 mr-2" /> Inbox
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
-          <LogOut className="h-4 w-4 mr-2" /> Log Out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Dropdown menu={{ items }} trigger={['click']}>
+      <button className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <User className="h-4 w-4" />
+        <span className="hidden sm:inline">{user?.firstname || user?.login}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+    </Dropdown>
   )
 }
 
@@ -322,19 +286,28 @@ function NotificationBell() {
   const navigate = useNavigate()
 
   return (
+    <Badge count={count} size="small" overflowCount={99}>
+      <button
+        className="relative p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded"
+        onClick={() => navigate("/inbox")}
+      >
+        <Bell className="h-4 w-4" />
+      </button>
+    </Badge>
+  )
+}
+
+function ThemeToggle() {
+  const mode = useThemeStore((s) => s.mode)
+  const toggle = useThemeStore((s) => s.toggle)
+
+  return (
     <button
-      className="relative p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded"
-      onClick={() => navigate("/inbox")}
+      onClick={toggle}
+      className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      <Bell className="h-4 w-4" />
-      {count > 0 && (
-        <Badge
-          variant="destructive"
-          className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
-        >
-          {count > 99 ? "99+" : count}
-        </Badge>
-      )}
+      {mode === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   )
 }
@@ -347,7 +320,7 @@ export function Navbar() {
   if (!permissions) return null
 
   return (
-    <nav className="bg-slate-800 text-white h-14 px-4 flex items-center gap-1 sticky top-0 z-50">
+    <nav className="bg-nav-bg text-white h-14 px-4 flex items-center gap-1 sticky top-0 z-50">
       <MobileNav permissions={permissions} pathname={location.pathname} />
 
       <Link to="/" className="font-bold text-lg mr-4 text-white no-underline">
@@ -358,6 +331,7 @@ export function Navbar() {
 
       <div className="ml-auto flex items-center gap-1">
         <NotificationBell />
+        <ThemeToggle />
         <SettingsDropdown permissions={permissions} />
         <UserDropdown />
       </div>

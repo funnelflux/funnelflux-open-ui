@@ -1,20 +1,9 @@
-import { useMemo } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
-import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-} from '@/components/ui/command'
+import { useMemo, useState } from 'react'
+import { Modal, Input, List } from 'antd'
 import { usePages, useConditions, useCodeSnippets } from '@/api/hooks'
+import type { Condition } from '@/types/funnel'
+import type { CodeSnippetListRow } from '@/api/hooks/useCodeSnippets'
+import { asArray } from '@/lib/utils'
 
 export interface EntityPickerDialogProps {
   open: boolean
@@ -47,50 +36,79 @@ export function EntityPickerDialog({
 
   const items = useMemo(() => {
     if (entityType === 'lander' || entityType === 'offer') {
-      return (pagesQuery.data ?? []).map((p) => ({ id: p.idPage, name: p.pageName }))
+      // Page list API returns `{ id, name }` (not always full Page objects).
+      return asArray<Record<string, unknown>>(pagesQuery.data).map((p) => ({
+        id: String(p.idPage ?? p.id ?? ''),
+        name: String(p.pageName ?? p.name ?? ''),
+      }))
     }
     if (entityType === 'condition') {
-      return (conditionsQuery.data ?? []).map((c) => ({ id: c.idCondition, name: c.conditionName }))
+      return asArray<Condition>(conditionsQuery.data).map((c) => ({
+        id: c.idCondition,
+        name: c.conditionName,
+      }))
     }
-    // jsCode or phpCode
-    return (snippetsQuery.data ?? []).map((s) => ({ id: s.idSnippet, name: s.snippetName }))
+    // jsCode or phpCode — list API returns `{ id, name, codeType? }`
+    return asArray<CodeSnippetListRow>(snippetsQuery.data).map((s) => ({
+      id: s.id,
+      name: s.name,
+    }))
   }, [entityType, pagesQuery.data, conditionsQuery.data, snippetsQuery.data])
 
   const label = ENTITY_LABELS[entityType]
 
+  const [search, setSearch] = useState('')
+
+  const filteredItems = useMemo(() => {
+    if (!search) return items
+    const lower = search.toLowerCase()
+    return items.filter((item) => item.name.toLowerCase().includes(lower))
+  }, [items, search])
+
   function handleSelect(item: { id: string; name: string }) {
     onSelect(item)
+    setSearch('')
     onClose()
   }
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-md">
-        <DialogHeader className="px-6 pt-6">
-          <DialogTitle>Select {label}</DialogTitle>
-          <DialogDescription>
-            Choose an existing {label.toLowerCase()} to add to the funnel.
-          </DialogDescription>
-        </DialogHeader>
-        <Command className="border-t">
-          <CommandInput placeholder={`Search ${label.toLowerCase()}s...`} />
-          <CommandList>
-            <CommandEmpty>No {label.toLowerCase()}s found.</CommandEmpty>
-            <CommandGroup>
-              {items.map((item) => (
-                <CommandItem
-                  key={item.id}
-                  value={item.name}
-                  onSelect={() => handleSelect(item)}
-                  className="cursor-pointer"
-                >
-                  {item.name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </DialogContent>
-    </Dialog>
+    <Modal
+      open={open}
+      onCancel={() => { setSearch(''); onClose() }}
+      title={`Select ${label}`}
+      footer={null}
+      width={448}
+      destroyOnHidden
+    >
+      <p className="text-sm text-muted-foreground mb-4">
+        Choose an existing {label.toLowerCase()} to add to the funnel.
+      </p>
+      <Input
+        placeholder={`Search ${label.toLowerCase()}s...`}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="mb-3"
+        allowClear
+      />
+      {filteredItems.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No {label.toLowerCase()}s found.
+        </p>
+      ) : (
+        <List
+          dataSource={filteredItems}
+          size="small"
+          style={{ maxHeight: 300, overflowY: 'auto' }}
+          renderItem={(item) => (
+            <List.Item
+              className="cursor-pointer hover:bg-accent"
+              onClick={() => handleSelect(item)}
+            >
+              {item.name}
+            </List.Item>
+          )}
+        />
+      )}
+    </Modal>
   )
 }

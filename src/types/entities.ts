@@ -5,11 +5,25 @@ export interface KeyValuePair {
 }
 
 // Campaign
+export interface CostOverride {
+  idTrafficSource: string
+  cost: number
+}
+
+export interface PostbackOverride {
+  idTrafficSource: string
+  postbackType: PostbackType
+  postbackCode: string
+}
+
 export interface Campaign {
   idCampaign: string
   campaignName: string
   acculumatedUrlParams: KeyValuePair[]
   customTokens: KeyValuePair[]
+  defaultCostPerEntrance?: number
+  costOverrides?: CostOverride[]
+  postbackOverrides?: PostbackOverride[]
   isArchived: boolean
 }
 
@@ -39,6 +53,7 @@ export interface Funnel {
   idCampaign: string
   funnelName: string
   defaultCostPerEntrance: number
+  notes?: string
   nodes: FunnelNode[]
   connections: FunnelConnection[]
   isArchived: boolean
@@ -88,6 +103,8 @@ export interface Page {
   pageName: string
   url: string
   redirectType: RedirectType
+  categoryId?: string
+  numberOfActions?: number
   tags: string[]
   notes: string
   offerParams?: OfferParams
@@ -125,6 +142,7 @@ export interface OfferSource {
   postbackSubId: string
   postbackTxId: string
   postbackPayout: string
+  notes?: string
   isArchived: boolean
 }
 

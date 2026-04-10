@@ -30,9 +30,10 @@ function CodeEdgeComponent({
       <BaseEdge
         path={edgePath}
         markerEnd={markerEnd}
+        className="stroke-amber-600/55 dark:stroke-amber-400/50"
         style={{
           ...style,
-          strokeWidth: selected ? 2.5 : 1.5,
+          strokeWidth: selected ? 2.75 : 2,
         }}
       />
       <EdgeLabelRenderer>

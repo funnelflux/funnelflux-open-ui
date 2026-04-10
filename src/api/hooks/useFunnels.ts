@@ -19,10 +19,17 @@ export function useFunnels(campaignId?: string) {
   })
 }
 
-export function useFunnel(id: string) {
+export function useFunnel(id: string, options?: { loadDependencies?: boolean }) {
+  const loadDeps = options?.loadDependencies ?? false
   return useQuery({
-    queryKey: queryKeys.funnels.detail(id),
-    queryFn: () => api.get<Funnel>('/data/campaign/funnel/find/byId/', { id }),
+    queryKey: [...queryKeys.funnels.detail(id), loadDeps] as const,
+    queryFn: () => {
+      const params: Record<string, string> = { idFunnel: id }
+      if (loadDeps) {
+        params.loadDependencies = 'true'
+      }
+      return api.get<Funnel>('/data/campaign/funnel/find/byId/', params)
+    },
     enabled: !!id,
   })
 }

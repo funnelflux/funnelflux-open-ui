@@ -8,6 +8,7 @@ export const offerSourceSchema = z.object({
   postbackSubId: z.string(),
   postbackTxId: z.string(),
   postbackPayout: z.string(),
+  notes: z.string().optional(),
   isArchived: z.boolean().optional(),
 })
 

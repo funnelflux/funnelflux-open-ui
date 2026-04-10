@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { type ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef } from "@tanstack/react-table"
 import { ArrowRight } from "lucide-react"
 import { api } from "@/api/client"
-import { DataTable } from "@/components/shared/DataTable"
+import { PageShell, DataTable, TimezoneSelect } from "@/components/ui-kit"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
-import { PageHeader } from "@/components/shared/PageHeader"
-import { TimezoneSelector } from "@/components/shared/TimezoneSelector"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Button, Card } from "antd"
 import { useDrilldownStore } from "@/store/drilldown"
 import { toApiDateTimeRange } from "@/types/stats"
 import type { Report, ReportCell } from "@/types/stats"
@@ -78,9 +75,7 @@ export function QuickViewPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   const loadEntityName = useCallback(async () => {
-    if (!entityId) {
-      return
-    }
+    if (!entityId) return
 
     try {
       const now = new Date()
@@ -106,9 +101,7 @@ export function QuickViewPage() {
   }, [entityGroupBy, entityId, timezone])
 
   const loadReport = useCallback(async () => {
-    if (!entityId) {
-      return
-    }
+    if (!entityId) return
 
     setIsLoading(true)
     try {
@@ -146,21 +139,31 @@ export function QuickViewPage() {
     void loadReport()
   }, [loadReport])
 
-  const columns: ColumnDef<QuickViewRow>[] = useMemo(() => {
-    if (!report) {
-      return []
-    }
-
-    return report.columns.map((column, index) => ({
-      id: `col-${index}`,
-      header: column.name,
-      accessorFn: (row) => row.cells[index]?.formatted ?? "",
-      cell: ({ row }) => (
-        <span className={index === 0 ? "font-medium" : "tabular-nums"}>
-          {row.original.cells[index]?.formatted ?? ""}
-        </span>
-      ),
-    }))
+  const columns = useMemo<ColumnDef<QuickViewRow, unknown>[]>(() => {
+    if (!report) return []
+    return report.columns.map((column, index) => {
+      const base = {
+        id: `col-${index}`,
+        header: column.name,
+        accessorFn: (row: QuickViewRow) => row.cells[index]?.formatted ?? "",
+        enableSorting: false,
+      } as const
+      if (index === 0) {
+        return {
+          ...base,
+          size: 250,
+          meta: { flex: 1 },
+          cell: (info: { getValue: () => unknown }) => (
+            <span className="font-medium">{String(info.getValue())}</span>
+          ),
+        } satisfies ColumnDef<QuickViewRow, unknown>
+      }
+      return {
+        ...base,
+        size: 110,
+        meta: { numeric: true },
+      } satisfies ColumnDef<QuickViewRow, unknown>
+    })
   }, [report])
 
   const rows = useMemo(() => (report ? reportRowsToFlatData(report) : []), [report])
@@ -184,17 +187,15 @@ export function QuickViewPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title={`${entityName} Quick View`}
-        subtitle={`${entityGroupBy} · ${entityId}`}
-      >
-        <Button size="sm" onClick={handleOpenInDrilldown}>
-          <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
+    <PageShell
+      title={`${entityName} Quick View`}
+      subtitle={`${entityGroupBy} · ${entityId}`}
+      actions={
+        <Button type="primary" size="small" onClick={handleOpenInDrilldown} icon={<ArrowRight className="h-3.5 w-3.5" />}>
           Open in Drilldown
         </Button>
-      </PageHeader>
-
+      }
+    >
       <div className="flex items-center gap-3 flex-wrap">
         <DateRangePicker
           value={{ from: dateRange.from, to: dateRange.to, preset: null }}
@@ -205,7 +206,7 @@ export function QuickViewPage() {
             }
           }}
         />
-        <TimezoneSelector value={timezone} onChange={setTimezone} />
+        <TimezoneSelect value={timezone} onChange={setTimezone} />
       </div>
 
       <div className="space-y-3">
@@ -214,9 +215,9 @@ export function QuickViewPage() {
             {group.map((option) => (
               <Button
                 key={option.groupBy}
-                type="button"
-                size="sm"
-                variant={selectedGroupBy === option.groupBy ? "default" : "outline"}
+                htmlType="button"
+                size="small"
+                type={selectedGroupBy === option.groupBy ? "primary" : "default"}
                 onClick={() => setSelectedGroupBy(option.groupBy)}
               >
                 {option.label}
@@ -226,16 +227,15 @@ export function QuickViewPage() {
         ))}
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            getRowId={(row) => row.id}
-          />
-        </CardContent>
+      <Card styles={{ body: { padding: 16 } }}>
+        <DataTable<QuickViewRow>
+          data={rows}
+          columns={columns}
+          loading={isLoading}
+          getRowId={(row) => row.id}
+          noPagination
+        />
       </Card>
-    </div>
+    </PageShell>
   )
 }

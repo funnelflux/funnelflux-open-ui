@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { DollarSign } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import type { FunnelNodeData, OfferNodeParams } from '@/types/funnel'
 import { BaseNode } from './BaseNode'
 
@@ -11,20 +11,14 @@ function OfferNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>)
     <BaseNode
       selected={selected}
       isEntrance={data.isEntrance}
-      className="border-l-2 border-l-orange-500"
-    >
-      <div className="flex items-center gap-2">
-        <DollarSign className="h-4 w-4 shrink-0 text-orange-500" />
-        <div className="min-w-0">
-          <div className="text-sm font-medium">Offer</div>
-          {params.pageName && (
-            <div className="truncate text-xs text-muted-foreground">
-              {params.pageName}
-            </div>
-          )}
-        </div>
-      </div>
-    </BaseNode>
+      card={{
+        accent: 'violet',
+        kind: 'Offer',
+        title: data.label || 'Offer',
+        subtitle: params.pageName || (params.pageId ? `Page ${params.pageId}` : undefined),
+        icon: <Sparkles className="h-5 w-5" />,
+      }}
+    />
   )
 }
 

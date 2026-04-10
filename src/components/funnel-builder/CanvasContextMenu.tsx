@@ -16,11 +16,12 @@ import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { EntityPickerDialog, type EntityPickerDialogProps } from './EntityPickerDialog'
 
 interface CanvasContextMenuProps {
-  position: { x: number; y: number } | null
+  screenPosition: { x: number; y: number } | null
+  flowPosition: { x: number; y: number } | null
   onClose: () => void
 }
 
-export function CanvasContextMenu({ position, onClose }: CanvasContextMenuProps) {
+export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [pickerState, setPickerState] = useState<{
@@ -30,38 +31,38 @@ export function CanvasContextMenu({ position, onClose }: CanvasContextMenuProps)
 
   // Close on outside click
   useEffect(() => {
-    if (!position) return
+    if (!screenPosition) return
     function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (menuRef.current && !menuRef.current.contains(e.target as globalThis.Node)) {
         onClose()
       }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [position, onClose])
+  }, [screenPosition, onClose])
 
   // Close on Escape
   useEffect(() => {
-    if (!position) return
+    if (!screenPosition) return
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [position, onClose])
+  }, [screenPosition, onClose])
 
   // Reset submenu state when menu closes
   useEffect(() => {
-    if (!position) setShowAdvanced(false)
-  }, [position])
+    if (!screenPosition) setShowAdvanced(false)
+  }, [screenPosition])
 
   const addNodeDirect = useCallback(
     (nodeType: NodeTypeValue, label: string) => {
-      if (!position) return
-      useFunnelEditorStore.getState().addNode(nodeType, position, { label })
+      if (!flowPosition) return
+      useFunnelEditorStore.getState().addNode(nodeType, flowPosition, { label })
       onClose()
     },
-    [position, onClose],
+    [flowPosition, onClose],
   )
 
   const openPicker = useCallback(
@@ -73,32 +74,32 @@ export function CanvasContextMenu({ position, onClose }: CanvasContextMenuProps)
 
   const handlePickerSelect = useCallback(
     (entity: { id: string; name: string }) => {
-      if (!position) return
+      if (!flowPosition) return
       const { entityType } = pickerState
       const store = useFunnelEditorStore.getState()
 
       if (entityType === 'lander') {
-        store.addNode(NODE_TYPES.lander, position, {
+        store.addNode(NODE_TYPES.lander, flowPosition, {
           label: entity.name,
           params: { pageId: entity.id, pageName: entity.name },
         })
       } else if (entityType === 'offer') {
-        store.addNode(NODE_TYPES.offer, position, {
+        store.addNode(NODE_TYPES.offer, flowPosition, {
           label: entity.name,
           params: { pageId: entity.id, pageName: entity.name },
         })
       } else if (entityType === 'condition') {
-        store.addNode(NODE_TYPES.condition, position, {
+        store.addNode(NODE_TYPES.condition, flowPosition, {
           label: entity.name,
           params: { conditionId: entity.id, conditionName: entity.name },
         })
       } else if (entityType === 'jsCode') {
-        store.addNode(NODE_TYPES.jsCode, position, {
+        store.addNode(NODE_TYPES.jsCode, flowPosition, {
           label: entity.name,
           params: { snippetId: entity.id, snippetName: entity.name },
         })
       } else if (entityType === 'phpCode') {
-        store.addNode(NODE_TYPES.phpCode, position, {
+        store.addNode(NODE_TYPES.phpCode, flowPosition, {
           label: entity.name,
           params: { snippetId: entity.id, snippetName: entity.name },
         })
@@ -106,17 +107,17 @@ export function CanvasContextMenu({ position, onClose }: CanvasContextMenuProps)
 
       onClose()
     },
-    [position, pickerState, onClose],
+    [flowPosition, pickerState, onClose],
   )
 
-  if (!position) return null
+  if (!screenPosition) return null
 
   return (
     <>
       <div
         ref={menuRef}
         className="fixed z-50 bg-popover border rounded-md shadow-md py-1 min-w-[180px] text-sm"
-        style={{ left: position.x, top: position.y }}
+        style={{ left: screenPosition.x, top: screenPosition.y }}
       >
         <MenuItem
           icon={<FileText className="h-4 w-4" />}

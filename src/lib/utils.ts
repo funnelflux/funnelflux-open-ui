@@ -11,3 +11,9 @@ export function getErrorMessage(err: unknown): string {
   }
   return 'An error occurred'
 }
+
+/** Coerce unknown API payloads to an array (PHP/JSON sometimes yields objects). */
+export function asArray<T>(value: unknown): T[] {
+  if (value == null) return []
+  return Array.isArray(value) ? (value as T[]) : []
+}

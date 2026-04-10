@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Trash2, Pencil, Radio } from 'lucide-react'
+import { Trash2, Pencil, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NODE_TYPES } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
@@ -8,9 +8,18 @@ interface NodeContextMenuProps {
   nodeId: string | null
   position: { x: number; y: number } | null
   onClose: () => void
+  onEditNode?: (nodeId: string) => void
+  /** Legacy “Send Traffic Here” → funnel URL wizard */
+  onSendTrafficHere?: (nodeId: string) => void
 }
 
-export function NodeContextMenu({ nodeId, position, onClose }: NodeContextMenuProps) {
+export function NodeContextMenu({
+  nodeId,
+  position,
+  onClose,
+  onEditNode,
+  onSendTrafficHere,
+}: NodeContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const node = useFunnelEditorStore((s) =>
@@ -51,8 +60,12 @@ export function NodeContextMenu({ nodeId, position, onClose }: NodeContextMenuPr
   }
 
   function handleEditPage() {
-    // TODO: Open edit sheet for page entity
-    console.log('Edit page for node:', nodeId)
+    if (nodeId && onEditNode) onEditNode(nodeId)
+    onClose()
+  }
+
+  function handleSendTrafficHere() {
+    if (nodeId && onSendTrafficHere) onSendTrafficHere(nodeId)
     onClose()
   }
 
@@ -62,9 +75,12 @@ export function NodeContextMenu({ nodeId, position, onClose }: NodeContextMenuPr
       className="fixed z-50 bg-popover border rounded-md shadow-md py-1 min-w-[180px] text-sm"
       style={{ left: position.x, top: position.y }}
     >
-      {isRoot && (
-        <div className="flex items-center gap-2 px-3 py-1.5 text-muted-foreground">
-          <Radio className="h-4 w-4" />
+      {onSendTrafficHere && (
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent"
+          onClick={handleSendTrafficHere}
+        >
+          <Send className="h-4 w-4" />
           <span>Send Traffic Here</span>
         </div>
       )}

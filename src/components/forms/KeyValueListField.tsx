@@ -1,6 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button, Input } from 'antd'
 import type { KeyValuePair } from '@/types/entities'
 
 interface KeyValueListFieldProps {
@@ -58,17 +57,15 @@ export function KeyValueListField({
             className="h-8 text-sm"
           />
           <Button
-            type="button"
-            variant="ghost"
-            size="icon"
+            type="text"
+            htmlType="button"
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
             onClick={() => removeRow(i)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+            icon={<Trash2 className="h-3.5 w-3.5" />}
+          />
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={addRow}>
+      <Button htmlType="button" size="small" className="h-8 text-xs" onClick={addRow}>
         <Plus className="mr-1 h-3.5 w-3.5" />
         Add Row
       </Button>
