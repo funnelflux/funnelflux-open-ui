@@ -3,6 +3,13 @@ import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { Funnel, IdName } from '@/types/entities'
 
+/** Use `create: true` when saving a new funnel that already has a client-generated `idFunnel`. */
+export type SaveFunnelInput = Partial<Funnel> & {
+  create?: boolean
+  canvasWidth?: number
+  canvasHeight?: number
+}
+
 export function useFunnels(campaignId?: string) {
   return useQuery({
     queryKey: queryKeys.funnels.list(campaignId),
@@ -37,11 +44,12 @@ export function useFunnel(id: string, options?: { loadDependencies?: boolean }) 
 export function useSaveFunnel() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (funnel: Partial<Funnel>) => {
-      const isNew = !funnel.idFunnel || funnel.idFunnel === '0'
+    mutationFn: (input: SaveFunnelInput) => {
+      const { create, ...funnel } = input
+      const isNew = create === true || !funnel.idFunnel || funnel.idFunnel === '0'
       return isNew
         ? api.post<Funnel>('/data/campaign/funnel/save/', funnel)
-        : api.put<Funnel>('/data/campaign/funnel/save/', funnel)
+        : api.put<Funnel>('/data/campaign/funnel/save/', funnel, { deleteDependencies: 'true' })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.funnels.all })

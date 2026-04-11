@@ -34,14 +34,16 @@ import {
   useSaveFunnel,
   useDeleteFunnel,
   useCloneFunnel,
+  type SaveCampaignInput,
 } from '@/api/hooks'
 import { CampaignEditForm } from './CampaignEditForm'
+import { AddCampaignOrFunnelModal } from './AddCampaignOrFunnelModal'
 import { api } from '@/api/client'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { Report, ReportCell } from '@/types/stats'
-import type { Campaign, Funnel } from '@/types/entities'
 import type { CampaignFormData } from '@/schemas/campaign'
 import { getErrorMessage } from '@/lib/utils'
+import { generateId } from '@/lib/id-generator'
 
 interface CampaignTreeRow {
   id: string
@@ -116,6 +118,9 @@ export function CampaignsPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; kind: 'campaign' | 'funnel' } | null>(null)
+  const [addCombinedOpen, setAddCombinedOpen] = useState(false)
+  const [funnelPrefillCampaignId, setFunnelPrefillCampaignId] = useState<string | null>(null)
+  const [addModalKey, setAddModalKey] = useState(0)
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 365),
@@ -179,13 +184,30 @@ export function CampaignsPage() {
 
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
-  const handleCreate = () => { setEditId(null); setSheetOpen(true) }
+  const openAddCampaignOrFunnel = (prefillCampaignId?: string | null) => {
+    setFunnelPrefillCampaignId(prefillCampaignId ?? null)
+    setAddModalKey((k) => k + 1)
+    setAddCombinedOpen(true)
+  }
+
+  const handleOpenCampaignFormFromCombined = () => {
+    setEditId(null)
+    setSheetOpen(true)
+  }
+
+  const handleCreate = () => openAddCampaignOrFunnel()
   const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
 
   const handleSubmit = (data: CampaignFormData) => {
-    saveMutation.mutate(data as Partial<Campaign>, {
+    const isNew = !data.idCampaign || data.idCampaign === '0'
+    const payload: SaveCampaignInput = {
+      ...data,
+      idCampaign: isNew ? generateId() : data.idCampaign,
+      create: isNew,
+    }
+    saveMutation.mutate(payload, {
       onSuccess: () => {
-        toast.success(data.idCampaign ? 'Campaign updated' : 'Campaign created')
+        toast.success(isNew ? 'Campaign created' : 'Campaign updated')
         setSheetOpen(false)
         setEditId(null)
         fetchData()
@@ -216,19 +238,59 @@ export function CampaignsPage() {
     })
   }
 
-  const handleAddFunnel = (campaignId: string) => {
+  const handleQuickCreateCampaign = async (name: string) => {
+    const idCampaign = generateId()
+    try {
+      await saveMutation.mutateAsync({
+        create: true,
+        idCampaign,
+        campaignName: name.trim(),
+        acculumatedUrlParams: [],
+        customTokens: [],
+        defaultCostPerEntrance: 0,
+        costOverrides: [],
+        postbackOverrides: [],
+        isArchived: false,
+      } as SaveCampaignInput)
+      toast.success('Campaign created')
+      fetchData()
+      return idCampaign
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+      throw err
+    }
+  }
+
+  const handleCreateFunnelFromModal = ({
+    campaignId,
+    funnelName,
+    openEditor,
+  }: {
+    campaignId: string
+    funnelName: string
+    openEditor: boolean
+  }) => {
+    const idFunnel = generateId()
     saveFunnel.mutate(
       {
+        create: true,
+        idFunnel,
         idCampaign: campaignId,
-        funnelName: 'New Funnel',
+        funnelName,
         defaultCostPerEntrance: 0,
+        canvasWidth: 2000,
+        canvasHeight: 1500,
         nodes: [],
         connections: [],
-      } as Partial<Funnel>,
+      },
       {
-        onSuccess: (funnel) => {
+        onSuccess: () => {
           toast.success('Funnel created')
-          navigate(`/campaigns/${campaignId}/funnels/${funnel.idFunnel}`)
+          setAddCombinedOpen(false)
+          fetchData()
+          if (openEditor) {
+            navigate(`/campaigns/${campaignId}/funnels/${idFunnel}`)
+          }
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
@@ -276,7 +338,7 @@ export function CampaignsPage() {
       else if (row.funnelId) handleCloneFunnel(row.funnelId)
     }),
     addFunnelBtnColumn<CampaignTreeRow>(
-      (row) => handleAddFunnel(row.campaignId),
+      (row) => openAddCampaignOrFunnel(row.campaignId),
       { hidden: (row) => row.kind !== 'campaign' },
     ),
     moveBtnColumn<CampaignTreeRow>(
@@ -298,7 +360,11 @@ export function CampaignsPage() {
   return (
     <PageShell
       title="Campaigns"
-      actions={<Button type="primary" onClick={handleCreate}>Add Campaign</Button>}
+      actions={
+        <Button type="primary" className="bg-orange-600 hover:bg-orange-600/90" onClick={handleCreate}>
+          Add funnel or campaign
+        </Button>
+      }
       fillHeight
     >
       <SearchToolbar
@@ -362,6 +428,18 @@ export function CampaignsPage() {
           setRowSelection({})
           fetchData()
         }}
+      />
+
+      <AddCampaignOrFunnelModal
+        key={addModalKey}
+        open={addCombinedOpen}
+        onClose={() => setAddCombinedOpen(false)}
+        initialCampaignId={funnelPrefillCampaignId}
+        onOpenCampaignForm={handleOpenCampaignFormFromCombined}
+        onCreateFunnel={handleCreateFunnelFromModal}
+        onQuickCreateCampaign={handleQuickCreateCampaign}
+        funnelCreatePending={saveFunnel.isPending}
+        campaignQuickCreatePending={saveMutation.isPending}
       />
 
       <CampaignEditForm

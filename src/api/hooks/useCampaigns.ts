@@ -3,6 +3,9 @@ import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { Campaign, IdName } from '@/types/entities'
 
+/** Use `create: true` when saving a new campaign that already has a client-generated `idCampaign`. */
+export type SaveCampaignInput = Partial<Campaign> & { create?: boolean }
+
 export function useCampaigns(status?: 'active' | 'archived' | 'all') {
   const params = status && status !== 'all' ? { status } : undefined
   return useQuery({
@@ -41,8 +44,9 @@ export function useCampaign(id: string) {
 export function useSaveCampaign() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (campaign: Partial<Campaign>) => {
-      const isNew = !campaign.idCampaign || campaign.idCampaign === '0'
+    mutationFn: (input: SaveCampaignInput) => {
+      const { create, ...campaign } = input
+      const isNew = create === true || !campaign.idCampaign || campaign.idCampaign === '0'
       return isNew
         ? api.post<Campaign>('/data/campaign/save/', campaign)
         : api.put<Campaign>('/data/campaign/save/', campaign)

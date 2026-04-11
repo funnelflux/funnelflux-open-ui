@@ -14,6 +14,7 @@ import { Button } from 'antd'
 import { useAuthStore } from '@/store/auth'
 import { ArrowLeft, BarChart3, Loader2, Save, Settings } from 'lucide-react'
 import { buildV2SavePayload, extractPersistExtras, type FunnelPersistExtras } from '@/lib/funnelApiV2'
+import { generateId } from '@/lib/id-generator'
 
 export function FunnelEditorPage() {
   const { campaignId, funnelId } = useParams<{ campaignId: string; funnelId: string }>()
@@ -45,7 +46,7 @@ export function FunnelEditorPage() {
     if (isNew) {
       reset()
       if (campaignId) {
-        updateMeta({ idCampaign: campaignId })
+        updateMeta({ idCampaign: campaignId, idFunnel: generateId() })
       }
     } else if (funnel) {
       persistExtrasRef.current = extractPersistExtras(funnel)
@@ -68,12 +69,12 @@ export function FunnelEditorPage() {
     setIsSaving(true)
     try {
       if (isNew) {
-        const created = await api.post<{ idFunnel: string }>('/data/campaign/funnel/save/', body)
+        await api.post('/data/campaign/funnel/save/', body)
         markClean()
         await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all })
         toast.success('Funnel saved successfully')
         setSettingsOpen(false)
-        navigate(`/campaigns/${campaignId}/funnels/${created.idFunnel}`, { replace: true })
+        navigate(`/campaigns/${campaignId}/funnels/${String(body.idFunnel)}`, { replace: true })
       } else {
         await api.put('/data/campaign/funnel/save/', body, { deleteDependencies: 'true' })
         markClean()
