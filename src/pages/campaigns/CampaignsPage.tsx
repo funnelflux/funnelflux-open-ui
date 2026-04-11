@@ -13,14 +13,6 @@ import {
 } from '@/components/ui-kit'
 import {
   nameColumn,
-  visitsColumn,
-  clicksColumn,
-  ctrColumn,
-  convColumn,
-  revenueColumn,
-  costColumn,
-  plColumn,
-  roiColumn,
   idColumn,
   selectionColumn,
   editBtnColumn,
@@ -28,6 +20,7 @@ import {
   deleteBtnColumn,
   addFunnelBtnColumn,
   moveBtnColumn,
+  buildColumnsFromReport,
 } from '@/components/ui-kit/data-table'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
@@ -264,22 +257,12 @@ export function CampaignsPage() {
     }
   }
 
-  const colMap = useMemo(() => {
-    const m = new Map<string, number>()
-    columns.forEach((c, i) => m.set(c.name, i))
-    return m
-  }, [columns])
-
-  const iVisits = colMap.get('Entrances') ?? 1
-  const iClicks = colMap.get('Lander Clicks') ?? 6
-  const iCTR = colMap.get('Lander CTR') ?? 7
-  const iConv = colMap.get('Conv.') ?? 17
-  const iRevenue = colMap.get('Revenue') ?? 28
-  const iCost = colMap.get('Cost') ?? 31
-  const iPL = colMap.get('P/L') ?? 32
-  const iROI = colMap.get('ROI') ?? 33
-
   const getSubRows = useCallback((row: CampaignTreeRow) => row._children, [])
+
+  const statCols = useMemo(
+    () => buildColumnsFromReport<CampaignTreeRow>(columns),
+    [columns],
+  )
 
   const columnDefs = useMemo<ColumnDef<CampaignTreeRow, unknown>[]>(() => [
     selectionColumn<CampaignTreeRow>(),
@@ -308,16 +291,9 @@ export function CampaignsPage() {
       ...idColumn<CampaignTreeRow>(),
       accessorFn: (row) => row.kind === 'campaign' ? row.campaignId : row.funnelId,
     },
-    visitsColumn<CampaignTreeRow>(iVisits),
-    clicksColumn<CampaignTreeRow>(iClicks),
-    ctrColumn<CampaignTreeRow>(iCTR),
-    convColumn<CampaignTreeRow>(iConv),
-    revenueColumn<CampaignTreeRow>(iRevenue),
-    costColumn<CampaignTreeRow>(iCost),
-    plColumn<CampaignTreeRow>(iPL),
-    roiColumn<CampaignTreeRow>(iROI),
+    ...statCols,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI, navigate])
+  ], [statCols, navigate])
 
   return (
     <PageShell

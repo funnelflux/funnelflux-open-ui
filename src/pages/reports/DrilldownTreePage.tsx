@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from "react"
 import type { ColumnDef, SortingState, ExpandedState, Table } from "@tanstack/react-table"
 import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
+import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
 import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
 import { api } from "@/api/client"
@@ -148,17 +149,16 @@ export function DrilldownTreePage() {
 
   const columnDefs: ColumnDef<TreeRowData, unknown>[] = useMemo(() => {
     if (!report) return []
-    return report.columns.map((col, colIndex) => ({
-      id: `col-${colIndex}`,
-      header: col.name,
-      accessorFn: (row: TreeRowData) => row.cells[colIndex]?.formatted ?? "",
-      enableSorting: colIndex > 0,
-      size: colIndex === 0 ? 300 : 110,
-      meta: colIndex === 0 ? { flex: 1 } : { numeric: true },
-      cell: colIndex === 0
-        ? (info: { getValue: () => unknown }) => <span className="font-medium">{String(info.getValue())}</span>
-        : undefined,
-    }))
+    const groupingCol: ColumnDef<TreeRowData, unknown> = {
+      id: 'name',
+      header: report.columns[0]?.name ?? 'Name',
+      accessorFn: (row: TreeRowData) => row.cells[0]?.formatted ?? '',
+      enableSorting: true,
+      size: 300,
+      meta: { flex: 1 },
+      cell: (info: { getValue: () => unknown }) => <span className="font-medium">{String(info.getValue())}</span>,
+    }
+    return [groupingCol, ...buildColumnsFromReport<TreeRowData>(report.columns)]
   }, [report])
 
   const pinnedBottomRows = useMemo(() => {

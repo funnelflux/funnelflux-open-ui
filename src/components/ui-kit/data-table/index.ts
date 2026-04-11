@@ -34,5 +34,10 @@ export {
   resetStatsBtnColumn,
   enableBtnColumn,
   disableBtnColumn,
+  registryStatColumn,
+  getColumnMeta,
+  getDefaultVisibleIds,
+  buildColumnsFromReport,
+  ALL_COLUMN_GROUPS,
 } from './columnDefs'
-export type { ColumnAlign } from './columnDefs'
+export type { ColumnAlign, ColumnGroupDef, ColumnMeta } from './columnDefs'

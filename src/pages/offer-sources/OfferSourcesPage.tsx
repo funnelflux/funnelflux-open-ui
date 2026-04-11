@@ -16,18 +16,11 @@ import {
 } from '@/components/ui-kit'
 import {
   nameColumn,
-  visitsColumn,
-  clicksColumn,
-  ctrColumn,
-  convColumn,
-  revenueColumn,
-  costColumn,
-  plColumn,
-  roiColumn,
   idColumn,
   selectionColumn,
   editBtnColumn,
   deleteBtnColumn,
+  buildColumnsFromReport,
 } from '@/components/ui-kit/data-table'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
@@ -234,12 +227,6 @@ export function OfferSourcesPage() {
     metaIdKey: 'idOfferSource',
   })
 
-  const colMap = useMemo(() => {
-    const m = new Map<string, number>()
-    columns.forEach((c, i) => m.set(c.name, i))
-    return m
-  }, [columns])
-
   const filtered = useMemo((): OfferSourceGridRow[] => {
     const searchText = search.toLowerCase()
     return rows.filter((row) => {
@@ -287,14 +274,10 @@ export function OfferSourcesPage() {
     })
   }
 
-  const iVisits = colMap.get('Entrances') ?? 1
-  const iClicks = colMap.get('Lander Clicks') ?? 6
-  const iCTR = colMap.get('Lander CTR') ?? 7
-  const iConv = colMap.get('Conv.') ?? 17
-  const iRevenue = colMap.get('Revenue') ?? 28
-  const iCost = colMap.get('Cost') ?? 31
-  const iPL = colMap.get('P/L') ?? 32
-  const iROI = colMap.get('ROI') ?? 33
+  const statCols = useMemo(
+    () => buildColumnsFromReport<OfferSourceGridRow>(columns),
+    [columns],
+  )
 
   const columnDefs = useMemo<ColumnDef<OfferSourceGridRow, unknown>[]>(() => [
     selectionColumn<OfferSourceGridRow>(),
@@ -302,15 +285,8 @@ export function OfferSourcesPage() {
     editBtnColumn<OfferSourceGridRow>((row) => { setEditId(row.id); setSheetOpen(true) }),
     deleteBtnColumn<OfferSourceGridRow>((row) => setDeleteId(row.id)),
     idColumn<OfferSourceGridRow>(),
-    visitsColumn<OfferSourceGridRow>(iVisits),
-    clicksColumn<OfferSourceGridRow>(iClicks),
-    ctrColumn<OfferSourceGridRow>(iCTR),
-    convColumn<OfferSourceGridRow>(iConv),
-    revenueColumn<OfferSourceGridRow>(iRevenue),
-    costColumn<OfferSourceGridRow>(iCost),
-    plColumn<OfferSourceGridRow>(iPL),
-    roiColumn<OfferSourceGridRow>(iROI),
-  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
+    ...statCols,
+  ], [statCols])
 
   return (
     <PageShell

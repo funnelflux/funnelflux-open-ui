@@ -12,19 +12,12 @@ import {
 } from '@/components/ui-kit'
 import {
   nameColumn,
-  visitsColumn,
-  clicksColumn,
-  ctrColumn,
-  convColumn,
-  revenueColumn,
-  costColumn,
-  plColumn,
-  roiColumn,
   idColumn,
   selectionColumn,
   editBtnColumn,
   cloneBtnColumn,
   deleteBtnColumn,
+  buildColumnsFromReport,
 } from '@/components/ui-kit/data-table'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
@@ -89,12 +82,6 @@ export function TrafficSourcesPage() {
     metaIdKey: 'idTrafficSource',
   })
 
-  const colMap = useMemo(() => {
-    const m = new Map<string, number>()
-    columns.forEach((c, i) => m.set(c.name, i))
-    return m
-  }, [columns])
-
   const filtered = useMemo(() => {
     const searchText = search.toLowerCase()
     return rows.filter((row) => {
@@ -138,16 +125,12 @@ export function TrafficSourcesPage() {
     })
   }
 
-  const iVisits = colMap.get('Entrances') ?? 1
-  const iClicks = colMap.get('Lander Clicks') ?? 6
-  const iCTR = colMap.get('Lander CTR') ?? 7
-  const iConv = colMap.get('Conv.') ?? 17
-  const iRevenue = colMap.get('Revenue') ?? 28
-  const iCost = colMap.get('Cost') ?? 31
-  const iPL = colMap.get('P/L') ?? 32
-  const iROI = colMap.get('ROI') ?? 33
-
   const isDefaultSource = (row: TrafficSourceGridRow) => row.id === '1'
+
+  const statCols = useMemo(
+    () => buildColumnsFromReport<TrafficSourceGridRow>(columns),
+    [columns],
+  )
 
   const columnDefs = useMemo<ColumnDef<TrafficSourceGridRow, unknown>[]>(() => [
     selectionColumn<TrafficSourceGridRow>(),
@@ -156,16 +139,9 @@ export function TrafficSourcesPage() {
     cloneBtnColumn<TrafficSourceGridRow>((row) => handleClone(row.id), { hidden: isDefaultSource }),
     deleteBtnColumn<TrafficSourceGridRow>((row) => setDeleteId(row.id), { hidden: isDefaultSource }),
     idColumn<TrafficSourceGridRow>(),
-    visitsColumn<TrafficSourceGridRow>(iVisits),
-    clicksColumn<TrafficSourceGridRow>(iClicks),
-    ctrColumn<TrafficSourceGridRow>(iCTR),
-    convColumn<TrafficSourceGridRow>(iConv),
-    revenueColumn<TrafficSourceGridRow>(iRevenue),
-    costColumn<TrafficSourceGridRow>(iCost),
-    plColumn<TrafficSourceGridRow>(iPL),
-    roiColumn<TrafficSourceGridRow>(iROI),
+    ...statCols,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
+  ], [statCols])
 
   return (
     <PageShell

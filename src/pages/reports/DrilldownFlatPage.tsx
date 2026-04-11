@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from "react"
 import type { ColumnDef, SortingState, Table } from "@tanstack/react-table"
 import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
+import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
 import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
@@ -83,17 +84,16 @@ export function DrilldownFlatPage() {
 
   const columnDefs: ColumnDef<FlatRowData, unknown>[] = useMemo(() => {
     if (!report) return []
-    return report.columns.map((col, colIndex) => ({
-      id: `col-${colIndex}`,
-      header: col.name,
-      accessorFn: (row: FlatRowData) => row.cells[colIndex]?.formatted ?? "",
-      enableSorting: colIndex > 0,
-      size: colIndex === 0 ? 250 : 110,
-      meta: colIndex === 0 ? { flex: 1 } : { numeric: true },
-      cell: colIndex === 0
-        ? (info: { getValue: () => unknown }) => <span className="font-medium">{String(info.getValue())}</span>
-        : undefined,
-    }))
+    const groupingCol: ColumnDef<FlatRowData, unknown> = {
+      id: 'name',
+      header: report.columns[0]?.name ?? 'Name',
+      accessorFn: (row: FlatRowData) => row.cells[0]?.formatted ?? '',
+      enableSorting: true,
+      size: 250,
+      meta: { flex: 1 },
+      cell: (info: { getValue: () => unknown }) => <span className="font-medium">{String(info.getValue())}</span>,
+    }
+    return [groupingCol, ...buildColumnsFromReport<FlatRowData>(report.columns)]
   }, [report])
 
   const pinnedBottomRows = useMemo(() => {

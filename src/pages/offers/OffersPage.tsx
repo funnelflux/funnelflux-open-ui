@@ -13,20 +13,13 @@ import {
 } from '@/components/ui-kit'
 import {
   nameColumn,
-  visitsColumn,
-  clicksColumn,
-  ctrColumn,
-  convColumn,
-  revenueColumn,
-  costColumn,
-  plColumn,
-  roiColumn,
   idColumn,
   selectionColumn,
   editBtnColumn,
   cloneBtnColumn,
   archiveBtnColumn,
   deleteBtnColumn,
+  buildColumnsFromReport,
 } from '@/components/ui-kit/data-table'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
@@ -91,12 +84,6 @@ export function OffersPage() {
     metaParams: META_PARAMS,
     metaIdKey: 'idPage',
   })
-
-  const colMap = useMemo(() => {
-    const m = new Map<string, number>()
-    columns.forEach((c, i) => m.set(c.name, i))
-    return m
-  }, [columns])
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -195,14 +182,10 @@ export function OffersPage() {
     reload()
   }
 
-  const iVisits = colMap.get('Entrances') ?? 1
-  const iClicks = colMap.get('Offer Clicks') ?? 6
-  const iCTR = colMap.get('Offer CTR') ?? 7
-  const iConv = colMap.get('Conv.') ?? 17
-  const iRevenue = colMap.get('Revenue') ?? 28
-  const iCost = colMap.get('Cost') ?? 31
-  const iPL = colMap.get('P/L') ?? 32
-  const iROI = colMap.get('ROI') ?? 33
+  const statCols = useMemo(
+    () => buildColumnsFromReport<OfferGridRow>(columns),
+    [columns],
+  )
 
   const columnDefs = useMemo<ColumnDef<OfferGridRow, unknown>[]>(() => [
     selectionColumn<OfferGridRow>(),
@@ -219,16 +202,8 @@ export function OffersPage() {
     archiveBtnColumn<OfferGridRow>((row) => handleArchive(row.id, true), { hidden: (row) => !!row._isCategoryHeader }),
     deleteBtnColumn<OfferGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader }),
     idColumn<OfferGridRow>(),
-    visitsColumn<OfferGridRow>(iVisits),
-    clicksColumn<OfferGridRow>(iClicks, { headerName: 'Clicks' }),
-    ctrColumn<OfferGridRow>(iCTR, { headerName: 'Offer CTR' }),
-    convColumn<OfferGridRow>(iConv),
-    revenueColumn<OfferGridRow>(iRevenue),
-    costColumn<OfferGridRow>(iCost),
-    plColumn<OfferGridRow>(iPL),
-    roiColumn<OfferGridRow>(iROI),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
+    ...statCols,
+  ], [statCols])
 
   return (
     <PageShell

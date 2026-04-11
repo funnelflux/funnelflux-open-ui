@@ -13,20 +13,13 @@ import {
 } from '@/components/ui-kit'
 import {
   nameColumn,
-  visitsColumn,
-  clicksColumn,
-  ctrColumn,
-  convColumn,
-  revenueColumn,
-  costColumn,
-  plColumn,
-  roiColumn,
   idColumn,
   selectionColumn,
   editBtnColumn,
   cloneBtnColumn,
   archiveBtnColumn,
   deleteBtnColumn,
+  buildColumnsFromReport,
 } from '@/components/ui-kit/data-table'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
@@ -92,12 +85,6 @@ export function LandersPage() {
     metaParams: META_PARAMS,
     metaIdKey: 'idPage',
   })
-
-  const colMap = useMemo(() => {
-    const m = new Map<string, number>()
-    columns.forEach((c, i) => m.set(c.name, i))
-    return m
-  }, [columns])
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -193,14 +180,10 @@ export function LandersPage() {
     reload()
   }
 
-  const iVisits = colMap.get('Entrances') ?? 1
-  const iClicks = colMap.get('Lander Clicks') ?? 6
-  const iCTR = colMap.get('Lander CTR') ?? 7
-  const iConv = colMap.get('Conv.') ?? 17
-  const iRevenue = colMap.get('Revenue') ?? 28
-  const iCost = colMap.get('Cost') ?? 31
-  const iPL = colMap.get('P/L') ?? 32
-  const iROI = colMap.get('ROI') ?? 33
+  const statCols = useMemo(
+    () => buildColumnsFromReport<LanderGridRow>(columns),
+    [columns],
+  )
 
   const columnDefs = useMemo<ColumnDef<LanderGridRow, unknown>[]>(() => [
     selectionColumn<LanderGridRow>(),
@@ -217,16 +200,8 @@ export function LandersPage() {
     archiveBtnColumn<LanderGridRow>((row) => handleArchive(row.id, true), { hidden: (row) => !!row._isCategoryHeader }),
     deleteBtnColumn<LanderGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader }),
     idColumn<LanderGridRow>(),
-    visitsColumn<LanderGridRow>(iVisits),
-    clicksColumn<LanderGridRow>(iClicks),
-    ctrColumn<LanderGridRow>(iCTR, { headerName: 'Lander CTR' }),
-    convColumn<LanderGridRow>(iConv),
-    revenueColumn<LanderGridRow>(iRevenue),
-    costColumn<LanderGridRow>(iCost),
-    plColumn<LanderGridRow>(iPL),
-    roiColumn<LanderGridRow>(iROI),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [iVisits, iClicks, iCTR, iConv, iRevenue, iCost, iPL, iROI])
+    ...statCols,
+  ], [statCols])
 
   return (
     <PageShell
