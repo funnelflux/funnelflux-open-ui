@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import { Upload } from 'lucide-react'
-import { Button } from 'antd'
+import { Button } from '@/components/ui-kit'
 import {
   ConfirmModal,
   TimezoneSelect,

@@ -1,8 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Plus, Loader2 } from 'lucide-react'
-import { Button, Input, Modal } from 'antd'
-import { PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Button, Input, Modal, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn, entityRowId } from '@/components/ui-kit/data-table'
 import {
   useStoredLinks,

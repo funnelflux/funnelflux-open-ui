@@ -1,8 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Plus } from 'lucide-react'
-import { Button, Switch } from 'antd'
-import { PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Button, Switch, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import {
   useTrafficFilters,

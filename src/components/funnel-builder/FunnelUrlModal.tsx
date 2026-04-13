@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Copy, Loader2, Plus } from 'lucide-react'
-import { Button, Input, Modal } from 'antd'
-import { SmartSelect, useToastApi, type SmartSelectOption } from '@/components/ui-kit'
+import { Button, Input, Modal, SmartSelect, useToastApi, type SmartSelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
   useFunnel,

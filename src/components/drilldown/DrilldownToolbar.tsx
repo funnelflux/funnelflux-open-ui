@@ -1,8 +1,7 @@
 import { useState, useCallback, useEffect } from "react"
 import { Download, Loader2, Play, Save, Trash2 } from "lucide-react"
-import { Button, Select } from "antd"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
-import { TimezoneSelect, useToastApi } from "@/components/ui-kit"
+import { Button, Select, TimezoneSelect, useToastApi } from "@/components/ui-kit"
 import { GroupingsCascade } from "@/components/drilldown/GroupingsCascade"
 import { useDrilldownStore } from "@/store/drilldown"
 import {

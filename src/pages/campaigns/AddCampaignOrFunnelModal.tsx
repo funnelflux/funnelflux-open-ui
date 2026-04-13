@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Button, Input, Modal, Segmented, Select, Space } from 'antd'
+import { Segmented, Space } from 'antd'
 import { Plus } from 'lucide-react'
-import { FormField, useToastApi } from '@/components/ui-kit'
+import { Button, Input, Select, FormField, Modal, useToastApi } from '@/components/ui-kit'
 import { useCampaignsList } from '@/api/hooks'
 
 export type AddCampaignOrFunnelMode = 'funnel' | 'campaign'

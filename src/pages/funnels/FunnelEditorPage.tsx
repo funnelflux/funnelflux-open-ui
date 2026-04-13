@@ -10,7 +10,7 @@ import { FunnelSettingsModal } from '@/components/funnel-builder/FunnelSettingsM
 import { FunnelQuickStatsModal } from '@/components/funnel-builder/FunnelQuickStatsModal'
 import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
 import { useToastApi } from '@/components/ui-kit'
-import { Button } from 'antd'
+import { Button } from '@/components/ui-kit'
 import { useAuthStore } from '@/store/auth'
 import { ArrowLeft, BarChart3, Loader2, Save, Settings } from 'lucide-react'
 import { buildV2SavePayload, extractPersistExtras, type FunnelPersistExtras } from '@/lib/funnelApiV2'

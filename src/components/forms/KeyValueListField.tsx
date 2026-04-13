@@ -1,5 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react'
-import { Button, Input } from 'antd'
+import { Button, Input } from '@/components/ui-kit'
 import type { KeyValuePair } from '@/types/entities'
 
 interface KeyValueListFieldProps {

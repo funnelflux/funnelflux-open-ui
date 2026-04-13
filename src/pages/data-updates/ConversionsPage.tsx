@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { Button, Input } from 'antd'
-import { PageShell, useToastApi } from '@/components/ui-kit'
+import { Button, Input, PageShell, useToastApi } from '@/components/ui-kit'
 import { api } from '@/api/client'
 import { getErrorMessage } from '@/lib/utils'
 

@@ -1,6 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { Input, Select } from 'antd'
+import { Input, Select } from '@/components/ui-kit'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { useCampaignsList } from '@/api/hooks'
 import { FunnelAdvancedSettings } from '@/components/funnel-builder/FunnelAdvancedSettings'

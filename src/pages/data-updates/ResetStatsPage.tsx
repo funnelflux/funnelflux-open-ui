@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Loader2, AlertTriangle } from 'lucide-react'
-import { Button, Input } from 'antd'
-import { PageShell, ConfirmModal, SmartSelect, useToastApi } from '@/components/ui-kit'
+import { Button, Input, PageShell, ConfirmModal, SmartSelect, useToastApi } from '@/components/ui-kit'
 import type { SmartSelectOption } from '@/components/ui-kit'
 import { useCampaignsList, useTrafficSources } from '@/api/hooks'
 import { api } from '@/api/client'

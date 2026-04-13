@@ -1,5 +1,5 @@
 import { useContext, useMemo } from 'react'
-import { HeatmapContext } from './HeatmapOverlay'
+import { HeatmapContext } from './HeatmapContext'
 import { cn } from '@/lib/utils'
 
 // ── Formatting ─────────────────────────────────────────────────────────────

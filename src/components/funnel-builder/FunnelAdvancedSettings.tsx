@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import { Button, Input, Select } from 'antd'
+import { Button, Input, Select } from '@/components/ui-kit'
 import type { FunnelKeyValuePair, FunnelPostbackOverrideRow } from '@/types/funnel'
 import { cn } from '@/lib/utils'
 

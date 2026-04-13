@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { useCampaignsList } from '@/api/hooks'
-import { Input } from 'antd'
-import { FormField, SmartSelect } from '@/components/ui-kit'
+import { FormField, Input, SmartSelect } from '@/components/ui-kit'
 import type { SmartSelectOption } from '@/components/ui-kit'
 
 interface FunnelTopFormProps {

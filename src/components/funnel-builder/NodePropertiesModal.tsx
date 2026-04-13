@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Modal, Input, Form } from 'antd'
+import { Form } from 'antd'
+import { Input, Modal } from '@/components/ui-kit'
 import { NODE_TYPES, type FunnelFlowNode, type LanderNodeParams, type OfferNodeParams } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { LanderNodeEditModal } from './LanderNodeEditModal'

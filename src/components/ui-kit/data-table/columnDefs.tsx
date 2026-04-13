@@ -2,7 +2,8 @@ import type { ColumnDef, CellContext } from '@tanstack/react-table'
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Pencil, Copy, Trash2, Archive, Plus, Workflow, RotateCcw, UserCheck, UserX } from 'lucide-react'
-import { Tooltip, Button } from 'antd'
+import { Tooltip } from 'antd'
+import { Button } from '../Button'
 import type { ReportCell } from '@/types/stats'
 
 // ---------- Cell helpers ----------

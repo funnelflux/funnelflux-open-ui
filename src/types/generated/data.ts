@@ -20,6 +20,17 @@ export interface OfferSource {
   isArchived?: boolean;
 }
 
+export interface OfferSourceSaveRequest {
+  idOfferSource?: string;
+  offerSourceName: string;
+  subId?: string;
+  querySeparator?: string;
+  postbackSubId?: string;
+  postbackTxId?: string;
+  postbackPayout?: string;
+  isArchived?: boolean;
+}
+
 export interface TrafficSource {
   idTrafficSource: string;
   trafficSourceName: string;

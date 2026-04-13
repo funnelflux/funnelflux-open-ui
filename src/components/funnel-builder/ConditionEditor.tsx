@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import { Button, Input, Drawer, Tag } from 'antd'
+import { Drawer, Tag } from 'antd'
+import { Button, Input } from '@/components/ui-kit'
 import type { Condition, ConditionBlock as ConditionBlockType } from '@/types/funnel'
 import { conditionSchema } from '@/schemas/condition'
 import { ConditionBlock } from './ConditionBlock'

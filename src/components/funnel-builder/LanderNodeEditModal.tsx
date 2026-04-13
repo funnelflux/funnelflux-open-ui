@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button, Input, Modal, Select, Switch } from 'antd'
 import { ExternalLink, Loader2, Plus, Trash2 } from 'lucide-react'
-import { useToastApi, SmartSelect, type SmartSelectOption } from '@/components/ui-kit'
+import {
+  Button,
+  Input,
+  Select,
+  Switch,
+  Modal,
+  useToastApi,
+  SmartSelect,
+  type SmartSelectOption,
+} from '@/components/ui-kit'
 import { useCategories, usePage, useSaveCategory, useSavePage } from '@/api/hooks'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/api/queryKeys'

@@ -28,6 +28,7 @@ export type {
   TrafficSource,
   Postback,
   OfferSource,
+  OfferSourceSaveRequest,
   TrafficFilter,
   KeyValuePair,
   KeyValuePairTreeItem,

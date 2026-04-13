@@ -1,4 +1,4 @@
-import { Button, Modal } from 'antd'
+import { Button, Modal } from '@/components/ui-kit'
 import { FunnelSettingsPanel } from '@/components/funnel-builder/FunnelSettingsPanel'
 
 interface FunnelSettingsModalProps {
@@ -22,7 +22,7 @@ export function FunnelSettingsModal({
     <Modal
       open={open}
       onCancel={onClose}
-      destroyOnClose
+      destroyOnHidden
       maskClosable={!isSaving}
       width="min(1200px, 96vw)"
       zIndex={1100}

@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
+import type { OfferSourceTemplateLoadResponse } from '@/api/offerSourceTemplateLoad'
 import { normalizeTemplateList } from '@/api/normalizeTemplateList'
 import { queryKeys } from '@/api/queryKeys'
 import type { OfferSource } from '@/types/entities'
+import type { OfferSourceFormData } from '@/schemas/offerSource'
 
 export function useOfferSources(status?: string) {
   const params: Record<string, string> = {}
@@ -27,26 +29,26 @@ export function useOfferSource(id: string) {
 }
 
 export function useSaveOfferSource() {
-  const qc = useQueryClient()
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (os: Partial<OfferSource>) => {
-      const isNew = !os.idOfferSource || os.idOfferSource === '0'
+    mutationFn: (offerSource: OfferSourceFormData) => {
+      const isNew = !offerSource.idOfferSource || offerSource.idOfferSource === '0'
       return isNew
-        ? api.post<OfferSource>('/data/offersource/save/', os)
-        : api.put<OfferSource>('/data/offersource/save/', os)
+        ? api.post<OfferSource>('/data/offersource/save/', offerSource)
+        : api.put<OfferSource>('/data/offersource/save/', offerSource)
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
     },
   })
 }
 
 export function useDeleteOfferSource() {
-  const qc = useQueryClient()
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete('/data/offersource/delete/', { id }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
     },
   })
 }
@@ -65,6 +67,6 @@ export function useOfferSourceTemplates(enabled = true) {
 export function useLoadOfferSourceTemplate() {
   return useMutation({
     mutationFn: (id: string) =>
-      api.get<OfferSource>('/data/offersource/template/load/', { name: id }),
+      api.get<OfferSourceTemplateLoadResponse>('/data/offersource/template/load/', { name: id }),
   })
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Loader2, Upload } from 'lucide-react'
-import { Button, Input, Modal, Select } from 'antd'
+import { Button, Input, Modal, Select } from '@/components/ui-kit'
 
 interface CsvImportDialogProps {
   open: boolean

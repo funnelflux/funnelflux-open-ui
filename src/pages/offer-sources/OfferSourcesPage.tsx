@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
-import { Button } from 'antd'
+import { Button } from '@/components/ui-kit'
 import {
   PageShell,
   SearchToolbar,
@@ -31,7 +31,6 @@ import {
 import { useOfferSourceGridStore, buildMergedRows, buildTotalsRow, type EntityGridRow } from '@/store/entityGrid'
 import { OfferSourceForm } from '@/components/forms/OfferSourceForm'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
-import type { OfferSource } from '@/types/entities'
 import { getErrorMessage } from '@/lib/utils'
 
 type OfferSourceGridRow = EntityGridRow & Record<string, unknown>
@@ -112,7 +111,7 @@ export function OfferSourcesPage() {
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
 
   const handleSubmit = (data: OfferSourceFormData) => {
-    saveMutation.mutate(data as unknown as Partial<OfferSource>, {
+    saveMutation.mutate(data, {
       onSuccess: () => {
         toast.success(editId ? 'Offer source updated' : 'Offer source created')
         setSheetOpen(false)

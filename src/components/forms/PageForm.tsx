@@ -3,8 +3,18 @@ import { useForm, Controller } from 'react-hook-form'
 import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Plus } from 'lucide-react'
-import { Button, Input, InputNumber, Select, Switch, Collapse, Modal } from 'antd'
-import { FormField, SmartSelect, useToastApi } from '@/components/ui-kit'
+import {
+  Button,
+  Input,
+  InputNumber,
+  Select,
+  Switch,
+  Collapse,
+  FormField,
+  SmartSelect,
+  useToastApi,
+  Modal,
+} from '@/components/ui-kit'
 import type { SmartSelectOption } from '@/components/ui-kit'
 import { KeyValueListField } from '@/components/forms/KeyValueListField'
 import { useOfferSources, useCategories, useSaveCategory } from '@/api/hooks'
@@ -165,11 +175,9 @@ export function PageForm({
   }
 
   return (
-    <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? `Edit ${entityLabel}` : `New ${entityLabel}`} footer={null} width={640} destroyOnHidden>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-5 pt-4"
-      >
+    <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? `Edit ${entityLabel}` : `New ${entityLabel}`} footer={null} width={640} destroyOnHidden scrollBody>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-4 space-y-5">
         {initialData?.idPage && (
           <FormField label="ID">
             <Input value={initialData.idPage} disabled className="font-mono text-xs" />
@@ -479,7 +487,8 @@ export function PageForm({
           />
         )}
 
-        <div className="flex gap-2 pt-4">
+        </div>
+        <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex gap-2">
           <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {initialData ? 'Save' : 'Create'}

@@ -5,7 +5,8 @@ import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks
 import { PageShell, DataTable, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
-import { Button, Tag } from 'antd'
+import { Tag } from 'antd'
+import { Button } from '@/components/ui-kit'
 import { getErrorMessage } from '@/lib/utils'
 import type { Condition } from '@/types/funnel'
 

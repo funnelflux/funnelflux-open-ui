@@ -2,8 +2,7 @@ import { useEffect } from 'react'
 import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
-import { Button, Input, Checkbox, Modal } from 'antd'
-import { FormField } from '@/components/ui-kit'
+import { Button, Input, Checkbox, FormField, Modal } from '@/components/ui-kit'
 import { KeyValueListField } from '@/components/forms/KeyValueListField'
 import { campaignSchema, type CampaignFormData } from '@/schemas/campaign'
 import type { Campaign } from '@/types/entities'
@@ -34,10 +33,12 @@ export function CampaignEditForm({
     },
   })
 
+  const { reset } = form
+
   useEffect(() => {
     if (open) {
       if (initialData) {
-        form.reset({
+        reset({
           idCampaign: initialData.idCampaign,
           campaignName: initialData.campaignName,
           acculumatedUrlParams: initialData.acculumatedUrlParams ?? [],
@@ -45,7 +46,7 @@ export function CampaignEditForm({
           isArchived: initialData.isArchived ?? false,
         })
       } else {
-        form.reset({
+        reset({
           idCampaign: '',
           campaignName: '',
           acculumatedUrlParams: [],
@@ -54,14 +55,20 @@ export function CampaignEditForm({
         })
       }
     }
-  }, [open, initialData, form])
+  }, [open, initialData, reset])
 
   return (
-    <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? 'Edit Campaign' : 'New Campaign'} footer={null} width={640} destroyOnHidden>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-6 pt-4"
-      >
+    <Modal
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      title={initialData ? 'Edit Campaign' : 'New Campaign'}
+      footer={null}
+      width={640}
+      destroyOnHidden
+      scrollBody
+    >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-4 space-y-6">
         {initialData?.idCampaign && (
           <FormField label="ID">
             <Input value={initialData.idCampaign} disabled className="font-mono text-xs" />
@@ -124,7 +131,8 @@ export function CampaignEditForm({
           Default cost per entrance, cost overrides, and postback overrides are set on each funnel (FunnelFlux funnel model), not on the campaign.
         </p>
 
-        <div className="flex gap-2 pt-4">
+        </div>
+        <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex gap-2">
           <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {initialData ? 'Save' : 'Create'}
