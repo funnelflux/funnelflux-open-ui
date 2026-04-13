@@ -56,9 +56,6 @@ const sharedComponents: ThemeConfig['components'] = {
   Tabs: {
     inkBarColor: '#2563EB',
   },
-  Message: {
-    contentBg: undefined, // use theme default
-  },
 }
 
 export const lightTheme: ThemeConfig = {
@@ -81,6 +78,10 @@ export const lightTheme: ThemeConfig = {
     Select: {
       ...sharedComponents.Select,
       optionSelectedBg: '#EFF6FF',
+    },
+    Message: {
+      contentBg: '#FFFFFF',
+      boxShadow: '0 6px 16px 0 rgba(15, 23, 42, 0.12), 0 3px 6px -4px rgba(15, 23, 42, 0.08)',
     },
   },
 }
@@ -106,6 +107,10 @@ export const darkTheme: ThemeConfig = {
     Select: {
       ...sharedComponents.Select,
       optionSelectedBg: '#1E3A5F',
+    },
+    Message: {
+      contentBg: '#1E293B',
+      boxShadow: '0 6px 16px 0 rgba(0, 0, 0, 0.32), 0 3px 6px -4px rgba(0, 0, 0, 0.48)',
     },
   },
 }

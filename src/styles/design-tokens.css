@@ -131,3 +131,40 @@
 .ant-modal-mask {
   backdrop-filter: blur(4px);
 }
+
+/*
+ * All modals (Ant Design 6+): panel is .ant-modal-container (not legacy .ant-modal-content).
+ * Cap height, flex column, scroll only the body so title + default footers stay visible.
+ * Non-centered modals use top: ~100px — leave headroom or the panel runs past the viewport.
+ */
+.ant-modal-root .ant-modal-wrap:not(.ant-modal-centered) .ant-modal .ant-modal-container {
+  max-height: calc(100dvh - 140px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ant-modal-root .ant-modal-wrap.ant-modal-centered .ant-modal .ant-modal-container {
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ant-modal-root .ant-modal .ant-modal-header {
+  flex-shrink: 0;
+}
+
+.ant-modal-root .ant-modal .ant-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ant-modal-root .ant-modal .ant-modal-footer {
+  flex-shrink: 0;
+}

@@ -73,3 +73,21 @@
   display: flex;
   flex-direction: column;
 }
+
+/* Ant Design message (toast): opaque surface + readable text.
+   Portaled to body; explicit tokens avoid transparent contentBg when theme merge fails. */
+.ant-message {
+  color: var(--ff-gray-900);
+}
+
+.ant-message .ant-message-notice-content {
+  background-color: var(--ff-gray-0);
+}
+
+html.dark .ant-message {
+  color: var(--ff-gray-50);
+}
+
+html.dark .ant-message .ant-message-notice-content {
+  background-color: var(--ff-gray-800);
+}

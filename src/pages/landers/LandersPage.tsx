@@ -279,9 +279,9 @@ export function LandersPage() {
         onMoveToCategory={{
           categories: categories ?? [],
           onMove: async (idCategory) => {
-            await api.post('/data/page/category/assign/', {
+            await api.put('/data/page/category/assign/', {
               pageIds: selectedIds,
-              categoryId: idCategory,
+              idCategory,
             })
             toast.success('Selected landers moved')
             reload()

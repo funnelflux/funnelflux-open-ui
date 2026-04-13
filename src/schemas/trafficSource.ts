@@ -4,7 +4,8 @@ export const trafficSourceSchema = z.object({
   idTrafficSource: z.string().optional(),
   trafficSourceName: z.string().min(1, 'Name is required').max(255),
   costType: z.enum(['cpe', 'cpa']),
-  defaultCost: z.coerce.number().min(0),
+  /** Numeric or token (e.g. `{bid}`) — matches legacy templates and API string field. */
+  defaultCost: z.string(),
   trackingFields: z.array(
     z.object({ key: z.string(), value: z.string() }),
   ),

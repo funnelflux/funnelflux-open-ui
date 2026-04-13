@@ -79,7 +79,7 @@ export function useArchivePage() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, archive }: { id: string; archive: boolean }) =>
-      api.post('/data/page/archive/', { ids: [id], archive }),
+      api.put('/data/page/archive/', { ids: [id], archive }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.pages.all })
     },

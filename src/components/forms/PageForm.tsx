@@ -1,14 +1,15 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import { Button, Input, InputNumber, Select, Switch, Collapse, Modal } from 'antd'
-import { FormField, SmartSelect } from '@/components/ui-kit'
+import { FormField, SmartSelect, useToastApi } from '@/components/ui-kit'
 import type { SmartSelectOption } from '@/components/ui-kit'
 import { KeyValueListField } from '@/components/forms/KeyValueListField'
-import { useOfferSources, useCategories } from '@/api/hooks'
+import { useOfferSources, useCategories, useSaveCategory } from '@/api/hooks'
 import { pageSchema, type PageFormData } from '@/schemas/page'
 import type { Page, PageType, FluxifyParams } from '@/types/entities'
+import { getErrorMessage } from '@/lib/utils'
 
 interface PageFormProps {
   open: boolean
@@ -47,6 +48,10 @@ export function PageForm({
 }: PageFormProps) {
   const isOffer = pageType === 'offer'
   const entityLabel = isOffer ? 'Offer' : 'Lander'
+  const toast = useToastApi()
+  const saveCategory = useSaveCategory()
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
 
   const { data: offerSources } = useOfferSources()
   const { data: categories } = useCategories('page')
@@ -143,6 +148,21 @@ export function PageForm({
     form.setValue('fluxifyParams', { ...current, [field]: value } as any, { shouldDirty: true })
   }
 
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim()
+    if (!name) return
+    try {
+      const res = await saveCategory.mutateAsync({ entityType: 'page', name }) as { idCategory?: string }
+      const id = res?.idCategory
+      if (id) form.setValue('categoryId', id, { shouldDirty: true, shouldValidate: true })
+      toast.success('Category created')
+      setNewCategoryOpen(false)
+      setNewCategoryName('')
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    }
+  }
+
   return (
     <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? `Edit ${entityLabel}` : `New ${entityLabel}`} footer={null} width={640} destroyOnHidden>
       <form
@@ -157,18 +177,36 @@ export function PageForm({
         )}
 
         <FormField label="Name" htmlFor="pageName" error={form.formState.errors.pageName?.message}>
-          <Input
-            id="pageName"
-            {...form.register('pageName')}
-            placeholder={`${entityLabel} name`}
+          <Controller
+            control={form.control}
+            name="pageName"
+            render={({ field }) => (
+              <Input
+                id="pageName"
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                placeholder={`${entityLabel} name`}
+              />
+            )}
           />
         </FormField>
 
         <FormField label="URL" htmlFor="url" error={form.formState.errors.url?.message}>
-          <Input
-            id="url"
-            {...form.register('url')}
-            placeholder="https://example.com/page"
+          <Controller
+            control={form.control}
+            name="url"
+            render={({ field }) => (
+              <Input
+                id="url"
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                placeholder="https://example.com/page"
+              />
+            )}
           />
         </FormField>
 
@@ -190,19 +228,30 @@ export function PageForm({
           </FormField>
 
           <FormField label="Category">
-            <Controller
-              control={form.control}
-              name="categoryId"
-              render={({ field }) => (
-                <SmartSelect
-                  options={categoryOptions}
-                  value={field.value || undefined}
-                  onChange={field.onChange}
-                  placeholder="Select category"
-                  className="w-full"
+            <div className="flex gap-1 items-center">
+              <div className="min-w-0 flex-1">
+                <Controller
+                  control={form.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <SmartSelect
+                      options={categoryOptions}
+                      value={field.value || undefined}
+                      onChange={field.onChange}
+                      placeholder="Select category"
+                      className="w-full"
+                    />
+                  )}
                 />
-              )}
-            />
+              </div>
+              <Button
+                type="text"
+                size="small"
+                icon={<Plus className="h-3.5 w-3.5" />}
+                title="New category"
+                onClick={() => setNewCategoryOpen(true)}
+              />
+            </div>
           </FormField>
         </div>
 
@@ -252,24 +301,45 @@ export function PageForm({
             </FormField>
 
             <FormField label="Payout" htmlFor="payout" error={form.formState.errors.offerParams?.payout?.message}>
-              <Input
-                id="payout"
-                type="number"
-                step="0.01"
-                min="0"
-                {...form.register('offerParams.payout', { valueAsNumber: true })}
-                placeholder="0.00"
+              <Controller
+                control={form.control}
+                name="offerParams.payout"
+                render={({ field }) => (
+                  <Input
+                    id="payout"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={field.value ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      field.onChange(v === '' ? 0 : Number(v))
+                    }}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    placeholder="0.00"
+                  />
+                )}
               />
             </FormField>
           </>
         )}
 
         <FormField label="Notes" htmlFor="notes">
-          <Input.TextArea
-            id="notes"
-            {...form.register('notes')}
-            placeholder="Optional notes..."
-            rows={3}
+          <Controller
+            control={form.control}
+            name="notes"
+            render={({ field }) => (
+              <Input.TextArea
+                id="notes"
+                value={field.value ?? ''}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                placeholder="Optional notes..."
+                rows={3}
+              />
+            )}
           />
         </FormField>
 
@@ -419,6 +489,27 @@ export function PageForm({
           </Button>
         </div>
       </form>
+
+      <Modal
+        open={newCategoryOpen}
+        title="New category"
+        onCancel={() => { setNewCategoryOpen(false); setNewCategoryName('') }}
+        onOk={() => void handleCreateCategory()}
+        okText="Create"
+        confirmLoading={saveCategory.isPending}
+        okButtonProps={{ disabled: !newCategoryName.trim() }}
+        destroyOnHidden
+      >
+        <div className="py-3">
+          <Input
+            placeholder="Category name (letters, numbers, spaces)"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            onPressEnter={() => void handleCreateCategory()}
+            autoFocus
+          />
+        </div>
+      </Modal>
     </Modal>
   )
 }

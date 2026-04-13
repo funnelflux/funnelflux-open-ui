@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
+import { normalizeTemplateList } from '@/api/normalizeTemplateList'
 import { queryKeys } from '@/api/queryKeys'
 import type { OfferSource } from '@/types/entities'
-import type { Template } from '@/types/ui'
 
 export function useOfferSources(status?: string) {
   const params: Record<string, string> = {}
@@ -54,7 +54,10 @@ export function useDeleteOfferSource() {
 export function useOfferSourceTemplates(enabled = true) {
   return useQuery({
     queryKey: queryKeys.offerSources.templates,
-    queryFn: () => api.get<Template[]>('/data/offersource/template/list/'),
+    queryFn: async () => {
+      const raw = await api.get<unknown>('/data/offersource/template/list/')
+      return normalizeTemplateList(raw)
+    },
     enabled,
   })
 }
@@ -62,6 +65,6 @@ export function useOfferSourceTemplates(enabled = true) {
 export function useLoadOfferSourceTemplate() {
   return useMutation({
     mutationFn: (id: string) =>
-      api.get<OfferSource>('/data/offersource/template/load/', { id }),
+      api.get<OfferSource>('/data/offersource/template/load/', { name: id }),
   })
 }

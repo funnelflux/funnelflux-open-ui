@@ -1,11 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
-import { Button, Input, Select, Modal } from 'antd'
-import { FormField } from '@/components/ui-kit'
+import { FormField, Modal, Button, Input, Select } from '@/components/ui-kit'
 import { KeyValueListField } from '@/components/forms/KeyValueListField'
 import { trafficSourceSchema, type TrafficSourceFormData } from '@/schemas/trafficSource'
+import { mapTrafficSourceTemplateLoadToFormPatch } from '@/api/trafficSourceTemplateLoad'
 import { useTrafficSourceTemplates, useLoadTrafficSourceTemplate } from '@/api/hooks'
 import type { TrafficSource } from '@/types/entities'
 
@@ -20,12 +19,17 @@ interface TrafficSourceFormProps {
 const defaultValues: TrafficSourceFormData = {
   trafficSourceName: '',
   costType: 'cpe',
-  defaultCost: 0,
+  defaultCost: '',
   trackingFields: [],
   postback: {
     postbackType: 'none',
     postbackCode: '',
   },
+}
+
+function toFormDefaultCostField(value: string | number | undefined): string {
+  if (value === undefined || value === '') return ''
+  return String(value)
 }
 
 export function TrafficSourceForm({
@@ -37,9 +41,9 @@ export function TrafficSourceForm({
 }: TrafficSourceFormProps) {
   const { data: templates } = useTrafficSourceTemplates(open)
   const loadTemplate = useLoadTrafficSourceTemplate()
+  const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>()
 
   const {
-    register,
     handleSubmit,
     control,
     reset,
@@ -51,17 +55,19 @@ export function TrafficSourceForm({
     defaultValues,
   })
 
+  const formId = useId()
   const postbackType = watch('postback.postbackType')
   const isEditing = !!initialData?.idTrafficSource
 
   useEffect(() => {
     if (open) {
+      setTemplateSelectValue(undefined)
       if (initialData) {
         reset({
           idTrafficSource: initialData.idTrafficSource,
           trafficSourceName: initialData.trafficSourceName,
           costType: initialData.costType,
-          defaultCost: initialData.defaultCost,
+          defaultCost: toFormDefaultCostField(initialData.defaultCost),
           trackingFields: initialData.trackingFields ?? [],
           postback: {
             postbackType: initialData.postback?.postbackType ?? 'none',
@@ -75,32 +81,48 @@ export function TrafficSourceForm({
     }
   }, [open, initialData, reset])
 
-  const handleLoadTemplate = (templateId: string) => {
-    loadTemplate.mutate(templateId, {
+  const handlePickTemplate = (templateName: string | null) => {
+    setTemplateSelectValue(templateName ?? undefined)
+    if (!templateName) return
+    loadTemplate.mutate(templateName, {
       onSuccess: (data) => {
+        setTemplateSelectValue(undefined)
         reset({
           ...defaultValues,
-          trafficSourceName: data.trafficSourceName,
-          costType: data.costType,
-          defaultCost: data.defaultCost,
-          trackingFields: data.trackingFields ?? [],
-          postback: {
-            postbackType: data.postback?.postbackType ?? 'none',
-            postbackCode: data.postback?.postbackCode ?? '',
-          },
+          ...mapTrafficSourceTemplateLoadToFormPatch(data),
         })
       },
     })
   }
 
   return (
-    <Modal open={open} onCancel={() => onOpenChange(false)} title={isEditing ? 'Edit Traffic Source' : 'Add Traffic Source'} footer={null} width={640} destroyOnHidden>
+    <Modal
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      title={isEditing ? 'Edit Traffic Source' : 'Add Traffic Source'}
+      width={640}
+      destroyOnHidden
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button htmlType="button" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="primary"
+            htmlType="submit"
+            form={formId}
+            loading={isSubmitting}
+          >
+            {isEditing ? 'Save Changes' : 'Create'}
+          </Button>
+        </div>
+      }
+    >
       <p className="text-sm text-muted-foreground mb-4">
         {isEditing ? 'Update the traffic source configuration.' : 'Create a new traffic source.'}
       </p>
 
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-5 pt-4">
+      <form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-5 pt-4">
         {isEditing && initialData?.idTrafficSource && (
           <FormField label="ID">
             <Input value={initialData.idTrafficSource} disabled className="font-mono text-xs" />
@@ -110,9 +132,11 @@ export function TrafficSourceForm({
         {!isEditing && templates && templates.length > 0 && (
           <FormField label="Copy from Template">
             <Select
-              onChange={handleLoadTemplate}
+              allowClear
+              value={templateSelectValue}
               placeholder="Select a template"
               className="w-full"
+              onChange={handlePickTemplate}
               options={templates.map((template) => ({
                 value: template.id,
                 label: template.name,
@@ -122,7 +146,20 @@ export function TrafficSourceForm({
         )}
 
         <FormField label="Name" htmlFor="trafficSourceName" error={errors.trafficSourceName?.message}>
-          <Input id="trafficSourceName" {...register('trafficSourceName')} placeholder="Traffic source name" />
+          <Controller
+            control={control}
+            name="trafficSourceName"
+            render={({ field }) => (
+              <Input
+                id="trafficSourceName"
+                placeholder="Traffic source name"
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+              />
+            )}
+          />
         </FormField>
 
         {isEditing && initialData?.categoryName && (
@@ -150,7 +187,20 @@ export function TrafficSourceForm({
         </FormField>
 
         <FormField label="Default Cost" htmlFor="defaultCost" error={errors.defaultCost?.message}>
-          <Input id="defaultCost" type="number" step="any" min="0" {...register('defaultCost')} />
+          <Controller
+            control={control}
+            name="defaultCost"
+            render={({ field }) => (
+              <Input
+                id="defaultCost"
+                placeholder="e.g. 0, 0.5, {bid}"
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+              />
+            )}
+          />
         </FormField>
 
         <FormField label="Tracking Fields">
@@ -190,22 +240,23 @@ export function TrafficSourceForm({
 
         {postbackType !== 'none' && (
           <FormField label={postbackType === 'javascript' ? 'JavaScript Code' : 'Postback URL'} htmlFor="postbackCode">
-            <Input.TextArea
-              id="postbackCode"
-              {...register('postback.postbackCode')}
-              placeholder={postbackType === 'javascript' ? 'Enter JavaScript code...' : 'Enter postback URL...'}
-              rows={3}
+            <Controller
+              control={control}
+              name="postback.postbackCode"
+              render={({ field }) => (
+                <Input.TextArea
+                  id="postbackCode"
+                  placeholder={postbackType === 'javascript' ? 'Enter JavaScript code...' : 'Enter postback URL...'}
+                  rows={3}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  ref={field.ref}
+                />
+              )}
             />
           </FormField>
         )}
-
-        <div className="flex justify-end gap-2 pt-4">
-          <Button htmlType="button" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="primary" htmlType="submit" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isEditing ? 'Save Changes' : 'Create'}
-          </Button>
-        </div>
       </form>
     </Modal>
   )

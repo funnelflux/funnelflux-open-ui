@@ -209,9 +209,9 @@ export function TrafficSourcesPage() {
         onMoveToCategory={{
           categories: categories ?? [],
           onMove: async (idCategory) => {
-            await api.post('/data/trafficsource/category/assign/', {
-              tsIds: selectedIds,
-              categoryId: idCategory,
+            await api.put('/data/trafficsource/category/assign/', {
+              trafficSourceIds: selectedIds,
+              idCategory,
             })
             toast.success('Selected traffic sources moved')
             reload()

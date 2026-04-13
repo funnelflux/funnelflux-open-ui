@@ -247,11 +247,8 @@ export function CampaignsPage() {
         campaignName: name.trim(),
         acculumatedUrlParams: [],
         customTokens: [],
-        defaultCostPerEntrance: 0,
-        costOverrides: [],
-        postbackOverrides: [],
         isArchived: false,
-      } as SaveCampaignInput)
+      })
       toast.success('Campaign created')
       fetchData()
       return idCampaign

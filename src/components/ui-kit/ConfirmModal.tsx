@@ -1,4 +1,5 @@
-import { Modal, Button } from 'antd'
+import { Modal } from './Modal'
+import { Button } from './Button'
 
 interface ConfirmModalProps {
   open: boolean

@@ -68,7 +68,10 @@ export function useSaveCategory() {
       name: string
     }) => {
       const { save } = categoryEndpoints(entityType)
-      return api.post(save, { idCategory, name })
+      const isNew = !idCategory
+      return isNew
+        ? api.post(save, { name })
+        : api.put(save, { idCategory, name })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: categoryQueryKeys.all })
