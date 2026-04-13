@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
+import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Plus } from 'lucide-react'
 import { Button, Input, InputNumber, Select, Switch, Collapse, Modal } from 'antd'
@@ -10,6 +11,8 @@ import { useOfferSources, useCategories, useSaveCategory } from '@/api/hooks'
 import { pageSchema, type PageFormData } from '@/schemas/page'
 import type { Page, PageType, FluxifyParams } from '@/types/entities'
 import { getErrorMessage } from '@/lib/utils'
+
+type FluxifyFormParams = NonNullable<PageFormData['fluxifyParams']>
 
 interface PageFormProps {
   open: boolean
@@ -27,7 +30,7 @@ const REDIRECT_OPTIONS = [
   { value: 'fluxify', label: 'Fluxify (Reverse Proxy)' },
 ] as const
 
-const defaultFluxifyParams: FluxifyParams = {
+const defaultFluxifyParams: FluxifyFormParams = {
   enableCache: false,
   enableDirectTrafficProtection: false,
   enableLinkRewriter: false,
@@ -70,8 +73,7 @@ export function PageForm({
   )
 
   const form = useForm<PageFormData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(pageSchema) as any,
+    resolver: zodResolver(pageSchema) as Resolver<PageFormData>,
     defaultValues: {
       pageType,
       pageName: '',
@@ -144,8 +146,7 @@ export function PageForm({
 
   const setFluxifyField = (field: keyof FluxifyParams, value: unknown) => {
     const current = form.getValues('fluxifyParams') ?? defaultFluxifyParams
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    form.setValue('fluxifyParams', { ...current, [field]: value } as any, { shouldDirty: true })
+    form.setValue('fluxifyParams', { ...current, [field]: value } as FluxifyFormParams, { shouldDirty: true })
   }
 
   const handleCreateCategory = async () => {
@@ -166,8 +167,7 @@ export function PageForm({
   return (
     <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? `Edit ${entityLabel}` : `New ${entityLabel}`} footer={null} width={640} destroyOnHidden>
       <form
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onSubmit={form.handleSubmit(onSubmit as any)}
+        onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-5 pt-4"
       >
         {initialData?.idPage && (

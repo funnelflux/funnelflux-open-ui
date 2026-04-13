@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { subDays } from 'date-fns'
 import { Button } from 'antd'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
@@ -18,6 +18,7 @@ import {
   cloneBtnColumn,
   deleteBtnColumn,
   buildColumnsFromReport,
+  entityRowId,
 } from '@/components/ui-kit/data-table'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
@@ -25,20 +26,13 @@ import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
 import { useArchiveTrafficSource, useCategories, useSaveTrafficSource, useDeleteTrafficSource, useCloneTrafficSource, useTrafficSource } from '@/api/hooks'
-import { useEntityGridReport, type EntityGridRow } from '@/api/hooks/useEntityGridReport'
+import { useTrafficSourceGridStore, buildMergedRows, buildTotalsRow, type EntityGridRow } from '@/store/entityGrid'
 import { TrafficSourceForm } from '@/components/forms/TrafficSourceForm'
 import { api } from '@/api/client'
 import type { TrafficSource } from '@/types/entities'
 import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 import { getErrorMessage } from '@/lib/utils'
 
-interface TrafficSourceMeta {
-  idTrafficSource: string
-  categoryId?: string
-  isArchived?: boolean
-}
-
-/** Satisfies data-table column helpers (`HasName` / `HasCells` index signatures). */
 type TrafficSourceGridRow = EntityGridRow & Record<string, unknown>
 
 export function TrafficSourcesPage() {
@@ -68,59 +62,78 @@ export function TrafficSourcesPage() {
   const archiveMutation = useArchiveTrafficSource()
 
   const {
-    rows,
-    columns,
-    metaById,
+    entities,
+    statsById,
+    reportColumns,
+    totalsCells,
     isLoading,
+    fetchAll,
     reload,
-  } = useEntityGridReport<TrafficSourceMeta>({
-    groupBy: 'Third Parties: Traffic Source',
-    dateFrom: dateRange.from,
-    dateTo: dateRange.to,
-    timezone: tz,
-    metaEndpoint: '/data/trafficsource/list/',
-    metaIdKey: 'idTrafficSource',
-  })
+    upsertEntity,
+    removeEntity,
+  } = useTrafficSourceGridStore()
+
+  useEffect(() => {
+    fetchAll({ dateFrom: dateRange.from, dateTo: dateRange.to, timezone: tz })
+  }, [dateRange.from, dateRange.to, tz, fetchAll])
+
+  const mergedRows = useMemo(
+    () => buildMergedRows(entities, statsById, reportColumns),
+    [entities, statsById, reportColumns],
+  )
+
+  const pinnedBottomRows = useMemo(
+    () => {
+      const row = buildTotalsRow(totalsCells)
+      return row ? [row as TrafficSourceGridRow] : undefined
+    },
+    [totalsCells],
+  )
 
   const filtered = useMemo(() => {
     const searchText = search.toLowerCase()
-    return rows.filter((row) => {
+    return mergedRows.filter((row) => {
       const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
-      const matchesCategory = !selectedCategoryId || metaById[row.id]?.categoryId === selectedCategoryId
-      const meta = metaById[row.id]
+      const matchesCategory = !selectedCategoryId || row.categoryId === selectedCategoryId
       const matchesArchive =
         archiveStatus === 'all' ||
-        (archiveStatus === 'archived' ? meta?.isArchived === true : meta?.isArchived !== true)
+        (archiveStatus === 'archived' ? row.isArchived === true : row.isArchived !== true)
       return matchesSearch && matchesCategory && matchesArchive
     })
-  }, [archiveStatus, metaById, rows, search, selectedCategoryId])
+  }, [archiveStatus, mergedRows, search, selectedCategoryId])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
-  const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
+
+  const handleEdit = useCallback((id: string) => { setEditId(id); setSheetOpen(true) }, [])
 
   const handleSubmit = (data: TrafficSourceFormData) => {
     saveMutation.mutate(data as unknown as Partial<TrafficSource>, {
       onSuccess: () => {
         toast.success(editId ? 'Traffic source updated' : 'Traffic source created')
         setSheetOpen(false)
+        if (editId) {
+          upsertEntity({ id: editId, name: data.trafficSourceName })
+        } else {
+          reload()
+        }
         setEditId(null)
-        reload()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
 
-  const handleClone = (id: string) => {
-    cloneMutation.mutate(id, {
+  const cloneMutate = cloneMutation.mutate
+  const handleClone = useCallback((id: string) => {
+    cloneMutate(id, {
       onSuccess: () => { toast.success('Traffic source cloned'); reload() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }
+  }, [cloneMutate, toast, reload])
 
   const handleDelete = () => {
     if (!deleteId) return
     deleteMutation.mutate(deleteId, {
-      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); reload() },
+      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); removeEntity(deleteId) },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
@@ -128,8 +141,8 @@ export function TrafficSourcesPage() {
   const isDefaultSource = (row: TrafficSourceGridRow) => row.id === '1'
 
   const statCols = useMemo(
-    () => buildColumnsFromReport<TrafficSourceGridRow>(columns),
-    [columns],
+    () => buildColumnsFromReport<TrafficSourceGridRow>(reportColumns),
+    [reportColumns],
   )
 
   const columnDefs = useMemo<ColumnDef<TrafficSourceGridRow, unknown>[]>(() => [
@@ -140,8 +153,7 @@ export function TrafficSourcesPage() {
     deleteBtnColumn<TrafficSourceGridRow>((row) => setDeleteId(row.id), { hidden: isDefaultSource }),
     idColumn<TrafficSourceGridRow>(),
     ...statCols,
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [statCols])
+  ], [statCols, handleEdit, handleClone])
 
   return (
     <PageShell
@@ -180,7 +192,8 @@ export function TrafficSourcesPage() {
         data={filtered as TrafficSourceGridRow[]}
         columns={columnDefs}
         loading={isLoading}
-        getRowId={(row) => row.id}
+        getRowId={entityRowId}
+        pinnedBottomRows={pinnedBottomRows}
         enableRowSelection
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}

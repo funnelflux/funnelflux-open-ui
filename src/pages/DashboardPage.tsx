@@ -7,7 +7,7 @@ import { useDashboardStore } from '@/store/dashboard'
 import { StatsCards } from '@/components/dashboard/StatsCards'
 import { DashboardChart } from '@/components/dashboard/DashboardChart'
 import { PageShell, DataTable, TimezoneSelect } from '@/components/ui-kit'
-import { cellRaw } from '@/components/ui-kit/data-table'
+import { cellRaw, entityRowId } from '@/components/ui-kit/data-table'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { Button, Card, Tag } from 'antd'
 import { toApiDateTimeRange } from '@/types/stats'
@@ -147,7 +147,7 @@ function WidgetTable({
         data={rows}
         columns={widgetColumnDefs}
         loading={isLoading}
-        getRowId={(row) => row.id}
+        getRowId={entityRowId}
         noPagination
       />
     </Card>

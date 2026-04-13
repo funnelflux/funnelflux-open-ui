@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import { Upload } from 'lucide-react'
@@ -20,6 +20,7 @@ import {
   archiveBtnColumn,
   deleteBtnColumn,
   buildColumnsFromReport,
+  entityRowId,
 } from '@/components/ui-kit/data-table'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
@@ -28,7 +29,7 @@ import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
 import { useCategories, useDeletePage, useClonePage, useArchivePage } from '@/api/hooks'
-import { useEntityGridReport, type EntityGridRow } from '@/api/hooks/useEntityGridReport'
+import { useLanderGridStore, buildMergedRows, buildTotalsRow, type EntityGridRow } from '@/store/entityGrid'
 import { PageForm } from '@/components/forms/PageForm'
 import { api } from '@/api/client'
 import type { Page } from '@/types/entities'
@@ -36,19 +37,15 @@ import type { PageFormData } from '@/schemas/page'
 import { useSavePage, usePage } from '@/api/hooks'
 import { getErrorMessage } from '@/lib/utils'
 
-interface PageMeta {
-  idPage: string
-  categoryId?: string
-  isArchived?: boolean
-}
-
-const META_PARAMS = { pageType: 'lander' }
-
 type LanderGridRow = EntityGridRow & { _isCategoryHeader?: boolean } & Record<string, unknown>
+
+const canSelectRow = (row: { original: LanderGridRow }) => !row.original._isCategoryHeader
+const categoryRowClassName = (row: LanderGridRow) => row._isCategoryHeader ? 'dt-row--depth-1' : undefined
 
 export function LandersPage() {
   const toast = useToastApi()
   const tableRef = useRef<Table<LanderGridRow> | null>(null)
+  const [tableForChooser, setTableForChooser] = useState<Table<LanderGridRow> | null>(null)
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -71,20 +68,33 @@ export function LandersPage() {
   const archiveMutation = useArchivePage()
 
   const {
-    rows,
-    columns,
-    metaById,
+    entities,
+    statsById,
+    reportColumns,
+    totalsCells,
     isLoading,
+    fetchAll,
     reload,
-  } = useEntityGridReport<PageMeta>({
-    groupBy: 'Element: Lander',
-    dateFrom: dateRange.from,
-    dateTo: dateRange.to,
-    timezone: tz,
-    metaEndpoint: '/data/page/list/',
-    metaParams: META_PARAMS,
-    metaIdKey: 'idPage',
-  })
+    upsertEntity,
+    removeEntity,
+  } = useLanderGridStore()
+
+  useEffect(() => {
+    fetchAll({ dateFrom: dateRange.from, dateTo: dateRange.to, timezone: tz })
+  }, [dateRange.from, dateRange.to, tz, fetchAll])
+
+  const mergedRows = useMemo(
+    () => buildMergedRows(entities, statsById, reportColumns),
+    [entities, statsById, reportColumns],
+  )
+
+  const pinnedBottomRows = useMemo(
+    () => {
+      const row = buildTotalsRow(totalsCells)
+      return row ? [row as LanderGridRow] : undefined
+    },
+    [totalsCells],
+  )
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -92,75 +102,77 @@ export function LandersPage() {
     return map
   }, [categories])
 
-  // Client-side filtering + category grouping
   const filtered = useMemo(() => {
     const searchText = search.toLowerCase()
-    const base = rows.filter((row) => {
+    const base = mergedRows.filter((row) => {
       const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
-      const matchesCategory = !selectedCategoryId || metaById[row.id]?.categoryId === selectedCategoryId
-      const meta = metaById[row.id]
+      const matchesCategory = !selectedCategoryId || row.categoryId === selectedCategoryId
       const matchesArchive =
         archiveStatus === 'all' ||
-        (archiveStatus === 'archived' ? meta?.isArchived === true : meta?.isArchived !== true)
+        (archiveStatus === 'archived' ? row.isArchived === true : row.isArchived !== true)
       return matchesSearch && matchesCategory && matchesArchive
     })
 
-    // Group by category
     const grouped = new Map<string, EntityGridRow[]>()
     for (const row of base) {
-      const catId = metaById[row.id]?.categoryId ?? ''
+      const catId = (row.categoryId as string) ?? ''
       const catName = catId ? (categoryMap.get(catId) ?? 'Unknown') : 'Uncategorized'
       if (!grouped.has(catName)) grouped.set(catName, [])
       grouped.get(catName)!.push(row)
     }
 
-    // If only one group or no categories, return flat
     if (grouped.size <= 1) return base as LanderGridRow[]
 
-    // Insert header rows
     const result: LanderGridRow[] = []
     for (const [catName, catRows] of grouped) {
       result.push({ id: `cat-${catName}`, name: catName, cells: [], _isCategoryHeader: true })
       result.push(...(catRows as LanderGridRow[]))
     }
     return result
-  }, [archiveStatus, metaById, rows, search, selectedCategoryId, categoryMap])
+  }, [archiveStatus, mergedRows, search, selectedCategoryId, categoryMap])
 
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
-  const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
+
+  const handleEdit = useCallback((id: string) => { setEditId(id); setSheetOpen(true) }, [])
 
   const handleSubmit = (data: PageFormData) => {
     saveMutation.mutate(data as Partial<Page>, {
       onSuccess: () => {
-        toast.success(data.idPage ? 'Lander updated' : 'Lander created')
+        toast.success(editId ? 'Lander updated' : 'Lander created')
         setSheetOpen(false)
+        if (editId) {
+          upsertEntity({ id: editId, name: data.pageName })
+        } else {
+          reload()
+        }
         setEditId(null)
-        reload()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
 
-  const handleClone = (id: string) => {
-    cloneMutation.mutate(id, {
+  const cloneMutate = cloneMutation.mutate
+  const handleClone = useCallback((id: string) => {
+    cloneMutate(id, {
       onSuccess: () => { toast.success('Lander cloned'); reload() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }
+  }, [cloneMutate, toast, reload])
 
-  const handleArchive = (id: string, archive: boolean) => {
-    archiveMutation.mutate({ id, archive }, {
+  const archiveMutate = archiveMutation.mutate
+  const handleArchive = useCallback((id: string, archive: boolean) => {
+    archiveMutate({ id, archive }, {
       onSuccess: () => { toast.success(archive ? 'Archived' : 'Restored'); reload() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }
+  }, [archiveMutate, toast, reload])
 
   const handleDelete = () => {
     if (!deleteId) return
     deleteMutation.mutate(deleteId, {
-      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); reload() },
+      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); removeEntity(deleteId) },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
@@ -181,8 +193,8 @@ export function LandersPage() {
   }
 
   const statCols = useMemo(
-    () => buildColumnsFromReport<LanderGridRow>(columns),
-    [columns],
+    () => buildColumnsFromReport<LanderGridRow>(reportColumns),
+    [reportColumns],
   )
 
   const columnDefs = useMemo<ColumnDef<LanderGridRow, unknown>[]>(() => [
@@ -201,7 +213,7 @@ export function LandersPage() {
     deleteBtnColumn<LanderGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader }),
     idColumn<LanderGridRow>(),
     ...statCols,
-  ], [statCols])
+  ], [statCols, handleEdit, handleClone, handleArchive])
 
   return (
     <PageShell
@@ -241,19 +253,21 @@ export function LandersPage() {
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={tableRef.current ? <ColumnChooser columns={columnDefs} table={tableRef.current} storageKey="landers" /> : null}
+        actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="landers" /> : null}
       />
 
       <DataTable<LanderGridRow>
         data={filtered}
         columns={columnDefs}
         loading={isLoading}
-        getRowId={(row) => row.id}
-        enableRowSelection={(row) => !row.original._isCategoryHeader}
+        getRowId={entityRowId}
+        pinnedBottomRows={pinnedBottomRows}
+        enableRowSelection={canSelectRow}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
-        rowClassName={(row) => row._isCategoryHeader ? 'dt-row--depth-1' : undefined}
+        rowClassName={categoryRowClassName}
         tableRef={tableRef}
+        onTableInstance={setTableForChooser}
         emptyMessage={search || selectedCategoryId ? 'No landers match your filters.' : 'No landers found.'}
       />
 

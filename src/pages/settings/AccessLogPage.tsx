@@ -4,6 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import { PageShell, DataTable } from '@/components/ui-kit'
+import { entityRowId } from '@/components/ui-kit/data-table'
 import type { AccessLogEntry } from '@/types/ui'
 
 export function AccessLogPage() {
@@ -53,7 +54,7 @@ export function AccessLogPage() {
       <DataTable<AccessLogEntry>
         data={entries ?? []}
         columns={columns}
-        getRowId={(row) => row.id}
+        getRowId={entityRowId}
         loading={isLoading}
         noPagination
         emptyMessage="No access log entries."

@@ -1,3 +1,9 @@
+/**
+ * @deprecated Replaced by Zustand entity grid stores in `@/store/entityGrid`.
+ * Use the per-entity stores (useTrafficSourceGridStore, useLanderGridStore, etc.)
+ * with `buildMergedRows` / `buildTotalsRow` helpers instead.
+ * This file is kept temporarily for reference and will be removed in a future cleanup.
+ */
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '@/api/client'
 import { toApiDateTimeRange } from '@/types/stats'

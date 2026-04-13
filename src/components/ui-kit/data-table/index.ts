@@ -1,4 +1,8 @@
 export { DataTable } from './DataTable'
+
+export function entityRowId<T extends { id: string }>(row: T): string {
+  return row.id
+}
 export type {
   DataTableProps,
   ColumnDef,

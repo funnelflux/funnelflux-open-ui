@@ -9,7 +9,7 @@ import {
   type Header,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRef, useCallback, useEffect, useMemo, useState } from 'react'
+import { useRef, useCallback, useEffect, useMemo, useState, memo } from 'react'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
 import type { ColumnAlign } from './columnDefs'
 import type { DataTableProps, SortingState, VisibilityState, RowSelectionState, PaginationState, ExpandedState, Row } from './types'
@@ -23,7 +23,7 @@ function alignClass(align?: ColumnAlign): string {
   return ''
 }
 
-export function DataTable<TData>({
+function DataTableInner<TData>({
   data,
   columns,
   loading = false,
@@ -350,65 +350,66 @@ export function DataTable<TData>({
           </div>
         )}
 
-        {/* Header — sticky top, scrolls horizontally with body */}
-        <div className="dt-header" style={{ minWidth: totalTableWidth }}>
-          {headerGroups.map((hg) =>
-            hg.headers.map((header) => {
-              const canSort = header.column.getCanSort()
-              const sorted = header.column.getIsSorted()
-              const meta = header.column.columnDef.meta as Record<string, unknown> | undefined
-              const headerAlign = (meta?.align as ColumnAlign | undefined)
-              const isFirstDataCol = treeMode && header.column.id === 'name'
-              return (
-                <div
-                  key={header.id}
-                  className={`dt-header-cell${canSort ? ' dt-header-cell--sortable' : ''}${alignClass(headerAlign)}`}
-                  style={{ width: getColWidth(header.column) }}
-                >
-                  {isFirstDataCol && <span style={{ width: 20, flexShrink: 0 }} />}
+        <div className="dt-scroll-inner">
+          {/* Header — sticky top, scrolls horizontally with body */}
+          <div className="dt-header" style={{ minWidth: totalTableWidth }}>
+            {headerGroups.map((hg) =>
+              hg.headers.map((header) => {
+                const canSort = header.column.getCanSort()
+                const sorted = header.column.getIsSorted()
+                const meta = header.column.columnDef.meta as Record<string, unknown> | undefined
+                const headerAlign = (meta?.align as ColumnAlign | undefined)
+                const isFirstDataCol = treeMode && header.column.id === 'name'
+                return (
                   <div
-                    className="dt-header-cell-content"
-                    onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                    key={header.id}
+                    className={`dt-header-cell${canSort ? ' dt-header-cell--sortable' : ''}${alignClass(headerAlign)}`}
+                    style={{ width: getColWidth(header.column) }}
                   >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                    {canSort && (
-                      <span className={`dt-sort-icon${sorted ? ' dt-sort-icon--active' : ''}`}>
-                        {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
-                      </span>
-                    )}
+                    {isFirstDataCol && <span style={{ width: 20, flexShrink: 0 }} />}
+                    <div
+                      className="dt-header-cell-content"
+                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                      {canSort && (
+                        <span className={`dt-sort-icon${sorted ? ' dt-sort-icon--active' : ''}`}>
+                          {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
+                        </span>
+                      )}
+                    </div>
+                    {renderResizer(header)}
                   </div>
-                  {renderResizer(header)}
-                </div>
-              )
-            }),
-          )}
+                )
+              }),
+            )}
+          </div>
+
+          {/* Body — grows when few rows so pinned totals stay at bottom of the scroll area */}
+          <div className="dt-body">
+            {!loading && tableRows.length === 0 ? (
+              <div className="dt-empty">{emptyMessage}</div>
+            ) : shouldVirtualize ? (
+              <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const row = tableRows[virtualRow.index]
+                  return renderRow(row, {
+                    position: 'absolute',
+                    top: 0,
+                    transform: `translateY(${virtualRow.start}px)`,
+                    height: rowHeight,
+                  })
+                })}
+              </div>
+            ) : (
+              tableRows.map((row) => renderRow(row))
+            )}
+          </div>
+
+          {renderPinnedBottom()}
         </div>
-
-        {/* Body */}
-        <div className="dt-body">
-
-          {!loading && tableRows.length === 0 ? (
-            <div className="dt-empty">{emptyMessage}</div>
-          ) : shouldVirtualize ? (
-            <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const row = tableRows[virtualRow.index]
-                return renderRow(row, {
-                  position: 'absolute',
-                  top: 0,
-                  transform: `translateY(${virtualRow.start}px)`,
-                  height: rowHeight,
-                })
-              })}
-            </div>
-          ) : (
-            tableRows.map((row) => renderRow(row))
-          )}
-        </div>
-
-        {renderPinnedBottom()}
       </div>
 
       {showPagination && (
@@ -470,3 +471,5 @@ export function DataTable<TData>({
     </div>
   )
 }
+
+export const DataTable = memo(DataTableInner) as typeof DataTableInner

@@ -3,7 +3,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Plus, Loader2 } from 'lucide-react'
 import { Button, Input, Modal } from 'antd'
 import { PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
-import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
+import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn, entityRowId } from '@/components/ui-kit/data-table'
 import {
   useStoredLinks,
   useSaveStoredLink,
@@ -154,7 +154,7 @@ export function StoredLinksPage() {
       <DataTable<StoredLink>
         data={links ?? []}
         columns={columns}
-        getRowId={(row) => row.id}
+        getRowId={entityRowId}
         loading={isLoading}
         noPagination
         emptyMessage="No stored links yet. Create one to get started."

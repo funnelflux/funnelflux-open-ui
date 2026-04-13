@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Card } from 'antd'
-import { DataTable } from '@/components/ui-kit/data-table'
+import { DataTable, entityRowId } from '@/components/ui-kit/data-table'
 import type { DashboardData } from '@/types/ui'
-import type { ReportCell } from '@/types/stats'
+import { getCell } from '@/lib/funnelQuickStats'
 
 type TableStats = DashboardData['tableStats']
 
@@ -24,8 +24,8 @@ function flattenRows(data: TableStats): FlatRow[] {
   return rows.map((row, rowIndex) => {
     const flat: FlatRow = { id: String(rowIndex) }
     columns.forEach((col, colIndex) => {
-      const cell = row[String(colIndex)] as ReportCell | undefined
-      flat[col.name] = cell?.formatted ?? String(cell?.raw ?? '')
+      const cell = getCell(row, colIndex)
+      flat[col.name] = cell.formatted ?? String(cell.raw ?? '')
     })
     return flat
   })
@@ -48,12 +48,12 @@ export function DashboardTable({ data, isLoading }: DashboardTableProps) {
   if (!isLoading && !data) return null
 
   return (
-    <Card title={<span className="text-sm font-medium">Top {data?.tableStatsOptions?.statsType ?? 'Campaigns'}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
+    <Card title={<span className="text-sm font-medium">Top {data?.options?.statsType ?? 'Campaigns'}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
       <DataTable
         data={rows}
         columns={columnDefs}
         loading={isLoading}
-        getRowId={(row) => row.id}
+        getRowId={entityRowId}
         noPagination
       />
     </Card>

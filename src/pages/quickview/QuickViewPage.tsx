@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { ArrowRight } from "lucide-react"
 import { api } from "@/api/client"
 import { PageShell, DataTable, TimezoneSelect } from "@/components/ui-kit"
+import { entityRowId } from "@/components/ui-kit/data-table"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
 import { Button, Card } from "antd"
 import { useDrilldownStore } from "@/store/drilldown"
@@ -233,7 +234,7 @@ export function QuickViewPage() {
           data={rows}
           columns={columns}
           loading={isLoading}
-          getRowId={(row) => row.id}
+          getRowId={entityRowId}
           noPagination
         />
       </Card>

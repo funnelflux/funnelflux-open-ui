@@ -1,15 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
-import { Button, Input, Select, Modal } from 'antd'
+import { Button } from 'antd'
 import {
   PageShell,
   SearchToolbar,
   DataTable,
-  FormField,
   ConfirmModal,
   TimezoneSelect,
   useToastApi,
@@ -21,6 +17,7 @@ import {
   editBtnColumn,
   deleteBtnColumn,
   buildColumnsFromReport,
+  entityRowId,
 } from '@/components/ui-kit/data-table'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
@@ -30,167 +27,14 @@ import {
   useSaveOfferSource,
   useDeleteOfferSource,
   useOfferSource,
-  useOfferSourceTemplates,
-  useLoadOfferSourceTemplate,
 } from '@/api/hooks'
-import { useEntityGridReport, type EntityGridRow } from '@/api/hooks/useEntityGridReport'
-import { offerSourceSchema, type OfferSourceFormData } from '@/schemas/offerSource'
+import { useOfferSourceGridStore, buildMergedRows, buildTotalsRow, type EntityGridRow } from '@/store/entityGrid'
+import { OfferSourceForm } from '@/components/forms/OfferSourceForm'
+import type { OfferSourceFormData } from '@/schemas/offerSource'
 import type { OfferSource } from '@/types/entities'
 import { getErrorMessage } from '@/lib/utils'
 
-interface OfferSourceMeta {
-  idOfferSource: string
-  isArchived?: boolean
-}
-
-/** Row type for TanStack columns (`HasName` / `HasCells` require a string index signature). */
 type OfferSourceGridRow = EntityGridRow & Record<string, unknown>
-
-const defaultValues: OfferSourceFormData = {
-  offerSourceName: '',
-  subId: '',
-  querySeparator: '&',
-  postbackSubId: '',
-  postbackTxId: '',
-  postbackPayout: '',
-  notes: '',
-}
-
-function OfferSourceForm({
-  open,
-  onOpenChange,
-  initialData,
-  onSubmit,
-  isSubmitting,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  initialData: OfferSource | null | undefined
-  onSubmit: (data: OfferSourceFormData) => void
-  isSubmitting?: boolean
-}) {
-  const { data: templates } = useOfferSourceTemplates(open)
-  const loadTemplate = useLoadOfferSourceTemplate()
-  const isEditing = !!initialData?.idOfferSource
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<OfferSourceFormData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(offerSourceSchema) as any,
-    defaultValues,
-  })
-
-  useEffect(() => {
-    if (open) {
-      if (initialData) {
-        reset({
-          idOfferSource: initialData.idOfferSource,
-          offerSourceName: initialData.offerSourceName,
-          subId: initialData.subId ?? '',
-          querySeparator: initialData.querySeparator ?? '&',
-          postbackSubId: initialData.postbackSubId ?? '',
-          postbackTxId: initialData.postbackTxId ?? '',
-          postbackPayout: initialData.postbackPayout ?? '',
-          notes: initialData.notes ?? '',
-          isArchived: initialData.isArchived,
-        })
-      } else {
-        reset(defaultValues)
-      }
-    }
-  }, [open, initialData, reset])
-
-  const handleLoadTemplate = (templateId: string) => {
-    loadTemplate.mutate(templateId, {
-      onSuccess: (data) => {
-        reset({
-          ...defaultValues,
-          offerSourceName: data.offerSourceName,
-          subId: data.subId ?? '',
-          querySeparator: data.querySeparator ?? '&',
-          postbackSubId: data.postbackSubId ?? '',
-          postbackTxId: data.postbackTxId ?? '',
-          postbackPayout: data.postbackPayout ?? '',
-        })
-      },
-    })
-  }
-
-  return (
-    <Modal open={open} onCancel={() => onOpenChange(false)} title={isEditing ? 'Edit Offer Source' : 'Add Offer Source'} footer={null} width={640} destroyOnHidden>
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-5 pt-4">
-        {isEditing && initialData?.idOfferSource && (
-          <FormField label="ID">
-            <Input value={initialData.idOfferSource} disabled className="font-mono text-xs" />
-          </FormField>
-        )}
-
-        {!isEditing && templates && templates.length > 0 && (
-          <FormField label="Copy from Template">
-            <Select onChange={handleLoadTemplate} placeholder="Select a template" className="w-full">
-              {templates.map((template) => (
-                <Select.Option key={template.id} value={template.id}>
-                  {template.name}
-                </Select.Option>
-              ))}
-            </Select>
-          </FormField>
-        )}
-
-        <FormField label="Name" htmlFor="offerSourceName" error={errors.offerSourceName?.message}>
-          <Input id="offerSourceName" {...register('offerSourceName')} placeholder="Offer source name" />
-        </FormField>
-
-        <FormField label="Sub ID Parameter" htmlFor="subId">
-          <Input id="subId" {...register('subId')} placeholder="e.g. sub_id" />
-        </FormField>
-
-        <FormField label="Query Separator" htmlFor="querySeparator">
-          <Input id="querySeparator" {...register('querySeparator')} placeholder="&" />
-        </FormField>
-
-        <FormField label="Postback Sub ID" htmlFor="postbackSubId">
-          <Input id="postbackSubId" {...register('postbackSubId')} placeholder="Postback sub ID token" />
-        </FormField>
-
-        <FormField label="Postback TX ID" htmlFor="postbackTxId">
-          <Input id="postbackTxId" {...register('postbackTxId')} placeholder="Postback transaction ID token" />
-        </FormField>
-
-        <FormField label="Postback Payout" htmlFor="postbackPayout">
-          <Input id="postbackPayout" {...register('postbackPayout')} placeholder="Postback payout token" />
-        </FormField>
-
-        <FormField label="Notes" htmlFor="notes">
-          <Input.TextArea id="notes" {...register('notes')} placeholder="Optional notes..." rows={3} />
-        </FormField>
-
-        {isEditing && initialData && (
-          <FormField label="Postback URL">
-            <Input
-              value={`YOUR_DOMAIN/postback?subid=${initialData.postbackSubId || '{subid}'}&txid=${initialData.postbackTxId || '{txid}'}&payout=${initialData.postbackPayout || '{payout}'}`}
-              disabled
-              className="font-mono text-xs"
-            />
-          </FormField>
-        )}
-
-        <div className="flex justify-end gap-2 pt-4">
-          <Button htmlType="button" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="primary" htmlType="submit" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isEditing ? 'Save Changes' : 'Create'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  )
-}
 
 export function OfferSourcesPage() {
   const toast = useToastApi()
@@ -213,31 +57,44 @@ export function OfferSourcesPage() {
   const deleteMutation = useDeleteOfferSource()
 
   const {
-    rows,
-    columns,
-    metaById,
+    entities,
+    statsById,
+    reportColumns,
+    totalsCells,
     isLoading,
+    fetchAll,
     reload,
-  } = useEntityGridReport<OfferSourceMeta>({
-    groupBy: 'Third Parties: Offer Source',
-    dateFrom: dateRange.from,
-    dateTo: dateRange.to,
-    timezone: tz,
-    metaEndpoint: '/data/offersource/list/',
-    metaIdKey: 'idOfferSource',
-  })
+    upsertEntity,
+    removeEntity,
+  } = useOfferSourceGridStore()
+
+  useEffect(() => {
+    fetchAll({ dateFrom: dateRange.from, dateTo: dateRange.to, timezone: tz })
+  }, [dateRange.from, dateRange.to, tz, fetchAll])
+
+  const mergedRows = useMemo(
+    () => buildMergedRows(entities, statsById, reportColumns),
+    [entities, statsById, reportColumns],
+  )
+
+  const pinnedBottomRows = useMemo(
+    () => {
+      const row = buildTotalsRow(totalsCells)
+      return row ? [row as OfferSourceGridRow] : undefined
+    },
+    [totalsCells],
+  )
 
   const filtered = useMemo((): OfferSourceGridRow[] => {
     const searchText = search.toLowerCase()
-    return rows.filter((row) => {
+    return mergedRows.filter((row) => {
       const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
-      const meta = metaById[row.id]
       const matchesArchive =
         archiveStatus === 'all' ||
-        (archiveStatus === 'archived' ? meta?.isArchived === true : meta?.isArchived !== true)
+        (archiveStatus === 'archived' ? row.isArchived === true : row.isArchived !== true)
       return matchesSearch && matchesArchive
     }) as OfferSourceGridRow[]
-  }, [archiveStatus, metaById, rows, search])
+  }, [archiveStatus, mergedRows, search])
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -259,8 +116,12 @@ export function OfferSourcesPage() {
       onSuccess: () => {
         toast.success(editId ? 'Offer source updated' : 'Offer source created')
         setSheetOpen(false)
+        if (editId) {
+          upsertEntity({ id: editId, name: data.offerSourceName })
+        } else {
+          reload()
+        }
         setEditId(null)
-        reload()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
@@ -269,14 +130,14 @@ export function OfferSourcesPage() {
   const handleDelete = () => {
     if (!deleteId) return
     deleteMutation.mutate(deleteId, {
-      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); reload() },
+      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); removeEntity(deleteId) },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
 
   const statCols = useMemo(
-    () => buildColumnsFromReport<OfferSourceGridRow>(columns),
-    [columns],
+    () => buildColumnsFromReport<OfferSourceGridRow>(reportColumns),
+    [reportColumns],
   )
 
   const columnDefs = useMemo<ColumnDef<OfferSourceGridRow, unknown>[]>(() => [
@@ -316,7 +177,8 @@ export function OfferSourcesPage() {
         data={filtered}
         columns={columnDefs}
         loading={isLoading}
-        getRowId={(row) => row.id}
+        getRowId={entityRowId}
+        pinnedBottomRows={pinnedBottomRows}
         enableRowSelection
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}

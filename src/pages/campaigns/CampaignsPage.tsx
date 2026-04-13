@@ -21,6 +21,7 @@ import {
   addFunnelBtnColumn,
   moveBtnColumn,
   buildColumnsFromReport,
+  entityRowId,
 } from '@/components/ui-kit/data-table'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
@@ -385,7 +386,7 @@ export function CampaignsPage() {
         data={filtered}
         columns={columnDefs}
         loading={isLoading}
-        getRowId={(row) => row.id}
+        getRowId={entityRowId}
         enableRowSelection
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
