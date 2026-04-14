@@ -1,0 +1,82 @@
+---
+description: File structure and naming conventions for funnelflux-open-ui
+globs: "src/**/*.{tsx,ts}"
+alwaysApply: false
+---
+
+# File structure and naming
+
+## Directory map (DO NOT restructure)
+
+```
+src/
+├── api/
+│   ├── client.ts              # Singleton ApiClient — DO NOT duplicate
+│   ├── queryKeys.ts           # React Query key registry
+│   ├── auth.ts                # Auth bootstrap
+│   └── hooks/                 # One file per entity
+│       ├── index.ts           # Barrel: export * from './use<Entity>'
+│       ├── useCampaigns.ts
+│       ├── usePages.ts
+│       └── ...
+├── components/
+│   ├── ui-kit/                # Shared primitives (FormField, DataTable, etc.)
+│   ├── forms/                 # Entity-specific form components
+│   ├── funnel-builder/        # Funnel canvas: nodes, edges, modals
+│   ├── shared/                # Cross-page widgets (DateRangePicker, CSV import)
+│   ├── layout/                # AppLayout, Navbar
+│   ├── dashboard/             # Dashboard-specific widgets
+│   ├── drilldown/             # Report-specific widgets
+│   └── settings/              # Settings-specific widgets
+├── hooks/                     # App-level custom hooks (useAuth, useNotifications)
+├── lib/                       # Utilities (antd-theme, utils, id-generator)
+├── pages/                     # Route-level page components
+│   ├── campaigns/
+│   ├── landers/
+│   ├── offers/
+│   └── ...
+├── schemas/                   # Zod validation schemas, one per entity
+├── store/                     # Zustand stores, one per concern
+├── styles/                    # CSS: design-tokens.css, ag-grid-theme.css
+└── types/                     # TypeScript types: entities, api, stats, funnel, ui
+```
+
+## Naming conventions
+
+| What | Convention | Example |
+|------|-----------|---------|
+| Page component | `PascalCase` + `Page` suffix | `CampaignsPage.tsx` |
+| Form component | `PascalCase` + `Form` or `EditForm` | `CampaignEditForm.tsx` |
+| API hook file | `use<Entity>.ts` (camelCase) | `useCampaigns.ts` |
+| Store file | `<concern>.ts` (camelCase) | `tableConfig.ts` |
+| Schema file | `<entity>.ts` (camelCase) | `campaign.ts` |
+| Type file | `<domain>.ts` (camelCase) | `entities.ts` |
+| UI-kit component | `PascalCase.tsx` | `SmartSelect.tsx` |
+
+## Import rules
+- Always use `@/` alias (maps to `src/`): `import { api } from '@/api/client'`
+- Never use relative imports that go above the current directory (`../../..`).
+- Import ui-kit components from `@/components/ui-kit` barrel, not individual files.
+- Import hooks from `@/api/hooks` barrel when available.
+
+## Adding a new entity
+
+1. **Type**: Add interface to `src/types/entities.ts` (match OpenAPI model).
+2. **Schema**: Create `src/schemas/<entity>.ts` with Zod schema + `FormData` type.
+3. **Query keys**: Add entry to `src/api/queryKeys.ts`.
+4. **Hooks**: Create `src/api/hooks/use<Entity>.ts`, add `export *` to `hooks/index.ts`.
+5. **Page**: Create `src/pages/<entity>/<Entity>Page.tsx`.
+6. **Edit form**: Create `src/pages/<entity>/<Entity>EditForm.tsx` (or in `components/forms/`).
+7. **Route**: Add to `AppRoutes` in `App.tsx` with permission guard.
+
+## Exports
+- Named exports only (no `export default` except `App.tsx`).
+- One component per file for pages and forms.
+- Barrels (`index.ts`) only in `api/hooks/` and `components/ui-kit/`.
+
+## Never
+- Never create files outside the directory structure above without discussion.
+- Never put API calls in page files — they go in hooks.
+- Never create a new `components/` subfolder — use existing categorization.
+- Never use default exports (except `App.tsx`).
+- Never create barrel `index.ts` files in page directories — import pages by full path.

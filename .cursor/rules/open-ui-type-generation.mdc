@@ -1,0 +1,49 @@
+---
+description: Rules for OpenAPI-to-TypeScript type generation pipeline
+globs:
+  - "src/types/**"
+  - "../admin/api/v2/*/definition.yaml"
+alwaysApply: true
+---
+
+# OpenAPI Type Generation
+
+## Generated files — never edit manually
+
+Files in `src/types/generated/` are auto-generated from the OpenAPI specs at
+`../admin/api/v2/{data,stats,ui,system}/definition.yaml` (paths relative to this package when it lives beside `admin/` in the self-hosted repo) by the script
+`scripts/generate-types.mjs`. **Do not edit them by hand.**
+
+## When to regenerate
+
+Run the generator after **any** change to a `definition.yaml`:
+
+```bash
+pnpm generate-types
+```
+
+## Wrapper files
+
+The parent files `entities.ts`, `api.ts`, `stats.ts`, `ui.ts` re-export
+generated types and add hand-written extras (helper functions, app-only
+types, type overrides). Place new hand-written types there, not in
+`generated/`.
+
+## Adding a new definition to YAML
+
+1. Add the definition to the relevant `definition.yaml`
+2. Run `pnpm generate-types` from this package root
+3. Add a re-export to the appropriate wrapper file (`entities.ts`, `stats.ts`, etc.)
+4. Import from the wrapper file in application code — never from `generated/` directly
+
+## Script conventions
+
+- `integer/int64` → `string` (all entity IDs are strings in the app)
+- `integer/int32` → `number`
+- `number/double` → `number`
+- Enum lists > 30 values → `string` (avoids overly strict unions)
+- `default: null` on strings → `string | null`
+- Property rename: `idTrafficSouce` → `idTrafficSource` (spec typo)
+- Definition renames: `Date` → `ApiDate`, `TimeHHMM` → `ApiTime`,
+  `DateTime` → `ApiDateTime`, `DateTimeRange` → `ApiDateTimeRange`,
+  `TimeZone` → `ApiTimeZone`, `Error` → `ApiErrorResponse`

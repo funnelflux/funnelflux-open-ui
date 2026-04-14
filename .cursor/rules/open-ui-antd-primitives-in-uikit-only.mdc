@@ -1,0 +1,37 @@
+---
+description: Before importing from antd, check ui-kit; use ui-kit when a wrapper or export exists
+globs: "src/**/*.{tsx,ts}"
+alwaysApply: true
+---
+
+# Ant Design: check ui-kit first
+
+When adding or editing imports **outside** `src/components/ui-kit/**`:
+
+## Required workflow
+
+1. **Open** `src/components/ui-kit/index.ts` and scan its exports.
+2. **If** the component or hook you need is exported there (or is clearly the app’s replacement for an Ant component, e.g. `ConfirmModal`, `SmartSelect`, `DataTable`), **import it from `@/components/ui-kit`** — **not** from `antd`.
+3. **If** it is **not** in `index.ts`, quickly check `src/components/ui-kit/*.tsx` for a file that re-exports or wraps the Ant primitive (some exports are only used internally; prefer adding a barrel export when introducing a new wrapper).
+4. **Only if** there is **no** ui-kit equivalent should you import that symbol from `antd`.
+
+## Inside `src/components/ui-kit/**`
+
+- Importing from `antd` is allowed **only** to implement wrappers, re-exports, or tightly coupled ui-kit modules (e.g. `SmartSelect` using Ant `Select` internally).
+- **Avoid circular imports:** files under `ui-kit/data-table/` and similar **must not** import from `@/components/ui-kit` (barrel). Import siblings with relative paths (e.g. `../Button`, `../Input`).
+
+## Currently exported from the barrel (non-exhaustive)
+
+Primitives / Ant-aligned: `Button`, `Input`, `Checkbox`, `InputNumber`, `Select`, `Switch`, `Collapse`, `Modal`, `FormField`, and their `*Props` types where listed.
+
+App / composite: `ConfirmModal`, `SmartSelect`, `SmartMultiSelect`, `TimezoneSelect`, `DateTimeRangePicker`, `PageShell`, `StatCard`, `EmptyState`, `SearchToolbar`, `DataTable`, column helpers, `useToastApi`, etc.
+
+## Adding a new wrapper
+
+1. Add `src/components/ui-kit/<Name>.tsx` (re-export or custom implementation).
+2. Export from `src/components/ui-kit/index.ts`.
+3. Use `@/components/ui-kit` everywhere outside ui-kit.
+
+## Still typically from `antd` (until a ui-kit wrapper exists)
+
+Examples: `ConfigProvider`, `App`, `theme`, `DatePicker`, `Tabs`, `Card`, `Drawer`, `Form`, `List`, `Tag`, `Space`, `Segmented`, `Popconfirm`, `Tooltip` — **unless** a matching export appears in ui-kit; then switch to ui-kit per the workflow above.

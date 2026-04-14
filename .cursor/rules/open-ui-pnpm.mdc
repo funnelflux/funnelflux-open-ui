@@ -1,0 +1,17 @@
+---
+description: Always use pnpm for the React UI project
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Package Manager: pnpm
+
+This project uses **pnpm** as its package manager (run all package commands from this directory).
+
+- **Always** use `pnpm` commands instead of `npm` or `yarn`
+- `pnpm install` — install dependencies
+- `pnpm add <pkg>` / `pnpm add -D <pkg>` — add dependencies
+- `pnpm run <script>` or `pnpm <script>` — run scripts
+- `pnpm remove <pkg>` — remove dependencies
+- **Never** use `npm install`, `npm run`, `yarn add`, etc. in this directory

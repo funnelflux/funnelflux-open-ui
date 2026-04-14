@@ -1,0 +1,19 @@
+---
+description: Open UI must align with V2 OpenAPI — read definition.yaml before API-related changes
+globs: "**/*"
+alwaysApply: false
+---
+
+# Open UI ↔ V2 API contract
+
+When implementing or changing anything in this package that talks to `/admin/api/v2/` (hooks in `src/api/`, client, types, pages, components):
+
+1. Read the **canonical** OpenAPI specs at the **self-hosted repository root** (when this app is checked out as `funnelflux-open-ui/` next to `admin/`, use `../admin/api/v2/...`). Search the YAML for the endpoint path, tag, or `#/definitions/...`:
+   - `../admin/api/v2/ui/definition.yaml` — most UI/BFF calls
+   - `../admin/api/v2/data/definition.yaml` — entity CRUD
+   - `../admin/api/v2/stats/definition.yaml` — reports and analytics
+   - `../admin/api/v2/system/definition.yaml` — system endpoints
+
+2. Do not invent query params, paths, or response shapes; match the documented contract.
+
+3. Full workflow: `.cursor/skills/funnelflux-v2-api-openapi/SKILL.md`. PHP server patterns: `../admin/api/v2/CLAUDE.md` (from this package directory).

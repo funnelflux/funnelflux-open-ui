@@ -1,0 +1,95 @@
+---
+description: Styling rules — design tokens, Tailwind utilities, no hardcoded colors
+globs: "src/**/*.{tsx,ts,css}"
+alwaysApply: false
+---
+
+# Styling: Design tokens + Tailwind + Ant Design theming
+
+## Color system
+All colors come from **design tokens** defined in `src/styles/design-tokens.css`.
+They are mapped to Tailwind utilities in `src/index.css` via `@theme inline`.
+
+```
+Token variable (CSS)    → Tailwind class
+var(--background)       → bg-background
+var(--foreground)       → text-foreground
+var(--primary)          → bg-primary, text-primary
+var(--border)           → border-border
+var(--muted-fg)         → text-muted-foreground
+var(--ff-success)       → text-success
+var(--ff-error)         → text-error
+```
+
+## Rules
+
+### No hardcoded hex/rgb values in components
+```tsx
+// WRONG
+<div style={{ color: '#2563EB' }}>
+<span className="text-[#475569]">
+
+// RIGHT
+<div className="text-primary">
+<span className="text-muted-foreground">
+```
+
+Exception: `src/lib/antd-theme.ts` and `src/styles/design-tokens.css` are the ONLY files where raw hex values belong. Ant Design cannot read CSS variables at runtime, so its theme config must use hex duplicates.
+
+### Use Tailwind utility classes
+- Layout: `flex`, `grid`, `gap-*`, `p-*`, `m-*`, `space-y-*`
+- Text: `text-sm`, `text-xs`, `font-medium`, `text-foreground`, `text-muted-foreground`
+- Borders: `border`, `border-border`, `rounded`, `rounded-lg`
+- Sizing: `w-full`, `h-full`, `min-h-0`, `flex-1`
+
+### No inline styles unless dynamic
+```tsx
+// WRONG — static styling via inline
+<div style={{ padding: '16px', borderRadius: '6px' }}>
+
+// RIGHT — Tailwind
+<div className="p-4 rounded-md">
+
+// OK — genuinely dynamic
+<div style={{ width: `${percentage}%` }}>
+```
+
+### Dark mode
+- Handled by `.dark` class on `<html>` element (toggled by `useThemeStore`).
+- Tailwind: use `dark:` variant when needed, but prefer semantic token colors that auto-switch.
+- Ant Design: `ConfigProvider` receives `darkTheme` or `lightTheme` from `src/lib/antd-theme.ts`.
+- CSS overrides for Ant portaled components (e.g. `.ant-message`): put in `src/index.css` with `html.dark` selector.
+
+### Spacing and layout tokens
+```css
+--space-1: 4px   --space-2: 8px   --space-3: 12px
+--space-4: 16px  --space-6: 24px  --space-8: 32px
+--nav-height: 48px  --radius: 6px  --page-padding: 24px
+```
+Use Tailwind equivalents: `p-1` (4px), `p-2` (8px), `gap-4` (16px), `gap-6` (24px).
+
+### Typography
+- Primary font: `'Inter'` (via `--font-sans`).
+- Grid font: `'Roboto'` (via `--font-grid`) — used in data tables.
+- Never add new Google Font imports without discussion.
+
+### Global behavior for shared primitives (consistency)
+Patterns that should feel the same everywhere (scroll, max height, spacing for overlays, focus rings, etc.) **must be solved once globally**, not per screen.
+
+- **Ant Design `Modal`, `Drawer`, and similar portaled components:** Prefer shared overrides in `src/styles/design-tokens.css` (or `src/index.css` when tied to `#root` / `html.dark`) and/or `ConfigProvider` `theme.components` in `src/lib/antd-theme.ts`.
+- **Do not** add one-off `styles={{ body: … }}`, `classNames`, or ad-hoc `max-height` / `overflow` on a single modal to fix layout — that causes inconsistent UX (e.g. one modal scrolls, another stretches past the viewport).
+- **If** a single instance truly needs different behavior, document why in a short code comment and prefer a **reusable** pattern (e.g. a wrapper in `src/components/ui-kit/`, or a dedicated `rootClassName` convention) rather than copying inline fixes across files.
+- **Current example:** modal max-height + scrollable body live under the “All modals (Ant Design 6+)” block in `design-tokens.css` (`.ant-modal-container`, `.ant-modal-body`, etc.). Extend that block when adjusting modal behavior for the whole app.
+- **Form dialogs:** put actions in **`Modal`’s `footer`** so they stay fixed while the body scrolls; see `open-ui-uikit-components.mdc` (form + `formId` / submit button pattern).
+
+### Icons
+- Use **`lucide-react`** for icons (consistent across the app).
+- Import individual icons: `import { Plus, Trash2 } from 'lucide-react'`
+- Standard size in buttons: `className="h-3.5 w-3.5"` or `className="h-4 w-4"`
+
+## Never
+- Never use arbitrary Tailwind values for colors (`text-[#xxx]`) — add a token if the color is new.
+- Never import from `@ant-design/icons` — use `lucide-react`.
+- Never set `style={{ color: '...' }}` for colors that exist as tokens.
+- Never create new CSS files — extend `design-tokens.css` for new variables or `index.css` for global overrides.
+- Never fix overlay/modal layout (scroll, viewport cap, mask) in isolation on one feature component when the same primitive is used app-wide — update the global rules above instead.
