@@ -211,7 +211,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
         isArchived: data.isArchived,
         offerParams: data.offerParams,
       }
-      await savePage.mutateAsync(payload)
+      await savePage.mutateAsync({ page: payload, isCreate: false })
       await qc.refetchQueries({ queryKey: queryKeys.pages.detail(String(data.idPage)) })
 
       const tokenRows = data.additionalTokens ?? form.getValues('additionalTokens') ?? []

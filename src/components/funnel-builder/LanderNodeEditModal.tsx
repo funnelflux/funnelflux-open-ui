@@ -201,7 +201,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
         notes: data.notes ?? '',
         isArchived: data.isArchived,
       }
-      await savePage.mutateAsync(payload)
+      await savePage.mutateAsync({ page: payload, isCreate: false })
       await qc.refetchQueries({ queryKey: queryKeys.pages.detail(String(data.idPage)) })
 
       const tokenRows = data.additionalTokens ?? form.getValues('additionalTokens') ?? []

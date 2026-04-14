@@ -7,6 +7,7 @@ import { trafficSourceSchema, type TrafficSourceFormData } from '@/schemas/traff
 import { mapTrafficSourceTemplateLoadToFormPatch } from '@/api/trafficSourceTemplateLoad'
 import { useTrafficSourceTemplates, useLoadTrafficSourceTemplate } from '@/api/hooks'
 import type { TrafficSource } from '@/types/entities'
+import { generateEntityId } from '@/lib/id-generator'
 
 interface TrafficSourceFormProps {
   open: boolean
@@ -17,6 +18,7 @@ interface TrafficSourceFormProps {
 }
 
 const defaultValues: TrafficSourceFormData = {
+  idTrafficSource: '',
   trafficSourceName: '',
   costType: 'cpe',
   defaultCost: '',
@@ -47,6 +49,7 @@ export function TrafficSourceForm({
     handleSubmit,
     control,
     reset,
+    getValues,
     watch,
     formState: { errors },
   } = useForm<TrafficSourceFormData>({
@@ -75,7 +78,7 @@ export function TrafficSourceForm({
           isArchived: initialData.isArchived,
         })
       } else {
-        reset(defaultValues)
+        reset({ ...defaultValues, idTrafficSource: generateEntityId() })
       }
     }
   }, [open, initialData, reset])
@@ -86,9 +89,11 @@ export function TrafficSourceForm({
     loadTemplate.mutate(templateName, {
       onSuccess: (data) => {
         setTemplateSelectValue(undefined)
+        const draftId = getValues('idTrafficSource')
         reset({
           ...defaultValues,
           ...mapTrafficSourceTemplateLoadToFormPatch(data),
+          idTrafficSource: draftId && draftId.length > 0 ? draftId : generateEntityId(),
         })
       },
     })

@@ -34,10 +34,11 @@ const fluxifyParamsSchema = z.object({
 
 /**
  * Page (lander/offer) form. Aligns with OpenAPI `#/definitions/Page` / {@link Page}.
+ * For create, set `idPage` with `generateEntityId()` from `@/lib/id-generator` before POST.
  * `categoryId` and `numberOfActions` are app/runtime extensions on {@link Page} in `entities.ts`.
  */
 export const pageSchema = z.object({
-  idPage: z.string().optional(),
+  idPage: z.string().min(1, 'ID is required'),
   pageType: z.enum(['lander', 'offer']),
   pageName: z.string().min(1, 'Name is required'),
   url: z.string().min(1, 'URL is required'),

@@ -138,7 +138,7 @@ export function LandersPage() {
   const handleEdit = useCallback((id: string) => { setEditId(id); setSheetOpen(true) }, [])
 
   const handleSubmit = (data: PageFormData) => {
-    saveMutation.mutate(data as Partial<Page>, {
+    saveMutation.mutate({ page: data as Partial<Page>, isCreate: !editId }, {
       onSuccess: () => {
         toast.success(editId ? 'Lander updated' : 'Lander created')
         setSheetOpen(false)

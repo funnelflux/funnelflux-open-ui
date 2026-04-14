@@ -4,10 +4,10 @@ export type { TrafficSource } from '@/types/entities'
 
 /**
  * Traffic source create/update form. Aligns with OpenAPI `#/definitions/TrafficSource` /
- * {@link TrafficSource}. `postback.idTrafficSource` may be filled by the server after create.
+ * {@link TrafficSource}. For create, set `idTrafficSource` with `generateEntityId()` from `@/lib/id-generator` before POST. The save hook sets `postback.idTrafficSource` to match.
  */
 export const trafficSourceSchema = z.object({
-  idTrafficSource: z.string().optional(),
+  idTrafficSource: z.string().min(1, 'ID is required'),
   trafficSourceName: z.string().min(1, 'Name is required').max(255),
   costType: z.enum(['cpe', 'cpa']),
   /** Numeric or token (e.g. `{bid}`) — matches legacy templates and API string field. */

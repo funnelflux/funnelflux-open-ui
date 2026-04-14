@@ -3,6 +3,11 @@ import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { Page, PageType } from '@/types/entities'
 
+export type SavePageInput = {
+  page: Partial<Page>
+  isCreate: boolean
+}
+
 export function usePages(pageType?: PageType, status?: string) {
   const params: Record<string, string> = {}
   if (pageType) params.pageType = pageType
@@ -43,12 +48,10 @@ export function usePage(
 export function useSavePage() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (page: Partial<Page>) => {
-      const isNew = !page.idPage || page.idPage === '0'
-      return isNew
+    mutationFn: ({ page, isCreate }: SavePageInput) =>
+      isCreate
         ? api.post<Page>('/data/page/save/', page)
-        : api.put<Page>('/data/page/save/', page)
-    },
+        : api.put<Page>('/data/page/save/', page),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.pages.all })
     },

@@ -111,7 +111,7 @@ export function OfferSourcesPage() {
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
 
   const handleSubmit = (data: OfferSourceFormData) => {
-    saveMutation.mutate(data, {
+    saveMutation.mutate({ offerSource: data, isCreate: !editId }, {
       onSuccess: () => {
         toast.success(editId ? 'Offer source updated' : 'Offer source created')
         setSheetOpen(false)

@@ -6,6 +6,11 @@ import { queryKeys } from '@/api/queryKeys'
 import type { OfferSource } from '@/types/entities'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
 
+export type SaveOfferSourceInput = {
+  offerSource: OfferSourceFormData
+  isCreate: boolean
+}
+
 export function useOfferSources(status?: string) {
   const params: Record<string, string> = {}
   if (status && status !== 'all') params.status = status
@@ -31,12 +36,10 @@ export function useOfferSource(id: string) {
 export function useSaveOfferSource() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (offerSource: OfferSourceFormData) => {
-      const isNew = !offerSource.idOfferSource || offerSource.idOfferSource === '0'
-      return isNew
+    mutationFn: ({ offerSource, isCreate }: SaveOfferSourceInput) =>
+      isCreate
         ? api.post<OfferSource>('/data/offersource/save/', offerSource)
-        : api.put<OfferSource>('/data/offersource/save/', offerSource)
-    },
+        : api.put<OfferSource>('/data/offersource/save/', offerSource),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
     },

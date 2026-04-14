@@ -8,8 +8,10 @@ import { useOfferSourceTemplates, useLoadOfferSourceTemplate } from '@/api/hooks
 import { mapOfferSourceTemplateLoadToFormPatch } from '@/api/offerSourceTemplateLoad'
 import { offerSourceSchema, type OfferSourceFormData } from '@/schemas/offerSource'
 import type { OfferSource } from '@/types/entities'
+import { generateEntityId } from '@/lib/id-generator'
 
 const defaultValues: OfferSourceFormData = {
+  idOfferSource: '',
   offerSourceName: '',
   subId: '',
   querySeparator: '&',
@@ -64,7 +66,7 @@ export function OfferSourceForm({
           isArchived: initialData.isArchived,
         })
       } else {
-        reset(defaultValues)
+        reset({ ...defaultValues, idOfferSource: generateEntityId() })
       }
     }
   }, [open, initialData, reset])
@@ -77,9 +79,11 @@ export function OfferSourceForm({
     loadTemplate.mutate(templateId, {
       onSuccess: (data) => {
         setTemplateSelectValue(undefined)
+        const draftId = form.getValues('idOfferSource')
         reset({
           ...defaultValues,
           ...mapOfferSourceTemplateLoadToFormPatch(data),
+          idOfferSource: draftId && draftId.length > 0 ? draftId : generateEntityId(),
         })
       },
     })

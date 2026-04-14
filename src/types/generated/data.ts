@@ -21,7 +21,7 @@ export interface OfferSource {
 }
 
 export interface OfferSourceSaveRequest {
-  idOfferSource?: string;
+  idOfferSource: string;
   offerSourceName: string;
   subId?: string;
   querySeparator?: string;

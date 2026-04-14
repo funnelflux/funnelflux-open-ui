@@ -137,7 +137,7 @@ export function OffersPage() {
   const handleEdit = useCallback((id: string) => { setEditId(id); setSheetOpen(true) }, [])
 
   const handleSubmit = (data: PageFormData) => {
-    saveMutation.mutate(data as Partial<Page>, {
+    saveMutation.mutate({ page: data as Partial<Page>, isCreate: !editId }, {
       onSuccess: () => {
         toast.success(editId ? 'Offer updated' : 'Offer created')
         setSheetOpen(false)

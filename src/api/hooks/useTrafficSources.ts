@@ -5,6 +5,11 @@ import type { TrafficSourceTemplateLoadResponse } from '@/api/trafficSourceTempl
 import { queryKeys } from '@/api/queryKeys'
 import type { TrafficSource } from '@/types/entities'
 
+export type SaveTrafficSourceInput = {
+  trafficSource: Partial<TrafficSource>
+  isCreate: boolean
+}
+
 export function useTrafficSources(status?: string) {
   const params: Record<string, string> = {}
   if (status && status !== 'all') params.status = status
@@ -30,19 +35,21 @@ export function useTrafficSource(id: string) {
 export function useSaveTrafficSource() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (ts: Partial<TrafficSource>) => {
-      const isNew = !ts.idTrafficSource || ts.idTrafficSource === '0'
-      // Backend Postback model requires idTrafficSource in the nested object.
-      // For updates, inject it; for creates, omit postback so the backend uses its default.
-      if (isNew) {
-        const rest = { ...ts }
-        delete rest.postback
-        return api.post<TrafficSource>('/data/trafficsource/save/', rest)
+    mutationFn: ({ trafficSource, isCreate }: SaveTrafficSourceInput) => {
+      const id = trafficSource.idTrafficSource
+      if (!id) {
+        throw new Error('idTrafficSource is required')
       }
-      if (ts.postback) {
-        ts = { ...ts, postback: { ...ts.postback, idTrafficSource: ts.idTrafficSource! } }
+      let body: Partial<TrafficSource> = { ...trafficSource }
+      if (body.postback) {
+        body = {
+          ...body,
+          postback: { ...body.postback, idTrafficSource: id },
+        }
       }
-      return api.put<TrafficSource>('/data/trafficsource/save/', ts)
+      return isCreate
+        ? api.post<TrafficSource>('/data/trafficsource/save/', body)
+        : api.put<TrafficSource>('/data/trafficsource/save/', body)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.trafficSources.all })

@@ -107,7 +107,10 @@ export function TrafficSourcesPage() {
   const handleEdit = useCallback((id: string) => { setEditId(id); setSheetOpen(true) }, [])
 
   const handleSubmit = (data: TrafficSourceFormData) => {
-    saveMutation.mutate(data as unknown as Partial<TrafficSource>, {
+    saveMutation.mutate({
+      trafficSource: data as unknown as Partial<TrafficSource>,
+      isCreate: !editId,
+    }, {
       onSuccess: () => {
         toast.success(editId ? 'Traffic source updated' : 'Traffic source created')
         setSheetOpen(false)

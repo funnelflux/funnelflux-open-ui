@@ -21,6 +21,7 @@ import { useOfferSources, useCategories, useSaveCategory } from '@/api/hooks'
 import { pageSchema, type PageFormData } from '@/schemas/page'
 import type { Page, PageType, FluxifyParams } from '@/types/entities'
 import { getErrorMessage } from '@/lib/utils'
+import { generateEntityId } from '@/lib/id-generator'
 
 type FluxifyFormParams = NonNullable<PageFormData['fluxifyParams']>
 
@@ -85,6 +86,7 @@ export function PageForm({
   const form = useForm<PageFormData>({
     resolver: zodResolver(pageSchema) as Resolver<PageFormData>,
     defaultValues: {
+      idPage: '',
       pageType,
       pageName: '',
       url: '',
@@ -122,6 +124,7 @@ export function PageForm({
         })
       } else {
         form.reset({
+          idPage: generateEntityId(),
           pageType,
           pageName: '',
           url: '',
