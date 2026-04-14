@@ -1,37 +1,88 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { Button, Input } from 'antd'
 import { PageShell, SmartSelect, TimezoneSelect, useToastApi } from '@/components/ui-kit'
 import type { SmartSelectOption } from '@/components/ui-kit'
-import { useCampaignsList, useTrafficSources } from '@/api/hooks'
+import { useTrafficSources } from '@/api/hooks'
 import { api } from '@/api/client'
-import type { CostUpdateRequest } from '@/types/ui'
+import { queryKeys } from '@/api/queryKeys'
+import type {
+  ApiDate,
+  ApiDateTimeRange,
+  BackgroundJobResponse,
+  CostUpload,
+} from '@/types/stats'
+import type { IdName } from '@/types/entities'
 import { getErrorMessage } from '@/lib/utils'
 
 function todayString(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+function parseIsoDateToApiDate(iso: string): ApiDate {
+  const [yearStr, monthStr, dayStr] = iso.split('-')
+  const year = Number(yearStr)
+  const month = Number(monthStr)
+  const day = Number(dayStr)
+  if (!year || !month || !day) {
+    throw new Error('Invalid date')
+  }
+  return { year, month, day }
+}
+
+function buildLocalDayRange(dateFrom: string, dateTo: string): ApiDateTimeRange {
+  const startDate = parseIsoDateToApiDate(dateFrom)
+  const endDate = parseIsoDateToApiDate(dateTo)
+  return {
+    start: { date: startDate, time: { hour: 0, minutes: 0 } },
+    end: { date: endDate, time: { hour: 23, minutes: 59 } },
+  }
+}
+
 export function CostUpdatePage() {
   const toast = useToastApi()
   const { data: trafficSources } = useTrafficSources()
-  const { data: campaigns } = useCampaignsList()
+  const { data: funnels } = useQuery({
+    queryKey: [...queryKeys.funnels.all, 'list', 'prefixed-all'] as const,
+    queryFn: () =>
+      api
+        .get<IdName[]>('/data/campaign/funnel/list/', {
+          prefixWithCampaignNames: 'true',
+        })
+        .then((rows) =>
+          rows.map((funnel) => ({
+            ...funnel,
+            id: String(funnel.id),
+            name: funnel.name ?? '',
+          })),
+        ),
+  })
 
   const trafficSourceOptions: SmartSelectOption[] = useMemo(
-    () => (trafficSources ?? []).map((ts) => ({ label: ts.trafficSourceName, value: ts.idTrafficSource, searchId: ts.idTrafficSource })),
+    () =>
+      (trafficSources ?? [])
+        .filter((ts) => ts.idTrafficSource)
+        .map((ts) => ({
+          label: ts.trafficSourceName?.trim() || `Traffic source ${ts.idTrafficSource}`,
+          value: ts.idTrafficSource,
+          searchId: ts.idTrafficSource,
+        })),
     [trafficSources],
   )
 
-  const campaignOptions: SmartSelectOption[] = useMemo(
+  const funnelOptions: SmartSelectOption[] = useMemo(
     () => [
-      { label: 'All campaigns', value: '__none__' },
-      ...(campaigns ?? []).map((c) => ({ label: c.name, value: c.id, searchId: c.id })),
+      { label: 'All funnels', value: '__none__' },
+      ...(funnels ?? [])
+        .filter((f) => f.id && f.name)
+        .map((f) => ({ label: f.name, value: f.id, searchId: f.id })),
     ],
-    [campaigns],
+    [funnels],
   )
 
   const [idTrafficSource, setIdTrafficSource] = useState('')
-  const [idCampaign, setIdCampaign] = useState('')
+  const [idFunnel, setIdFunnel] = useState('')
   const [dateFrom, setDateFrom] = useState(todayString())
   const [dateTo, setDateTo] = useState(todayString())
   const [timezone, setTimezone] = useState(
@@ -47,24 +98,53 @@ export function CostUpdatePage() {
       toast.error('Please select a traffic source')
       return
     }
-    if (!totalCost || isNaN(Number(totalCost))) {
+    if (!totalCost || Number.isNaN(Number(totalCost))) {
       toast.error('Please enter a valid cost amount')
       return
     }
 
-    const payload: CostUpdateRequest = {
+    const costAmount = Number(totalCost)
+    if (costAmount < 0) {
+      toast.error('Cost must be zero or greater')
+      return
+    }
+
+    let timeRange: ApiDateTimeRange
+    try {
+      timeRange = buildLocalDayRange(dateFrom, dateTo)
+    } catch {
+      toast.error('Invalid date range')
+      return
+    }
+
+    if (dateFrom > dateTo) {
+      toast.error('Date from must be on or before date to')
+      return
+    }
+    const body: CostUpload = {
       idTrafficSource,
-      idCampaign: idCampaign || undefined,
-      dateFrom,
-      dateTo,
-      timezone,
-      totalCost: Number(totalCost),
+      ...(idFunnel && idFunnel !== '__none__' ? { idFunnel } : {}),
+      timeRange,
+      timeZone: { name: timezone, offset: 0 },
+      costSegments: [
+        {
+          cost: costAmount,
+          costType: 'costForWholeSegment',
+          applyToFilteredTraffic: false,
+        },
+      ],
+      notificationWhenComplete: false,
     }
 
     setIsSubmitting(true)
     try {
-      await api.post('/stats/update/cost/', payload)
-      toast.success('Cost updated successfully')
+      const res = await api.put<BackgroundJobResponse>('/stats/update/cost/', body)
+      const jobCount = res.jobIds?.length ?? 0
+      toast.success(
+        jobCount > 0
+          ? `Queued ${jobCount} background job${jobCount === 1 ? '' : 's'}.`
+          : 'Cost update submitted.',
+      )
       setTotalCost('')
     } catch (err) {
       toast.error(getErrorMessage(err))
@@ -85,10 +165,10 @@ export function CostUpdatePage() {
           <SmartSelect options={trafficSourceOptions} value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="Select traffic source" className="w-full" />
         </div>
 
-        {/* Campaign (optional) */}
+        {/* Funnel (optional) — API field idFunnel */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Campaign (optional)</label>
-          <SmartSelect options={campaignOptions} value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full" />
+          <label className="text-sm font-medium">Funnel (optional)</label>
+          <SmartSelect options={funnelOptions} value={idFunnel || undefined} onChange={setIdFunnel} placeholder="All funnels" className="w-full" />
         </div>
 
         {/* Date Range */}

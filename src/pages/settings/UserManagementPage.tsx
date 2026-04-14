@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
 import { UserPlus } from 'lucide-react'
@@ -18,28 +18,45 @@ export function UserManagementPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null)
 
-  function handleToggleEnabled(user: ManagedUser) {
-    const newEnabled = !user.enabled
-    changeStatus.mutate(
-      { userIds: [user.id], enabled: newEnabled },
-      {
-        onSuccess: () => {
-          toast.success(
-            `User "${user.login}" ${newEnabled ? 'enabled' : 'disabled'}`,
-          )
-        },
-        onError: (err) => {
-          toast.error(`Failed to update user: ${getErrorMessage(err)}`)
-        },
-      },
-    )
-  }
+  const changeMutate = changeStatus.mutate
+  const deleteMutate = deleteUser.mutate
 
-  function confirmDelete() {
+  const handleToggleEnabled = useCallback(
+    (user: ManagedUser) => {
+      const newEnabled = !user.enabled
+      changeMutate(
+        { userIds: [user.id], enabled: newEnabled },
+        {
+          onSuccess: () => {
+            toast.success(
+              `User "${user.email}" ${newEnabled ? 'enabled' : 'disabled'}`,
+            )
+          },
+          onError: (err) => {
+            toast.error(`Failed to update user: ${getErrorMessage(err)}`)
+          },
+        },
+      )
+    },
+    [changeMutate, toast],
+  )
+
+  const handleNavigateToEdit = useCallback(
+    (row: ManagedUser) => {
+      navigate(`/settings/users/${row.id}/edit`)
+    },
+    [navigate],
+  )
+
+  const handleRequestDelete = useCallback((row: ManagedUser) => {
+    setDeleteTarget(row)
+  }, [])
+
+  const confirmDelete = useCallback(() => {
     if (!deleteTarget) return
-    deleteUser.mutate(deleteTarget.id, {
+    deleteMutate(deleteTarget.id, {
       onSuccess: () => {
-        toast.success(`User "${deleteTarget.login}" deleted`)
+        toast.success(`User "${deleteTarget.email}" deleted`)
         setDeleteTarget(null)
       },
       onError: (err) => {
@@ -47,30 +64,20 @@ export function UserManagementPage() {
         setDeleteTarget(null)
       },
     })
-  }
-
-  const navigateRef = useRef(navigate)
-  const handleToggleEnabledRef = useRef(handleToggleEnabled)
-  const setDeleteTargetRef = useRef(setDeleteTarget)
-
-  useEffect(() => {
-    navigateRef.current = navigate
-    handleToggleEnabledRef.current = handleToggleEnabled
-    setDeleteTargetRef.current = setDeleteTarget
-  }, [navigate, handleToggleEnabled, setDeleteTarget])
+  }, [deleteMutate, deleteTarget, toast])
 
   const columns = useMemo<ColumnDef<ManagedUser, unknown>[]>(
     () => [
       {
-        id: 'login',
-        header: 'Username',
-        accessorKey: 'login',
-        cell: ({ row }) => <span className="font-medium">{row.original.login}</span>,
+        id: 'email',
+        header: 'Email',
+        accessorKey: 'email',
+        cell: ({ row }) => <span className="font-medium">{row.original.email}</span>,
       },
-      editBtnColumn<ManagedUser>((row) => navigateRef.current(`/settings/users/${row.id}/edit`)),
-      enableBtnColumn<ManagedUser>((row) => handleToggleEnabledRef.current(row), { hidden: (row) => row.enabled }),
-      disableBtnColumn<ManagedUser>((row) => handleToggleEnabledRef.current(row), { hidden: (row) => !row.enabled }),
-      deleteBtnColumn<ManagedUser>((row) => setDeleteTargetRef.current(row)),
+      editBtnColumn<ManagedUser>(handleNavigateToEdit),
+      enableBtnColumn<ManagedUser>(handleToggleEnabled, { hidden: (row) => row.enabled }),
+      disableBtnColumn<ManagedUser>(handleToggleEnabled, { hidden: (row) => !row.enabled }),
+      deleteBtnColumn<ManagedUser>(handleRequestDelete),
       {
         id: 'name',
         header: 'Name',
@@ -78,13 +85,6 @@ export function UserManagementPage() {
           [row.firstname, row.lastname].filter(Boolean).join(' '),
         cell: ({ getValue }) =>
           getValue() || <span className="text-muted-foreground">--</span>,
-      },
-      {
-        id: 'email',
-        header: 'Email',
-        accessorKey: 'email',
-        cell: ({ row }) =>
-          row.original.email || <span className="text-muted-foreground">--</span>,
       },
       {
         id: 'isAdmin',
@@ -105,21 +105,12 @@ export function UserManagementPage() {
         cell: ({ row }) => (
           <Switch
             checked={row.original.enabled}
-            onChange={() => handleToggleEnabledRef.current(row.original)}
+            onChange={() => handleToggleEnabled(row.original)}
           />
         ),
       },
-      {
-        id: 'lastLogin',
-        header: 'Last Login',
-        accessorKey: 'lastLogin',
-        cell: ({ row }) =>
-          row.original.lastLogin || (
-            <span className="text-muted-foreground">Never</span>
-          ),
-      },
     ],
-    [],
+    [handleNavigateToEdit, handleRequestDelete, handleToggleEnabled],
   )
 
   return (
@@ -144,7 +135,7 @@ export function UserManagementPage() {
       <ConfirmModal
         open={!!deleteTarget}
         title="Delete User"
-        description={`Are you sure you want to delete user "${deleteTarget?.login}"? This cannot be undone.`}
+        description={`Are you sure you want to delete user "${deleteTarget?.email}"? This cannot be undone.`}
         confirmText="Delete"
         danger
         onConfirm={confirmDelete}

@@ -6,6 +6,7 @@ import { PermissionsGrid } from '@/components/settings/PermissionsGrid'
 import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
 import type { Permissions } from '@/types/api'
+import type { ManagedUser, UserManagementData, UserProfile } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 
 const DEFAULT_PERMISSIONS: Permissions = {
@@ -70,28 +71,29 @@ export function UserEditPage() {
       return
     }
 
-    const user = users?.find((entry) => String(entry.id) === userId)
-
-    api.get('/ui/usermanagement/rights/', { idUser: userId })
-      .then((permissions) => {
+    api
+      .get<UserProfile>('/ui/userprofile/load/', { id: userId })
+      .then((profile) => {
         setForm((current) => ({
           ...current,
-          id: userId,
-          login: user?.login ?? '',
-          firstname: user?.firstname ?? '',
-          lastname: user?.lastname ?? '',
-          email: user?.email ?? '',
-          enabled: user?.enabled ?? true,
-          isAdmin: user?.isAdmin ?? false,
-          permissions: normalizePermissions(permissions),
+          id: profile.id,
+          login: profile.login,
+          firstname: profile.firstname,
+          lastname: profile.lastname,
+          email: profile.email,
+          avatarURL: profile.avatarURL ?? '',
+          enabled: profile.enabled,
+          isAdmin: profile.isAdmin,
+          permissions: normalizePermissions(profile.permissions),
         }))
       })
       .catch(() => {
+        const user = users?.find((entry) => String(entry.id) === userId)
         if (user) {
           setForm((current) => ({
             ...current,
             id: userId,
-            login: user.login,
+            login: '',
             firstname: user.firstname,
             lastname: user.lastname,
             email: user.email,
@@ -105,8 +107,13 @@ export function UserEditPage() {
 
   const copyOptions = useMemo(
     () => (users ?? []).filter((user) => String(user.id) !== userId),
-    [userId, users],
+    [users, userId],
   )
+
+  function userListLabel(user: ManagedUser): string {
+    const name = [user.firstname, user.lastname].filter(Boolean).join(' ').trim()
+    return name || user.email
+  }
 
   const handleCopyRights = async (sourceUserId: string) => {
     try {
@@ -141,8 +148,12 @@ export function UserEditPage() {
 
       let savedUserId = form.id
       if (!savedUserId) {
-        const refreshedUsers = await api.get<Array<{ id: number; login: string }>>('/ui/usermanagement/load/')
-        savedUserId = String(refreshedUsers.find((user) => user.login === form.login)?.id ?? '')
+        const refreshed = await api.get<UserManagementData>('/ui/usermanagement/load/')
+        const rows = refreshed.rows ?? []
+        const match =
+          rows.find((userRow) => form.email && userRow.email === form.email) ??
+          rows.find((userRow) => form.login && userRow.email === form.login)
+        savedUserId = match ? String(match.id) : ''
       }
 
       if (form.password && savedUserId) {
@@ -197,7 +208,7 @@ export function UserEditPage() {
                 className="w-full"
                 options={copyOptions.map((user) => ({
                   value: String(user.id),
-                  label: user.login,
+                  label: userListLabel(user),
                 }))}
               />
             </div>

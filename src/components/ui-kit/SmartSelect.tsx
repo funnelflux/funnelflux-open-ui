@@ -26,12 +26,19 @@ function useFilteredOptions(
   alphabetical: boolean,
 ) {
   return useMemo(() => {
-    let list = options
+    let list = options.filter(
+      (o): o is SmartSelectOption =>
+        o != null &&
+        typeof o.label === 'string' &&
+        typeof o.value === 'string',
+    )
 
     // Sort alphabetically if requested (timezone-style lists pass false)
     if (alphabetical) {
       list = [...list].sort((a, b) =>
-        a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
+        String(a.label).localeCompare(String(b.label), undefined, {
+          sensitivity: 'base',
+        }),
       )
     }
 
@@ -40,9 +47,9 @@ function useFilteredOptions(
     if (query) {
       list = list.filter(
         (o) =>
-          o.label.toLowerCase().includes(query) ||
-          o.value.toLowerCase().includes(query) ||
-          (o.searchId && o.searchId.toLowerCase().includes(query)),
+          String(o.label).toLowerCase().includes(query) ||
+          String(o.value).toLowerCase().includes(query) ||
+          (o.searchId && String(o.searchId).toLowerCase().includes(query)),
       )
     }
 

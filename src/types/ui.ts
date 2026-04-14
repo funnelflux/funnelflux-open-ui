@@ -54,6 +54,7 @@ export type {
   CampaignsData,
   UserManagementRow,
   UserManagementData,
+  UserProfile,
   ReportPaging,
   ReportSorting,
   SessionInfo,
@@ -92,15 +93,6 @@ export interface SystemLink {
   entranceLink: string;
   actionLinks?: Record<string, string>;
   noRedirectJS?: string;
-}
-
-export interface CostUpdateRequest {
-  idTrafficSource: string;
-  idCampaign?: string;
-  dateFrom: string;
-  dateTo: string;
-  timezone: string;
-  totalCost: number;
 }
 
 export interface InboxNotification {

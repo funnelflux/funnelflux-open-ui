@@ -1,36 +1,55 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
+import { format } from 'date-fns'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import { PageShell, DataTable } from '@/components/ui-kit'
-import { entityRowId } from '@/components/ui-kit/data-table'
-import type { AccessLogEntry } from '@/types/ui'
+import type { AccessLogData, AccessLogEntry } from '@/types/ui'
+
+/** Composite key; API rows have no `id`. */
+function accessLogRowId(row: AccessLogEntry): string {
+  return `${row.timestamp}-${row.ip}-${row.login}-${row.event}`
+}
 
 export function AccessLogPage() {
   const { data: entries, isLoading } = useQuery({
     queryKey: queryKeys.accessLog.all,
-    queryFn: () => api.get<AccessLogEntry[]>('/ui/accesslog/load/'),
+    queryFn: async () => {
+      const res = await api.get<AccessLogData>('/ui/accesslog/load/')
+      return res.rows ?? []
+    },
   })
 
   const columns = useMemo<ColumnDef<AccessLogEntry, unknown>[]>(
     () => [
       {
-        id: 'date',
+        id: 'timestamp',
         header: 'Date',
-        accessorKey: 'date',
-        cell: ({ row }) => <span className="text-sm">{row.original.date}</span>,
+        accessorKey: 'timestamp',
+        cell: ({ row }) => {
+          const seconds = row.original.timestamp
+          const date =
+            typeof seconds === 'number' && Number.isFinite(seconds)
+              ? new Date(seconds * 1000)
+              : null
+          return (
+            <span className="text-sm">
+              {date && !Number.isNaN(date.getTime()) ? format(date, 'PPpp') : '—'}
+            </span>
+          )
+        },
       },
       {
-        id: 'username',
+        id: 'login',
         header: 'User',
-        accessorKey: 'username',
-        cell: ({ row }) => <span className="font-medium">{row.original.username}</span>,
+        accessorKey: 'login',
+        cell: ({ row }) => <span className="font-medium">{row.original.login}</span>,
       },
       {
-        id: 'action',
-        header: 'Action',
-        accessorKey: 'action',
+        id: 'event',
+        header: 'Event',
+        accessorKey: 'event',
       },
       {
         id: 'ip',
@@ -39,11 +58,11 @@ export function AccessLogPage() {
         cell: ({ row }) => <span className="font-mono text-xs">{row.original.ip}</span>,
       },
       {
-        id: 'details',
-        header: 'Details',
-        accessorKey: 'details',
+        id: 'country',
+        header: 'Country',
+        accessorKey: 'country',
         cell: ({ row }) =>
-          row.original.details || <span className="text-muted-foreground">--</span>,
+          row.original.country || <span className="text-muted-foreground">—</span>,
       },
     ],
     [],
@@ -54,7 +73,7 @@ export function AccessLogPage() {
       <DataTable<AccessLogEntry>
         data={entries ?? []}
         columns={columns}
-        getRowId={entityRowId}
+        getRowId={accessLogRowId}
         loading={isLoading}
         noPagination
         emptyMessage="No access log entries."

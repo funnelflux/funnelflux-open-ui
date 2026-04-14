@@ -2,7 +2,33 @@ import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button, Input, PageShell, useToastApi } from '@/components/ui-kit'
 import { api } from '@/api/client'
+import type { BackgroundJobResponse, ConvertedHit, ConversionsUpload } from '@/types/stats'
 import { getErrorMessage } from '@/lib/utils'
+
+/** One line per conversion: `hit_id, transaction_id, payout` (transaction and payout optional). */
+function csvTextToConvertedHits(text: string): ConvertedHit[] {
+  const hits: ConvertedHit[] = []
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line) continue
+    const parts = line.split(',').map((part) => part.trim())
+    const idHit = parts[0]
+    if (!idHit) continue
+    const entry: ConvertedHit = {
+      idHit,
+      transaction: parts[1] ?? '',
+    }
+    if (parts.length >= 3 && parts[2] !== '') {
+      const payout = Number(parts[2])
+      if (Number.isNaN(payout)) {
+        throw new Error(`Invalid payout "${parts[2]}" in line: ${line}`)
+      }
+      entry.payout = payout
+    }
+    hits.push(entry)
+  }
+  return hits
+}
 
 export function ConversionsPage() {
   const toast = useToastApi()
@@ -16,10 +42,34 @@ export function ConversionsPage() {
       return
     }
 
+    let hits: ConvertedHit[]
+    try {
+      hits = csvTextToConvertedHits(trimmed)
+    } catch (parseErr) {
+      toast.error(getErrorMessage(parseErr))
+      return
+    }
+
+    if (hits.length === 0) {
+      toast.error('No valid rows. Use: hit_id, transaction_id, payout (one per line).')
+      return
+    }
+
+    const body: ConversionsUpload = {
+      hits,
+      postbackCalls: 'none',
+      notificationWhenComplete: false,
+    }
+
     setIsSubmitting(true)
     try {
-      await api.post('/stats/update/conversions/', { data: trimmed })
-      toast.success('Conversions updated successfully')
+      const res = await api.put<BackgroundJobResponse>('/stats/update/conversions/', body)
+      const jobCount = res.jobIds?.length ?? 0
+      toast.success(
+        jobCount > 0
+          ? `Queued ${jobCount} background job${jobCount === 1 ? '' : 's'}.`
+          : 'Conversion update submitted.',
+      )
       setCsvData('')
     } catch (err) {
       toast.error(getErrorMessage(err))
