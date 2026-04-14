@@ -122,11 +122,13 @@ function DataTableInner<TData>({
     [columnSizing, onColumnSizingChange],
   )
 
-  const usePagination = !noPagination && !treeMode
+  const usePagination = !noPagination
 
   const table = useReactTable({
     data,
     columns,
+    /** Paginate top-level rows only; expanded children stay with their parent page. */
+    paginateExpandedRows: treeMode ? false : true,
     state: {
       sorting,
       rowSelection: selection,

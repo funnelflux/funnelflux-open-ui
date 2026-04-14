@@ -2,9 +2,10 @@ import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
-import { Button, Input, Switch, Select, Modal } from 'antd'
+import { Button, Input, Switch, Select, Modal, FormField } from '@/components/ui-kit'
 import { trafficFilterSchema, type TrafficFilterFormData } from '@/schemas/trafficFilter'
 import { FILTER_TYPES, FILTER_TYPE_LABELS } from '@/lib/trafficFilterConstants'
+import { generateEntityId } from '@/lib/id-generator'
 import type { TrafficFilter } from '@/types/entities'
 
 export function TrafficFilterModal({
@@ -20,7 +21,7 @@ export function TrafficFilterModal({
   onSubmit: (data: TrafficFilterFormData) => void
   isSubmitting?: boolean
 }) {
-  const form = useForm<TrafficFilterFormData>({
+  const { control, handleSubmit, reset } = useForm<TrafficFilterFormData>({
     resolver: zodResolver(trafficFilterSchema),
     defaultValues: {
       idTrafficFilter: '',
@@ -33,38 +34,27 @@ export function TrafficFilterModal({
   })
 
   useEffect(() => {
-    if (open) {
-      if (initialData) {
-        form.reset({
-          idTrafficFilter: initialData.idTrafficFilter,
-          trafficFilterName: initialData.trafficFilterName,
-          filterType: initialData.filterType,
-          filterEntries: initialData.filterEntries ?? [],
-          redirectToURL: initialData.redirectToURL,
-          isEnabled: initialData.isEnabled,
-        })
-      } else {
-        form.reset({
-          idTrafficFilter: '',
-          trafficFilterName: '',
-          filterType: 'ipAddresses',
-          filterEntries: [],
-          redirectToURL: null,
-          isEnabled: true,
-        })
-      }
+    if (!open) return
+    if (initialData) {
+      reset({
+        idTrafficFilter: initialData.idTrafficFilter,
+        trafficFilterName: initialData.trafficFilterName,
+        filterType: initialData.filterType,
+        filterEntries: initialData.filterEntries ?? [],
+        redirectToURL: initialData.redirectToURL,
+        isEnabled: initialData.isEnabled,
+      })
+    } else {
+      reset({
+        idTrafficFilter: generateEntityId(),
+        trafficFilterName: '',
+        filterType: 'ipAddresses',
+        filterEntries: [],
+        redirectToURL: null,
+        isEnabled: true,
+      })
     }
-  }, [open, initialData, form])
-
-  const entriesText = (form.watch('filterEntries') ?? []).join('\n')
-
-  function handleEntriesChange(text: string) {
-    const entries = text
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-    form.setValue('filterEntries', entries, { shouldDirty: true })
-  }
+  }, [open, initialData, reset])
 
   return (
     <Modal
@@ -76,32 +66,39 @@ export function TrafficFilterModal({
       destroyOnHidden
     >
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(onSubmit)}
         className="space-y-6 pt-4"
       >
-        <div className="space-y-2">
-          <label htmlFor="trafficFilterName" className="block text-sm font-medium text-foreground">Name</label>
-          <Input
-            id="trafficFilterName"
-            {...form.register('trafficFilterName')}
-            placeholder="Filter name"
-          />
-          {form.formState.errors.trafficFilterName && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.trafficFilterName.message}
-            </p>
+        <Controller
+          control={control}
+          name="trafficFilterName"
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Name"
+              htmlFor="trafficFilterName"
+              required
+              error={fieldState.error?.message}
+            >
+              <Input
+                id="trafficFilterName"
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+                placeholder="Filter name"
+              />
+            </FormField>
           )}
-        </div>
+        />
 
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-foreground">Filter Type</label>
-          <Controller
-            control={form.control}
-            name="filterType"
-            render={({ field }) => (
+        <Controller
+          control={control}
+          name="filterType"
+          render={({ field, fieldState }) => (
+            <FormField label="Filter Type" error={fieldState.error?.message}>
               <Select
                 value={field.value}
                 onChange={field.onChange}
+                onBlur={field.onBlur}
                 className="w-full"
                 placeholder="Select type"
                 options={FILTER_TYPES.map((type) => ({
@@ -109,39 +106,58 @@ export function TrafficFilterModal({
                   label: FILTER_TYPE_LABELS[type],
                 }))}
               />
-            )}
-          />
-          {form.formState.errors.filterType && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.filterType.message}
-            </p>
+            </FormField>
           )}
-        </div>
+        />
 
-        <div className="space-y-2">
-          <label htmlFor="filterEntries" className="block text-sm font-medium text-foreground">Entries (one per line)</label>
-          <Input.TextArea
-            id="filterEntries"
-            value={entriesText}
-            onChange={(e) => handleEntriesChange(e.target.value)}
-            placeholder="Enter one entry per line"
-            rows={8}
-          />
-        </div>
+        <Controller
+          control={control}
+          name="filterEntries"
+          render={({ field, fieldState }) => (
+            <FormField
+              label="Entries (one per line)"
+              htmlFor="filterEntries"
+              error={fieldState.error?.message}
+            >
+              <Input.TextArea
+                id="filterEntries"
+                value={(field.value ?? []).join('\n')}
+                onChange={(e) => {
+                  // Keep empty lines while typing so Enter/newlines are visible; empties are stripped on submit (schema).
+                  const entries = e.target.value.split('\n').map((line) => line.trim())
+                  field.onChange(entries)
+                }}
+                onBlur={field.onBlur}
+                placeholder="Enter one entry per line"
+                rows={8}
+              />
+            </FormField>
+          )}
+        />
 
-        <div className="space-y-2">
-          <label htmlFor="redirectToURL" className="block text-sm font-medium text-foreground">Redirect URL (optional)</label>
-          <Input
-            id="redirectToURL"
-            {...form.register('redirectToURL')}
-            placeholder="https://example.com"
-          />
-        </div>
+        <Controller
+          control={control}
+          name="redirectToURL"
+          render={({ field }) => (
+            <FormField label="Redirect URL (optional)" htmlFor="redirectToURL">
+              <Input
+                id="redirectToURL"
+                value={field.value ?? ''}
+                onChange={(e) => {
+                  const trimmed = e.target.value.trim()
+                  field.onChange(trimmed === '' ? null : e.target.value)
+                }}
+                onBlur={field.onBlur}
+                placeholder="https://example.com"
+              />
+            </FormField>
+          )}
+        />
 
         <div className="flex items-center justify-between">
           <label htmlFor="isEnabled" className="text-sm font-medium">Enabled</label>
           <Controller
-            control={form.control}
+            control={control}
             name="isEnabled"
             render={({ field }) => (
               <Switch

@@ -50,7 +50,7 @@ export function TrafficFiltersPage() {
   const saveFilterMutate = saveFilter.mutate
   const handleToggleEnabled = useCallback((filter: TrafficFilter) => {
     saveFilterMutate(
-      { ...filter, isEnabled: !filter.isEnabled },
+      { data: { ...filter, isEnabled: !filter.isEnabled }, isCreate: false },
       {
         onSuccess: () => {
           toast.success(
@@ -79,15 +79,18 @@ export function TrafficFiltersPage() {
   }
 
   function handleSubmit(data: TrafficFilterFormData) {
-    saveFilter.mutate(data, {
-      onSuccess: () => {
-        toast.success(editingFilter ? 'Filter updated' : 'Filter created')
-        setSheetOpen(false)
+    saveFilter.mutate(
+      { data, isCreate: !editingFilter },
+      {
+        onSuccess: () => {
+          toast.success(editingFilter ? 'Filter updated' : 'Filter created')
+          setSheetOpen(false)
+        },
+        onError: (err) => {
+          toast.error(`Failed to save filter: ${(err as Error).message}`)
+        },
       },
-      onError: (err) => {
-        toast.error(`Failed to save filter: ${(err as Error).message}`)
-      },
-    })
+    )
   }
 
   const columns = useMemo<ColumnDef<TrafficFilter, unknown>[]>(

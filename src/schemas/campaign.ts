@@ -1,6 +1,11 @@
 import { z } from 'zod/v4'
 
-/** Matches OpenAPI #/definitions/Campaign (data/definition.yaml). */
+export type { Campaign } from '@/types/entities'
+
+/**
+ * Campaign create/update form. Field names align with OpenAPI `#/definitions/Campaign` /
+ * {@link Campaign}.
+ */
 export const campaignSchema = z.object({
   idCampaign: z.string().optional(),
   campaignName: z

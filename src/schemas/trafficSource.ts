@@ -1,5 +1,11 @@
 import { z } from 'zod/v4'
 
+export type { TrafficSource } from '@/types/entities'
+
+/**
+ * Traffic source create/update form. Aligns with OpenAPI `#/definitions/TrafficSource` /
+ * {@link TrafficSource}. `postback.idTrafficSource` may be filled by the server after create.
+ */
 export const trafficSourceSchema = z.object({
   idTrafficSource: z.string().optional(),
   trafficSourceName: z.string().min(1, 'Name is required').max(255),

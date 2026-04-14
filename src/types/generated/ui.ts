@@ -18,8 +18,9 @@ export interface ResetStatsOptions {
 }
 
 export interface TrafficFiltersData {
-  filters: TrafficFilter;
+  filters: TrafficFilter[];
   availableCountries: KeyValuePair[];
+  treeGrid?: Record<string, unknown>;
 }
 
 export interface UpdateCostPageData {

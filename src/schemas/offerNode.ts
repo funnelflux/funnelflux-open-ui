@@ -1,6 +1,12 @@
 import { z } from 'zod/v4'
 
-/** Offer page fields + funnel-node pass-through options (saved with funnel). */
+export type { FunnelNodePageParams, OfferParams, Page } from '@/types/entities'
+
+/**
+ * Offer page + funnel node pass-through fields. Combines offer {@link Page} (including
+ * {@link OfferParams}) with {@link FunnelNodePageParams}. Map `additionalTokens` field/token
+ * to API `KeyValuePair` at save.
+ */
 export const offerNodeEditSchema = z.object({
   idPage: z.string().optional(),
   pageType: z.literal('offer'),

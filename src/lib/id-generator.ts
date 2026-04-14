@@ -13,3 +13,11 @@ export function generateId(): string {
   const id = BigInt(high) * BigInt(0x100000000) + BigInt(low)
   return id.toString()
 }
+
+/**
+ * Use for new entity rows before the first save (same algorithm as {@link generateId}).
+ * Prefer this name at save boundaries so intent is obvious next to API create vs update.
+ */
+export function generateEntityId(): string {
+  return generateId()
+}

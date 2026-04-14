@@ -1,15 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import type { Condition } from '@/types/funnel'
+import type { FunnelCondition } from '@/types/entities'
 
-/** Row from `GET /data/campaign/funnel/condition/list/` */
-export type ConditionListRow = Pick<Condition, 'idCondition' | 'conditionName'>
+/** API returns id/name pairs; optional fields if the backend adds full `FunnelCondition` later. */
+export type ConditionListItem = Pick<FunnelCondition, 'idCondition' | 'conditionName'> &
+  Partial<Pick<FunnelCondition, 'restrictToFunnelId' | 'orTests'>>
+
+type ApiConditionListRow = { id: string | number; name: string } & Partial<FunnelCondition>
+
+async function fetchConditionList(): Promise<ConditionListItem[]> {
+  const rows = await api.get<ApiConditionListRow[]>('/data/campaign/funnel/condition/list/')
+  return rows.map((row) => ({
+    idCondition: String(row.id),
+    conditionName: row.name,
+    ...(row.restrictToFunnelId !== undefined ? { restrictToFunnelId: row.restrictToFunnelId } : {}),
+    ...(row.orTests !== undefined ? { orTests: row.orTests } : {}),
+  }))
+}
 
 export function useConditions() {
   return useQuery({
     queryKey: queryKeys.conditions.list(),
-    queryFn: () => api.get<Condition[]>('/data/campaign/funnel/condition/list/'),
+    queryFn: fetchConditionList,
   })
 }
 
@@ -17,7 +30,7 @@ export function useCondition(id: string) {
   return useQuery({
     queryKey: queryKeys.conditions.detail(id),
     queryFn: () =>
-      api.get<Condition>('/data/campaign/funnel/condition/find/byId/', { idCondition: id }),
+      api.get<FunnelCondition>('/data/campaign/funnel/condition/find/byId/', { idCondition: id }),
     enabled: !!id,
   })
 }
@@ -25,11 +38,11 @@ export function useCondition(id: string) {
 export function useSaveCondition() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (condition: Partial<Condition>) => {
+    mutationFn: (condition: FunnelCondition) => {
       const isNew = !condition.idCondition || condition.idCondition === '0'
       return isNew
-        ? api.post<Condition>('/data/campaign/funnel/condition/save/', condition)
-        : api.put<Condition>('/data/campaign/funnel/condition/save/', condition)
+        ? api.post<void>('/data/campaign/funnel/condition/save/', condition)
+        : api.put<void>('/data/campaign/funnel/condition/save/', condition)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.conditions.all })

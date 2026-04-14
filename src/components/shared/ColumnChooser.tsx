@@ -163,7 +163,7 @@ export function ColumnChooser<TData>({
         title="Column Settings"
         open={open}
         onClose={() => setOpen(false)}
-        width={360}
+        size={360}
         styles={{ body: { padding: 0 } }}
       >
         <div className="flex flex-col h-full">

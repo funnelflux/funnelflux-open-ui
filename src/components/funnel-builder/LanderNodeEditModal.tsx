@@ -296,16 +296,26 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                     <label htmlFor="lander-name" className="block text-sm font-medium text-foreground">
                       Name
                     </label>
-                    <Input
-                      id="lander-name"
-                      size="middle"
-                      className="h-10"
-                      {...form.register('pageName')}
-                      autoComplete="off"
+                    <Controller
+                      control={form.control}
+                      name="pageName"
+                      render={({ field, fieldState }) => (
+                        <>
+                          <Input
+                            id="lander-name"
+                            size="middle"
+                            className="h-10"
+                            value={field.value}
+                            onChange={(e) => field.onChange(e.target.value)}
+                            onBlur={field.onBlur}
+                            autoComplete="off"
+                          />
+                          {fieldState.error && (
+                            <p className="text-xs text-destructive">{fieldState.error.message}</p>
+                          )}
+                        </>
+                      )}
                     />
-                    {form.formState.errors.pageName && (
-                      <p className="text-xs text-destructive">{form.formState.errors.pageName.message}</p>
-                    )}
                   </div>
                   <div className="space-y-2 lg:col-span-4">
                     <span className="block text-sm font-medium text-foreground">Category</span>
@@ -346,12 +356,20 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                     Lander URL
                   </label>
                   <div className="flex gap-2">
-                    <Input
-                      id="lander-url"
-                      size="middle"
-                      className="h-10 flex-1"
-                      {...form.register('url')}
-                      placeholder="https://…"
+                    <Controller
+                      control={form.control}
+                      name="url"
+                      render={({ field }) => (
+                        <Input
+                          id="lander-url"
+                          size="middle"
+                          className="h-10 flex-1"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          onBlur={field.onBlur}
+                          placeholder="https://…"
+                        />
+                      )}
                     />
                     <Button
                       htmlType="button"
@@ -389,12 +407,20 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                     <label htmlFor="lander-notes" className="block text-sm font-medium text-foreground">
                       Notes
                     </label>
-                    <Input.TextArea
-                      id="lander-notes"
-                      className="min-h-[9.5rem] flex-1 resize-y text-sm"
-                      {...form.register('notes')}
-                      placeholder="Optional"
-                      autoSize={{ minRows: 6 }}
+                    <Controller
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <Input.TextArea
+                          id="lander-notes"
+                          className="min-h-[9.5rem] flex-1 resize-y text-sm"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          onBlur={field.onBlur}
+                          placeholder="Optional"
+                          autoSize={{ minRows: 6 }}
+                        />
+                      )}
                     />
                   </div>
                 </div>
@@ -435,11 +461,19 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                         <span className={cn('block text-sm font-medium text-foreground', index > 0 && 'sr-only')}>
                           Query field
                         </span>
-                        <Input
-                          placeholder="field_name"
-                          {...form.register(`additionalTokens.${index}.field` as const)}
-                          size="middle"
-                          className="h-10 font-mono text-sm"
+                        <Controller
+                          control={form.control}
+                          name={`additionalTokens.${index}.field`}
+                          render={({ field }) => (
+                            <Input
+                              placeholder="field_name"
+                              value={field.value}
+                              onChange={(e) => field.onChange(e.target.value)}
+                              onBlur={field.onBlur}
+                              size="middle"
+                              className="h-10 font-mono text-sm"
+                            />
+                          )}
                         />
                       </div>
                       <div className="space-y-1.5">

@@ -212,7 +212,10 @@ export function OffersPage() {
     }),
     editBtnColumn<OfferGridRow>((row) => handleEdit(row.id), { hidden: (row) => !!row._isCategoryHeader }),
     cloneBtnColumn<OfferGridRow>((row) => handleClone(row.id), { hidden: (row) => !!row._isCategoryHeader }),
-    archiveBtnColumn<OfferGridRow>((row) => handleArchive(row.id, true), { hidden: (row) => !!row._isCategoryHeader }),
+    archiveBtnColumn<OfferGridRow>(
+      (row, archive) => handleArchive(row.id, archive),
+      { hidden: (row) => !!row._isCategoryHeader, isArchived: (row) => row.isArchived === true },
+    ),
     deleteBtnColumn<OfferGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader }),
     idColumn<OfferGridRow>(),
     ...statCols,

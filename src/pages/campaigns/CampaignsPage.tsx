@@ -56,6 +56,21 @@ interface CampaignTreeRow {
   _children?: CampaignTreeRow[]
 }
 
+function isCampaignTotalsRow(row: CampaignTreeRow): boolean {
+  return row.id === '__totals__'
+}
+
+function buildCampaignTotalsRow(cells: ReportCell[] | null | undefined): CampaignTreeRow | null {
+  if (!cells?.length) return null
+  return {
+    id: '__totals__',
+    name: 'Totals',
+    cells,
+    kind: 'campaign',
+    campaignId: '',
+  }
+}
+
 function buildTreeFromReport(report: Report): CampaignTreeRow[] {
   const colCount = report.columns.length
 
@@ -132,6 +147,7 @@ export function CampaignsPage() {
   const [expanded, setExpanded] = useState<ExpandedState>({})
   const [treeData, setTreeData] = useState<CampaignTreeRow[]>([])
   const [columns, setColumns] = useState<{ name: string; type: string }[]>([])
+  const [totalsCells, setTotalsCells] = useState<ReportCell[] | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const tableConfig = useTableConfigStore(selectTableConfig(TABLE_KEY))
@@ -156,16 +172,18 @@ export function CampaignsPage() {
           { groupBy: 'Element: Campaign', whitelistFilters: [], blacklistFilters: [] },
           { groupBy: 'Element: Funnel', whitelistFilters: [], blacklistFilters: [] },
         ],
-        paging: { start: 0, length: 200 },
+        paging: { start: 0, length: 5000 },
         options: { viewType: 'tree' },
       })
       .then((report) => {
         setColumns(report.columns ?? [])
         setTreeData(buildTreeFromReport(report))
+        setTotalsCells(report.totals?.cells ?? null)
         setIsLoading(false)
       })
       .catch(() => {
         setTreeData([])
+        setTotalsCells(null)
         setIsLoading(false)
       })
   }, [dateRange, tz])
@@ -182,6 +200,11 @@ export function CampaignsPage() {
       return row._children?.some((c) => c.name.toLowerCase().includes(s))
     })
   }, [treeData, search])
+
+  const pinnedBottomRows = useMemo(() => {
+    const row = buildCampaignTotalsRow(totalsCells)
+    return row ? [row] : undefined
+  }, [totalsCells])
 
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
@@ -330,23 +353,23 @@ export function CampaignsPage() {
     editBtnColumn<CampaignTreeRow>((row) => {
       if (row.kind === 'campaign') handleEdit(row.campaignId)
       else navigate(`/campaigns/${row.campaignId}/funnels/${row.funnelId}`)
-    }),
+    }, { hidden: isCampaignTotalsRow }),
     cloneBtnColumn<CampaignTreeRow>((row) => {
       if (row.kind === 'campaign') handleCloneCampaign(row.campaignId)
       else if (row.funnelId) handleCloneFunnel(row.funnelId)
-    }),
+    }, { hidden: isCampaignTotalsRow }),
     addFunnelBtnColumn<CampaignTreeRow>(
       (row) => openAddCampaignOrFunnel(row.campaignId),
-      { hidden: (row) => row.kind !== 'campaign' },
+      { hidden: (row) => isCampaignTotalsRow(row) || row.kind !== 'campaign' },
     ),
     moveBtnColumn<CampaignTreeRow>(
       (row) => { if (row.funnelId) handleMoveFunnel(row.funnelId) },
-      { hidden: (row) => row.kind !== 'funnel' },
+      { hidden: (row) => isCampaignTotalsRow(row) || row.kind !== 'funnel' },
     ),
     deleteBtnColumn<CampaignTreeRow>((row) => {
       if (row.kind === 'campaign') setDeleteTarget({ id: row.campaignId, kind: 'campaign' })
       else if (row.funnelId) setDeleteTarget({ id: row.funnelId, kind: 'funnel' })
-    }),
+    }, { hidden: isCampaignTotalsRow }),
     {
       ...idColumn<CampaignTreeRow>(),
       accessorFn: (row) => row.kind === 'campaign' ? row.campaignId : row.funnelId,
@@ -387,6 +410,7 @@ export function CampaignsPage() {
         columns={columnDefs}
         loading={isLoading}
         getRowId={entityRowId}
+        pinnedBottomRows={pinnedBottomRows}
         enableRowSelection
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}

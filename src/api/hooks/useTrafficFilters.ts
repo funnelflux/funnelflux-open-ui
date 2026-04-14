@@ -1,21 +1,29 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import type { TrafficFilter } from '@/types/entities'
+import type { TrafficFilter, TrafficFilterApplyRequest } from '@/types/entities'
+import type { TrafficFiltersData } from '@/types/ui'
+
+export type SaveTrafficFilterInput = {
+  data: Partial<TrafficFilter>
+  /** POST create vs PUT update — required because new rows use a client-generated id before save. */
+  isCreate: boolean
+}
 
 export function useTrafficFilters(status?: string) {
   const params: Record<string, string> = {}
   if (status && status !== 'all') params.status = status
   return useQuery({
     queryKey: queryKeys.trafficFilters.list(params),
-    queryFn: () => {
+    queryFn: async () => {
       if (status === 'enabled') {
         return api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'enabled' })
       }
       if (status === 'disabled') {
         return api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'disabled' })
       }
-      return api.get<TrafficFilter[]>('/ui/trafficfilters/load/')
+      const payload = await api.get<TrafficFiltersData>('/ui/trafficfilters/load/')
+      return Array.isArray(payload.filters) ? payload.filters : []
     },
   })
 }
@@ -23,7 +31,8 @@ export function useTrafficFilters(status?: string) {
 export function useTrafficFilter(id: string) {
   return useQuery({
     queryKey: queryKeys.trafficFilters.detail(id),
-    queryFn: () => api.get<TrafficFilter>('/data/trafficfilter/find/byId/', { id }),
+    queryFn: () =>
+      api.get<TrafficFilter>('/data/trafficfilter/find/byId/', { idTrafficFilter: id }),
     enabled: !!id,
   })
 }
@@ -31,12 +40,10 @@ export function useTrafficFilter(id: string) {
 export function useSaveTrafficFilter() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (filter: Partial<TrafficFilter>) => {
-      const isNew = !filter.idTrafficFilter || filter.idTrafficFilter === '0'
-      return isNew
-        ? api.post<TrafficFilter>('/data/trafficfilter/save/', filter)
-        : api.put<TrafficFilter>('/data/trafficfilter/save/', filter)
-    },
+    mutationFn: ({ data, isCreate }: SaveTrafficFilterInput) =>
+      isCreate
+        ? api.post<TrafficFilter>('/data/trafficfilter/save/', data)
+        : api.put<TrafficFilter>('/data/trafficfilter/save/', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.trafficFilters.all })
     },
@@ -46,7 +53,8 @@ export function useSaveTrafficFilter() {
 export function useDeleteTrafficFilter() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete('/data/trafficfilter/delete/', { id }),
+    mutationFn: (idTrafficFilter: string) =>
+      api.delete('/data/trafficfilter/delete/', { idTrafficFilter }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.trafficFilters.all })
     },
@@ -55,7 +63,9 @@ export function useDeleteTrafficFilter() {
 
 export function useApplyTrafficFilterRetroactively() {
   return useMutation({
-    mutationFn: (id: string) =>
-      api.post('/data/trafficfilter/applyRetroactively/', { id }),
+    mutationFn: (idTrafficFilter: string) => {
+      const body: TrafficFilterApplyRequest = { idFilter: idTrafficFilter }
+      return api.post('/data/trafficfilter/applyRetroactively/', body)
+    },
   })
 }

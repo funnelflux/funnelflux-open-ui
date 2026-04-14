@@ -209,7 +209,10 @@ export function LandersPage() {
     }),
     editBtnColumn<LanderGridRow>((row) => handleEdit(row.id), { hidden: (row) => !!row._isCategoryHeader }),
     cloneBtnColumn<LanderGridRow>((row) => handleClone(row.id), { hidden: (row) => !!row._isCategoryHeader }),
-    archiveBtnColumn<LanderGridRow>((row) => handleArchive(row.id, true), { hidden: (row) => !!row._isCategoryHeader }),
+    archiveBtnColumn<LanderGridRow>(
+      (row, archive) => handleArchive(row.id, archive),
+      { hidden: (row) => !!row._isCategoryHeader, isArchived: (row) => row.isArchived === true },
+    ),
     deleteBtnColumn<LanderGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader }),
     idColumn<LanderGridRow>(),
     ...statCols,

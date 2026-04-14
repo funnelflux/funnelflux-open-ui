@@ -5,6 +5,7 @@ import { ExternalLink, Loader2, Plus, Trash2 } from 'lucide-react'
 import {
   Button,
   Input,
+  InputNumber,
   Select,
   Switch,
   Modal,
@@ -302,16 +303,26 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                         <label htmlFor="offer-name" className="block text-sm font-medium text-foreground">
                           Name
                         </label>
-                        <Input
-                          id="offer-name"
-                          size="middle"
-                          className="h-10"
-                          {...form.register('pageName')}
-                          autoComplete="off"
+                        <Controller
+                          control={form.control}
+                          name="pageName"
+                          render={({ field, fieldState }) => (
+                            <>
+                              <Input
+                                id="offer-name"
+                                size="middle"
+                                className="h-10"
+                                value={field.value}
+                                onChange={(e) => field.onChange(e.target.value)}
+                                onBlur={field.onBlur}
+                                autoComplete="off"
+                              />
+                              {fieldState.error && (
+                                <p className="text-xs text-destructive">{fieldState.error.message}</p>
+                              )}
+                            </>
+                          )}
                         />
-                        {form.formState.errors.pageName && (
-                          <p className="text-xs text-destructive">{form.formState.errors.pageName.message}</p>
-                        )}
                       </div>
                       <div className="space-y-2 lg:col-span-4">
                         <span className="block text-sm font-medium text-foreground">Category</span>
@@ -352,12 +363,20 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                         Offer URL
                       </label>
                       <div className="flex gap-2">
-                        <Input
-                          id="offer-url"
-                          size="middle"
-                          className="h-10 flex-1"
-                          {...form.register('url')}
-                          placeholder="https://…"
+                        <Controller
+                          control={form.control}
+                          name="url"
+                          render={({ field }) => (
+                            <Input
+                              id="offer-url"
+                              size="middle"
+                              className="h-10 flex-1"
+                              value={field.value}
+                              onChange={(e) => field.onChange(e.target.value)}
+                              onBlur={field.onBlur}
+                              placeholder="https://…"
+                            />
+                          )}
                         />
                         <Button
                           htmlType="button"
@@ -396,15 +415,22 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                         <label htmlFor="offer-payout" className="block text-sm font-medium text-foreground">
                           Payout
                         </label>
-                        <Input
-                          id="offer-payout"
-                          type="number"
-                          step={0.01}
-                          min={0}
-                          size="middle"
-                          className="h-10"
-                          {...form.register('offerParams.payout', { valueAsNumber: true })}
-                          placeholder="0.00"
+                        <Controller
+                          control={form.control}
+                          name="offerParams.payout"
+                          render={({ field }) => (
+                            <InputNumber
+                              id="offer-payout"
+                              step={0.01}
+                              min={0}
+                              size="middle"
+                              className="h-10 min-w-0 w-full"
+                              value={field.value}
+                              onChange={(v) => field.onChange(typeof v === 'number' && !Number.isNaN(v) ? v : 0)}
+                              onBlur={field.onBlur}
+                              placeholder="0.00"
+                            />
+                          )}
                         />
                         {form.formState.errors.offerParams?.payout && (
                           <p className="text-xs text-destructive">
@@ -436,12 +462,20 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                         <label htmlFor="offer-notes" className="block text-sm font-medium text-foreground">
                           Notes
                         </label>
-                        <Input.TextArea
-                          id="offer-notes"
-                          className="min-h-[9.5rem] flex-1 resize-y text-sm"
-                          {...form.register('notes')}
-                          placeholder="Optional"
-                          autoSize={{ minRows: 6 }}
+                        <Controller
+                          control={form.control}
+                          name="notes"
+                          render={({ field }) => (
+                            <Input.TextArea
+                              id="offer-notes"
+                              className="min-h-[9.5rem] flex-1 resize-y text-sm"
+                              value={field.value}
+                              onChange={(e) => field.onChange(e.target.value)}
+                              onBlur={field.onBlur}
+                              placeholder="Optional"
+                              autoSize={{ minRows: 6 }}
+                            />
+                          )}
                         />
                       </div>
                     </div>
@@ -482,11 +516,19 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                             <span className={cn('block text-sm font-medium text-foreground', index > 0 && 'sr-only')}>
                               Query field
                             </span>
-                            <Input
-                              placeholder="field_name"
-                              {...form.register(`additionalTokens.${index}.field` as const)}
-                              size="middle"
-                              className="h-10 font-mono text-sm"
+                            <Controller
+                              control={form.control}
+                              name={`additionalTokens.${index}.field`}
+                              render={({ field }) => (
+                                <Input
+                                  placeholder="field_name"
+                                  value={field.value}
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                  onBlur={field.onBlur}
+                                  size="middle"
+                                  className="h-10 font-mono text-sm"
+                                />
+                              )}
                             />
                           </div>
                           <div className="space-y-1.5">

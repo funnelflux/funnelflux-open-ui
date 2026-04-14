@@ -1,5 +1,11 @@
 import { z } from 'zod/v4'
 
+export type { OfferSource } from '@/types/entities'
+
+/**
+ * Offer source form. Persisted shape follows {@link OfferSource} / save request in data API.
+ * `notes` is not in the current OpenAPI spec; keep in sync if added to `definition.yaml`.
+ */
 export const offerSourceSchema = z.object({
   idOfferSource: z.string().optional(),
   offerSourceName: z.string().min(1, 'Name is required').max(255),

@@ -4,6 +4,7 @@ import { Button, Input, Tag } from 'antd'
 import type { InputRef } from 'antd'
 import { EmptyState, PageShell, useToastApi } from '@/components/ui-kit'
 import { useTags, useSaveTag, useUpdateTag } from '@/api/hooks/useTags'
+import { getErrorMessage } from '@/lib/utils'
 
 export function TagsPage() {
   const toast = useToastApi()
@@ -33,7 +34,7 @@ export function TagsPage() {
         setInputValue('')
       },
       onError: (err) => {
-        toast.error(`Failed to add tags: ${(err as Error).message}`)
+        toast.error(`Failed to add tags: ${getErrorMessage(err)}`)
       },
     })
   }
@@ -59,13 +60,13 @@ export function TagsPage() {
     }
 
     updateTag.mutate(
-      { id: editingTagId, name: trimmed },
+      { idTag: editingTagId, name: trimmed },
       {
         onSuccess: () => {
           toast.success('Tag renamed')
         },
         onError: (err) => {
-          toast.error(`Failed to rename tag: ${(err as Error).message}`)
+          toast.error(`Failed to rename tag: ${getErrorMessage(err)}`)
         },
       },
     )

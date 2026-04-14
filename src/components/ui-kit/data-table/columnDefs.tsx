@@ -1,7 +1,7 @@
 import type { ColumnDef, CellContext } from '@tanstack/react-table'
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Pencil, Copy, Trash2, Archive, Plus, Workflow, RotateCcw, UserCheck, UserX } from 'lucide-react'
+import { Pencil, Copy, Trash2, Archive, ArchiveRestore, Plus, Workflow, RotateCcw, UserCheck, UserX } from 'lucide-react'
 import { Tooltip } from 'antd'
 import { Button } from '../Button'
 import type { ReportCell } from '@/types/stats'
@@ -514,8 +514,48 @@ export function deleteBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: 
   return actionBtnColumn('btn_delete', Trash2, 'Delete', onClick, { destructive: true, ...opts })
 }
 
-export function archiveBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_archive', Archive, 'Archive', onClick, opts)
+/**
+ * Archive or restore per row. When `isArchived` is true for a row, shows restore icon and calls `onToggle(row, false)`.
+ */
+export function archiveBtnColumn<T>(
+  onToggle: (row: T, archive: boolean) => void,
+  opts?: {
+    hidden?: (row: T) => boolean
+    /** Return true when the entity is archived (shows restore and unarchives on click). */
+    isArchived?: (row: T) => boolean
+  },
+): ColumnDef<T, unknown> {
+  return {
+    id: 'btn_archive',
+    header: '',
+    size: ACTION_COL_SIZE,
+    minSize: ACTION_COL_SIZE,
+    maxSize: ACTION_COL_SIZE,
+    enableSorting: false,
+    enableResizing: false,
+    meta: { actionBtn: true },
+    cell: (info) => {
+      const row = info.row.original
+      if (opts?.hidden?.(row)) return null
+      const archived = opts?.isArchived?.(row) ?? false
+      const Icon = archived ? ArchiveRestore : Archive
+      const tooltip = archived ? 'Restore' : 'Archive'
+      return (
+        <Tooltip title={tooltip}>
+          <Button
+            type="text"
+            size="small"
+            className="dt-action-btn"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggle(row, !archived)
+            }}
+            icon={<Icon className="h-3.5 w-3.5" />}
+          />
+        </Tooltip>
+      )
+    },
+  }
 }
 
 export function addFunnelBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
@@ -540,6 +580,11 @@ export function disableBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?:
 
 // ---------- Selection checkbox column ----------
 
+function isPinnedTotalsRow(row: unknown): boolean {
+  const r = row as { id?: string; _id?: string }
+  return r.id === '__totals__' || r._id === 'totals'
+}
+
 export function selectionColumn<T>(): ColumnDef<T, unknown> {
   return {
     id: 'select',
@@ -557,15 +602,18 @@ export function selectionColumn<T>(): ColumnDef<T, unknown> {
         onChange={table.getToggleAllPageRowsSelectedHandler()}
       />
     ),
-    cell: ({ row }) => (
-      <input
-        type="checkbox"
-        className="dt-checkbox"
-        checked={row.getIsSelected()}
-        disabled={!row.getCanSelect()}
-        onChange={row.getToggleSelectedHandler()}
-        onClick={(e) => e.stopPropagation()}
-      />
-    ),
+    cell: ({ row }) => {
+      if (isPinnedTotalsRow(row.original)) return null
+      return (
+        <input
+          type="checkbox"
+          className="dt-checkbox"
+          checked={row.getIsSelected()}
+          disabled={!row.getCanSelect()}
+          onChange={row.getToggleSelectedHandler()}
+          onClick={(e) => e.stopPropagation()}
+        />
+      )
+    },
   }
 }

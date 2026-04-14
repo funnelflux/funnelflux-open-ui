@@ -1,16 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { Drawer, Tag } from 'antd'
 import { Button, Input } from '@/components/ui-kit'
-import type { Condition, ConditionBlock as ConditionBlockType } from '@/types/funnel'
+import type { ConditionBlock as ConditionBlockType } from '@/types/funnel'
+import type { FunnelCondition } from '@/types/entities'
 import { conditionSchema } from '@/schemas/condition'
+import { formDraftToFunnelCondition, funnelConditionToFormDraft } from '@/lib/funnelConditionFormBridge'
 import { ConditionBlock } from './ConditionBlock'
 
 interface ConditionEditorProps {
   open: boolean
   onClose: () => void
-  condition?: Condition | null
-  onSave: (condition: Condition) => void
+  condition?: FunnelCondition | null
+  onSave: (condition: FunnelCondition) => void
 }
 
 function createEmptyBlock(): ConditionBlockType {
@@ -20,69 +22,66 @@ function createEmptyBlock(): ConditionBlockType {
   }
 }
 
-function createDefaultState(): {
-  conditionName: string
-  scope: 'global' | 'funnel'
-  blocks: ConditionBlockType[]
-  blockLogicOperator: 'AND' | 'OR'
-} {
-  return {
-    conditionName: '',
-    scope: 'global',
-    blocks: [createEmptyBlock()],
-    blockLogicOperator: 'AND',
-  }
+interface ConditionEditorFormProps {
+  initialCondition: FunnelCondition | null
+  wireSnapshot: FunnelCondition | null
+  onSave: (condition: FunnelCondition) => void
+  onClose: () => void
 }
 
-export function ConditionEditor({ open, onClose, condition, onSave }: ConditionEditorProps) {
-  const isNew = !condition
-  const [conditionName, setConditionName] = useState('')
-  const [scope, setScope] = useState<'global' | 'funnel'>('global')
-  const [blocks, setBlocks] = useState<ConditionBlockType[]>([createEmptyBlock()])
-  const [blockLogicOperator, setBlockLogicOperator] = useState<'AND' | 'OR'>('AND')
+function ConditionEditorForm({
+  initialCondition,
+  wireSnapshot,
+  onSave,
+  onClose,
+}: ConditionEditorFormProps) {
+  const isNew = !initialCondition
+  const [conditionName, setConditionName] = useState(
+    () => initialCondition?.conditionName ?? '',
+  )
+  const [scope, setScope] = useState<'global' | 'funnel'>(() =>
+    initialCondition?.restrictToFunnelId ? 'funnel' : 'global',
+  )
+  const [blocks, setBlocks] = useState<ConditionBlockType[]>(() => {
+    if (!initialCondition) return [createEmptyBlock()]
+    const draft = funnelConditionToFormDraft(initialCondition)
+    const nextBlocks =
+      draft.blocks.length > 0 ? draft.blocks : [createEmptyBlock()]
+    return nextBlocks as ConditionBlockType[]
+  })
+  const [blockLogicOperator, setBlockLogicOperator] = useState<'AND' | 'OR'>(() => {
+    if (!initialCondition) return 'AND'
+    return funnelConditionToFormDraft(initialCondition).blockLogicOperator
+  })
   const [errors, setErrors] = useState<string[]>([])
 
-  // Reset state when the sheet opens or the condition changes
-  useEffect(() => {
-    if (open) {
-      if (condition) {
-        setConditionName(condition.conditionName)
-        setScope(condition.scope)
-        setBlocks(condition.blocks.length > 0 ? condition.blocks : [createEmptyBlock()])
-        setBlockLogicOperator(condition.blockLogicOperator)
-      } else {
-        const defaults = createDefaultState()
-        setConditionName(defaults.conditionName)
-        setScope(defaults.scope)
-        setBlocks(defaults.blocks)
-        setBlockLogicOperator(defaults.blockLogicOperator)
-      }
-      setErrors([])
-    }
-  }, [open, condition])
+  const handleBlockChange = useCallback((index: number, updatedBlock: ConditionBlockType) => {
+    setBlocks((prev) => {
+      const next = [...prev]
+      next[index] = updatedBlock
+      return next
+    })
+  }, [])
 
-  function handleBlockChange(index: number, updatedBlock: ConditionBlockType) {
-    const updated = [...blocks]
-    updated[index] = updatedBlock
-    setBlocks(updated)
-  }
+  const handleBlockRemove = useCallback((index: number) => {
+    setBlocks((prev) => {
+      if (prev.length <= 1) return prev
+      return prev.filter((_, i) => i !== index)
+    })
+  }, [])
 
-  function handleBlockRemove(index: number) {
-    if (blocks.length <= 1) return
-    setBlocks(blocks.filter((_, i) => i !== index))
-  }
+  const handleAddBlock = useCallback(() => {
+    setBlocks((prev) => [...prev, createEmptyBlock()])
+  }, [])
 
-  function handleAddBlock() {
-    setBlocks([...blocks, createEmptyBlock()])
-  }
-
-  function toggleBlockLogicOperator() {
+  const toggleBlockLogicOperator = useCallback(() => {
     setBlockLogicOperator((prev) => (prev === 'AND' ? 'OR' : 'AND'))
-  }
+  }, [])
 
   function handleSave() {
+    setErrors([])
     const formData = {
-      idCondition: condition?.idCondition,
+      idCondition: initialCondition?.idCondition,
       conditionName,
       scope,
       blocks,
@@ -96,35 +95,16 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
       return
     }
 
-    const saved: Condition = {
-      idCondition: condition?.idCondition ?? '',
-      conditionName: result.data.conditionName,
-      scope: result.data.scope,
-      blocks: result.data.blocks as ConditionBlockType[],
-      blockLogicOperator: result.data.blockLogicOperator,
+    try {
+      const payload = formDraftToFunnelCondition(result.data, wireSnapshot)
+      onSave(payload)
+    } catch (err) {
+      setErrors([err instanceof Error ? err.message : 'Could not build condition for API.'])
     }
-
-    onSave(saved)
   }
 
   return (
-    <Drawer
-      open={open}
-      onClose={onClose}
-      title={isNew ? 'New Condition' : 'Edit Condition'}
-      width={600}
-      destroyOnHidden
-      extra={
-        <div className="flex gap-2">
-          <Button onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="primary" onClick={handleSave}>
-            {isNew ? 'Create' : 'Save'}
-          </Button>
-        </div>
-      }
-    >
+    <>
       <p className="text-sm text-muted-foreground mb-4">
         {isNew
           ? 'Define rules to route traffic based on visitor attributes.'
@@ -132,7 +112,6 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
       </p>
 
       <div className="flex-1 space-y-6 py-4">
-        {/* Name */}
         <div className="space-y-2">
           <label htmlFor="conditionName" className="text-sm font-medium">
             Name
@@ -146,7 +125,6 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
           />
         </div>
 
-        {/* Scope toggle */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Scope</label>
           <div className="flex gap-2">
@@ -172,11 +150,10 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
           <p className="text-xs text-muted-foreground">
             {scope === 'global'
               ? 'Available across all funnels.'
-              : 'Only available within this funnel.'}
+              : 'Restricted to a single funnel (set when saving from funnel context).'}
           </p>
         </div>
 
-        {/* Block logic operator (only when 2+ blocks) */}
         {blocks.length >= 2 && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Between blocks:</span>
@@ -189,7 +166,6 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
           </div>
         )}
 
-        {/* Blocks */}
         <div className="space-y-3">
           {blocks.map((block, index) => (
             <div key={index}>
@@ -211,7 +187,6 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
           ))}
         </div>
 
-        {/* Add block */}
         <Button
           htmlType="button"
           size="small"
@@ -222,7 +197,6 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
           Add Block
         </Button>
 
-        {/* Validation errors */}
         {errors.length > 0 && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             <ul className="list-disc pl-4 space-y-1">
@@ -232,7 +206,41 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
             </ul>
           </div>
         )}
+
+        <div className="flex gap-2 justify-end pt-2 border-t border-border">
+          <Button onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="primary" onClick={handleSave}>
+            {isNew ? 'Create' : 'Save'}
+          </Button>
+        </div>
       </div>
+    </>
+  )
+}
+
+export function ConditionEditor({ open, onClose, condition, onSave }: ConditionEditorProps) {
+  const isNew = !condition
+  const sessionKey = condition?.idCondition ?? 'new'
+
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title={isNew ? 'New Condition' : 'Edit Condition'}
+      size={600}
+      destroyOnHidden
+    >
+      {open ? (
+        <ConditionEditorForm
+          key={sessionKey}
+          initialCondition={condition ?? null}
+          wireSnapshot={condition ?? null}
+          onSave={onSave}
+          onClose={onClose}
+        />
+      ) : null}
     </Drawer>
   )
 }

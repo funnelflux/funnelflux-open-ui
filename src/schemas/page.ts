@@ -1,5 +1,7 @@
 import { z } from 'zod/v4'
 
+export type { FluxifyParams, OfferParams, Page } from '@/types/entities'
+
 const linkRewriterParamsSchema = z.object({
   map: z.array(z.object({ key: z.string(), value: z.string() })),
 })
@@ -15,6 +17,7 @@ const referrerAndUASpooferParamsSchema = z.object({
   userAgents: z.array(z.string()),
 })
 
+/** Mirrors {@link FluxifyParams} for form validation. */
 const fluxifyParamsSchema = z.object({
   enableCache: z.boolean(),
   enableDirectTrafficProtection: z.boolean(),
@@ -29,6 +32,10 @@ const fluxifyParamsSchema = z.object({
   referrerAndUASpooferParams: referrerAndUASpooferParamsSchema.optional(),
 })
 
+/**
+ * Page (lander/offer) form. Aligns with OpenAPI `#/definitions/Page` / {@link Page}.
+ * `categoryId` and `numberOfActions` are app/runtime extensions on {@link Page} in `entities.ts`.
+ */
 export const pageSchema = z.object({
   idPage: z.string().optional(),
   pageType: z.enum(['lander', 'offer']),
@@ -39,6 +46,7 @@ export const pageSchema = z.object({
   numberOfActions: z.coerce.number().min(1).max(64).optional(),
   tags: z.array(z.string()),
   notes: z.string().optional(),
+  /** Matches {@link OfferParams} when `pageType === 'offer'`. */
   offerParams: z.object({
     idOfferSource: z.string(),
     payout: z.coerce.number().min(0),

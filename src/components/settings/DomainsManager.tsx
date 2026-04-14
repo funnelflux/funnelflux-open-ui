@@ -25,22 +25,19 @@ export function DomainsManager() {
     const trimmed = newDomain.trim()
     if (!trimmed) return
 
-    saveDomain.mutate(
-      { domain: trimmed } as Partial<Domain>,
-      {
-        onSuccess: () => {
-          toast.success(`Domain "${trimmed}" added`)
-          setNewDomain('')
-        },
-        onError: (err) => {
-          toast.error(`Failed to add domain: ${getErrorMessage(err)}`)
-        },
+    saveDomain.mutate(trimmed, {
+      onSuccess: () => {
+        toast.success(`Domain "${trimmed}" added`)
+        setNewDomain('')
       },
-    )
+      onError: (err) => {
+        toast.error(`Failed to add domain: ${getErrorMessage(err)}`)
+      },
+    })
   }
 
   function handleSetDefault(domain: Domain) {
-    setDefaultDomain.mutate(domain.id, {
+    setDefaultDomain.mutate(domain.domain, {
       onSuccess: () => {
         toast.success(`"${domain.domain}" set as default`)
       },
@@ -52,7 +49,7 @@ export function DomainsManager() {
 
   function confirmDelete() {
     if (!deleteTarget) return
-    deleteDomain.mutate(deleteTarget.id, {
+    deleteDomain.mutate(deleteTarget.domain, {
       onSuccess: () => {
         toast.success(`Domain "${deleteTarget.domain}" deleted`)
         setDeleteTarget(null)

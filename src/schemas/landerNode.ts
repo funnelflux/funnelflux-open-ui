@@ -1,6 +1,13 @@
 import { z } from 'zod/v4'
 
-/** Lander page fields + funnel-node pass-through options (saved with funnel). */
+export type { FunnelNodePageParams, Page } from '@/types/entities'
+
+/**
+ * Lander page + funnel node pass-through fields saved with the funnel graph.
+ * Combines lander {@link Page} fields with {@link FunnelNodePageParams} (`accumulateUrlParams`,
+ * `additionalTokens`). `additionalTokens` uses `{ field, token }` in the UI; the API uses
+ * {@link FunnelNodePageParams.additionalTokens} as `KeyValuePair` (`key`/`value`) — map at save.
+ */
 export const landerNodeEditSchema = z.object({
   idPage: z.string().optional(),
   pageType: z.literal('lander'),

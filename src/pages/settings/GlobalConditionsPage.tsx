@@ -1,14 +1,18 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Loader2, Plus } from 'lucide-react'
-import { useConditions, useSaveCondition, useDeleteCondition } from '@/api/hooks'
-import { PageShell, DataTable, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Plus } from 'lucide-react'
+import {
+  useConditions,
+  useSaveCondition,
+  useDeleteCondition,
+  type ConditionListItem,
+} from '@/api/hooks'
+import { Button, PageShell, DataTable, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
 import { Tag } from 'antd'
-import { Button } from '@/components/ui-kit'
 import { getErrorMessage } from '@/lib/utils'
-import type { Condition } from '@/types/funnel'
+import type { FunnelCondition } from '@/types/entities'
 
 export function GlobalConditionsPage() {
   const toast = useToastApi()
@@ -28,7 +32,7 @@ export function GlobalConditionsPage() {
   }, [conditionRows, search])
 
   const handleSave = useCallback(
-    async (condition: Condition) => {
+    async (condition: FunnelCondition) => {
       try {
         await saveCondition.mutateAsync(condition)
         toast.success('Condition saved')
@@ -49,7 +53,7 @@ export function GlobalConditionsPage() {
     }
   }, [deleteId, deleteCondition, toast])
 
-  const columns = useMemo<ColumnDef<Condition, unknown>[]>(
+  const columns = useMemo<ColumnDef<ConditionListItem, unknown>[]>(
     () => [
       {
         id: 'name',
@@ -59,23 +63,33 @@ export function GlobalConditionsPage() {
           <span className="font-medium">{row.original.conditionName}</span>
         ),
       },
-      editBtnColumn<Condition>(() => setEditorOpen(true)),
-      deleteBtnColumn<Condition>((row) => setDeleteId(row.idCondition)),
+      editBtnColumn<ConditionListItem>(() => setEditorOpen(true)),
+      deleteBtnColumn<ConditionListItem>((row) => setDeleteId(row.idCondition)),
       {
         id: 'scope',
         header: 'Scope',
-        accessorKey: 'scope',
-        cell: ({ row }) => (
-          <Tag className="text-xs capitalize">
-            {row.original.scope}
-          </Tag>
-        ),
+        accessorFn: (row) => {
+          const r = row.restrictToFunnelId
+          if (r === undefined) return ''
+          return r !== '' && r !== '0' ? 'funnel' : 'global'
+        },
+        cell: ({ row }) => {
+          const r = row.original.restrictToFunnelId
+          if (r === undefined) {
+            return <span className="text-muted-foreground text-sm">—</span>
+          }
+          return r !== '' && r !== '0' ? (
+            <Tag className="text-xs capitalize">funnel</Tag>
+          ) : (
+            <Tag className="text-xs capitalize">global</Tag>
+          )
+        },
       },
       {
         id: 'rules',
         header: 'Rules',
         accessorFn: (row) =>
-          row.blocks.reduce((sum, b) => sum + b.rules.length, 0),
+          (row.orTests ?? []).reduce((sum, block) => sum + (block.andTests?.length ?? 0), 0),
         cell: ({ getValue }) => {
           const n = getValue() as number
           return (
@@ -88,12 +102,14 @@ export function GlobalConditionsPage() {
       {
         id: 'blocks',
         header: 'Blocks',
-        accessorFn: (row) => row.blocks.length,
+        accessorFn: (row) => row.orTests?.length ?? 0,
         cell: ({ row, getValue }) => {
           const n = getValue() as number
+          const op = (row.original.orTests?.length ?? 0) > 1 ? 'OR' : 'AND'
           return (
             <span className="text-muted-foreground text-sm">
-              {n} ({row.original.blockLogicOperator})
+              {n}
+              {n > 0 ? ` (${op})` : ''}
             </span>
           )
         },
@@ -127,7 +143,7 @@ export function GlobalConditionsPage() {
     >
       <SearchToolbar value={search} onChange={setSearch} placeholder="Search conditions..." />
 
-      <DataTable<Condition>
+      <DataTable<ConditionListItem>
         data={filtered}
         columns={columns}
         getRowId={(row) => row.idCondition}
@@ -135,12 +151,6 @@ export function GlobalConditionsPage() {
         noPagination
         emptyMessage="No global conditions found. Create one to get started."
       />
-
-      {editorOpen ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : null}
 
       <ConditionEditor
         open={editorOpen}

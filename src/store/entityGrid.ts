@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { api } from '@/api/client'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { Report, ReportCell, ReportColumn } from '@/types/stats'
+import type { Page } from '@/types/entities'
 
 // ---- Types ----
 
@@ -22,6 +23,12 @@ export interface EntityGridConfig {
   listEndpoint: string
   listParams?: Record<string, string>
   groupBy: string
+  /**
+   * When the list endpoint returns a richer shape (e.g. full `Page` from
+   * `/data/page/find/byStatus/`), map each item to {@link ListEntity} so
+   * `id` / `name` and flags like `isArchived` align with grid filters.
+   */
+  mapListToEntities?: (items: unknown[]) => ListEntity[]
 }
 
 interface FetchParams {
@@ -76,6 +83,21 @@ export function buildTotalsRow(totalsCells: ReportCell[] | null): EntityGridRow 
   return { id: '__totals__', name: 'Totals', cells: totalsCells }
 }
 
+/** Map V2 `Page` rows (from `find/byStatus`) to list entities for the entity grid. */
+export function pagesToListEntities(pages: Page[]): ListEntity[] {
+  return pages.map((page) => {
+    const entity: ListEntity = {
+      id: page.idPage,
+      name: page.pageName,
+      isArchived: page.isArchived === true,
+    }
+    if (page.categoryId != null && page.categoryId !== '') {
+      entity.categoryId = page.categoryId
+    }
+    return entity
+  })
+}
+
 // ---- Factory ----
 
 export function createEntityGridStore(config: EntityGridConfig) {
@@ -91,8 +113,8 @@ export function createEntityGridStore(config: EntityGridConfig) {
       set({ isLoading: true, lastFetchParams: params })
 
       try {
-        const [listData, report] = await Promise.all([
-          api.get<ListEntity[]>(config.listEndpoint, config.listParams),
+        const [listResponse, report] = await Promise.all([
+          api.get<unknown>(config.listEndpoint, config.listParams),
           api.post<Report>('/stats/reporting/drilldown/', {
             timeRange: toApiDateTimeRange(params.dateFrom, params.dateTo),
             timeZone: { name: params.timezone },
@@ -103,6 +125,11 @@ export function createEntityGridStore(config: EntityGridConfig) {
             options: { viewType: 'flat' },
           }),
         ])
+
+        const rawList = Array.isArray(listResponse) ? listResponse : []
+        const listData: ListEntity[] = config.mapListToEntities
+          ? config.mapListToEntities(rawList)
+          : (rawList as ListEntity[])
 
         const entityIds = new Set(listData.map((e) => String(e.id)))
         const statsById: Record<string, ReportCell[]> = {}
@@ -169,15 +196,17 @@ export const useTrafficSourceGridStore = createEntityGridStore({
 })
 
 export const useLanderGridStore = createEntityGridStore({
-  listEndpoint: '/data/page/list/',
-  listParams: { pageType: 'lander' },
+  listEndpoint: '/data/page/find/byStatus/',
+  listParams: { pageType: 'lander', status: 'all' },
   groupBy: 'Element: Lander',
+  mapListToEntities: (items) => pagesToListEntities(items as Page[]),
 })
 
 export const useOfferGridStore = createEntityGridStore({
-  listEndpoint: '/data/page/list/',
-  listParams: { pageType: 'offer' },
+  listEndpoint: '/data/page/find/byStatus/',
+  listParams: { pageType: 'offer', status: 'all' },
   groupBy: 'Element: Offer',
+  mapListToEntities: (items) => pagesToListEntities(items as Page[]),
 })
 
 export const useOfferSourceGridStore = createEntityGridStore({
