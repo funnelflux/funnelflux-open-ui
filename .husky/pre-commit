@@ -1,0 +1,18 @@
+#!/bin/sh
+# FunnelFlux Open UI — pre-commit guard
+#
+# Runs typecheck + lint on the whole tree so we never land TS errors or
+# lint errors on the branch. The tree is small enough that a full build
+# is ~2s and lint is ~5s — fine for pre-commit.
+#
+# Bypass (use sparingly): git commit --no-verify
+
+set -e
+
+echo "▶ pre-commit: pnpm build (typecheck + vite build)"
+pnpm build
+
+echo "▶ pre-commit: pnpm lint"
+pnpm lint
+
+echo "✓ pre-commit: clean"
