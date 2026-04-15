@@ -191,12 +191,26 @@ function buildNodeParamsFromV2(nodeType: NodeTypeValue, node: Record<string, unk
     return code?.idCode ? { snippetId: String(code.idCode), snippetName: String(node.nodeName ?? '') } : {}
   }
   if (nodeType === NODE_TYPES.visitorTag) {
+    const vt = node.nodeVisitorTagParams as { tags?: Record<string, string> | Array<{ key: string; value: string }> } | null | undefined
+    if (vt?.tags) {
+      if (Array.isArray(vt.tags)) {
+        const first = vt.tags[0]
+        return first ? { tagKey: String(first.key ?? ''), tagValue: String(first.value ?? '') } : {}
+      }
+      const entries = Object.entries(vt.tags)
+      if (entries.length > 0) {
+        return { tagKey: entries[0][0], tagValue: String(entries[0][1]) }
+      }
+    }
     return {}
   }
   return {}
 }
 
 function normalizeConnection(conn: Record<string, unknown>): ApiFunnelConnection {
+  const rawLabel = conn.labelLocation
+  const labelLocation = typeof rawLabel === 'number' ? rawLabel : undefined
+
   const base = {
     idConnection: String(conn.idConnection),
     idFunnel: String(conn.idFunnel),
@@ -204,6 +218,7 @@ function normalizeConnection(conn: Record<string, unknown>): ApiFunnelConnection
     idTargetNode: String(conn.idTargetNode),
     sourceHandle: conn.sourceHandle as string | undefined,
     targetHandle: conn.targetHandle as string | undefined,
+    labelLocation,
   }
 
   if (conn.connectionRotatorParams != null) {
@@ -216,7 +231,7 @@ function normalizeConnection(conn: Record<string, unknown>): ApiFunnelConnection
       ...base,
       elementData: {
         actionNumber: p.onActionNumber ?? 1,
-        isConversion: p.isConversion,
+        isConversion: p.isConversion ?? false,
       },
     }
   }
@@ -224,7 +239,7 @@ function normalizeConnection(conn: Record<string, unknown>): ApiFunnelConnection
     const p = conn.connectionCodeParams as { onDoneNumber?: number }
     return {
       ...base,
-      elementData: { onDoneNumber: p.onDoneNumber, edgeType: 'code' },
+      elementData: { onDoneNumber: p.onDoneNumber ?? 1, edgeType: 'code' },
     }
   }
   if (conn.connectionConditionParams != null) {
@@ -317,12 +332,17 @@ function flowNodeToV2(node: FunnelFlowNode, idFunnel: string): Record<string, un
     base.nodeConditionParams = { idCondition: String(params.conditionId ?? '') }
   } else if (nt === NODE_TYPES.jsCode || nt === NODE_TYPES.phpCode) {
     base.nodeCodeParams = { idCode: String(params.snippetId ?? '') }
+  } else if (nt === NODE_TYPES.visitorTag) {
+    const tagKey = String(params.tagKey ?? '')
+    const tagValue = String(params.tagValue ?? '')
+    base.nodeVisitorTagParams = tagKey ? { tags: { [tagKey]: tagValue } } : { tags: {} }
   }
 
   return base
 }
 
 function flowEdgeToV2(edge: FunnelFlowEdge, sourceNodeType: NodeTypeValue): Record<string, unknown> {
+  const data = edge.data
   const base: Record<string, unknown> = {
     idConnection: edge.id,
     idFunnel: '', // filled by caller
@@ -332,10 +352,9 @@ function flowEdgeToV2(edge: FunnelFlowEdge, sourceNodeType: NodeTypeValue): Reco
     connectionPageParams: null,
     connectionCodeParams: null,
     connectionConditionParams: null,
-    labelLocation: 0.35,
+    labelLocation: data?.labelLocation ?? 0.35,
   }
 
-  const data = edge.data
   if (!data) return base
 
   if (data.edgeType === 'weighted') {
@@ -346,7 +365,7 @@ function flowEdgeToV2(edge: FunnelFlowEdge, sourceNodeType: NodeTypeValue): Reco
   if (data.edgeType === 'action') {
     base.connectionPageParams = {
       onActionNumber: data.actionNumber ?? 1,
-      isConversion: false,
+      isConversion: data.isConversion ?? false,
     }
     return base
   }
@@ -357,7 +376,7 @@ function flowEdgeToV2(edge: FunnelFlowEdge, sourceNodeType: NodeTypeValue): Reco
     return base
   }
   if (data.edgeType === 'code') {
-    base.connectionCodeParams = { onDoneNumber: 1 }
+    base.connectionCodeParams = { onDoneNumber: data.onDoneNumber ?? 1 }
     return base
   }
 

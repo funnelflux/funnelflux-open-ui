@@ -48,16 +48,26 @@ function apiConnectionToFlowEdge(conn: ApiFunnelConnection): FunnelFlowEdge {
 
 function parseEdgeData(conn: ApiFunnelConnection): FunnelEdgeData {
   const el = conn.elementData || {}
+  const ll = conn.labelLocation
   if (el.branch === 'yes' || el.branch === 'no') {
-    return { edgeType: 'condition', branch: el.branch as 'yes' | 'no' }
+    return { edgeType: 'condition', branch: el.branch as 'yes' | 'no', labelLocation: ll }
   }
   if (typeof el.actionNumber === 'number') {
-    return { edgeType: 'action', actionNumber: el.actionNumber as number }
+    return {
+      edgeType: 'action',
+      actionNumber: el.actionNumber as number,
+      isConversion: el.isConversion === true,
+      labelLocation: ll,
+    }
   }
   if (el.edgeType === 'code') {
-    return { edgeType: 'code' }
+    return {
+      edgeType: 'code',
+      onDoneNumber: typeof el.onDoneNumber === 'number' ? el.onDoneNumber : 1,
+      labelLocation: ll,
+    }
   }
-  return { edgeType: 'weighted', weight: conn.weight ?? 100 }
+  return { edgeType: 'weighted', weight: conn.weight ?? 100, labelLocation: ll }
 }
 
 // ── Helpers: React Flow → API ───────────────────────────────────────────────
@@ -83,17 +93,18 @@ function flowEdgeToApiConnection(edge: FunnelFlowEdge, idFunnel: string): ApiFun
     idTargetNode: edge.target,
     sourceHandle: edge.sourceHandle ?? undefined,
     targetHandle: edge.targetHandle ?? undefined,
+    labelLocation: edge.data?.labelLocation,
   }
   const data = edge.data
   if (data) {
     if (data.edgeType === 'weighted') {
       conn.weight = data.weight
     } else if (data.edgeType === 'action') {
-      conn.elementData = { actionNumber: data.actionNumber }
+      conn.elementData = { actionNumber: data.actionNumber, isConversion: data.isConversion ?? false }
     } else if (data.edgeType === 'condition') {
       conn.elementData = { branch: data.branch }
     } else if (data.edgeType === 'code') {
-      conn.elementData = { edgeType: 'code' }
+      conn.elementData = { edgeType: 'code', onDoneNumber: data.onDoneNumber ?? 1 }
     }
   }
   return conn

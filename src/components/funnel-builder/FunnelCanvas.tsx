@@ -158,6 +158,14 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
     [setSelectedNodeId, closeAllMenus],
   )
 
+  const onNodeDoubleClick = useCallback(
+    (_: React.MouseEvent, node: FunnelFlowNode) => {
+      closeAllMenus()
+      setEditNodeId(node.id)
+    },
+    [closeAllMenus],
+  )
+
   const onEdgeClick = useCallback(
     (_: React.MouseEvent, edge: FunnelFlowEdge) => {
       closeAllMenus()
@@ -241,6 +249,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
         onConnect={onConnect}
         isValidConnection={handleIsValidConnection}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         onPaneContextMenu={onPaneContextMenu}

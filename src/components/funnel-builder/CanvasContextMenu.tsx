@@ -116,7 +116,7 @@ export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: Can
     <>
       <div
         ref={menuRef}
-        className="fixed z-50 bg-popover border rounded-md shadow-md py-1 min-w-[180px] text-sm"
+        className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
         style={{ left: screenPosition.x, top: screenPosition.y }}
       >
         <MenuItem
@@ -160,7 +160,7 @@ export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: Can
           </div>
 
           {showAdvanced && (
-            <div className="absolute left-full top-0 bg-popover border rounded-md shadow-md py-1 min-w-[160px] text-sm">
+            <div className="absolute left-full top-0 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[160px] text-sm">
               <MenuItem
                 icon={<Code className="h-4 w-4" />}
                 label="Add JS Code"

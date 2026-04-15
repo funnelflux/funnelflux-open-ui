@@ -1,11 +1,13 @@
 import { memo } from 'react'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps, type Edge } from '@xyflow/react'
+import { BaseEdge, getBezierPath, type EdgeProps, type Edge } from '@xyflow/react'
 import type { CodeEdgeData } from '@/types/funnel'
 import { cn } from '@/lib/utils'
+import { DraggableEdgeLabel } from './DraggableEdgeLabel'
 
 type CodeEdge = Edge<CodeEdgeData, 'code'>
 
 function CodeEdgeComponent({
+  id,
   sourceX,
   sourceY,
   targetX,
@@ -15,6 +17,7 @@ function CodeEdgeComponent({
   style,
   markerEnd,
   selected,
+  data,
 }: EdgeProps<CodeEdge>) {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -36,20 +39,20 @@ function CodeEdgeComponent({
           strokeWidth: selected ? 2.75 : 2,
         }}
       />
-      <EdgeLabelRenderer>
-        <div
-          className={cn(
-            'nodrag nopan absolute bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full px-2 text-xs',
-            'pointer-events-auto',
-            selected && 'ring-1 ring-yellow-400',
-          )}
-          style={{
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-          }}
-        >
-          ON DONE
-        </div>
-      </EdgeLabelRenderer>
+      <DraggableEdgeLabel
+        edgeId={id}
+        pathString={edgePath}
+        labelLocation={data?.labelLocation}
+        fallbackX={labelX}
+        fallbackY={labelY}
+        className={cn(
+          'nodrag nopan absolute bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full px-2 text-xs',
+          'pointer-events-auto',
+          selected && 'ring-1 ring-yellow-400',
+        )}
+      >
+        ON DONE
+      </DraggableEdgeLabel>
     </>
   )
 }

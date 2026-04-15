@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
+import { Checkbox } from '@/components/ui-kit'
 
 interface EdgeContextMenuProps {
   edgeId: string | null
@@ -15,7 +17,6 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
     edgeId ? s.edges.find((e) => e.id === edgeId) : undefined,
   )
 
-  // Close on outside click
   useEffect(() => {
     if (!position) return
     function handleClick(e: MouseEvent) {
@@ -27,7 +28,6 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
     return () => document.removeEventListener('mousedown', handleClick)
   }, [position, onClose])
 
-  // Close on Escape
   useEffect(() => {
     if (!position) return
     function handleKeyDown(e: KeyboardEvent) {
@@ -39,8 +39,14 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
 
   if (!position || !edgeId || !edge) return null
 
-  const isWeighted = edge.data?.edgeType === 'weighted'
-  const currentWeight = isWeighted && edge.data?.edgeType === 'weighted' ? edge.data.weight : 100
+  const data = edge.data
+  const isWeighted = data?.edgeType === 'weighted'
+  const isAction = data?.edgeType === 'action'
+  const isCode = data?.edgeType === 'code'
+  const currentWeight = isWeighted ? data.weight : 100
+  const currentActionNumber = isAction ? data.actionNumber : 1
+  const currentIsConversion = isAction ? data.isConversion ?? false : false
+  const currentOnDoneNumber = isCode ? data.onDoneNumber ?? 1 : 1
 
   function handleDelete() {
     useFunnelEditorStore.getState().removeEdge(edgeId!)
@@ -53,10 +59,26 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
     useFunnelEditorStore.getState().updateEdgeData(edgeId!, { weight })
   }
 
+  function handleActionNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = parseInt(e.target.value, 10)
+    const actionNumber = Number.isNaN(raw) ? 1 : Math.max(1, raw)
+    useFunnelEditorStore.getState().updateEdgeData(edgeId!, { actionNumber })
+  }
+
+  function handleConversionToggle(checked: boolean) {
+    useFunnelEditorStore.getState().updateEdgeData(edgeId!, { isConversion: checked })
+  }
+
+  function handleOnDoneNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = parseInt(e.target.value, 10)
+    const onDoneNumber = Number.isNaN(raw) ? 1 : Math.max(1, raw)
+    useFunnelEditorStore.getState().updateEdgeData(edgeId!, { onDoneNumber })
+  }
+
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 bg-popover border rounded-md shadow-md py-1 min-w-[180px] text-sm"
+      className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[200px] text-sm"
       style={{ left: position.x, top: position.y }}
     >
       {isWeighted && (
@@ -74,11 +96,61 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
             className="w-16 rounded border bg-background px-2 py-0.5 text-sm text-right"
             onClick={(e) => e.stopPropagation()}
           />
+          <span className="text-muted-foreground">%</span>
         </div>
       )}
 
+      {isAction && (
+        <>
+          <div className="flex items-center gap-2 px-3 py-1.5">
+            <label htmlFor="edge-action" className="text-muted-foreground whitespace-nowrap">
+              Action #
+            </label>
+            <input
+              id="edge-action"
+              type="number"
+              min={1}
+              max={99}
+              value={currentActionNumber}
+              onChange={handleActionNumberChange}
+              className="w-14 rounded border bg-background px-2 py-0.5 text-sm text-right"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5">
+            <Checkbox
+              checked={currentIsConversion}
+              onChange={(e) => handleConversionToggle(e.target.checked)}
+            />
+            <span className="text-muted-foreground text-xs">Is conversion</span>
+          </div>
+        </>
+      )}
+
+      {isCode && (
+        <div className="flex items-center gap-2 px-3 py-1.5">
+          <label htmlFor="edge-ondone" className="text-muted-foreground whitespace-nowrap">
+            On Done #
+          </label>
+          <input
+            id="edge-ondone"
+            type="number"
+            min={1}
+            max={99}
+            value={currentOnDoneNumber}
+            onChange={handleOnDoneNumberChange}
+            className="w-14 rounded border bg-background px-2 py-0.5 text-sm text-right"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
+      <div className="-mx-0 my-1 h-px bg-muted" />
+
       <div
-        className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent text-destructive"
+        className={cn(
+          'flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent text-destructive',
+        )}
         onClick={handleDelete}
       >
         <Trash2 className="h-4 w-4" />

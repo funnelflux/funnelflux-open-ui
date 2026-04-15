@@ -1,15 +1,15 @@
 import { useEffect, useRef } from 'react'
-import { Trash2, Pencil, Send } from 'lucide-react'
+import { Trash2, Pencil, Send, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { NODE_TYPES } from '@/types/funnel'
+import { NODE_TYPES, NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
+import { generateId } from '@/lib/id-generator'
 
 interface NodeContextMenuProps {
   nodeId: string | null
   position: { x: number; y: number } | null
   onClose: () => void
   onEditNode?: (nodeId: string) => void
-  /** Legacy “Send Traffic Here” → funnel URL wizard */
   onSendTrafficHere?: (nodeId: string) => void
 }
 
@@ -26,7 +26,6 @@ export function NodeContextMenu({
     nodeId ? s.nodes.find((n) => n.id === nodeId) : undefined,
   )
 
-  // Close on outside click
   useEffect(() => {
     if (!position) return
     function handleClick(e: MouseEvent) {
@@ -38,7 +37,6 @@ export function NodeContextMenu({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [position, onClose])
 
-  // Close on Escape
   useEffect(() => {
     if (!position) return
     function handleKeyDown(e: KeyboardEvent) {
@@ -52,14 +50,13 @@ export function NodeContextMenu({
 
   const nodeType = node.data.nodeType
   const isRoot = nodeType === NODE_TYPES.root
-  const isPageNode = nodeType === NODE_TYPES.lander || nodeType === NODE_TYPES.offer
 
   function handleDelete() {
     useFunnelEditorStore.getState().removeNode(nodeId!)
     onClose()
   }
 
-  function handleEditPage() {
+  function handleEdit() {
     if (nodeId && onEditNode) onEditNode(nodeId)
     onClose()
   }
@@ -69,43 +66,98 @@ export function NodeContextMenu({
     onClose()
   }
 
+  function handleDuplicate() {
+    if (!node) return
+    const store = useFunnelEditorStore.getState()
+    const newId = generateId()
+    const offset = 30
+    const newNode = {
+      ...node,
+      id: newId,
+      position: { x: node.position.x + offset, y: node.position.y + offset },
+      data: { ...node.data, isEntrance: false },
+    }
+    store.setNodes([...store.nodes, newNode])
+    onClose()
+  }
+
+  const editLabel = getEditLabel(nodeType)
+
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 bg-popover border rounded-md shadow-md py-1 min-w-[180px] text-sm"
+      className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
       style={{ left: position.x, top: position.y }}
     >
       {onSendTrafficHere && (
-        <div
-          className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent"
-          onClick={handleSendTrafficHere}
-        >
-          <Send className="h-4 w-4" />
-          <span>Send Traffic Here</span>
-        </div>
+        <MenuItem icon={<Send className="h-4 w-4" />} label="Send Traffic Here" onClick={handleSendTrafficHere} />
       )}
 
-      {isPageNode && (
-        <div
-          className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent"
-          onClick={handleEditPage}
-        >
-          <Pencil className="h-4 w-4" />
-          <span>Edit Page</span>
-        </div>
+      {!isRoot && editLabel && (
+        <MenuItem icon={<Pencil className="h-4 w-4" />} label={editLabel} onClick={handleEdit} />
       )}
 
       {!isRoot && (
-        <div
-          className={cn(
-            'flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent text-destructive',
-          )}
-          onClick={handleDelete}
-        >
-          <Trash2 className="h-4 w-4" />
-          <span>Delete Node</span>
-        </div>
+        <MenuItem icon={<Copy className="h-4 w-4" />} label="Duplicate" onClick={handleDuplicate} />
       )}
+
+      {!isRoot && (
+        <>
+          <div className="-mx-0 my-1 h-px bg-muted" />
+          <MenuItem
+            icon={<Trash2 className="h-4 w-4" />}
+            label="Delete Node"
+            onClick={handleDelete}
+            className="text-destructive"
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
+function getEditLabel(nodeType: NodeTypeValue): string {
+  switch (nodeType) {
+    case NODE_TYPES.lander:
+    case NODE_TYPES.offer:
+      return `Edit ${NODE_TYPE_LABELS[nodeType]}`
+    case NODE_TYPES.externalUrl:
+      return 'Edit URL'
+    case NODE_TYPES.condition:
+      return 'Edit Condition'
+    case NODE_TYPES.jsCode:
+    case NODE_TYPES.phpCode:
+      return 'Edit Code'
+    case NODE_TYPES.visitorTag:
+      return 'Edit Tag'
+    case NODE_TYPES.rotator:
+      return 'Edit Properties'
+    default:
+      return 'Edit'
+  }
+}
+
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  className,
+}: {
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent',
+        className,
+      )}
+      onClick={onClick}
+    >
+      {icon}
+      <span>{label}</span>
     </div>
   )
 }

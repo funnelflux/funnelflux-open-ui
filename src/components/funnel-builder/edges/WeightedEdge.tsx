@@ -1,11 +1,13 @@
 import { memo } from 'react'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps, type Edge } from '@xyflow/react'
+import { BaseEdge, getBezierPath, type EdgeProps, type Edge } from '@xyflow/react'
 import type { WeightedEdgeData } from '@/types/funnel'
 import { cn } from '@/lib/utils'
+import { DraggableEdgeLabel } from './DraggableEdgeLabel'
 
 type WeightedEdge = Edge<WeightedEdgeData, 'weighted'>
 
 function WeightedEdgeComponent({
+  id,
   sourceX,
   sourceY,
   targetX,
@@ -39,20 +41,20 @@ function WeightedEdgeComponent({
           strokeWidth: selected ? 2.75 : 2,
         }}
       />
-      <EdgeLabelRenderer>
-        <div
-          className={cn(
-            'nodrag nopan absolute bg-background border rounded-full px-2 text-xs',
-            'pointer-events-auto',
-            selected && 'border-primary',
-          )}
-          style={{
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-          }}
-        >
-          {weight}%
-        </div>
-      </EdgeLabelRenderer>
+      <DraggableEdgeLabel
+        edgeId={id}
+        pathString={edgePath}
+        labelLocation={data?.labelLocation}
+        fallbackX={labelX}
+        fallbackY={labelY}
+        className={cn(
+          'nodrag nopan absolute bg-background border rounded-full px-2 text-xs',
+          'pointer-events-auto',
+          selected && 'border-primary',
+        )}
+      >
+        {weight}%
+      </DraggableEdgeLabel>
     </>
   )
 }

@@ -186,23 +186,29 @@ export type EdgeType = (typeof EDGE_TYPES)[keyof typeof EDGE_TYPES]
 export interface WeightedEdgeData {
   edgeType: 'weighted'
   weight: number // 0–100
+  labelLocation?: number // 0–1, position along bezier path (default 0.5)
   [key: string]: unknown
 }
 
 export interface ActionEdgeData {
   edgeType: 'action'
   actionNumber: number // 1-based
+  isConversion?: boolean
+  labelLocation?: number
   [key: string]: unknown
 }
 
 export interface ConditionEdgeData {
   edgeType: 'condition'
   branch: 'yes' | 'no'
+  labelLocation?: number
   [key: string]: unknown
 }
 
 export interface CodeEdgeData {
   edgeType: 'code'
+  onDoneNumber?: number
+  labelLocation?: number
   [key: string]: unknown
 }
 
@@ -243,6 +249,7 @@ export interface ApiFunnelConnection {
   targetHandle?: string
   weight?: number
   elementData?: Record<string, unknown>
+  labelLocation?: number
 }
 
 export interface ApiFunnel {
