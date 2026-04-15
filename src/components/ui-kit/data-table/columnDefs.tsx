@@ -273,7 +273,7 @@ const API_NAME_TO_ID: Record<string, string> = {
 }
 
 // Custom event name patterns: "CE1", "CE1 Rev", "CE1 %", "CPCE1", "RPCE1"
-function resolveApiColumnId(apiName: string): string | undefined {
+export function resolveApiColumnId(apiName: string): string | undefined {
   if (API_NAME_TO_ID[apiName]) return API_NAME_TO_ID[apiName]
 
   let m: RegExpMatchArray | null

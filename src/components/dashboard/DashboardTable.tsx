@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { Card } from 'antd'
 import { DataTable, entityRowId } from '@/components/ui-kit/data-table'
 import type { DashboardData } from '@/types/ui'
 import { getCell } from '@/lib/funnelQuickStats'
+import { DEFAULT_TABLE_SORTING } from '@/store/tableConfig'
 
 type TableStats = DashboardData['tableStats']
 
@@ -45,6 +46,15 @@ export function DashboardTable({ data, isLoading }: DashboardTableProps) {
     }))
   }, [data])
 
+  const defaultSorting = useMemo((): SortingState => {
+    const cols = data?.report?.columns
+    if (!cols?.length) return DEFAULT_TABLE_SORTING
+    const visitsLike = cols.find((c) => /\b(entrances|visits)\b/i.test(c.name ?? ''))
+    const col = visitsLike ?? cols[1] ?? cols[0]
+    if (!col?.name) return DEFAULT_TABLE_SORTING
+    return [{ id: col.name, desc: true }]
+  }, [data])
+
   if (!isLoading && !data) return null
 
   return (
@@ -55,6 +65,8 @@ export function DashboardTable({ data, isLoading }: DashboardTableProps) {
         loading={isLoading}
         getRowId={entityRowId}
         noPagination
+        tableConfigKey="dashboard-top-table"
+        defaultSorting={defaultSorting}
       />
     </Card>
   )

@@ -4,7 +4,11 @@ import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
 import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
 import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
+import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
+import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
+
+const DRILLDOWN_FLAT_TABLE_KEY = "reports-drilldown-flat"
 
 interface FlatRowData {
   _id: string
@@ -27,23 +31,25 @@ function reportRowsToFlatData(report: Report): FlatRowData[] {
 
 export function DrilldownFlatPage() {
   const drilldownMutation = useDrilldownReport()
+  const setTableSorting = useTableConfigStore((s) => s.setSorting)
   const [report, setReport] = useState<Report | null>(null)
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
   const [page, setPage] = useState(0)
   const pageSize = 50
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>(() => {
+    const saved = selectTableConfig(DRILLDOWN_FLAT_TABLE_KEY)(useTableConfigStore.getState()).sorting
+    return saved.length > 0 ? saved : DEFAULT_TABLE_SORTING
+  })
   const tableRef = useRef<Table<FlatRowData> | null>(null)
 
   const handleApply = useCallback(
     (request: DrilldownRequest) => {
-      const sortCol = sorting[0]
-      const sortParam = sortCol
-        ? { column: Number(sortCol.id.replace("col-", "")), direction: sortCol.desc ? "desc" as const : "asc" as const }
-        : undefined
+      setPage(0)
+      const sortParam = drilldownSortParamFromReport(sorting, report?.columns)
       const paginatedRequest: DrilldownRequest = {
         ...request,
         options: { viewType: "flat" },
-        paging: { start: page * pageSize, length: pageSize },
+        paging: { start: 0, length: pageSize },
         sorting: sortParam,
       }
       setLastRequest(paginatedRequest)
@@ -51,22 +57,20 @@ export function DrilldownFlatPage() {
         onSuccess: (data) => setReport(data),
       })
     },
-    [page, pageSize, sorting, drilldownMutation],
+    [pageSize, sorting, drilldownMutation, report?.columns],
   )
 
   const handleSortingChange = useCallback(
     (newSorting: SortingState) => {
       setSorting(newSorting)
+      setTableSorting(DRILLDOWN_FLAT_TABLE_KEY, newSorting)
       setPage(0)
 
       if (!lastRequest) return
 
-      const sortCol = newSorting[0]
       const nextRequest: DrilldownRequest = {
         ...lastRequest,
-        sorting: sortCol
-          ? { column: Number(sortCol.id.replace("col-", "")), direction: sortCol.desc ? "desc" as const : "asc" as const }
-          : undefined,
+        sorting: drilldownSortParamFromReport(newSorting, report?.columns),
         paging: { start: 0, length: pageSize },
       }
       setLastRequest(nextRequest)
@@ -74,7 +78,7 @@ export function DrilldownFlatPage() {
         onSuccess: (data) => setReport(data),
       })
     },
-    [lastRequest, pageSize, drilldownMutation],
+    [lastRequest, pageSize, drilldownMutation, report?.columns, setTableSorting],
   )
 
   const flatData = useMemo(

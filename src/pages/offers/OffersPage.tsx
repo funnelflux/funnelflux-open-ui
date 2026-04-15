@@ -267,6 +267,7 @@ export function OffersPage() {
         columns={columnDefs}
         loading={isLoading}
         getRowId={entityRowId}
+        tableConfigKey="offers"
         pinnedBottomRows={pinnedBottomRows}
         enableRowSelection={canSelectRow}
         rowSelection={rowSelection}

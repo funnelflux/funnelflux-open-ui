@@ -128,6 +128,8 @@ export function UserManagementPage() {
         columns={columns}
         getRowId={(row) => String(row.id)}
         loading={isLoading}
+        tableConfigKey="settings-users"
+        defaultSorting={[{ id: 'email', desc: false }]}
         noPagination
         emptyMessage="No users found."
       />

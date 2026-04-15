@@ -18,10 +18,10 @@ import type { LiveStats } from '@/types/ui'
 const ZERO_STATS: LiveStats = { visits: 0, clicks: 0, conversions: 0, revenue: 0, cost: 0, net: 0, roi: 'N/A' }
 
 const WIDGETS = [
-  { title: 'Top Funnels', groupBy: 'Element: Funnel', quickviewType: 'Element: Funnel' },
-  { title: 'Top Traffic Sources', groupBy: 'Third Parties: Traffic Source', quickviewType: 'Third Parties: Traffic Source' },
-  { title: 'Top Landers', groupBy: 'Element: Lander', quickviewType: 'Element: Lander' },
-  { title: 'Top Offers', groupBy: 'Element: Offer', quickviewType: 'Element: Offer' },
+  { id: 'dashboard-widget-top-funnels', title: 'Top Funnels', groupBy: 'Element: Funnel', quickviewType: 'Element: Funnel' },
+  { id: 'dashboard-widget-top-traffic-sources', title: 'Top Traffic Sources', groupBy: 'Third Parties: Traffic Source', quickviewType: 'Third Parties: Traffic Source' },
+  { id: 'dashboard-widget-top-landers', title: 'Top Landers', groupBy: 'Element: Lander', quickviewType: 'Element: Lander' },
+  { id: 'dashboard-widget-top-offers', title: 'Top Offers', groupBy: 'Element: Offer', quickviewType: 'Element: Offer' },
 ] as const
 
 interface ChartPoint {
@@ -132,11 +132,13 @@ const widgetColumnDefs: ColumnDef<WidgetRow, unknown>[] = [
 ]
 
 function WidgetTable({
+  tableConfigKey,
   title,
   rows,
   isLoading,
   pulse,
 }: {
+  tableConfigKey: string
   title: string
   rows: WidgetRow[]
   isLoading: boolean
@@ -150,6 +152,7 @@ function WidgetTable({
         loading={isLoading}
         getRowId={entityRowId}
         noPagination
+        tableConfigKey={tableConfigKey}
       />
     </Card>
   )
@@ -333,9 +336,10 @@ export function DashboardPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {widgets.map((widget) => (
+        {widgets.map((widget, index) => (
           <WidgetTable
-            key={widget.title}
+            key={WIDGETS[index].id}
+            tableConfigKey={WIDGETS[index].id}
             title={widget.title}
             rows={widget.rows}
             isLoading={widget.isLoading}

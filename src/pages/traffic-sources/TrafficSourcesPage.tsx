@@ -196,6 +196,7 @@ export function TrafficSourcesPage() {
         columns={columnDefs}
         loading={isLoading}
         getRowId={entityRowId}
+        tableConfigKey="traffic-sources"
         pinnedBottomRows={pinnedBottomRows}
         enableRowSelection
         rowSelection={rowSelection}

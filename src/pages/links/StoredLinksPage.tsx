@@ -38,7 +38,7 @@ export function StoredLinksPage() {
   const openEdit = useCallback((link: StoredLink) => {
     setEditingLink(link)
     setFormName(link.name)
-    setFormUrl(link.url)
+    setFormUrl(link.targetURL)
     setSheetOpen(true)
   }, [])
 
@@ -53,7 +53,7 @@ export function StoredLinksPage() {
 
     const payload: Partial<StoredLink> = {
       name: trimmedName,
-      url: trimmedUrl,
+      targetURL: trimmedUrl,
     }
     if (editingLink) {
       payload.id = editingLink.id
@@ -104,35 +104,25 @@ export function StoredLinksPage() {
       resetStatsBtnColumn<StoredLink>((row) => setResetId(row.id)),
       deleteBtnColumn<StoredLink>((row) => setDeleteId(row.id)),
       {
-        id: 'url',
+        id: 'targetURL',
         header: 'URL',
-        accessorKey: 'url',
+        accessorKey: 'targetURL',
         meta: { flex: 1 },
         size: 250,
         cell: (info) => (
           <span className="font-mono text-xs text-muted-foreground truncate max-w-[300px] block">
-            {info.row.original.url}
+            {info.row.original.targetURL}
           </span>
         ),
       },
       {
-        id: 'clicks',
-        header: 'Clicks',
-        accessorKey: 'clicks',
+        id: 'visits',
+        header: 'Visits',
+        accessorKey: 'visits',
         size: 100,
+        meta: { numeric: true },
         cell: (info) => (
-          <span className="tabular-nums">{info.row.original.clicks ?? 0}</span>
-        ),
-      },
-      {
-        id: 'lastClickDate',
-        header: 'Last Click',
-        accessorKey: 'lastClickDate',
-        size: 160,
-        cell: (info) => (
-          <span className="text-xs text-muted-foreground">
-            {info.row.original.lastClickDate || '--'}
-          </span>
+          <span className="tabular-nums">{info.row.original.visits ?? 0}</span>
         ),
       },
     ],
@@ -155,6 +145,8 @@ export function StoredLinksPage() {
         columns={columns}
         getRowId={entityRowId}
         loading={isLoading}
+        tableConfigKey="stored-links"
+        defaultSorting={[{ id: 'name', desc: false }]}
         noPagination
         emptyMessage="No stored links yet. Create one to get started."
       />

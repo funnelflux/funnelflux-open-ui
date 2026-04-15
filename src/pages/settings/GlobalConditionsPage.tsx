@@ -148,6 +148,8 @@ export function GlobalConditionsPage() {
         columns={columns}
         getRowId={(row) => row.idCondition}
         loading={isLoading}
+        tableConfigKey="settings-global-conditions"
+        defaultSorting={[{ id: 'name', desc: false }]}
         noPagination
         emptyMessage="No global conditions found. Create one to get started."
       />

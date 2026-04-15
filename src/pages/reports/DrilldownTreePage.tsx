@@ -5,7 +5,11 @@ import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
 import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
 import { api } from "@/api/client"
+import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
+import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
+
+const DRILLDOWN_TREE_TABLE_KEY = "reports-drilldown-tree"
 
 interface TreeRowData {
   _id: string
@@ -54,12 +58,16 @@ function reportToTreeRows(report: Report, depth = 0): TreeRowData[] {
 
 export function DrilldownTreePage() {
   const drilldownMutation = useDrilldownReport()
+  const setTableSorting = useTableConfigStore((s) => s.setSorting)
   const [report, setReport] = useState<Report | null>(null)
   const [treeData, setTreeData] = useState<TreeRowData[]>([])
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
   const [page, setPage] = useState(0)
   const pageSize = 50
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>(() => {
+    const saved = selectTableConfig(DRILLDOWN_TREE_TABLE_KEY)(useTableConfigStore.getState()).sorting
+    return saved.length > 0 ? saved : DEFAULT_TABLE_SORTING
+  })
   const [expanded, setExpanded] = useState<ExpandedState>({})
   const tableRef = useRef<Table<TreeRowData> | null>(null)
 
@@ -84,28 +92,27 @@ export function DrilldownTreePage() {
         ...request,
         options: { viewType: "tree" },
         paging: { start: 0, length: pageSize },
+        sorting: drilldownSortParamFromReport(sorting, report?.columns),
       })
     },
-    [loadReport, pageSize],
+    [loadReport, pageSize, sorting, report?.columns],
   )
 
   const handleSortingChange = useCallback(
     (newSorting: SortingState) => {
       setSorting(newSorting)
+      setTableSorting(DRILLDOWN_TREE_TABLE_KEY, newSorting)
       setPage(0)
 
       if (!lastRequest) return
 
-      const sortCol = newSorting[0]
       loadReport({
         ...lastRequest,
-        sorting: sortCol
-          ? { column: Number(sortCol.id.replace("col-", "")), direction: sortCol.desc ? "desc" as const : "asc" as const }
-          : undefined,
+        sorting: drilldownSortParamFromReport(newSorting, report?.columns),
         paging: { start: 0, length: pageSize },
       })
     },
-    [lastRequest, loadReport, pageSize],
+    [lastRequest, loadReport, pageSize, report?.columns, setTableSorting],
   )
 
   const handleExpandRow = useCallback(

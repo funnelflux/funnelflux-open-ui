@@ -264,6 +264,7 @@ export function LandersPage() {
         columns={columnDefs}
         loading={isLoading}
         getRowId={entityRowId}
+        tableConfigKey="landers"
         pinnedBottomRows={pinnedBottomRows}
         enableRowSelection={canSelectRow}
         rowSelection={rowSelection}

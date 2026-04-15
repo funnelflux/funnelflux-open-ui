@@ -39,22 +39,18 @@ import {
 } from '@/api/hooks'
 import { CampaignEditForm } from './CampaignEditForm'
 import { AddCampaignOrFunnelModal } from './AddCampaignOrFunnelModal'
+import { MoveFunnelModal, type MoveFunnelTarget } from './MoveFunnelModal'
+import {
+  buildCampaignTreeFromMysqlAndFlatFunnelReport,
+  type CampaignHierarchyResponse,
+  type CampaignTreeRow,
+} from './campaignTreeUtils'
 import { api } from '@/api/client'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { Report, ReportCell } from '@/types/stats'
 import type { CampaignFormData } from '@/schemas/campaign'
 import { getErrorMessage } from '@/lib/utils'
 import { generateId } from '@/lib/id-generator'
-
-interface CampaignTreeRow {
-  id: string
-  name: string
-  cells: ReportCell[]
-  kind: 'campaign' | 'funnel'
-  campaignId: string
-  funnelId?: string
-  _children?: CampaignTreeRow[]
-}
 
 function isCampaignTotalsRow(row: CampaignTreeRow): boolean {
   return row.id === '__totals__'
@@ -71,59 +67,6 @@ function buildCampaignTotalsRow(cells: ReportCell[] | null | undefined): Campaig
   }
 }
 
-function buildTreeFromReport(report: Report): CampaignTreeRow[] {
-  const colCount = report.columns.length
-
-  return (report.rows ?? []).map((row, index) => {
-    const cells: ReportCell[] = []
-    for (let i = 0; i < colCount; i++) {
-      const cell = (row.cells ?? row)[i != null ? i : 0] as ReportCell | undefined
-      cells.push(cell ?? row[String(i)] as ReportCell ?? { raw: '', formatted: '' })
-    }
-    if (row.cells) {
-      cells.length = 0
-      cells.push(...(row.cells as ReportCell[]))
-    }
-
-    const rawId = String(cells[0]?.raw ?? index)
-    const children = (row.children ?? (row.expandableInfo as { children?: unknown[] } | undefined)?.children) as Record<string, unknown>[] | undefined
-
-    const campaignRow: CampaignTreeRow = {
-      id: `campaign-${rawId}`,
-      name: cells[0]?.formatted ?? '',
-      cells,
-      kind: 'campaign',
-      campaignId: rawId,
-    }
-
-    if (children?.length) {
-      campaignRow._children = children.map((child, ci) => {
-        const childCells: ReportCell[] = []
-        if (Array.isArray((child as { cells?: unknown }).cells)) {
-          childCells.push(...((child as { cells: ReportCell[] }).cells))
-        } else {
-          for (let i = 0; i < colCount; i++) {
-            const c = child[String(i)] as ReportCell | undefined
-            childCells.push(c ?? { raw: '', formatted: '' })
-          }
-        }
-
-        const childId = String(childCells[0]?.raw ?? ci)
-        return {
-          id: `funnel-${childId}`,
-          name: childCells[0]?.formatted ?? '',
-          cells: childCells,
-          kind: 'funnel' as const,
-          campaignId: rawId,
-          funnelId: childId,
-        }
-      })
-    }
-
-    return campaignRow
-  })
-}
-
 const TABLE_KEY = 'campaigns'
 
 export function CampaignsPage() {
@@ -137,6 +80,7 @@ export function CampaignsPage() {
   const [addCombinedOpen, setAddCombinedOpen] = useState(false)
   const [funnelPrefillCampaignId, setFunnelPrefillCampaignId] = useState<string | null>(null)
   const [addModalKey, setAddModalKey] = useState(0)
+  const [moveFunnelTarget, setMoveFunnelTarget] = useState<MoveFunnelTarget | null>(null)
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 365),
@@ -164,20 +108,22 @@ export function CampaignsPage() {
 
   const fetchData = useCallback(() => {
     setIsLoading(true)
-    api
-      .post<Report>('/stats/reporting/drilldown/', {
-        timeRange: toApiDateTimeRange(dateRange.from, dateRange.to),
-        timeZone: { name: tz },
-        groupings: [
-          { groupBy: 'Element: Campaign', whitelistFilters: [], blacklistFilters: [] },
-          { groupBy: 'Element: Funnel', whitelistFilters: [], blacklistFilters: [] },
-        ],
-        paging: { start: 0, length: 5000 },
-        options: { viewType: 'tree' },
-      })
-      .then((report) => {
+    const drilldownBody = {
+      timeRange: toApiDateTimeRange(dateRange.from, dateRange.to),
+      timeZone: { name: tz },
+      groupings: [
+        { groupBy: 'Element: Funnel', whitelistFilters: [], blacklistFilters: [] },
+      ],
+      paging: { start: 0, length: 5000 },
+      options: { viewType: 'flat' as const },
+    }
+    Promise.all([
+      api.get<CampaignHierarchyResponse>('/ui/campaigns/hierarchy/'),
+      api.post<Report>('/stats/reporting/drilldown/', drilldownBody),
+    ])
+      .then(([hierarchy, report]) => {
         setColumns(report.columns ?? [])
-        setTreeData(buildTreeFromReport(report))
+        setTreeData(buildCampaignTreeFromMysqlAndFlatFunnelReport(hierarchy.campaigns ?? [], report))
         setTotalsCells(report.totals?.cells ?? null)
         setIsLoading(false)
       })
@@ -298,7 +244,7 @@ export function CampaignsPage() {
         idFunnel,
         idCampaign: campaignId,
         funnelName,
-        defaultCostPerEntrance: 0,
+        defaultCostPerEntrance: '0',
         canvasWidth: 2000,
         canvasHeight: 1500,
         nodes: [],
@@ -325,19 +271,13 @@ export function CampaignsPage() {
     })
   }
 
-  const handleMoveFunnel = async (funnelId: string) => {
-    const targetCampaignId = window.prompt('Move funnel to campaign ID')
-    if (!targetCampaignId?.trim()) return
-    try {
-      await api.put('/data/campaign/funnel/move/', {
-        idFunnel: funnelId,
-        idCampaign: targetCampaignId.trim(),
-      })
-      toast.success('Funnel moved')
-      fetchData()
-    } catch (err) {
-      toast.error(getErrorMessage(err))
-    }
+  const openMoveFunnelModal = (row: CampaignTreeRow) => {
+    if (row.kind !== 'funnel' || !row.funnelId) return
+    setMoveFunnelTarget({
+      funnelId: row.funnelId,
+      funnelName: row.name,
+      currentCampaignId: row.campaignId,
+    })
   }
 
   const getSubRows = useCallback((row: CampaignTreeRow) => row._children, [])
@@ -363,7 +303,7 @@ export function CampaignsPage() {
       { hidden: (row) => isCampaignTotalsRow(row) || row.kind !== 'campaign' },
     ),
     moveBtnColumn<CampaignTreeRow>(
-      (row) => { if (row.funnelId) handleMoveFunnel(row.funnelId) },
+      (row) => { openMoveFunnelModal(row) },
       { hidden: (row) => isCampaignTotalsRow(row) || row.kind !== 'funnel' },
     ),
     deleteBtnColumn<CampaignTreeRow>((row) => {
@@ -410,6 +350,7 @@ export function CampaignsPage() {
         columns={columnDefs}
         loading={isLoading}
         getRowId={entityRowId}
+        tableConfigKey={TABLE_KEY}
         pinnedBottomRows={pinnedBottomRows}
         enableRowSelection
         rowSelection={rowSelection}
@@ -462,6 +403,13 @@ export function CampaignsPage() {
         onQuickCreateCampaign={handleQuickCreateCampaign}
         funnelCreatePending={saveFunnel.isPending}
         campaignQuickCreatePending={saveMutation.isPending}
+      />
+
+      <MoveFunnelModal
+        open={!!moveFunnelTarget}
+        target={moveFunnelTarget}
+        onClose={() => setMoveFunnelTarget(null)}
+        onMoved={fetchData}
       />
 
       <CampaignEditForm

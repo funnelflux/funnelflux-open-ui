@@ -159,6 +159,8 @@ export function TrafficFiltersPage() {
         columns={columns}
         getRowId={(row) => row.idTrafficFilter}
         loading={isLoading}
+        tableConfigKey="settings-traffic-filters"
+        defaultSorting={[{ id: 'trafficFilterName', desc: false }]}
         noPagination
         emptyMessage="No traffic filters configured."
       />

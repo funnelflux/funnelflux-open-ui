@@ -42,6 +42,7 @@ export {
   getColumnMeta,
   getDefaultVisibleIds,
   buildColumnsFromReport,
+  resolveApiColumnId,
   ALL_COLUMN_GROUPS,
 } from './columnDefs'
 export type { ColumnAlign, ColumnGroupDef, ColumnMeta } from './columnDefs'

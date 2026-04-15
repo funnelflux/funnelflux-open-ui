@@ -165,7 +165,7 @@ function MobileNav({ permissions, pathname }: { permissions: Permissions; pathna
   return (
     <>
       <Button type="text" className="md:hidden text-gray-300 hover:text-white hover:bg-gray-700" onClick={() => setOpen(true)} icon={<Menu className="h-5 w-5" />} />
-      <Drawer open={open} onClose={() => setOpen(false)} placement="left" width={256} closable={false} styles={{ body: { padding: 0 }, header: { display: 'none' } }} className="bg-nav-bg">
+      <Drawer open={open} onClose={() => setOpen(false)} placement="left" size={256} closable={false} styles={{ body: { padding: 0 }, header: { display: 'none' } }} className="bg-nav-bg">
         <div className="h-full bg-nav-bg text-white">
           <div className="p-4 border-b border-gray-700">
             <span className="font-bold text-lg">FunnelFlux</span>

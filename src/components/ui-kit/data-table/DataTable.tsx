@@ -13,6 +13,7 @@ import { useRef, useCallback, useEffect, useMemo, useState, memo } from 'react'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
 import type { ColumnAlign } from './columnDefs'
 import type { DataTableProps, SortingState, VisibilityState, RowSelectionState, PaginationState, ExpandedState, Row } from './types'
+import { DEFAULT_TABLE_SORTING, useTableConfigStore, selectTableConfig } from '@/store/tableConfig'
 import './data-table.css'
 
 const DEFAULT_PAGE_SIZES = [25, 50, 100, 200]
@@ -35,6 +36,8 @@ function DataTableInner<TData>({
   sorting: controlledSorting,
   onSortingChange,
   manualSorting,
+  tableConfigKey,
+  defaultSorting,
   pagination: controlledPagination,
   onPaginationChange,
   manualPagination,
@@ -59,7 +62,23 @@ function DataTableInner<TData>({
   columnSizing: controlledSizing,
   onColumnSizingChange,
 }: DataTableProps<TData>) {
-  const [internalSorting, setInternalSorting] = useState<SortingState>([])
+  const fallbackDefault = defaultSorting ?? DEFAULT_TABLE_SORTING
+  const [internalSorting, setInternalSorting] = useState<SortingState>(fallbackDefault)
+
+  const isSortingControlled = controlledSorting !== undefined
+  const storeConfigSlice = useTableConfigStore((state) =>
+    tableConfigKey ? selectTableConfig(tableConfigKey)(state) : null,
+  )
+  const sortingFromStore = storeConfigSlice?.sorting ?? []
+  const setSortingInStore = useTableConfigStore((s) => s.setSorting)
+
+  const persistedOrDefaultFallback = defaultSorting ?? DEFAULT_TABLE_SORTING
+
+  const effectiveSorting = isSortingControlled
+    ? (controlledSorting as SortingState)
+    : (tableConfigKey
+      ? (sortingFromStore.length > 0 ? sortingFromStore : persistedOrDefaultFallback)
+      : internalSorting)
   const [internalSelection, setInternalSelection] = useState<RowSelectionState>({})
   const [internalPagination, setInternalPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
   const [internalVisibility, setInternalVisibility] = useState<VisibilityState>({})
@@ -67,7 +86,6 @@ function DataTableInner<TData>({
   const [expandingRowId, setExpandingRowId] = useState<string | null>(null)
   const [internalSizing, setInternalSizing] = useState<Record<string, number>>({})
 
-  const sorting = controlledSorting ?? internalSorting
   const selection = controlledSelection ?? internalSelection
   const pagination = controlledPagination ?? internalPagination
   const visibility = controlledVisibility ?? internalVisibility
@@ -76,10 +94,18 @@ function DataTableInner<TData>({
 
   const handleSortingChange = useCallback(
     (updater: SortingState | ((old: SortingState) => SortingState)) => {
-      const next = typeof updater === 'function' ? updater(sorting) : updater
-      ;(onSortingChange ?? setInternalSorting)(next)
+      const next = typeof updater === 'function' ? updater(effectiveSorting) : updater
+      if (onSortingChange) {
+        onSortingChange(next)
+      }
+      if (!isSortingControlled && tableConfigKey) {
+        setSortingInStore(tableConfigKey, next)
+      }
+      if (!isSortingControlled && !tableConfigKey) {
+        setInternalSorting(next)
+      }
     },
-    [sorting, onSortingChange],
+    [effectiveSorting, onSortingChange, isSortingControlled, tableConfigKey, setSortingInStore],
   )
 
   const handleSelectionChange = useCallback(
@@ -130,7 +156,7 @@ function DataTableInner<TData>({
     /** Paginate top-level rows only; expanded children stay with their parent page. */
     paginateExpandedRows: treeMode ? false : true,
     state: {
-      sorting,
+      sorting: effectiveSorting,
       rowSelection: selection,
       pagination,
       columnVisibility: visibility,

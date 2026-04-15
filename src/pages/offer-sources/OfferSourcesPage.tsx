@@ -177,6 +177,7 @@ export function OfferSourcesPage() {
         columns={columnDefs}
         loading={isLoading}
         getRowId={entityRowId}
+        tableConfigKey="offer-sources"
         pinnedBottomRows={pinnedBottomRows}
         enableRowSelection
         rowSelection={rowSelection}

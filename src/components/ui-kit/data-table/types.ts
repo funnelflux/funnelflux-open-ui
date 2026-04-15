@@ -32,6 +32,14 @@ export interface DataTableProps<TData> {
   onSortingChange?: (sorting: SortingState) => void
   manualSorting?: boolean
 
+  /**
+   * Persist sort in `useTableConfigStore` under this key (localStorage).
+   * Ignored when `sorting` is controlled (prop provided).
+   */
+  tableConfigKey?: string
+  /** Fallback when uncontrolled and no `tableConfigKey` (default: visits desc). */
+  defaultSorting?: SortingState
+
   /** Pagination (controlled). Set `manualPagination` for server-side paging. */
   pagination?: PaginationState
   onPaginationChange?: (pagination: PaginationState) => void

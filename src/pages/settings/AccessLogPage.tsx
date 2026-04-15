@@ -75,6 +75,8 @@ export function AccessLogPage() {
         columns={columns}
         getRowId={accessLogRowId}
         loading={isLoading}
+        tableConfigKey="settings-access-log"
+        defaultSorting={[{ id: 'timestamp', desc: true }]}
         noPagination
         emptyMessage="No access log entries."
       />

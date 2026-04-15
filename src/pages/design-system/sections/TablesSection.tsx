@@ -58,6 +58,7 @@ export function TablesSection() {
       <DataTable<SampleRow>
         data={sampleData}
         columns={columnDefs}
+        tableConfigKey="design-system-tables-sample"
       />
     </section>
   )

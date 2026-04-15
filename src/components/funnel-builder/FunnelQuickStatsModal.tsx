@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
 import { Tabs } from 'antd'
 
@@ -284,6 +284,12 @@ export function FunnelQuickStatsModal({
     }))
   }, [report])
 
+  const quickStatsDefaultSorting = useMemo((): SortingState => {
+    const n = report?.columns?.length ?? 0
+    if (n < 2) return []
+    return [{ id: 'c1', desc: true }]
+  }, [report])
+
   const handlePrint = useCallback(() => {
     window.print()
   }, [])
@@ -555,6 +561,8 @@ export function FunnelQuickStatsModal({
                 getRowId={(row) => `qs-${Object.values(row).join('\u001e')}`}
                 noPagination
                 maxHeight="100%"
+                tableConfigKey={`funnel-quick-stats-${funnelId}-${tab}`}
+                defaultSorting={quickStatsDefaultSorting}
               />
             </div>
           )}
