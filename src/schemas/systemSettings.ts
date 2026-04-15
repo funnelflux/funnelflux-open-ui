@@ -6,7 +6,7 @@ export const systemSettingsSchema = z.object({
   autoExpandCampaigns: z.boolean(),
   offersDefaultRedirect: z.object({ type: z.string(), name: z.string() }),
   landersDefaultRedirect: z.object({ type: z.string(), name: z.string() }),
-  minConfidenceRateForWinners: z.coerce.number().min(0).max(100),
+  minConfidenceRateForWinners: z.number().min(0).max(100),
   clickbankIPNKey: z.string(),
 })
 

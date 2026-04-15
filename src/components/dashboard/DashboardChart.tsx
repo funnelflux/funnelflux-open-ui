@@ -95,11 +95,10 @@ export function DashboardChart({
                 width={60}
               />
               <Tooltip
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={((value: number) => [
-                  formatTooltipValue(value, metric),
+                formatter={(value) => [
+                  formatTooltipValue(Number(value), metric),
                   METRICS.find((m) => m.key === metric)?.label ?? metric,
-                ]) as any}
+                ]}
                 contentStyle={{
                   fontSize: 12,
                   borderRadius: 6,

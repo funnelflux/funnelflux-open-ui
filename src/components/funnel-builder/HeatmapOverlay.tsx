@@ -1,17 +1,10 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BarChart3, Loader2, X } from 'lucide-react'
 import { Button, Tag, Select } from 'antd'
 import { useDrilldownReport } from '@/api/hooks'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { DrilldownRequest, Report } from '@/types/stats'
-
-// ── Context ────────────────────────────────────────────────────────────────
-
-export const HeatmapContext = createContext<{
-  active: boolean
-  metric: string
-  nodeStats: Record<string, Record<string, number>>
-}>({ active: false, metric: 'visits', nodeStats: {} })
+import { HeatmapContext } from './HeatmapContext'
 
 // ── Metric Options ─────────────────────────────────────────────────────────
 

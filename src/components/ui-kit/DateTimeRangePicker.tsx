@@ -55,12 +55,9 @@ export function DateTimeRangePicker({
 
   // When a date cell is clicked, auto-click the OK button to advance panels.
   // The OK button is inside the popup dropdown, not the picker wrapper,
-  // so we search from document.
-  const handleCalendarChange = (
-    _dates: RangeValue,
-    _dateStrings: [string, string],
-    _info: { range?: 'start' | 'end' },
-  ) => {
+  // so we search from document. Signature matches antd's onCalendarChange
+  // but we only need the side effect, not the payload.
+  const handleCalendarChange = () => {
     // Small delay to let antd render the OK button in the footer
     setTimeout(() => {
       // The popup is appended to document.body. Find the visible one.

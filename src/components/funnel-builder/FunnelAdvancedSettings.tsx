@@ -5,12 +5,16 @@ import { Button, Input, Select } from 'antd'
 import type { FunnelKeyValuePair, FunnelPostbackOverrideRow } from '@/types/funnel'
 import { cn } from '@/lib/utils'
 
+const { TextArea } = Input
+
 const POSTBACK_TYPES = [
   { value: 'none', label: 'None' },
   { value: 'postbackUrl', label: 'Postback URL' },
   { value: 'pixelUrl', label: 'Pixel URL' },
   { value: 'javascript', label: 'JavaScript' },
 ] as const
+
+type PostbackType = (typeof POSTBACK_TYPES)[number]['value']
 
 function kvToLines(rows: FunnelKeyValuePair[]): string {
   return rows.map((r) => `${r.key}=${r.value}`).join('\n')
@@ -95,10 +99,10 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
       <div className="p-4 space-y-8">
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="customTokens" className="text-xs font-medium">
+            <label htmlFor="customTokens" className="text-xs font-medium block">
               Custom tokens
-            </Label>
-            <Textarea
+            </label>
+            <TextArea
               id="customTokens"
               rows={5}
               placeholder="token1=value_one&#10;token2=value_two"
@@ -109,10 +113,10 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
             <p className="text-[11px] text-muted-foreground">One <code className="font-mono">key=value</code> per line.</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="accuParams" className="text-xs font-medium">
+            <label htmlFor="accuParams" className="text-xs font-medium block">
               Accumulate these URL params
-            </Label>
-            <Textarea
+            </label>
+            <TextArea
               id="accuParams"
               rows={5}
               placeholder="param1=value&#10;param2=value"
@@ -126,9 +130,14 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
 
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <Label className="text-xs font-medium">Incoming traffic cost overrides</Label>
-            <Button type="button" variant="outline" size="sm" onClick={addCostRow}>
-              <Plus className="h-3.5 w-3.5 mr-1" />
+            <span className="text-xs font-medium">Incoming traffic cost overrides</span>
+            <Button
+              htmlType="button"
+              variant="outlined"
+              size="small"
+              icon={<Plus className="h-3.5 w-3.5" />}
+              onClick={addCostRow}
+            >
               Add override
             </Button>
           </div>
@@ -150,9 +159,16 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                   value={row.value}
                   onChange={(e) => updateCostRow(i, 'value', e.target.value)}
                 />
-                <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeCostRow(i)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                <Button
+                  htmlType="button"
+                  type="text"
+                  size="small"
+                  shape="circle"
+                  aria-label="Remove override"
+                  className="shrink-0"
+                  icon={<Trash2 className="h-4 w-4 text-destructive" />}
+                  onClick={() => removeCostRow(i)}
+                />
               </div>
             ))}
           </div>
@@ -160,9 +176,14 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
 
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <Label className="text-xs font-medium">Traffic source postback overrides</Label>
-            <Button type="button" variant="outline" size="sm" onClick={addPbRow}>
-              <Plus className="h-3.5 w-3.5 mr-1" />
+            <span className="text-xs font-medium">Traffic source postback overrides</span>
+            <Button
+              htmlType="button"
+              variant="outlined"
+              size="small"
+              icon={<Plus className="h-3.5 w-3.5" />}
+              onClick={addPbRow}
+            >
               Add postback
             </Button>
           </div>
@@ -176,36 +197,35 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                   <div className="flex-1 min-w-[160px] space-y-1">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Traffic source ID</span>
                     <Input
-                      className="font-mono text-xs h-8"
+                      className="font-mono text-xs"
+                      size="small"
                       value={row.idTrafficSource}
                       onChange={(e) => updatePbRow(i, { idTrafficSource: e.target.value })}
                     />
                   </div>
                   <div className="w-44 space-y-1">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Type</span>
-                    <Select
-                      value={row.postbackType}
-                      onValueChange={(v) => updatePbRow(i, { postbackType: v })}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {POSTBACK_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Select<PostbackType>
+                      className="w-full"
+                      size="small"
+                      value={row.postbackType as PostbackType}
+                      onChange={(v) => updatePbRow(i, { postbackType: v })}
+                      options={POSTBACK_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+                    />
                   </div>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removePbRow(i)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <Button
+                    htmlType="button"
+                    type="text"
+                    size="small"
+                    shape="circle"
+                    aria-label="Remove postback"
+                    icon={<Trash2 className="h-4 w-4 text-destructive" />}
+                    onClick={() => removePbRow(i)}
+                  />
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Postback URL / code</span>
-                  <Textarea
+                  <TextArea
                     rows={2}
                     className="font-mono text-xs"
                     placeholder="https://… or script"

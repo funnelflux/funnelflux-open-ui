@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Download, Loader2, Play, Save, Trash2 } from "lucide-react"
 import { Button, Select } from "antd"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
@@ -25,25 +25,18 @@ interface DrilldownToolbarProps {
 function useDatePickerState(timezone: string) {
   const { dateRange, setDateRange } = useDrilldownStore()
 
-  const defaultRange = getPresetRange("today", timezone)
-  const initialValue: DateRange & { preset: string | null } = dateRange
-    ? { from: new Date(dateRange.start), to: new Date(dateRange.end), preset: null }
-    : { ...defaultRange, preset: "today" }
-
-  const [value, setValue] = useState(initialValue)
-
-  // Sync store → local state when saved views update the store
-  const storeStart = dateRange?.start
-  const storeEnd = dateRange?.end
-  useEffect(() => {
-    if (storeStart && storeEnd) {
-      setValue({ from: new Date(storeStart), to: new Date(storeEnd), preset: null })
+  // Derive the picker value directly from the store — no local copy, no effect sync.
+  // Saved views update the store, which re-derives here on the next render.
+  const value = useMemo<DateRange & { preset: string | null }>(() => {
+    if (dateRange) {
+      return { from: new Date(dateRange.start), to: new Date(dateRange.end), preset: null }
     }
-  }, [storeStart, storeEnd])
+    const defaultRange = getPresetRange("today", timezone)
+    return { ...defaultRange, preset: "today" }
+  }, [dateRange, timezone])
 
   const handleChange = useCallback(
     (range: DateRange & { preset: string | null }) => {
-      setValue(range)
       setDateRange({
         start: range.from.toISOString(),
         end: range.to.toISOString(),

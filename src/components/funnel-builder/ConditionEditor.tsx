@@ -41,7 +41,10 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
   const [blockLogicOperator, setBlockLogicOperator] = useState<'AND' | 'OR'>('AND')
   const [errors, setErrors] = useState<string[]>([])
 
-  // Reset state when the sheet opens or the condition changes
+  // Reset form state on each open. Lifting the form into react-hook-form or
+  // keying the modal on condition?.id would be cleaner, but that is out of
+  // scope for the lint pass — this reset is intentional, hence the disable.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       if (condition) {
@@ -59,6 +62,7 @@ export function ConditionEditor({ open, onClose, condition, onSave }: ConditionE
       setErrors([])
     }
   }, [open, condition])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleBlockChange(index: number, updatedBlock: ConditionBlockType) {
     const updated = [...blocks]

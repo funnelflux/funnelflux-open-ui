@@ -51,8 +51,11 @@ export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: Can
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [screenPosition, onClose])
 
-  // Reset submenu state when menu closes
+  // Reset submenu state when menu closes. This intentionally sets state from
+  // an effect that reads a prop — the alternative (keying the whole menu on
+  // position) would remount EntityPickerDialog mid-interaction.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!screenPosition) setShowAdvanced(false)
   }, [screenPosition])
 

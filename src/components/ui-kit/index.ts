@@ -7,7 +7,8 @@ export { EmptyState } from './EmptyState'
 export { SearchToolbar } from './SearchToolbar'
 export { SmartSelect, SmartMultiSelect } from './SmartSelect'
 export type { SmartSelectOption } from './SmartSelect'
-export { TimezoneSelect, getStoredTimezone } from './TimezoneSelect'
+export { TimezoneSelect } from './TimezoneSelect'
+export { getStoredTimezone } from './timezoneUtils'
 export { DateTimeRangePicker } from './DateTimeRangePicker'
 
 // New TanStack-based DataTable & column helpers

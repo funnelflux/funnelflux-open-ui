@@ -24,9 +24,8 @@ export function SystemSettingsPage() {
   const { data: settings, isLoading } = useSystemSettings()
   const saveSettings = useSaveSystemSettings()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<SystemSettingsFormData>({
-    resolver: zodResolver(systemSettingsSchema) as any,
+    resolver: zodResolver(systemSettingsSchema),
     defaultValues: {
       forceHTTPS: false,
       defaultHomePageURL: '',
@@ -78,7 +77,7 @@ export function SystemSettingsPage() {
   return (
     <PageShell title="System Settings">
       <form
-        onSubmit={(form.handleSubmit as any)(onSubmit)}
+        onSubmit={form.handleSubmit(onSubmit)}
         className="max-w-2xl space-y-6"
       >
         {/* Force HTTPS */}
@@ -192,7 +191,7 @@ export function SystemSettingsPage() {
             type="number"
             min={0}
             max={100}
-            {...form.register('minConfidenceRateForWinners')}
+            {...form.register('minConfidenceRateForWinners', { valueAsNumber: true })}
           />
           {form.formState.errors.minConfidenceRateForWinners && (
             <p className="text-xs text-destructive">

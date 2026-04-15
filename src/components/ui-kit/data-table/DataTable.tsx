@@ -12,7 +12,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRef, useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
-import type { DataTableProps, SortingState, VisibilityState, RowSelectionState, PaginationState, ExpandedState, Row } from './types'
+import type { DataTableProps, ColumnDef, SortingState, VisibilityState, RowSelectionState, PaginationState, ExpandedState, Row } from './types'
 import './data-table.css'
 
 const DEFAULT_PAGE_SIZES = [25, 50, 100, 200]
@@ -278,38 +278,8 @@ export function DataTable<TData>({
     [rowClassName, getColStyle, treeMode, handleToggleExpand, expandingRowId],
   )
 
-  const renderPinnedBottom = () => {
-    if (!pinnedBottomRows?.length) return null
-    const pinnedTable = useReactTable({
-      data: pinnedBottomRows,
-      columns,
-      state: { columnVisibility: visibility, columnSizing },
-      getCoreRowModel: getCoreRowModel(),
-      enableColumnResizing,
-      columnResizeMode,
-    })
-    return (
-      <div className="dt-pinned-bottom">
-        {pinnedTable.getRowModel().rows.map((row) => (
-          <div key={row.id} className="dt-row">
-            {row.getVisibleCells().map((cell) => {
-              const meta = cell.column.columnDef.meta as Record<string, unknown> | undefined
-              const isNumeric = meta?.numeric === true
-              return (
-                <div
-                  key={cell.id}
-                  className={`dt-cell${isNumeric ? ' dt-cell--numeric' : ''}`}
-                  style={getColStyle(cell.column)}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </div>
-              )
-            })}
-          </div>
-        ))}
-      </div>
-    )
-  }
+  // Pinned-bottom is a proper sub-component so its useReactTable call obeys
+  // the rules of hooks. Passed through from the parent via props.
 
   const totalRowCount = manualPagination ? (pageCount ?? 0) * pagination.pageSize : data.length
   const showPagination = usePagination && totalRowCount > pagination.pageSize
@@ -405,7 +375,17 @@ export function DataTable<TData>({
           </div>
 
           {/* Pinned bottom (totals) */}
-          {renderPinnedBottom()}
+          {pinnedBottomRows?.length ? (
+            <PinnedBottomRows
+              rows={pinnedBottomRows}
+              columns={columns}
+              visibility={visibility}
+              columnSizing={columnSizing}
+              enableColumnResizing={enableColumnResizing}
+              columnResizeMode={columnResizeMode}
+              getColStyle={getColStyle}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -466,6 +446,65 @@ export function DataTable<TData>({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Pinned bottom rows (totals) ────────────────────────────────────────────
+// Extracted into its own component so the useReactTable call inside respects
+// the rules of hooks. Shares column definitions and sizing state with the
+// main table via props so it stays in sync when the user resizes or hides
+// columns.
+
+interface PinnedBottomRowsProps<TData> {
+  rows: TData[]
+  columns: ColumnDef<TData, unknown>[]
+  visibility: VisibilityState
+  columnSizing: Record<string, number>
+  enableColumnResizing: boolean
+  columnResizeMode: ColumnResizeMode
+  getColStyle: (col: {
+    getSize: () => number
+    columnDef: { meta?: unknown; minSize?: number; maxSize?: number }
+  }) => React.CSSProperties
+}
+
+function PinnedBottomRows<TData>({
+  rows,
+  columns,
+  visibility,
+  columnSizing,
+  enableColumnResizing,
+  columnResizeMode,
+  getColStyle,
+}: PinnedBottomRowsProps<TData>) {
+  const pinnedTable = useReactTable({
+    data: rows,
+    columns,
+    state: { columnVisibility: visibility, columnSizing },
+    getCoreRowModel: getCoreRowModel(),
+    enableColumnResizing,
+    columnResizeMode,
+  })
+  return (
+    <div className="dt-pinned-bottom">
+      {pinnedTable.getRowModel().rows.map((row) => (
+        <div key={row.id} className="dt-row">
+          {row.getVisibleCells().map((cell) => {
+            const meta = cell.column.columnDef.meta as Record<string, unknown> | undefined
+            const isNumeric = meta?.numeric === true
+            return (
+              <div
+                key={cell.id}
+                className={`dt-cell${isNumeric ? ' dt-cell--numeric' : ''}`}
+                style={getColStyle(cell.column)}
+              >
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }

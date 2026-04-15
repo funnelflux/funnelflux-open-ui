@@ -1,19 +1,6 @@
 import { SmartSelect } from './SmartSelect'
 import type { SmartSelectOption } from './SmartSelect'
-
-const STORAGE_KEY = 'ff_timezone'
-
-function getStoredTimezone(): string {
-  try {
-    return localStorage.getItem(STORAGE_KEY) || Intl.DateTimeFormat().resolvedOptions().timeZone
-  } catch {
-    return 'UTC'
-  }
-}
-
-function storeTimezone(tz: string) {
-  try { localStorage.setItem(STORAGE_KEY, tz) } catch { /* noop */ }
-}
+import { getStoredTimezone, storeTimezone } from './timezoneUtils'
 
 const UTC_OFFSETS: { value: string; offset: number; label: string; city?: string }[] = [
   { value: 'Etc/GMT+12', offset: -12, label: 'UTC-12' },
@@ -89,4 +76,3 @@ export function TimezoneSelect({ id, value, onChange, className }: TimezoneSelec
   )
 }
 
-export { getStoredTimezone }

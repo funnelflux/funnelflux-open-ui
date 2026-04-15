@@ -78,9 +78,8 @@ export function CampaignEditForm({
 
   return (
     <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? 'Edit Campaign' : 'New Campaign'} footer={null} width={640} destroyOnHidden>
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <form
-        onSubmit={form.handleSubmit(onSubmit as any)}
+        onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-6 pt-4"
       >
         {initialData?.idCampaign && (

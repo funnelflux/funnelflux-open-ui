@@ -34,7 +34,9 @@ export function useSaveTrafficSource() {
       // Backend Postback model requires idTrafficSource in the nested object.
       // For updates, inject it; for creates, omit postback so the backend uses its default.
       if (isNew) {
-        const { postback: _, ...rest } = ts
+        // Strip nested postback on create — backend seeds its default.
+        const { postback: _postback, ...rest } = ts
+        void _postback
         return api.post<TrafficSource>('/data/trafficsource/save/', rest)
       }
       if (ts.postback) {
