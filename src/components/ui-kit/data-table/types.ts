@@ -67,6 +67,10 @@ export interface DataTableProps<TData> {
   rowHeight?: number
   /** Max height of the scrollable area. Default '100%'. */
   maxHeight?: string | number
+  /** Height of the table wrapper (e.g. `'100%'` inside a flex card body). */
+  height?: string | number
+  /** Extra classes on the root `.dt-wrapper` (e.g. `min-h-0 flex-1` with `height="100%"`). */
+  className?: string
 
   /** Expose the table instance to parent. */
   tableRef?: React.MutableRefObject<Table<TData> | null>

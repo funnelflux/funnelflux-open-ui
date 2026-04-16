@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { subDays } from 'date-fns'
 import { RefreshCw } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -10,12 +10,16 @@ import { PageShell, DataTable, TimezoneSelect } from '@/components/ui-kit'
 import { cellRaw, entityRowId } from '@/components/ui-kit/data-table'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { Card, Tag } from 'antd'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui-kit'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { Report } from '@/types/stats'
 import type { LiveStats } from '@/types/ui'
 
 const ZERO_STATS: LiveStats = { visits: 0, clicks: 0, conversions: 0, revenue: 0, cost: 0, net: 0, roi: 'N/A' }
+
+/** Card body: table header (~32px) + 5 data rows (36px) + borders + card chrome — avoids layout jump while loading */
+const WIDGET_CARD_MIN_HEIGHT_PX = 300
 
 const WIDGETS = [
   { id: 'dashboard-widget-top-funnels', title: 'Top Funnels', groupBy: 'Element: Funnel', quickviewType: 'Element: Funnel' },
@@ -145,8 +149,24 @@ function WidgetTable({
   pulse: boolean
 }) {
   return (
-    <Card className={pulse ? 'animate-pulse' : undefined} title={<span className="text-sm font-medium">{title}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
+    <Card
+      className={cn('flex min-h-0 w-full min-w-0 flex-col', pulse && 'animate-pulse')}
+      style={{ minHeight: WIDGET_CARD_MIN_HEIGHT_PX }}
+      title={<span className="text-sm font-medium">{title}</span>}
+      styles={{
+        header: { padding: '16px 16px 8px', flexShrink: 0 },
+        body: {
+          padding: '0 16px 16px',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+        },
+      }}
+    >
       <DataTable
+        className="min-h-0 flex-1"
+        height="100%"
         data={rows}
         columns={widgetColumnDefs}
         loading={isLoading}
@@ -184,6 +204,15 @@ export function DashboardPage() {
 
   const previousStatsRef = useRef<LiveStats | undefined>(undefined)
   const pulseTimerRef = useRef<number | undefined>(undefined)
+  const dateRangeRef = useRef(dateRange)
+  const tzRef = useRef(tz)
+  dateRangeRef.current = dateRange
+  tzRef.current = tz
+
+  const reloadKey = useMemo(
+    () => `${dateRange.from.getTime()}-${dateRange.to.getTime()}-${tz}`,
+    [dateRange.from, dateRange.to, tz],
+  )
 
   const triggerPulse = useCallback((type: 'stats' | 'widgets') => {
     if (pulseTimerRef.current) {
@@ -206,45 +235,41 @@ export function DashboardPage() {
     }
   }, [])
 
+  /** Stable identity: reads latest range/tz from refs so effects/intervals don’t re-run when unrelated state updates. */
   const loadData = useCallback(() => {
-    const timeRange = toApiDateTimeRange(dateRange.from, dateRange.to)
-    const timeZone = { name: tz }
+    const { from, to } = dateRangeRef.current
+    const timeRange = toApiDateTimeRange(from, to)
+    const timeZone = { name: tzRef.current }
 
     setStatsLoaded(false)
     setChartLoaded(false)
     setWidgets((current) => current.map((widget) => ({ ...widget, isLoading: true })))
 
-    api.post<Report>('/stats/reporting/drilldown/', {
-      timeRange,
-      timeZone,
-      groupings: [{ groupBy: 'Element: Campaign', whitelistFilters: [], blacklistFilters: [] }],
-      paging: { start: 0, length: 1 },
-    }).then((report) => {
-      const nextStats = extractStats(report)
-      if (statsChanged(previousStatsRef.current, nextStats)) {
-        triggerPulse('stats')
-      }
-      previousStatsRef.current = nextStats
-      setStats(nextStats)
-      setStatsLoaded(true)
-    }).catch(() => {
-      setStats(ZERO_STATS)
-      setStatsLoaded(true)
-    })
-
-    api.post<Report>('/stats/reporting/drilldown/', {
-      timeRange,
-      timeZone,
-      groupings: [{ groupBy: 'Time: Date', whitelistFilters: [], blacklistFilters: [] }],
-      paging: { start: 0, length: 9999 },
-      options: { viewType: 'flat' },
-    }).then((report) => {
-      setChartPoints(extractChartData(report))
-      setChartLoaded(true)
-    }).catch(() => {
-      setChartPoints([])
-      setChartLoaded(true)
-    })
+    api
+      .post<Report>('/stats/reporting/drilldown/', {
+        timeRange,
+        timeZone,
+        groupings: [{ groupBy: 'Time: Date', whitelistFilters: [], blacklistFilters: [] }],
+        paging: { start: 0, length: 9999 },
+        options: { viewType: 'flat' },
+      })
+      .then((report) => {
+        const nextStats = extractStats(report)
+        if (statsChanged(previousStatsRef.current, nextStats)) {
+          triggerPulse('stats')
+        }
+        previousStatsRef.current = nextStats
+        setStats(nextStats)
+        setStatsLoaded(true)
+        setChartPoints(extractChartData(report))
+        setChartLoaded(true)
+      })
+      .catch(() => {
+        setStats(ZERO_STATS)
+        setStatsLoaded(true)
+        setChartPoints([])
+        setChartLoaded(true)
+      })
 
     Promise.all(
       WIDGETS.map(async (widget) => {
@@ -279,11 +304,11 @@ export function DashboardPage() {
           })),
         )
       })
-  }, [dateRange.from, dateRange.to, triggerPulse, tz])
+  }, [triggerPulse])
 
   useEffect(() => {
     loadData()
-  }, [loadData])
+  }, [reloadKey, loadData])
 
   useEffect(() => {
     if (!isAutoRefresh) return
@@ -297,7 +322,6 @@ export function DashboardPage() {
 
   return (
     <PageShell
-      fillHeight
       title="Dashboard"
       subtitle={isAutoRefresh ? undefined : undefined}
       actions={
@@ -335,7 +359,7 @@ export function DashboardPage() {
         isLoading={!chartLoaded}
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
         {widgets.map((widget, index) => (
           <WidgetTable
             key={WIDGETS[index].id}

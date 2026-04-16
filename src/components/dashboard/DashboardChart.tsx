@@ -8,6 +8,13 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { Button, Card, Skeleton } from 'antd'
+import {
+  CHART_COLORS,
+  CHART_GRID_STYLE,
+  CHART_AXIS_STYLE,
+  CHART_TOOLTIP_STYLE,
+} from '@/lib/chart-theme'
+import { useThemeStore } from '@/store/theme'
 
 interface ChartPoint {
   date: string
@@ -45,12 +52,29 @@ function formatTooltipValue(value: number, metric: string): string {
   return value.toLocaleString()
 }
 
+/** Recharts Tooltip passes `number | string | array` depending on series; normalize for our numeric metrics. */
+function tooltipNumericValue(
+  value: number | string | ReadonlyArray<number | string> | undefined,
+): number {
+  if (value === undefined) return 0
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') return Number(value) || 0
+  const first = value[0]
+  if (typeof first === 'number') return first
+  return Number(first) || 0
+}
+
 export function DashboardChart({
   data,
   metric,
   onMetricChange,
   isLoading,
 }: DashboardChartProps) {
+  const mode = useThemeStore((s) => s.mode)
+  const tooltipStyle = CHART_TOOLTIP_STYLE[mode]
+  const gridStyle = CHART_GRID_STYLE[mode]
+  const axisStyle = CHART_AXIS_STYLE[mode]
+
   return (
     <Card
       title={
@@ -80,40 +104,25 @@ export function DashboardChart({
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                width={60}
-              />
+            <LineChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+              <CartesianGrid {...gridStyle} />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} {...axisStyle} />
+              <YAxis tick={{ fontSize: 11 }} {...axisStyle} width={60} />
               <Tooltip
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={((value: number) => [
-                  formatTooltipValue(value, metric),
+                formatter={(value) => [
+                  formatTooltipValue(tooltipNumericValue(value), metric),
                   METRICS.find((m) => m.key === metric)?.label ?? metric,
-                ]) as any}
-                contentStyle={{
-                  fontSize: 12,
-                  borderRadius: 6,
-                  border: '1px solid hsl(var(--border))',
-                  background: 'hsl(var(--background))',
-                }}
+                ]}
+                {...tooltipStyle}
               />
               <Line
                 type="monotone"
                 dataKey={metric}
-                stroke="hsl(var(--primary))"
+                stroke={CHART_COLORS[0]}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}
+                isAnimationActive={data.length < 200}
               />
             </LineChart>
           </ResponsiveContainer>

@@ -11,6 +11,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRef, useCallback, useEffect, useMemo, useState, memo } from 'react'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { ColumnAlign } from './columnDefs'
 import type { DataTableProps, SortingState, VisibilityState, RowSelectionState, PaginationState, ExpandedState, Row } from './types'
 import { DEFAULT_TABLE_SORTING, useTableConfigStore, selectTableConfig } from '@/store/tableConfig'
@@ -54,6 +55,8 @@ function DataTableInner<TData>({
   virtualizeThreshold = 100,
   rowHeight = 36,
   maxHeight,
+  height,
+  className,
   tableRef,
   onTableInstance,
   emptyMessage = 'No data.',
@@ -366,11 +369,13 @@ function DataTableInner<TData>({
     return pages
   }, [totalPages, currentPage])
 
+  const wrapperStyle =
+    maxHeight != null || height != null
+      ? { ...(maxHeight != null ? { maxHeight } : {}), ...(height != null ? { height } : {}) }
+      : undefined
+
   return (
-    <div
-      className="dt-wrapper"
-      style={maxHeight ? { maxHeight } : undefined}
-    >
+    <div className={cn('dt-wrapper', className)} style={wrapperStyle}>
       <div className="dt-scroll-container" ref={scrollRef}>
         {loading && (
           <div className="dt-loading">
