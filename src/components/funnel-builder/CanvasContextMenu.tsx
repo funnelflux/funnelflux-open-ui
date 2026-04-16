@@ -29,16 +29,19 @@ export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: Can
     entityType: EntityPickerDialogProps['entityType']
   }>({ open: false, entityType: 'lander' })
 
-  // Close on outside click
+  // Close on outside click (menu only). EntityPickerDialog is portaled under
+  // `.ant-modal-wrap`, so it is not inside menuRef — ignore those mousedowns
+  // so list selection can fire; otherwise we clear the menu before click runs.
   useEffect(() => {
     if (!screenPosition) return
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as globalThis.Node)) {
-        onClose()
-      }
+    function handlePointerDown(e: MouseEvent) {
+      const target = e.target as globalThis.Node
+      if (menuRef.current?.contains(target)) return
+      if (target instanceof Element && target.closest('.ant-modal-wrap')) return
+      onClose()
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
   }, [screenPosition, onClose])
 
   // Close on Escape
@@ -50,11 +53,6 @@ export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: Can
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [screenPosition, onClose])
-
-  // Reset submenu state when menu closes
-  useEffect(() => {
-    if (!screenPosition) setShowAdvanced(false)
-  }, [screenPosition])
 
   const addNodeDirect = useCallback(
     (nodeType: NodeTypeValue, label: string) => {

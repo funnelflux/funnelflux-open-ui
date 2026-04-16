@@ -36,6 +36,8 @@ interface MenuState {
   screen: { x: number; y: number } | null
   /** Flow coords for placing new nodes */
   flow: { x: number; y: number } | null
+  /** Bumped on each pane right-open so CanvasContextMenu remounts and picker/submenu state resets */
+  openSession: number
 }
 
 interface NodeMenuState {
@@ -71,7 +73,11 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
   const setSelectedNodeId = useFunnelEditorStore((s) => s.setSelectedNodeId)
   const setSelectedEdgeId = useFunnelEditorStore((s) => s.setSelectedEdgeId)
 
-  const [canvasMenu, setCanvasMenu] = useState<MenuState>({ screen: null, flow: null })
+  const [canvasMenu, setCanvasMenu] = useState<MenuState>({
+    screen: null,
+    flow: null,
+    openSession: 0,
+  })
   const [nodeMenu, setNodeMenu] = useState<NodeMenuState>({ position: null, nodeId: null })
   const [edgeMenu, setEdgeMenu] = useState<EdgeMenuState>({ position: null, edgeId: null })
   const [editNodeId, setEditNodeId] = useState<string | null>(null)
@@ -82,7 +88,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
   const { screenToFlowPosition } = useReactFlow()
 
   const closeAllMenus = useCallback(() => {
-    setCanvasMenu({ screen: null, flow: null })
+    setCanvasMenu((prev) => ({ ...prev, screen: null, flow: null }))
     setNodeMenu({ position: null, nodeId: null })
     setEdgeMenu({ position: null, edgeId: null })
   }, [])
@@ -186,10 +192,11 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
       event.preventDefault()
       closeAllMenus()
       const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-      setCanvasMenu({
+      setCanvasMenu((prev) => ({
         screen: { x: event.clientX, y: event.clientY },
         flow,
-      })
+        openSession: prev.openSession + 1,
+      }))
     },
     [closeAllMenus, screenToFlowPosition],
   )
@@ -294,6 +301,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
 
       {/* Context Menus */}
       <CanvasContextMenu
+        key={canvasMenu.screen ? `canvas-menu-${canvasMenu.openSession}` : 'canvas-menu-idle'}
         screenPosition={canvasMenu.screen}
         flowPosition={canvasMenu.flow}
         onClose={closeAllMenus}
