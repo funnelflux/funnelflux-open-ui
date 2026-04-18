@@ -3,7 +3,7 @@ import { useCombobox, useMultipleSelection } from "downshift"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { X, ChevronsUpDown, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Tag } from "antd"
+import { Tag } from "@/components/ui-kit"
 
 export interface MultiSelectOption {
   value: string

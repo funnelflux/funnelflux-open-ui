@@ -11,11 +11,10 @@ import {
   Switch,
   Collapse,
   FormField,
-  SmartSelect,
   useToastApi,
   Modal,
 } from '@/components/ui-kit'
-import type { SmartSelectOption } from '@/components/ui-kit'
+import type { SelectOption } from '@/components/ui-kit'
 import { KeyValueListField } from '@/components/forms/KeyValueListField'
 import { useOfferSources, useCategories, useSaveCategory } from '@/api/hooks'
 import { pageSchema, type PageFormData } from '@/schemas/page'
@@ -70,12 +69,12 @@ export function PageForm({
   const { data: offerSources } = useOfferSources()
   const { data: categories } = useCategories('page')
 
-  const offerSourceOptions: SmartSelectOption[] = useMemo(
+  const offerSourceOptions: SelectOption[] = useMemo(
     () => (offerSources ?? []).map((os) => ({ label: os.offerSourceName, value: os.idOfferSource, searchId: os.idOfferSource })),
     [offerSources],
   )
 
-  const categoryOptions: SmartSelectOption[] = useMemo(
+  const categoryOptions: SelectOption[] = useMemo(
     () => [
       { label: 'None', value: '' },
       ...(categories ?? []).map((c) => ({ label: c.name, value: c.idCategory })),
@@ -245,7 +244,7 @@ export function PageForm({
                   control={form.control}
                   name="categoryId"
                   render={({ field }) => (
-                    <SmartSelect
+                    <Select
                       options={categoryOptions}
                       value={field.value || undefined}
                       onChange={field.onChange}
@@ -298,7 +297,7 @@ export function PageForm({
         {isOffer && (
           <>
             <FormField label="Offer Source">
-              <SmartSelect
+              <Select
                 options={offerSourceOptions}
                 value={form.watch('offerParams.idOfferSource') || undefined}
                 onChange={(v) =>

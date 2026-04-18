@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Globe, Plus, Star, Trash2, Loader2 } from 'lucide-react'
-import { Button, Input, Tag } from 'antd'
+import { Button, Input, Tag } from '@/components/ui-kit'
 import { ConfirmModal, useToastApi } from '@/components/ui-kit'
 import {
   useDomains,

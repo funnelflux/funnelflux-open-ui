@@ -10,7 +10,7 @@ import {
 import { Button, PageShell, DataTable, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
-import { Tag } from 'antd'
+import { Tag } from '@/components/ui-kit'
 import { getErrorMessage } from '@/lib/utils'
 import type { FunnelCondition } from '@/types/entities'
 

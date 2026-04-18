@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { Tags, Plus } from 'lucide-react'
-import { Button, Input, Tag } from 'antd'
-import type { InputRef } from 'antd'
-import { EmptyState, PageShell, useToastApi } from '@/components/ui-kit'
+import {
+  Button,
+  EmptyState,
+  Input,
+  PageShell,
+  Tag,
+  useToastApi,
+  type InputRef,
+} from '@/components/ui-kit'
 import { useTags, useSaveTag, useUpdateTag } from '@/api/hooks/useTags'
 import { getErrorMessage } from '@/lib/utils'
 

@@ -1,19 +1,7 @@
-import { SmartSelect } from './SmartSelect'
-import type { SmartSelectOption } from './SmartSelect'
-
-const STORAGE_KEY = 'ff_timezone'
-
-function getStoredTimezone(): string {
-  try {
-    return localStorage.getItem(STORAGE_KEY) || Intl.DateTimeFormat().resolvedOptions().timeZone
-  } catch {
-    return 'UTC'
-  }
-}
-
-function storeTimezone(tz: string) {
-  try { localStorage.setItem(STORAGE_KEY, tz) } catch { /* noop */ }
-}
+import { Select } from './Select'
+import type { SelectOption } from './Select'
+import { getStoredTimezone, storeTimezonePreference } from './timezoneStorage'
+import type { ControlSize } from '@/lib/controlSize'
 
 const UTC_OFFSETS: { value: string; offset: number; label: string; city?: string }[] = [
   { value: 'Etc/GMT+12', offset: -12, label: 'UTC-12' },
@@ -46,7 +34,7 @@ const UTC_OFFSETS: { value: string; offset: number; label: string; city?: string
   { value: 'Etc/GMT-14', offset: 14, label: 'UTC+14' },
 ]
 
-const TZ_OPTIONS: SmartSelectOption[] = UTC_OFFSETS.map((tz) => ({
+const TZ_OPTIONS: SelectOption[] = UTC_OFFSETS.map((tz) => ({
   value: tz.value,
   label: tz.city ? `${tz.label} (${tz.city})` : tz.label,
   searchId: tz.city,
@@ -66,27 +54,28 @@ interface TimezoneSelectProps {
   value?: string
   onChange?: (timezone: string) => void
   className?: string
+  /** Default **md** (35px) */
+  controlSize?: ControlSize
 }
 
-export function TimezoneSelect({ id, value, onChange, className }: TimezoneSelectProps) {
+export function TimezoneSelect({ id, value, onChange, className, controlSize = 'md' }: TimezoneSelectProps) {
   const currentTz = value || getStoredTimezone()
   const normalized = normalizeTimezone(currentTz)
 
   return (
-    <SmartSelect
+    <Select
       id={id}
       value={normalized}
       onChange={(tz) => {
-        storeTimezone(tz)
+        storeTimezonePreference(tz)
         onChange?.(tz)
       }}
       options={TZ_OPTIONS}
       alphabetical={false}
       placeholder="Select timezone"
+      controlSize={controlSize}
       className={className}
       style={{ minWidth: 180 }}
     />
   )
 }
-
-export { getStoredTimezone }

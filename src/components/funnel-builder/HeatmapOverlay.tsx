@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BarChart3, Loader2, X } from 'lucide-react'
-import { Tag } from 'antd'
+import { Tag } from '@/components/ui-kit'
 import { Button, Select } from '@/components/ui-kit'
 import { useDrilldownReport } from '@/api/hooks'
 import { toApiDateTimeRange } from '@/types/stats'

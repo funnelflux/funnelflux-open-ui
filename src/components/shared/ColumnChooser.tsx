@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Columns3, ChevronDown, ChevronRight, Search, Eye, EyeOff } from 'lucide-react'
-import { Drawer } from 'antd'
+import { Drawer } from '@/components/ui-kit'
 import { Button, Input, Switch } from '@/components/ui-kit'
 import type { Table, ColumnDef } from '@tanstack/react-table'
 import { ALL_COLUMN_GROUPS, type ColumnGroupDef } from '@/components/ui-kit/data-table/columnDefs'

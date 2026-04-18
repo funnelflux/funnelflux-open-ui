@@ -1,5 +1,10 @@
-import { DatePicker } from "antd"
+import { DatePicker } from "@/components/ui-kit"
 import dayjs from "dayjs"
+import type { ControlSize } from "@/lib/controlSize"
+import {
+  CONTROL_SIZE_HEIGHT_PX,
+  controlSizeToAntdSize,
+} from "@/lib/controlSize"
 import {
   DATE_PRESETS,
   getPresetRange,
@@ -14,6 +19,10 @@ interface DateRangePickerProps {
   timezone: string
   onChange: (range: DateRange & { preset: string | null }) => void
   className?: string
+  /** Default **md** (35px) — matches Select / Button in toolbars */
+  controlSize?: ControlSize
+  /** Ant Design `RangePicker` size; overrides `controlSize` when set */
+  size?: 'small' | 'middle' | 'large'
   /** Accessible name for the range control (toolbar layouts often omit a visible label). */
   'aria-label'?: string
 }
@@ -32,8 +41,18 @@ export function DateRangePicker({
   timezone,
   onChange,
   className,
+  controlSize = 'md',
+  size,
   'aria-label': ariaLabel,
 }: DateRangePickerProps) {
+  const antdSize = size ?? controlSizeToAntdSize(controlSize)
+  const heightPx =
+    antdSize === 'small'
+      ? CONTROL_SIZE_HEIGHT_PX.sm
+      : antdSize === 'large'
+        ? CONTROL_SIZE_HEIGHT_PX.lg
+        : CONTROL_SIZE_HEIGHT_PX.md
+
   return (
     <RangePicker
       value={[dayjs(value.from), dayjs(value.to)]}
@@ -47,16 +66,18 @@ export function DateRangePicker({
         }
       }}
       presets={presetRanges(timezone)}
-      size="middle"
-      className={className}
+      size={antdSize}
       allowClear={false}
       variant="outlined"
       aria-label={ariaLabel ?? 'Date range'}
+      // Explicit height: removed !py-0 which collapsed the picker below Select/Button; matches CONTROL_SIZE_HEIGHT_PX
+      style={{ height: heightPx, minHeight: heightPx }}
       className={cn(
-        'ff-date-range-picker !h-9 !min-h-9 !max-h-9 !rounded-md !border-input !bg-background !px-2.5 !py-0 !text-sm !shadow-sm',
+        'ff-date-range-picker box-border !rounded-md !border-input !bg-background !px-2.5 !text-sm !shadow-sm',
         '[&_.ant-picker-input>input]:text-foreground [&_.ant-picker-input>input]:placeholder:text-muted-foreground',
         '[&_.ant-picker-separator]:text-muted-foreground [&_.ant-picker-suffix]:text-muted-foreground',
         '[&_.ant-picker-active-bar]:bg-primary',
+        'flex items-center',
         className,
       )}
     />

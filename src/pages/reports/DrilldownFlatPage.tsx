@@ -6,6 +6,7 @@ import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
+import { reportRowToCells } from "@/lib/reportRowCells"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
 
 const DRILLDOWN_FLAT_TABLE_KEY = "reports-drilldown-flat"
@@ -17,11 +18,7 @@ interface FlatRowData {
 
 function reportRowsToFlatData(report: Report): FlatRowData[] {
   return report.rows.map((row, index) => {
-    const cells: ReportCell[] = []
-    for (let i = 0; i < report.columns.length; i++) {
-      const cell = row[String(i)] as ReportCell | undefined
-      cells.push(cell ?? { raw: "", formatted: "" })
-    }
+    const cells = reportRowToCells(row, report.columns.length)
     return {
       _id: `row-${index}-${String(cells[0]?.raw ?? index)}`,
       cells,

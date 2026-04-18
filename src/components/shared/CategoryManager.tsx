@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Plus, Settings2, Pencil, Trash2, Check, X } from 'lucide-react'
-import { Popconfirm } from 'antd'
+import { Popconfirm } from '@/components/ui-kit'
 import { Button, Input, Select, Modal, useToastApi } from '@/components/ui-kit'
 import { useCategories, useSaveCategory, useDeleteCategory } from '@/api/hooks'
 import { getErrorMessage } from '@/lib/utils'

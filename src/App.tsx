@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { ConfigProvider, App as AntApp } from "antd"
+import { ConfigProvider, AntdApp } from "@/components/ui-kit"
 import { lightTheme, darkTheme } from "@/lib/antd-theme"
 import { useThemeStore } from "@/store/theme"
 import { useAuth } from "@/hooks/useAuth"
@@ -230,7 +230,7 @@ export default function App() {
 
   return (
     <ConfigProvider theme={antdTheme}>
-      <AntApp message={{ maxCount: 3 }}>
+      <AntdApp message={{ maxCount: 3 }}>
         <QueryClientProvider client={queryClient}>
             <BrowserRouter basename="/v2-ui">
               <Routes>
@@ -248,7 +248,7 @@ export default function App() {
               </Routes>
             </BrowserRouter>
         </QueryClientProvider>
-      </AntApp>
+      </AntdApp>
     </ConfigProvider>
   )
 }

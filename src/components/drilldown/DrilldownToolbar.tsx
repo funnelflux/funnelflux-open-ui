@@ -199,7 +199,7 @@ export function DrilldownToolbar({
           value={selectedViewId || undefined}
           onChange={handleSelectView}
           placeholder="Saved views"
-          className="h-9 w-[220px] text-xs"
+          className="w-[220px] text-xs"
           options={(savedViews ?? []).map((view) => ({
             key: view.idView,
             value: view.idView,

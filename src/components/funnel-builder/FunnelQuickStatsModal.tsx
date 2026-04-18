@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
-import { Tabs } from 'antd'
+import { Tabs } from '@/components/ui-kit'
 
 import { api } from '@/api/client'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -9,10 +9,10 @@ import {
   Button,
   Input,
   Modal,
-  SmartSelect,
+  Select,
   TimezoneSelect,
   useToastApi,
-  type SmartSelectOption,
+  type SelectOption,
 } from '@/components/ui-kit'
 import { getPresetRange } from '@/lib/date-presets'
 import {
@@ -237,7 +237,7 @@ export function FunnelQuickStatsModal({
     }
   }, [campaignId, funnelId, trafficSourceId, countryCode, trackingField, tab, datePickerValue.from, datePickerValue.to, timezone, toast])
 
-  const trafficSelectOptions = useMemo<SmartSelectOption[]>(
+  const trafficSelectOptions = useMemo<SelectOption[]>(
     () => [
       { value: '__all__', label: 'All Traffic Sources' },
       ...trafficOptions.map((t) => ({ value: t.value, label: t.label })),
@@ -245,7 +245,7 @@ export function FunnelQuickStatsModal({
     [trafficOptions],
   )
 
-  const trackingFieldSelectOptions = useMemo<SmartSelectOption[]>(
+  const trackingFieldSelectOptions = useMemo<SelectOption[]>(
     () => [{ value: '__none__', label: '—' }, ...trackingFieldOptions],
     [trackingFieldOptions],
   )
@@ -357,15 +357,40 @@ export function FunnelQuickStatsModal({
       footer={null}
       closable
       destroyOnClose
+      centered={false}
       width="100%"
-      style={{ top: 0, paddingBottom: 0, maxWidth: '100vw' }}
+      style={{ top: 0, paddingBottom: 0, margin: 0, maxWidth: '100vw' }}
       styles={{
-        body: { height: '100vh', padding: 0, overflow: 'hidden' },
+        wrapper: {
+          padding: 0,
+          alignItems: 'stretch',
+        },
+        container: {
+          height: '100vh',
+          maxHeight: '100dvh',
+          margin: 0,
+          padding: 0,
+          top: 0,
+          borderRadius: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          maxWidth: '100%',
+          overflow: 'hidden',
+        },
+        body: {
+          flex: 1,
+          minHeight: 0,
+          height: '100%',
+          padding: 0,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        },
       }}
       classNames={{ mask: 'backdrop-blur-[2px]' }}
       zIndex={1200}
     >
-      <div className="flex h-[100vh] flex-col bg-background text-foreground">
+      <div className="flex min-h-0 flex-1 flex-col bg-background text-foreground">
         <header className="shrink-0 border-b border-border/80 bg-gradient-to-b from-muted/50 to-background px-4 py-2.5 sm:px-5">
           <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
             <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
@@ -379,7 +404,7 @@ export function FunnelQuickStatsModal({
             </div>
           </div>
 
-          <div className="mt-2 rounded-lg border border-border/70 bg-card/90 px-2 py-2 shadow-sm backdrop-blur-sm sm:px-3">
+          <div className="mt-2 sm:mt-3">
             <div
               className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               role="toolbar"
@@ -389,13 +414,13 @@ export function FunnelQuickStatsModal({
                 <label htmlFor="funnel-qs-traffic" className="sr-only">
                   Traffic source
                 </label>
-                <SmartSelect
+                <Select
                   id="funnel-qs-traffic"
                   value={trafficSourceId || '__all__'}
                   onChange={(v) => setTrafficSourceId(v === '__all__' ? '' : v)}
                   options={trafficSelectOptions}
                   placeholder="All Traffic Sources"
-                  className="min-h-9 w-[min(200px,42vw)] shadow-sm"
+                  className="w-[min(200px,42vw)]"
                 />
               </div>
               <div className="min-w-[220px] shrink-0 sm:min-w-[260px]">
@@ -423,13 +448,12 @@ export function FunnelQuickStatsModal({
                   id="funnel-qs-tz"
                   value={timezone}
                   onChange={setTimezone}
-                  className="min-h-9 w-[min(180px,28vw)] shadow-sm"
+                  className="w-[min(180px,28vw)]"
                 />
               </div>
               <Button
                 htmlType="button"
                 type="primary"
-                size="small"
                 className="gap-1.5 shadow-sm"
                 icon={<RefreshCw className="h-4 w-4" />}
                 loading={loading}
@@ -462,13 +486,13 @@ export function FunnelQuickStatsModal({
                 <label htmlFor="funnel-qs-tf" className="shrink-0 text-xs text-muted-foreground">
                   Field
                 </label>
-                <SmartSelect
+                <Select
                   id="funnel-qs-tf"
                   value={trackingField || '__none__'}
                   onChange={(v) => setTrackingField(v === '__none__' ? '' : v)}
                   options={trackingFieldSelectOptions}
                   placeholder={metaLoaded ? 'Select field' : 'Loading…'}
-                  className="min-h-9 w-[min(320px,85vw)] shadow-sm"
+                  className="w-[min(320px,85vw)]"
                 />
               </div>
             )}

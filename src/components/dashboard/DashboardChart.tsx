@@ -7,7 +7,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts'
-import { Button, Card, Skeleton } from 'antd'
+import { Button, Card, Skeleton } from '@/components/ui-kit'
 import {
   CHART_COLORS,
   CHART_GRID_STYLE,

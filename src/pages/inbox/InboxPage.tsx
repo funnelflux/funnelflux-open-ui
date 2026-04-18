@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { Mail, MailOpen, Trash2, Inbox } from 'lucide-react'
-import { Button, Collapse, Tag } from 'antd'
+import { Button, Collapse, Tag } from '@/components/ui-kit'
 import { PageShell, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import {
   useInboxMessages,

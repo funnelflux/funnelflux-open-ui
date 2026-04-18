@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Archive, FolderInput, Trash2 } from 'lucide-react'
-import { Button, Modal, Select } from 'antd'
-import { ConfirmModal } from '@/components/ui-kit'
+import { AntdSelect, Button, ConfirmModal, Modal } from '@/components/ui-kit'
 
 interface Category {
   idCategory: string
@@ -118,7 +117,7 @@ export function BulkActionsBar({
           destroyOnHidden
         >
           <div className="py-4">
-            <Select
+            <AntdSelect
               value={selectedCategoryId || undefined}
               onChange={setSelectedCategoryId}
               placeholder="Select a category"

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Copy, Loader2, Link } from 'lucide-react'
-import { Button, Input, Select, Card } from 'antd'
-import { PageShell, SmartSelect, useToastApi } from '@/components/ui-kit'
-import type { SmartSelectOption } from '@/components/ui-kit'
+import { Button, Input, AntdSelect, Card } from '@/components/ui-kit'
+import { PageShell, Select, useToastApi } from '@/components/ui-kit'
+import type { SelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
   useFunnels,
@@ -96,22 +96,22 @@ export function SystemLinksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mutation objects are stable (.mutate), only selection values should trigger
   }, [selectedCampaign, selectedDomain, selectedFunnel, selectedNode, selectedTrafficSource])
 
-  const campaignOptions: SmartSelectOption[] = useMemo(
+  const campaignOptions: SelectOption[] = useMemo(
     () => (linksData?.campaigns ?? []).map((c) => ({ label: c.name, value: c.id, searchId: c.id })),
     [linksData?.campaigns],
   )
 
-  const funnelOptions: SmartSelectOption[] = useMemo(
+  const funnelOptions: SelectOption[] = useMemo(
     () => (funnels ?? []).map((f) => ({ label: f.name, value: f.id, searchId: f.id })),
     [funnels],
   )
 
-  const trafficSourceOptions: SmartSelectOption[] = useMemo(
+  const trafficSourceOptions: SelectOption[] = useMemo(
     () => (linksData?.trafficSources ?? []).map((s) => ({ label: s.name, value: s.id, searchId: s.id })),
     [linksData?.trafficSources],
   )
 
-  const domainOptions: SmartSelectOption[] = useMemo(
+  const domainOptions: SelectOption[] = useMemo(
     () => [
       { label: 'Default domain', value: '__default__' },
       ...(linksData?.domains ?? []).map((d) => ({ label: d.domain, value: d.domain, searchId: d.id })),
@@ -137,12 +137,12 @@ export function SystemLinksPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Campaign *</label>
-              <SmartSelect options={campaignOptions} value={selectedCampaign || undefined} onChange={setSelectedCampaign} placeholder="Select campaign" className="w-full" />
+              <Select options={campaignOptions} value={selectedCampaign || undefined} onChange={setSelectedCampaign} placeholder="Select campaign" className="w-full" />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Funnel *</label>
-              <SmartSelect
+              <Select
                 options={funnelOptions}
                 value={selectedFunnel || undefined}
                 onChange={setSelectedFunnel}
@@ -154,30 +154,30 @@ export function SystemLinksPage() {
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Node</label>
-              <Select
+              <AntdSelect
                 value={selectedNode || '__default__'}
                 onChange={(value) => setSelectedNode(value === '__default__' ? '' : value)}
                 disabled={!selectedFunnel}
                 placeholder={selectedFunnel ? 'Select node' : 'Select a funnel first'}
                 className="w-full"
               >
-                <Select.Option value="__default__">Default funnel entry</Select.Option>
+                <AntdSelect.Option value="__default__">Default funnel entry</AntdSelect.Option>
                 {nodes.map((node) => (
-                  <Select.Option key={node.idNode} value={node.idNode}>
+                  <AntdSelect.Option key={node.idNode} value={node.idNode}>
                     {node.nodeName}
-                  </Select.Option>
+                  </AntdSelect.Option>
                 ))}
-              </Select>
+              </AntdSelect>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Traffic Source *</label>
-              <SmartSelect options={trafficSourceOptions} value={selectedTrafficSource || undefined} onChange={setSelectedTrafficSource} placeholder="Select traffic source" className="w-full" />
+              <Select options={trafficSourceOptions} value={selectedTrafficSource || undefined} onChange={setSelectedTrafficSource} placeholder="Select traffic source" className="w-full" />
             </div>
 
             <div className="space-y-1.5 lg:col-span-2">
               <label className="text-sm font-medium">Domain</label>
-              <SmartSelect
+              <Select
                 options={domainOptions}
                 value={selectedDomain || '__default__'}
                 onChange={(value) => setSelectedDomain(value === '__default__' ? '' : value)}

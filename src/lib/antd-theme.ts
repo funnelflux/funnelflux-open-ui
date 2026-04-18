@@ -1,5 +1,5 @@
-import { theme } from 'antd'
-import type { ThemeConfig } from 'antd'
+import { theme } from '@/components/ui-kit/antdTheme'
+import type { ThemeConfig } from '@/components/ui-kit/antdTheme'
 
 /**
  * Ant Design theme configuration for FunnelFlux.
@@ -16,9 +16,10 @@ const sharedToken = {
   fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   fontSize: 14,
   borderRadius: 6,
-  controlHeight: 32,
-  controlHeightSM: 24,
-  controlHeightLG: 40,
+  /** md — default toolbar / form control height */
+  controlHeight: 35,
+  controlHeightSM: 28,
+  controlHeightLG: 42,
 }
 
 const sharedComponents: ThemeConfig['components'] = {
@@ -38,20 +39,20 @@ const sharedComponents: ThemeConfig['components'] = {
     paddingLG: 20,
   },
   Input: {
-    controlHeight: 32,
+    controlHeight: 35,
     activeShadow: '0 0 0 2px rgba(37, 99, 235, 0.25)',
   },
   Select: {
-    controlHeight: 32,
+    controlHeight: 35,
   },
   DatePicker: {
-    controlHeight: 32,
+    controlHeight: 35,
   },
   InputNumber: {
-    controlHeight: 32,
+    controlHeight: 35,
   },
   Segmented: {
-    controlHeight: 32,
+    controlHeight: 35,
   },
   Tabs: {
     inkBarColor: '#2563EB',

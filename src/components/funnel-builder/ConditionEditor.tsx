@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Plus } from 'lucide-react'
-import { Drawer, Tag } from 'antd'
+import { Drawer, Tag } from '@/components/ui-kit'
 import { Button, Input } from '@/components/ui-kit'
 import type { ConditionBlock as ConditionBlockType } from '@/types/funnel'
 import type { FunnelCondition } from '@/types/entities'

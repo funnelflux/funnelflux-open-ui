@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Loader2, AlertTriangle } from 'lucide-react'
-import { Button, Input, PageShell, ConfirmModal, SmartSelect, useToastApi } from '@/components/ui-kit'
-import type { SmartSelectOption } from '@/components/ui-kit'
+import { Button, Input, PageShell, ConfirmModal, Select, useToastApi } from '@/components/ui-kit'
+import type { SelectOption } from '@/components/ui-kit'
 import { useCampaignsList, useTrafficSources } from '@/api/hooks'
 import { api } from '@/api/client'
 import { getErrorMessage } from '@/lib/utils'
@@ -15,7 +15,7 @@ export function ResetStatsPage() {
   const { data: campaigns } = useCampaignsList()
   const { data: trafficSources } = useTrafficSources()
 
-  const campaignOptions: SmartSelectOption[] = useMemo(
+  const campaignOptions: SelectOption[] = useMemo(
     () => [
       { label: 'All campaigns', value: '__none__' },
       ...(campaigns ?? []).map((c) => ({ label: c.name, value: c.id, searchId: c.id })),
@@ -23,7 +23,7 @@ export function ResetStatsPage() {
     [campaigns],
   )
 
-  const trafficSourceOptions: SmartSelectOption[] = useMemo(
+  const trafficSourceOptions: SelectOption[] = useMemo(
     () => [
       { label: 'All traffic sources', value: '__none__' },
       ...(trafficSources ?? []).map((ts) => ({ label: ts.trafficSourceName, value: ts.idTrafficSource, searchId: ts.idTrafficSource })),
@@ -89,13 +89,13 @@ export function ResetStatsPage() {
         {/* Campaign */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Campaign (optional)</label>
-          <SmartSelect options={campaignOptions} value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full" />
+          <Select options={campaignOptions} value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full" />
         </div>
 
         {/* Traffic Source */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Traffic Source (optional)</label>
-          <SmartSelect options={trafficSourceOptions} value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="All traffic sources" className="w-full" />
+          <Select options={trafficSourceOptions} value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="All traffic sources" className="w-full" />
         </div>
 
         {/* Date Range */}

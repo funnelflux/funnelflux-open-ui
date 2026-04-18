@@ -1,4 +1,4 @@
-import { Segmented } from 'antd'
+import { Segmented } from '@/components/ui-kit'
 
 export type ArchiveStatus = 'active' | 'archived' | 'all'
 

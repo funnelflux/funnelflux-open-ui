@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { List } from 'antd'
+import { List } from '@/components/ui-kit'
 import { Input, Modal } from '@/components/ui-kit'
 import { usePages, useConditions, useCodeSnippets, type ConditionListItem } from '@/api/hooks'
 import type { CodeSnippetListRow } from '@/api/hooks/useCodeSnippets'

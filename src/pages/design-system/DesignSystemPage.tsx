@@ -1,5 +1,5 @@
 import { Sun, Moon } from 'lucide-react'
-import { Button } from 'antd'
+import { Button } from '@/components/ui-kit'
 import { useThemeStore } from '@/store/theme'
 import { ColorsSection } from './sections/ColorsSection'
 import { TypographySection } from './sections/TypographySection'

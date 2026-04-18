@@ -1,4 +1,4 @@
-import { Button, Tooltip } from 'antd'
+import { Button, Tooltip } from '@/components/ui-kit'
 import type { LucideIcon } from 'lucide-react'
 
 export interface InlineAction {

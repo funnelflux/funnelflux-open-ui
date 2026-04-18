@@ -12,7 +12,7 @@ import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
 import { useToastApi } from '@/components/ui-kit'
 import { Button } from '@/components/ui-kit'
 import { useAuthStore } from '@/store/auth'
-import { ArrowLeft, BarChart3, Loader2, Save, Settings } from 'lucide-react'
+import { ArrowLeft, BarChart3, Loader2, RotateCcw, Save, Settings } from 'lucide-react'
 import { buildV2SavePayload, extractPersistExtras, type FunnelPersistExtras } from '@/lib/funnelApiV2'
 import { generateId } from '@/lib/id-generator'
 
@@ -92,6 +92,23 @@ export function FunnelEditorPage() {
     }
   }, [meta, nodes, edges, markClean, toast, isNew, navigate, campaignId, queryClient, funnelId])
 
+  const handleDiscard = useCallback(() => {
+    if (!isDirty || isSaving) return
+    if (!isNew && !funnel) return
+    const ok = window.confirm('Discard all unsaved changes?')
+    if (!ok) return
+    if (isNew) {
+      reset()
+      if (campaignId) {
+        updateMeta({ idCampaign: campaignId, idFunnel: generateId() })
+      }
+      markClean()
+      return
+    }
+    persistExtrasRef.current = extractPersistExtras(funnel)
+    hydrate(funnel)
+  }, [isDirty, isSaving, isNew, campaignId, funnel, hydrate, reset, updateMeta, markClean])
+
   const handleBack = useCallback(() => {
     if (isDirty) {
       const ok = window.confirm('You have unsaved changes. Discard them?')
@@ -155,6 +172,17 @@ export function FunnelEditorPage() {
                 <BarChart3 className="h-4 w-4" />
               </Button>
             )}
+
+            <Button
+              size="small"
+              className="shrink-0"
+              onClick={() => handleDiscard()}
+              disabled={!isDirty || isSaving}
+              title={isDirty ? 'Revert to last saved version' : 'No unsaved changes'}
+            >
+              <RotateCcw className="mr-1.5 h-4 w-4" />
+              Discard
+            </Button>
 
             <Button
               type="primary"

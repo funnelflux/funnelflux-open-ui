@@ -95,13 +95,13 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
       <div className="p-4 space-y-8">
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="customTokens" className="text-xs font-medium">
+            <label htmlFor="customTokens" className="text-xs font-medium text-foreground">
               Custom tokens
-            </Label>
-            <Textarea
+            </label>
+            <Input.TextArea
               id="customTokens"
               rows={5}
-              placeholder="token1=value_one&#10;token2=value_two"
+              placeholder={'token1=value_one\ntoken2=value_two'}
               className="font-mono text-xs"
               value={customTokensText}
               onChange={(e) => setCustomTokensText(e.target.value)}
@@ -109,13 +109,13 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
             <p className="text-[11px] text-muted-foreground">One <code className="font-mono">key=value</code> per line.</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="accuParams" className="text-xs font-medium">
+            <label htmlFor="accuParams" className="text-xs font-medium text-foreground">
               Accumulate these URL params
-            </Label>
-            <Textarea
+            </label>
+            <Input.TextArea
               id="accuParams"
               rows={5}
-              placeholder="param1=value&#10;param2=value"
+              placeholder={'param1=value\nparam2=value'}
               className="font-mono text-xs"
               value={accuParamsText}
               onChange={(e) => setAccuParamsText(e.target.value)}
@@ -126,9 +126,8 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
 
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <Label className="text-xs font-medium">Incoming traffic cost overrides</Label>
-            <Button type="button" variant="outline" size="sm" onClick={addCostRow}>
-              <Plus className="h-3.5 w-3.5 mr-1" />
+            <span className="text-xs font-medium text-foreground">Incoming traffic cost overrides</span>
+            <Button htmlType="button" type="default" size="small" icon={<Plus className="h-3.5 w-3.5" />} onClick={addCostRow}>
               Add override
             </Button>
           </div>
@@ -150,9 +149,15 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                   value={row.value}
                   onChange={(e) => updateCostRow(i, 'value', e.target.value)}
                 />
-                <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeCostRow(i)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                <Button
+                  htmlType="button"
+                  type="text"
+                  danger
+                  size="small"
+                  className="shrink-0"
+                  icon={<Trash2 className="h-4 w-4" />}
+                  onClick={() => removeCostRow(i)}
+                />
               </div>
             ))}
           </div>
@@ -160,9 +165,8 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
 
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <Label className="text-xs font-medium">Traffic source postback overrides</Label>
-            <Button type="button" variant="outline" size="sm" onClick={addPbRow}>
-              <Plus className="h-3.5 w-3.5 mr-1" />
+            <span className="text-xs font-medium text-foreground">Traffic source postback overrides</span>
+            <Button htmlType="button" type="default" size="small" icon={<Plus className="h-3.5 w-3.5" />} onClick={addPbRow}>
               Add postback
             </Button>
           </div>
@@ -184,28 +188,25 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                   <div className="w-44 space-y-1">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Type</span>
                     <Select
+                      className="h-8 w-full min-w-0 text-xs"
+                      size="small"
                       value={row.postbackType}
-                      onValueChange={(v) => updatePbRow(i, { postbackType: v })}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {POSTBACK_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(v) => updatePbRow(i, { postbackType: v })}
+                      options={POSTBACK_TYPES.map((t) => ({ label: t.label, value: t.value }))}
+                    />
                   </div>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removePbRow(i)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <Button
+                    htmlType="button"
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<Trash2 className="h-4 w-4" />}
+                    onClick={() => removePbRow(i)}
+                  />
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Postback URL / code</span>
-                  <Textarea
+                  <Input.TextArea
                     rows={2}
                     className="font-mono text-xs"
                     placeholder="https://… or script"

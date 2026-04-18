@@ -1,4 +1,4 @@
-import { Tabs, Breadcrumb, Segmented } from 'antd'
+import { Tabs, Breadcrumb, Segmented } from '@/components/ui-kit'
 import { useState } from 'react'
 
 export function NavigationSection() {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Segmented, Space } from 'antd'
+import { Segmented, Space } from '@/components/ui-kit'
 import { Plus } from 'lucide-react'
 import { Button, Input, Select, FormField, Modal, useToastApi } from '@/components/ui-kit'
 import { useCampaignsList } from '@/api/hooks'

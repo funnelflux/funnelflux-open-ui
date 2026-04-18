@@ -1,7 +1,7 @@
-import { Alert, Button, Progress, Skeleton, Space, App } from 'antd'
+import { Alert, AntdApp, Button, Progress, Skeleton, Space } from '@/components/ui-kit'
 
 function ToastDemos() {
-  const { message } = App.useApp()
+  const { message } = AntdApp.useApp()
 
   return (
     <div>

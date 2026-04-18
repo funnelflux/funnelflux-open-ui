@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal, Drawer, Button, Input, Popconfirm, Space } from 'antd'
+import { Modal, Drawer, Button, Input, Popconfirm, Space } from '@/components/ui-kit'
 import { ConfirmModal, FormField } from '@/components/ui-kit'
 
 export function OverlaysSection() {

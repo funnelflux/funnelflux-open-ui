@@ -1,4 +1,4 @@
-import { Typography } from 'antd'
+import { Typography } from '@/components/ui-kit'
 
 const { Title, Text, Paragraph } = Typography
 

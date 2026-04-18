@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
-import { Card } from 'antd'
+import { Card } from '@/components/ui-kit'
 import { DataTable, entityRowId } from '@/components/ui-kit/data-table'
 import type { DashboardData } from '@/types/ui'
 import { getCell } from '@/lib/funnelQuickStats'

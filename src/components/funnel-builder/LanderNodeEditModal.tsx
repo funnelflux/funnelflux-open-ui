@@ -9,8 +9,7 @@ import {
   Switch,
   Modal,
   useToastApi,
-  SmartSelect,
-  type SmartSelectOption,
+  type SelectOption,
 } from '@/components/ui-kit'
 import { useCategories, usePage, useSaveCategory, useSavePage } from '@/api/hooks'
 import { useQueryClient } from '@tanstack/react-query'
@@ -140,8 +139,8 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
   const orphanCategory =
     rawTag && rawTag !== UNCATEGORIZED && !categoryNamesFromApi.has(rawTag) ? rawTag : null
 
-  const categorySmartOptions = useMemo<SmartSelectOption[]>(() => {
-    const out: SmartSelectOption[] = [{ value: '__none__', label: '—' }]
+  const categorySmartOptions = useMemo<SelectOption[]>(() => {
+    const out: SelectOption[] = [{ value: '__none__', label: '—' }]
     if (orphanCategory) out.push({ value: orphanCategory, label: orphanCategory })
     for (const c of categories?.filter((c) => c.name && c.name !== UNCATEGORIZED) ?? []) {
       out.push({ value: c.name, label: c.name })
@@ -149,7 +148,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
     return out
   }, [categories, orphanCategory])
 
-  const tokenSelectOptions = useMemo<SmartSelectOption[]>(
+  const tokenSelectOptions = useMemo<SelectOption[]>(
     () => [
       { value: '__pick__', label: '—' },
       ...FUNNEL_URL_TOKEN_OPTIONS.map((t) => ({ value: t, label: t })),
@@ -320,7 +319,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                   <div className="space-y-2 lg:col-span-4">
                     <span className="block text-sm font-medium text-foreground">Category</span>
                     <div className="flex gap-2">
-                      <SmartSelect
+                      <Select
                         className="min-h-10 flex-1"
                         value={categorySelectValue}
                         onChange={(v) => {
@@ -484,7 +483,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                           control={form.control}
                           name={`additionalTokens.${index}.token`}
                           render={({ field }) => (
-                            <SmartSelect
+                            <Select
                               className="min-h-10 w-full font-mono text-xs"
                               value={field.value || '__pick__'}
                               onChange={(v) => {

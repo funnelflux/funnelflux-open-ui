@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd'
+import { Skeleton } from '@/components/ui-kit'
 import { StatCard } from '@/components/ui-kit'
 import type { LiveStats } from '@/types/ui'
 

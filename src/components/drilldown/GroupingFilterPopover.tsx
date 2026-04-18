@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Filter } from "lucide-react"
-import { Button, Input, Popover, Tabs } from "antd"
+import { Button, Input, Popover, Tabs } from "@/components/ui-kit"
 import { cn } from "@/lib/utils"
 
 interface GroupingFilterPopoverProps {
@@ -115,7 +115,7 @@ export function GroupingFilterPopover({
       <Button
         htmlType="button"
         type="text"
-        className={cn("relative h-7 w-7", isActive && "text-foreground")}
+        className={cn("relative h-[35px] w-8 min-w-8 px-0", isActive && "text-foreground")}
         icon={<Filter className="h-3.5 w-3.5" />}
       >
         {isActive ? (

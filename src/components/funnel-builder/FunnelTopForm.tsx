@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { useCampaignsList } from '@/api/hooks'
-import { FormField, Input, SmartSelect } from '@/components/ui-kit'
-import type { SmartSelectOption } from '@/components/ui-kit'
+import { FormField, Input, Select } from '@/components/ui-kit'
+import type { SelectOption } from '@/components/ui-kit'
 
 interface FunnelTopFormProps {
   isNew: boolean
@@ -13,7 +13,7 @@ export function FunnelTopForm({ isNew }: FunnelTopFormProps) {
   const updateMeta = useFunnelEditorStore((s) => s.updateMeta)
   const { data: campaigns } = useCampaignsList()
 
-  const campaignOptions: SmartSelectOption[] = useMemo(
+  const campaignOptions: SelectOption[] = useMemo(
     () => (campaigns ?? []).map((c) => ({ label: c.name, value: c.id, searchId: c.id })),
     [campaigns],
   )
@@ -34,7 +34,7 @@ export function FunnelTopForm({ isNew }: FunnelTopFormProps) {
 
       <div className="w-64">
         <FormField label="Campaign" htmlFor="idCampaign">
-          <SmartSelect
+          <Select
             options={campaignOptions}
             value={meta.idCampaign || undefined}
             onChange={(v) => updateMeta({ idCampaign: v })}

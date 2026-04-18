@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
-import { Button, Input } from 'antd'
-import { PageShell, SmartSelect, TimezoneSelect, useToastApi } from '@/components/ui-kit'
-import type { SmartSelectOption } from '@/components/ui-kit'
+import { Button, Input } from '@/components/ui-kit'
+import { PageShell, Select, TimezoneSelect, useToastApi } from '@/components/ui-kit'
+import type { SelectOption } from '@/components/ui-kit'
 import { useTrafficSources } from '@/api/hooks'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
@@ -59,7 +59,7 @@ export function CostUpdatePage() {
         ),
   })
 
-  const trafficSourceOptions: SmartSelectOption[] = useMemo(
+  const trafficSourceOptions: SelectOption[] = useMemo(
     () =>
       (trafficSources ?? [])
         .filter((ts) => ts.idTrafficSource)
@@ -71,7 +71,7 @@ export function CostUpdatePage() {
     [trafficSources],
   )
 
-  const funnelOptions: SmartSelectOption[] = useMemo(
+  const funnelOptions: SelectOption[] = useMemo(
     () => [
       { label: 'All funnels', value: '__none__' },
       ...(funnels ?? [])
@@ -162,13 +162,13 @@ export function CostUpdatePage() {
         {/* Traffic Source */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Traffic Source *</label>
-          <SmartSelect options={trafficSourceOptions} value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="Select traffic source" className="w-full" />
+          <Select options={trafficSourceOptions} value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="Select traffic source" className="w-full" />
         </div>
 
         {/* Funnel (optional) — API field idFunnel */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Funnel (optional)</label>
-          <SmartSelect options={funnelOptions} value={idFunnel || undefined} onChange={setIdFunnel} placeholder="All funnels" className="w-full" />
+          <Select options={funnelOptions} value={idFunnel || undefined} onChange={setIdFunnel} placeholder="All funnels" className="w-full" />
         </div>
 
         {/* Date Range */}

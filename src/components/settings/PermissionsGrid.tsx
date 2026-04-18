@@ -1,4 +1,4 @@
-import { Input, Switch } from 'antd'
+import { Input, Switch } from '@/components/ui-kit'
 import type { Permissions } from '@/types/api'
 
 interface PermissionsGridProps {

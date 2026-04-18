@@ -1,16 +1,16 @@
 import { useState } from 'react'
-import { Space } from 'antd'
-import { SmartSelect, SmartMultiSelect, TimezoneSelect, DateTimeRangePicker } from '@/components/ui-kit'
-import type { SmartSelectOption } from '@/components/ui-kit'
+import { Space } from '@/components/ui-kit'
+import { Select, SmartMultiSelect, TimezoneSelect, DateTimeRangePicker } from '@/components/ui-kit'
+import type { SelectOption } from '@/components/ui-kit'
 
 // Generate a large option list to demo virtualization
-const LARGE_LIST: SmartSelectOption[] = Array.from({ length: 1200 }, (_, i) => ({
+const LARGE_LIST: SelectOption[] = Array.from({ length: 1200 }, (_, i) => ({
   value: `item-${i + 1}`,
   label: `${['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet'][i % 10]} Campaign ${i + 1}`,
   searchId: `ID-${1000 + i}`,
 }))
 
-const SMALL_LIST: SmartSelectOption[] = [
+const SMALL_LIST: SelectOption[] = [
   { value: 'fb', label: 'Facebook' },
   { value: 'google', label: 'Google Ads' },
   { value: 'tiktok', label: 'TikTok' },
@@ -30,15 +30,15 @@ export function SelectsSection() {
       <h2 className="text-xl font-semibold text-foreground mb-6">Selects & Dropdowns</h2>
 
       <div className="space-y-8 max-w-3xl">
-        {/* SmartSelect - small list */}
+        {/* Select - small list */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Single Select (small list)
           </h3>
           <p className="text-xs text-muted-foreground mb-2">
-            Import: <code className="bg-muted px-1.5 py-0.5 rounded">{'import { SmartSelect } from "@/components/ui-kit"'}</code>
+            Import: <code className="bg-muted px-1.5 py-0.5 rounded">{'import { Select } from "@/components/ui-kit"'}</code>
           </p>
-          <SmartSelect
+          <Select
             options={SMALL_LIST}
             value={single}
             onChange={setSingle}
@@ -47,7 +47,7 @@ export function SelectsSection() {
           />
         </div>
 
-        {/* SmartSelect - large list with virtualization */}
+        {/* Select - large list */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Single Select (1,200 items — capped at 200)
@@ -56,7 +56,7 @@ export function SelectsSection() {
             Lists over 200 items show "Type to search N more..." at the bottom. Matching items surface as you type.
             Searchable by name and ID.
           </p>
-          <SmartSelect
+          <Select
             options={LARGE_LIST}
             value={singleLarge}
             onChange={setSingleLarge}
@@ -133,7 +133,7 @@ export function SelectsSection() {
             All single-line inputs share <code className="bg-muted px-1.5 py-0.5 rounded">controlHeight: 36</code> via antd theme. No manual sizing needed.
           </p>
           <div className="flex items-center gap-3 flex-wrap">
-            <SmartSelect options={SMALL_LIST} placeholder="Select" className="w-48" />
+            <Select options={SMALL_LIST} placeholder="Select" className="w-48" />
             <DateTimeRangePicker />
             <TimezoneSelect />
           </div>
@@ -143,7 +143,7 @@ export function SelectsSection() {
         <div className="p-4 bg-muted rounded-lg border border-border text-sm text-muted-foreground space-y-2">
           <h3 className="font-medium text-foreground">Select Guidelines</h3>
           <ul className="list-disc list-inside space-y-1 text-xs">
-            <li>All user-asset lists (campaigns, offers, landers, etc.) must use <code>SmartSelect</code> or <code>SmartMultiSelect</code></li>
+            <li>All user-asset lists (campaigns, offers, landers, etc.) must use <code>Select</code> or <code>SmartMultiSelect</code></li>
             <li>Lists are alphabetically sorted by default. Set <code>alphabetical=false</code> for strict-ordered lists (timezones, priorities)</li>
             <li>Provide <code>searchId</code> on options to enable search by entity ID</li>
             <li>The 200-item display cap prevents DOM thrash. Search always accesses the full list</li>

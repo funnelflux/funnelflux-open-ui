@@ -2,8 +2,7 @@ import { useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth"
 import type { Permissions } from "@/types/api"
-import { Badge, Drawer, Dropdown, Button } from "antd"
-import type { MenuProps } from "antd"
+import { Badge, Drawer, Dropdown, Button, type MenuProps } from "@/components/ui-kit"
 import {
   ChevronDown,
   Settings,

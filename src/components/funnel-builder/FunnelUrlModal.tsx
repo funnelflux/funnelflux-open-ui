@@ -1,16 +1,25 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Copy, Loader2, Plus } from 'lucide-react'
-import { Button, Input, Modal, SmartSelect, useToastApi, type SmartSelectOption } from '@/components/ui-kit'
+import { Button, Input, Modal, Select, useToastApi, type SelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
   useFunnel,
   useGenerateEntranceLink,
   type TrafficSourceOption,
 } from '@/api/hooks'
-import type { FunnelNode } from '@/types/entities'
-import { NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel'
+import type { Funnel, FunnelNode } from '@/types/entities'
+import { NODE_TYPE_LABELS, NODE_TYPES, type NodeTypeKey } from '@/types/funnel'
 import { getErrorMessage } from '@/lib/utils'
+
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), delay)
+    return () => window.clearTimeout(id)
+  }, [value, delay])
+  return debounced
+}
 
 function CopyIconButton({ value, disabled }: { value: string; disabled?: boolean }) {
   const toast = useToastApi()
@@ -42,6 +51,216 @@ function ReadonlyField({ label, value }: { label: string; value: string }) {
   )
 }
 
+/** Owns CPC input + debounce; remount via `key` when defaults from API / TS change. */
+function CpcStep({
+  suggested,
+  costLabel,
+  onDebouncedChange,
+}: {
+  suggested: string
+  costLabel: string
+  onDebouncedChange: (debounced: string) => void
+}) {
+  const [costCpc, setCostCpc] = useState(suggested)
+  const debouncedCostCpc = useDebouncedValue(costCpc, 350)
+
+  useEffect(() => {
+    onDebouncedChange(debouncedCostCpc)
+  }, [debouncedCostCpc, onDebouncedChange])
+
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor="funnel-url-cpc" className="block text-sm font-medium text-foreground">
+        {costLabel}
+      </label>
+      <Input
+        id="funnel-url-cpc"
+        type="number"
+        step={0.001}
+        min={0}
+        value={costCpc}
+        onChange={(e) => setCostCpc(e.target.value)}
+        className="font-mono text-sm"
+      />
+    </div>
+  )
+}
+
+interface WizardBodyProps {
+  idCampaign: string
+  idFunnel: string
+  contextNodeId: string
+  campaignName: string
+  funnelName: string
+  nodeDisplay: string
+  trafficSourceOptions: SelectOption[]
+  domainOptions: SelectOption[]
+  trafficSources: TrafficSourceOption[]
+  funnelDetail: Funnel | undefined
+}
+
+function FunnelUrlWizardBody({
+  idCampaign,
+  idFunnel,
+  contextNodeId,
+  campaignName,
+  funnelName,
+  nodeDisplay,
+  trafficSourceOptions,
+  domainOptions,
+  trafficSources,
+  funnelDetail,
+}: WizardBodyProps) {
+  const toast = useToastApi()
+  const generateEntrance = useGenerateEntranceLink()
+
+  const [selectedTrafficSource, setSelectedTrafficSource] = useState('')
+  const [selectedDomain, setSelectedDomain] = useState('')
+  const [debouncedCostCpc, setDebouncedCostCpc] = useState('')
+  const [entranceLink, setEntranceLink] = useState('')
+
+  const handleDebouncedCost = useCallback((debounced: string) => {
+    setDebouncedCostCpc(debounced)
+  }, [])
+
+  const selectedTs = useMemo(
+    () => trafficSources.find((t) => t.id === selectedTrafficSource),
+    [trafficSources, selectedTrafficSource],
+  )
+
+  const costLabel =
+    selectedTs?.costType === 'cpa' ? 'Cost per action' : 'Cost per entrance'
+
+  const suggestedCpcStr = useMemo(() => {
+    if (!funnelDetail || !selectedTrafficSource) return ''
+    const ts = trafficSources.find((t) => t.id === selectedTrafficSource)
+    const cpc =
+      funnelDetail.defaultCostPerEntrance || (ts?.defaultCostPerEntrance ?? 0)
+    return String(cpc)
+  }, [funnelDetail, selectedTrafficSource, trafficSources])
+
+  const cpcResetKey = `${selectedTrafficSource}:${suggestedCpcStr}`
+
+  /** Until CpcStep’s debounce callback runs, parent debounced state can be empty — fall back to API default. */
+  const effectiveCostString = useMemo(() => {
+    if (debouncedCostCpc.trim() !== '') return debouncedCostCpc
+    return suggestedCpcStr
+  }, [debouncedCostCpc, suggestedCpcStr])
+
+  const canRequestEntrance = Boolean(
+    idCampaign && idFunnel && selectedTrafficSource,
+  )
+
+  const displayedEntranceLink = canRequestEntrance ? entranceLink : ''
+
+  useEffect(() => {
+    if (!canRequestEntrance) return
+
+    const costNum =
+      effectiveCostString.trim() === '' ? undefined : Number(effectiveCostString)
+    const cost =
+      costNum === undefined || Number.isNaN(costNum) ? undefined : costNum
+
+    const request = {
+      idCampaign,
+      idFunnel,
+      idNode: contextNodeId || undefined,
+      idTrafficSource: selectedTrafficSource,
+      domain: selectedDomain || undefined,
+      ...(cost !== undefined ? { cost } : {}),
+    }
+
+    generateEntrance.mutate(request, {
+      onSuccess: (data) => setEntranceLink(data || ''),
+      onError: (error) => toast.error(getErrorMessage(error)),
+    })
+  }, [
+    canRequestEntrance,
+    idCampaign,
+    idFunnel,
+    contextNodeId,
+    selectedDomain,
+    selectedTrafficSource,
+    effectiveCostString,
+    generateEntrance,
+    toast,
+  ])
+
+  return (
+    <div className="space-y-4 py-1">
+      <ReadonlyField label="1. Campaign" value={campaignName} />
+      <ReadonlyField label="2. Funnel" value={funnelName} />
+      <ReadonlyField label="3. (Optional) Node" value={nodeDisplay} />
+
+      <div className="space-y-1.5">
+        <span className="block text-sm font-medium text-foreground">
+          <span className="font-medium text-primary">4.</span> Select a traffic source
+        </span>
+        <div className="flex gap-2">
+          <Select
+            className="min-h-9 flex-1"
+            value={selectedTrafficSource || undefined}
+            onChange={(v) => {
+              setSelectedTrafficSource(v)
+              setEntranceLink('')
+            }}
+            options={trafficSourceOptions}
+            placeholder="Traffic source"
+          />
+          <Link
+            to="/traffic-sources"
+            target="_blank"
+            rel="noreferrer"
+            title="Add traffic source"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted"
+          >
+            <Plus className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+
+      {selectedTrafficSource ? (
+        <CpcStep
+          key={cpcResetKey}
+          suggested={suggestedCpcStr}
+          costLabel={costLabel}
+          onDebouncedChange={handleDebouncedCost}
+        />
+      ) : null}
+
+      <div className="space-y-1.5">
+        <span className="block text-sm font-medium text-foreground">Domain (optional)</span>
+        <Select
+          className="min-h-9 w-full"
+          value={selectedDomain || '__default__'}
+          onChange={(v) => setSelectedDomain(v === '__default__' ? '' : v)}
+          options={domainOptions}
+          placeholder="Default domain"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <span className="block text-sm font-medium text-foreground">Entrance URL</span>
+        <div className="flex gap-2">
+          <Input
+            readOnly
+            value={displayedEntranceLink}
+            placeholder={
+              selectedTrafficSource ? 'Generating…' : 'Choose a traffic source'
+            }
+            className="font-mono text-xs"
+          />
+          {generateEntrance.isPending ? (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin self-center text-muted-foreground" />
+          ) : (
+            <CopyIconButton value={displayedEntranceLink} />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export interface FunnelUrlModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -64,15 +283,7 @@ export function FunnelUrlModal({
   idFunnel,
   contextNodeId,
 }: FunnelUrlModalProps) {
-  const toast = useToastApi()
   const { data: linksData, isLoading: loadingData } = useSystemLinksData()
-  const generateEntrance = useGenerateEntranceLink()
-
-  const [selectedTrafficSource, setSelectedTrafficSource] = useState('')
-  const [selectedDomain, setSelectedDomain] = useState('')
-  const [costCpc, setCostCpc] = useState('')
-  const [debouncedCostCpc, setDebouncedCostCpc] = useState('')
-  const [entranceLink, setEntranceLink] = useState('')
 
   const { data: funnelDetail } = useFunnel(idFunnel, {
     loadDependencies: true,
@@ -83,16 +294,25 @@ export function FunnelUrlModal({
     [funnelDetail?.nodes],
   )
 
-  const campaigns = linksData?.campaigns ?? []
-  const trafficSources = (linksData?.trafficSources ?? []) as TrafficSourceOption[]
-  const domains = linksData?.domains ?? []
+  const campaigns = useMemo(
+    () => linksData?.campaigns ?? [],
+    [linksData?.campaigns],
+  )
+  const trafficSources = useMemo(
+    () => (linksData?.trafficSources ?? []) as TrafficSourceOption[],
+    [linksData?.trafficSources],
+  )
+  const domains = useMemo(
+    () => linksData?.domains ?? [],
+    [linksData?.domains],
+  )
 
-  const trafficSourceOptions = useMemo<SmartSelectOption[]>(
+  const trafficSourceOptions = useMemo<SelectOption[]>(
     () => trafficSources.map((ts) => ({ value: ts.id, label: ts.name })),
     [trafficSources],
   )
 
-  const domainOptions = useMemo<SmartSelectOption[]>(
+  const domainOptions = useMemo<SelectOption[]>(
     () => [
       { value: '__default__', label: 'Default domain' },
       ...domains.map((d) => ({ value: d.domain, label: d.domain })),
@@ -108,7 +328,7 @@ export function FunnelUrlModal({
   const funnelName = funnelDetail?.funnelName ?? idFunnel
 
   const nodeLabel = (n: FunnelNode) => {
-    const typeLabel = NODE_TYPE_LABELS[n.nodeType as NodeTypeValue] ?? 'Node'
+    const typeLabel = NODE_TYPE_LABELS[NODE_TYPES[n.nodeType as NodeTypeKey]] ?? 'Node'
     const name = n.nodeName?.trim() ? ` — ${n.nodeName}` : ''
     return `${n.idNode} : ${typeLabel}${name}`
   }
@@ -119,75 +339,9 @@ export function FunnelUrlModal({
     return n ? nodeLabel(n) : contextNodeId
   }, [contextNodeId, nodes])
 
-  const selectedTs = useMemo(
-    () => trafficSources.find((t) => t.id === selectedTrafficSource),
-    [trafficSources, selectedTrafficSource],
-  )
-
-  const costLabel =
-    selectedTs?.costType === 'cpa' ? 'Cost per action' : 'Cost per entrance'
-
-  useEffect(() => {
-    if (!open) return
-    setSelectedTrafficSource('')
-    setSelectedDomain('')
-    setCostCpc('')
-    setDebouncedCostCpc('')
-    setEntranceLink('')
-  }, [open, idCampaign, idFunnel, contextNodeId])
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebouncedCostCpc(costCpc), 350)
-    return () => window.clearTimeout(id)
-  }, [costCpc])
-
-  useEffect(() => {
-    if (!open || !selectedTrafficSource || !funnelDetail) return
-    const ts = trafficSources.find((t) => t.id === selectedTrafficSource)
-    const cpc =
-      funnelDetail.defaultCostPerEntrance ||
-      (ts?.defaultCostPerEntrance ?? 0)
-    const s = String(cpc)
-    setCostCpc(s)
-    setDebouncedCostCpc(s)
-  }, [open, selectedTrafficSource, funnelDetail, trafficSources])
-
-  useEffect(() => {
-    if (!open) return
-    if (!idCampaign || !idFunnel || !selectedTrafficSource) {
-      setEntranceLink('')
-      return
-    }
-
-    const costNum = debouncedCostCpc.trim() === '' ? undefined : Number(debouncedCostCpc)
-    const cost =
-      costNum === undefined || Number.isNaN(costNum) ? undefined : costNum
-
-    const request = {
-      idCampaign,
-      idFunnel,
-      idNode: contextNodeId || undefined,
-      idTrafficSource: selectedTrafficSource,
-      domain: selectedDomain || undefined,
-      ...(cost !== undefined ? { cost } : {}),
-    }
-
-    generateEntrance.mutate(request, {
-      onSuccess: (data) => setEntranceLink(data || ''),
-      onError: (error) => toast.error(getErrorMessage(error)),
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- regenerate when selections / cost change
-  }, [
-    open,
-    idCampaign,
-    idFunnel,
-    contextNodeId,
-    selectedDomain,
-    selectedTrafficSource,
-    debouncedCostCpc,
-  ])
-
   const canUseWizard = Boolean(idCampaign && idFunnel)
+
+  const wizardKey = `${idCampaign}-${idFunnel}-${contextNodeId}`
 
   return (
     <Modal
@@ -224,82 +378,24 @@ export function FunnelUrlModal({
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading…
         </div>
+      ) : funnelDetail ? (
+        <FunnelUrlWizardBody
+          key={wizardKey}
+          idCampaign={idCampaign}
+          idFunnel={idFunnel}
+          contextNodeId={contextNodeId}
+          campaignName={campaignName}
+          funnelName={funnelName}
+          nodeDisplay={nodeDisplay}
+          trafficSourceOptions={trafficSourceOptions}
+          domainOptions={domainOptions}
+          trafficSources={trafficSources}
+          funnelDetail={funnelDetail}
+        />
       ) : (
-        <div className="space-y-4 py-1">
-          <ReadonlyField label="1. Campaign" value={campaignName} />
-          <ReadonlyField label="2. Funnel" value={funnelName} />
-          <ReadonlyField label="3. (Optional) Node" value={nodeDisplay} />
-
-          <div className="space-y-1.5">
-            <span className="block text-sm font-medium text-foreground">
-              <span className="font-medium text-primary">4.</span> Select a traffic source
-            </span>
-            <div className="flex gap-2">
-              <SmartSelect
-                className="min-h-9 flex-1"
-                value={selectedTrafficSource || undefined}
-                onChange={(v) => setSelectedTrafficSource(v)}
-                options={trafficSourceOptions}
-                placeholder="Traffic source"
-              />
-              <Link
-                to="/traffic-sources"
-                target="_blank"
-                rel="noreferrer"
-                title="Add traffic source"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted"
-              >
-                <Plus className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-
-          {selectedTrafficSource ? (
-            <div className="space-y-1.5">
-              <label htmlFor="funnel-url-cpc" className="block text-sm font-medium text-foreground">
-                {costLabel}
-              </label>
-              <Input
-                id="funnel-url-cpc"
-                type="number"
-                step={0.001}
-                min={0}
-                value={costCpc}
-                onChange={(e) => setCostCpc(e.target.value)}
-                className="font-mono text-sm"
-              />
-            </div>
-          ) : null}
-
-          <div className="space-y-1.5">
-            <span className="block text-sm font-medium text-foreground">Domain (optional)</span>
-            <SmartSelect
-              className="min-h-9 w-full"
-              value={selectedDomain || '__default__'}
-              onChange={(v) => setSelectedDomain(v === '__default__' ? '' : v)}
-              options={domainOptions}
-              placeholder="Default domain"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="block text-sm font-medium text-foreground">Entrance URL</span>
-            <div className="flex gap-2">
-              <Input
-                readOnly
-                value={entranceLink}
-                placeholder={
-                  selectedTrafficSource ? 'Generating…' : 'Choose a traffic source'
-                }
-                className="font-mono text-xs"
-              />
-              {generateEntrance.isPending ? (
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin self-center text-muted-foreground" />
-              ) : (
-                <CopyIconButton value={entranceLink} />
-              )}
-            </div>
-          </div>
+        <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading funnel…
         </div>
       )}
     </Modal>

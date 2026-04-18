@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { Button, Input, Select } from 'antd'
+import { AntdSelect, Button, Input } from '@/components/ui-kit'
 import type { ConditionRule, ConditionField, ConditionOperator } from '@/types/funnel'
 import { CONDITION_FIELDS, CONDITION_OPERATORS } from '@/types/funnel'
 import { ConditionFieldValueInput } from './ConditionFieldValueInput'
@@ -60,7 +60,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
   return (
     <div className="flex items-start gap-2">
       {/* Field selector */}
-      <Select
+      <AntdSelect
         value={rule.field || undefined}
         onChange={(val) =>
           onChange({ ...rule, field: val as ConditionField, value: '', extraKey: undefined })
@@ -82,7 +82,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
       )}
 
       {/* Operator selector */}
-      <Select
+      <AntdSelect
         value={rule.operator || undefined}
         onChange={(val) =>
           onChange({ ...rule, operator: val as ConditionOperator })

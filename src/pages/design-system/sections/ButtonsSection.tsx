@@ -1,4 +1,4 @@
-import { Button, Space } from 'antd'
+import { Button, Space } from '@/components/ui-kit'
 import { PlusOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons'
 
 export function ButtonsSection() {
@@ -6,7 +6,7 @@ export function ButtonsSection() {
     <section id="buttons">
       <h2 className="text-xl font-semibold text-foreground mb-6">Buttons</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Import: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{'import { Button } from "antd"'}</code>
+        Import: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{'import { Button } from "@/components/ui-kit"'}</code>
       </p>
 
       <div className="space-y-8">

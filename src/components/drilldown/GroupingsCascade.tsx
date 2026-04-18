@@ -1,6 +1,6 @@
 import { GroupingFilterPopover } from "@/components/drilldown/GroupingFilterPopover"
 import { Plus, X } from "lucide-react"
-import { Button, Select } from "antd"
+import { AntdSelect, Button } from "@/components/ui-kit"
 
 const MAX_LEVELS = 4
 
@@ -56,11 +56,12 @@ export function GroupingsCascade({
             {index > 0 && (
               <span className="text-xs text-muted-foreground mx-0.5">&gt;</span>
             )}
-            <Select
+            <AntdSelect
               value={grouping || undefined}
               onChange={(v) => handleChange(index, v)}
               placeholder="Select grouping"
-              className="h-9 w-[200px] text-xs"
+              size="middle"
+              className="w-[200px] text-xs"
               options={availableGroupings
                 .filter((g) => !used.has(g))
                 .map((g) => ({
@@ -77,7 +78,7 @@ export function GroupingsCascade({
             {index > 0 && (
               <Button
                 type="text"
-                className="h-7 w-7"
+                className="h-[35px] w-8 min-w-8 px-0"
                 icon={<X className="h-3.5 w-3.5" />}
                 onClick={() => handleRemove(index)}
               />
@@ -88,8 +89,7 @@ export function GroupingsCascade({
 
       {groupings.length < MAX_LEVELS && groupings.length < availableGroupings.length && (
         <Button
-          size="small"
-          className="h-9 text-xs"
+          className="text-xs"
           onClick={handleAdd}
           icon={<Plus className="h-3.5 w-3.5" />}
         >

@@ -1,5 +1,5 @@
 import { Plus, X } from 'lucide-react'
-import { Button, Tag } from 'antd'
+import { Button, Tag } from '@/components/ui-kit'
 import type { ConditionBlock as ConditionBlockType, ConditionRule } from '@/types/funnel'
 import { ConditionRuleRow } from './ConditionRuleRow'
 

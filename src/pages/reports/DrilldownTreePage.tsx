@@ -7,7 +7,8 @@ import { useDrilldownReport } from "@/api/hooks"
 import { api } from "@/api/client"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
-import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
+import { reportRowToCells } from "@/lib/reportRowCells"
+import type { DrilldownRequest, Report, ReportCell, ReportRow } from "@/types/stats"
 
 const DRILLDOWN_TREE_TABLE_KEY = "reports-drilldown-tree"
 
@@ -20,19 +21,14 @@ interface TreeRowData {
   _loaded?: boolean
 }
 
-function parseReportCells(row: Record<string, unknown>, columnCount: number): ReportCell[] {
-  const cells: ReportCell[] = []
-  for (let i = 0; i < columnCount; i++) {
-    const cell = row[String(i)] as ReportCell | undefined
-    cells.push(cell ?? { raw: "", formatted: "" })
-  }
-  return cells
-}
-
 function reportToTreeRows(report: Report, depth = 0): TreeRowData[] {
   return report.rows.map((row, index) => {
-    const cells = parseReportCells(row, report.columns.length)
-    const expandInfo = row.expandableInfo as { groupIds?: string[]; children?: Record<string, unknown>[] } | undefined
+    const cells = reportRowToCells(row, report.columns.length)
+    const expandInfo = row.expandableInfo as
+      | { groupIds?: string[]; children?: ReportRow[] }
+      | undefined
+    const apiChildren = Array.isArray(row.children) && row.children.length > 0 ? row.children : undefined
+    const embeddedChildren = expandInfo?.children ?? apiChildren
 
     const treeRow: TreeRowData = {
       _id: `row-${depth}-${index}-${String(cells[0]?.raw ?? index)}`,
@@ -42,14 +38,22 @@ function reportToTreeRows(report: Report, depth = 0): TreeRowData[] {
       _loaded: false,
     }
 
-    if (expandInfo?.children?.length) {
-      treeRow._children = expandInfo.children.map((child, ci) => ({
+    if (embeddedChildren?.length) {
+      treeRow._children = embeddedChildren.map((child, ci) => ({
         _id: `row-${depth + 1}-${index}-${ci}`,
-        cells: parseReportCells(child, report.columns.length),
+        cells: reportRowToCells(child, report.columns.length),
         depth: depth + 1,
         _loaded: true,
       }))
       treeRow._loaded = true
+    }
+
+    // Lazy tree expand uses topLevelFilters; API often omits legacy expandableInfo.groupIds
+    if (!treeRow._groupIds?.length) {
+      const raw = cells[0]?.raw
+      if (raw !== undefined && raw !== null && String(raw) !== '') {
+        treeRow._groupIds = [String(raw)]
+      }
     }
 
     return treeRow
@@ -119,10 +123,12 @@ export function DrilldownTreePage() {
     async (row: TreeRowData) => {
       if (row._loaded || row._children?.length) return
       if (!lastRequest || !row._groupIds?.length) return
+      const reqGroupings = lastRequest.groupings
+      if (!reqGroupings?.length) return
 
-      const groupings = lastRequest.groupings.slice(0, row.depth + 2)
+      const groupings = reqGroupings.slice(0, row.depth + 2)
       const topLevelFilters = row._groupIds.map((gid, i) => ({
-        groupBy: lastRequest.groupings[row.depth + i]?.groupBy ?? '',
+        groupBy: reqGroupings[row.depth + i]?.groupBy ?? '',
         whitelistFilters: [gid],
         blacklistFilters: [] as string[],
       }))

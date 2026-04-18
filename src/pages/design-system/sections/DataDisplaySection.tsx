@@ -1,4 +1,4 @@
-import { Card, Descriptions, Tag, Badge, Tooltip, Avatar, Space } from 'antd'
+import { Avatar, Badge, Card, Descriptions, Space, Tag, Tooltip } from '@/components/ui-kit'
 import { UserOutlined, SettingOutlined } from '@ant-design/icons'
 import { EmptyState } from '@/components/ui-kit'
 

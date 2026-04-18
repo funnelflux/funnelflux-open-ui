@@ -1,6 +1,14 @@
 import { useState } from 'react'
-import { Input, Select, Switch, Checkbox, Radio, InputNumber, DatePicker } from 'antd'
-import { FormField } from '@/components/ui-kit'
+import {
+  AntdSelect,
+  Checkbox,
+  DatePicker,
+  FormField,
+  Input,
+  InputNumber,
+  Radio,
+  Switch,
+} from '@/components/ui-kit'
 
 export function FormsSection() {
   const [switchVal, setSwitchVal] = useState(true)
@@ -23,7 +31,7 @@ export function FormsSection() {
         </FormField>
 
         <FormField label="Traffic Source" help="Select the traffic source for this campaign">
-          <Select
+          <AntdSelect
             placeholder="Choose source"
             options={[
               { label: 'Facebook', value: 'fb' },
