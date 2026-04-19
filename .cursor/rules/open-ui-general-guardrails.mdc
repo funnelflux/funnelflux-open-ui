@@ -78,3 +78,5 @@ Always `@/` for `src/`. Never relative paths that traverse up (`../../../`).
 8. Creating a custom table → use `DataTable` from ui-kit.
 9. `@ant-design/icons` → use `lucide-react`.
 10. Default exports → use named exports.
+11. Using `Number(raw)` on stats grouping ids → 19-digit Snowflake ids overflow `Number.MAX_SAFE_INTEGER` and collide. See `open-ui-bigint-json.mdc`.
+12. Enabling `treeMode` on `DataTable` without reading `open-ui-datatable-tree-lazy-loading.mdc` — the `paginateExpandedRows` + `noPagination` interaction silently hides lazy-loaded children.

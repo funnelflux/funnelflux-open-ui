@@ -8,56 +8,103 @@ import { api } from "@/api/client"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
 import { reportRowToCells } from "@/lib/reportRowCells"
-import type { DrilldownRequest, Report, ReportCell, ReportRow } from "@/types/stats"
+import type {
+  DrilldownRequest,
+  Grouping,
+  Report,
+  ReportCell,
+  ReportRow,
+} from "@/types/stats"
 
 const DRILLDOWN_TREE_TABLE_KEY = "reports-drilldown-tree"
 
 interface TreeRowData {
   _id: string
+  /**
+   * Stable positional key used for React identity and parent lookup. Do not derive from `raw` —
+   * Snowflake ids overflow Number.MAX_SAFE_INTEGER and equality breaks after JSON parse.
+   */
+  treePath: string
   cells: ReportCell[]
   depth: number
-  _children?: TreeRowData[]
-  _groupIds?: string[]
-  _loaded?: boolean
+  /** Whitelist ids to use as the row's own grouping filter when expanding its children. */
+  groupIds?: string[]
+  /**
+   * Whitelist ids for ancestor groupings (level 0..depth-1). When lazy-loading children of a
+   * nested row, every ancestor level must be re-applied so the backend filters all levels.
+   */
+  ancestorKeys: string[]
+  children?: TreeRowData[]
+  loaded?: boolean
 }
 
-function reportToTreeRows(report: Report, depth = 0): TreeRowData[] {
-  return report.rows.map((row, index) => {
-    const cells = reportRowToCells(row, report.columns.length)
-    const expandInfo = row.expandableInfo as
-      | { groupIds?: string[]; children?: ReportRow[] }
-      | undefined
-    const apiChildren = Array.isArray(row.children) && row.children.length > 0 ? row.children : undefined
-    const embeddedChildren = expandInfo?.children ?? apiChildren
+/** Extract a non-empty, non-rollup grouping id from a row's first cell. */
+function groupingKeyFromRaw(raw: ReportCell["raw"] | undefined): string | undefined {
+  if (raw === undefined || raw === null) return undefined
+  const s = typeof raw === "string" ? raw.trim() : String(raw)
+  if (s === "" || s === "0") return undefined
+  return s
+}
 
-    const treeRow: TreeRowData = {
-      _id: `row-${depth}-${index}-${String(cells[0]?.raw ?? index)}`,
+function reportRowsToTreeRows(
+  rows: ReportRow[],
+  columnCount: number,
+  depth: number,
+  parentTreePath: string,
+  ancestorKeys: string[],
+): TreeRowData[] {
+  return rows.map((row, index) => {
+    const cells = reportRowToCells(row, columnCount)
+    const treePath = parentTreePath === "" ? String(index) : `${parentTreePath}-${index}`
+    const key = groupingKeyFromRaw(cells[0]?.raw)
+    return {
+      _id: `tr-${treePath}`,
+      treePath,
       cells,
       depth,
-      _groupIds: expandInfo?.groupIds,
-      _loaded: false,
+      loaded: false,
+      ancestorKeys,
+      ...(key ? { groupIds: [key] } : {}),
     }
-
-    if (embeddedChildren?.length) {
-      treeRow._children = embeddedChildren.map((child, ci) => ({
-        _id: `row-${depth + 1}-${index}-${ci}`,
-        cells: reportRowToCells(child, report.columns.length),
-        depth: depth + 1,
-        _loaded: true,
-      }))
-      treeRow._loaded = true
-    }
-
-    // Lazy tree expand uses topLevelFilters; API often omits legacy expandableInfo.groupIds
-    if (!treeRow._groupIds?.length) {
-      const raw = cells[0]?.raw
-      if (raw !== undefined && raw !== null && String(raw) !== '') {
-        treeRow._groupIds = [String(raw)]
-      }
-    }
-
-    return treeRow
   })
+}
+
+/**
+ * Lazy expand returns a nested tree reflecting all ancestor groupings. Walk the tree and return
+ * the children of the row whose first-cell id matches `parentGroupId` (the expanded row).
+ */
+function leafRowsForLazyExpand(
+  report: Report,
+  parentGroupId: string | undefined,
+): ReportRow[] {
+  const colCount = report.columns.length
+  const cell0 = (r: ReportRow) => {
+    const raw = reportRowToCells(r, colCount)[0]?.raw
+    return raw === undefined || raw === null ? "" : String(raw)
+  }
+
+  if (parentGroupId) {
+    const stack: ReportRow[] = [...report.rows]
+    while (stack.length) {
+      const r = stack.shift()!
+      if (cell0(r) === parentGroupId && r.children?.length) {
+        return r.children
+      }
+      if (r.children?.length) stack.push(...r.children)
+    }
+  }
+
+  const firstNonRollupWithKids = report.rows.find(
+    (r) => r.children?.length && cell0(r) !== "" && cell0(r) !== "0",
+  )
+  if (firstNonRollupWithKids?.children?.length) return firstNonRollupWithKids.children
+
+  if (report.rows.length === 1 && report.rows[0].children?.length) {
+    return report.rows[0].children
+  }
+
+  /** No nested tree — assume the API returned flat leaves at the requested level. */
+  return report.rows
 }
 
 export function DrilldownTreePage() {
@@ -66,6 +113,8 @@ export function DrilldownTreePage() {
   const [report, setReport] = useState<Report | null>(null)
   const [treeData, setTreeData] = useState<TreeRowData[]>([])
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
+  /** Full grouping stack from the toolbar (all levels); initial request uses only the first. */
+  const [planGroupings, setPlanGroupings] = useState<Grouping[]>([])
   const [page, setPage] = useState(0)
   const pageSize = 50
   const [sorting, setSorting] = useState<SortingState>(() => {
@@ -75,13 +124,15 @@ export function DrilldownTreePage() {
   const [expanded, setExpanded] = useState<ExpandedState>({})
   const tableRef = useRef<Table<TreeRowData> | null>(null)
 
-  const loadReport = useCallback(
+  const runRequest = useCallback(
     (request: DrilldownRequest) => {
       setLastRequest(request)
       drilldownMutation.mutate(request, {
         onSuccess: (data) => {
           setReport(data)
-          setTreeData(reportToTreeRows(data))
+          setTreeData(
+            reportRowsToTreeRows(data.rows, data.columns.length, 0, "", []),
+          )
           setExpanded({})
         },
       })
@@ -92,14 +143,20 @@ export function DrilldownTreePage() {
   const handleApply = useCallback(
     (request: DrilldownRequest) => {
       setPage(0)
-      loadReport({
+      const full = request.groupings ?? []
+      setPlanGroupings(full)
+      /** Lazy load: fetch only the first grouping level; deeper levels load on expand. */
+      const initialGroupings: Grouping[] = full.length > 0 ? [full[0]] : []
+      runRequest({
         ...request,
-        options: { viewType: "tree" },
+        options: { ...(request.options ?? {}), viewType: "tree" },
+        groupings: initialGroupings,
+        topLevelFilters: [],
         paging: { start: 0, length: pageSize },
         sorting: drilldownSortParamFromReport(sorting, report?.columns),
       })
     },
-    [loadReport, pageSize, sorting, report?.columns],
+    [runRequest, pageSize, sorting, report?.columns],
   )
 
   const handleSortingChange = useCallback(
@@ -110,80 +167,123 @@ export function DrilldownTreePage() {
 
       if (!lastRequest) return
 
-      loadReport({
+      runRequest({
         ...lastRequest,
         sorting: drilldownSortParamFromReport(newSorting, report?.columns),
         paging: { start: 0, length: pageSize },
       })
     },
-    [lastRequest, loadReport, pageSize, report?.columns, setTableSorting],
+    [lastRequest, runRequest, pageSize, report?.columns, setTableSorting],
   )
 
   const handleExpandRow = useCallback(
     async (row: TreeRowData) => {
-      if (row._loaded || row._children?.length) return
-      if (!lastRequest || !row._groupIds?.length) return
-      const reqGroupings = lastRequest.groupings
-      if (!reqGroupings?.length) return
+      if (row.loaded || row.children?.length) return
+      if (!lastRequest) return
+      const plan = planGroupings
+      if (plan.length === 0) return
+      const nextDepth = row.depth + 1
+      if (nextDepth >= plan.length) return
+      const parentKey = row.groupIds?.[0]
+      if (!parentKey) return
 
-      const groupings = reqGroupings.slice(0, row.depth + 2)
-      const topLevelFilters = row._groupIds.map((gid, i) => ({
-        groupBy: reqGroupings[row.depth + i]?.groupBy ?? '',
-        whitelistFilters: [gid],
-        blacklistFilters: [] as string[],
-      }))
+      /**
+       * Request groupings up to (and including) the child level. Every ancestor grouping gets
+       * the row's recorded ancestor key, the row's own grouping gets `parentKey`, and the child
+       * level is unfiltered (so all its values are returned).
+       */
+      const levelKeys: (string | undefined)[] = [...row.ancestorKeys, parentKey]
+      const groupings: Grouping[] = plan.slice(0, nextDepth + 1).map((g, idx) => {
+        const levelKey = levelKeys[idx]
+        return {
+          groupBy: g.groupBy,
+          whitelistFilters: levelKey
+            ? [levelKey]
+            : [...(g.whitelistFilters ?? [])],
+          blacklistFilters: [...(g.blacklistFilters ?? [])],
+        }
+      })
 
-      const childReport = await api.post<Report>('/stats/reporting/drilldown/', {
+      const childReport = await api.post<Report>("/stats/reporting/drilldown/", {
         ...lastRequest,
         groupings,
-        topLevelFilters,
+        topLevelFilters: [],
         paging: { start: 0, length: 99999 },
       })
 
-      const childRows = reportToTreeRows(childReport, row.depth + 1)
+      const leafRows = leafRowsForLazyExpand(childReport, parentKey)
+      const childTreeRows = reportRowsToTreeRows(
+        leafRows,
+        childReport.columns.length,
+        nextDepth,
+        row.treePath,
+        [...row.ancestorKeys, parentKey],
+      )
 
       setTreeData((prev) => {
-        const clone = [...prev]
         const updateChildren = (rows: TreeRowData[]): TreeRowData[] =>
           rows.map((r) => {
-            if (r._id === row._id) {
-              return { ...r, _children: childRows, _loaded: true }
+            if (r.treePath === row.treePath) {
+              return { ...r, children: childTreeRows, loaded: true }
             }
-            if (r._children) {
-              return { ...r, _children: updateChildren(r._children) }
+            if (r.children?.length) {
+              return { ...r, children: updateChildren(r.children) }
             }
             return r
           })
-        return updateChildren(clone)
+        return updateChildren(prev)
+      })
+      /** Own the expand state alongside the tree so they commit together and no stale row flips it back. */
+      setExpanded((prev) => {
+        const base: Record<string, boolean> =
+          prev === true || !prev ? {} : { ...(prev as Record<string, boolean>) }
+        base[row._id] = true
+        return base
       })
     },
-    [lastRequest],
+    [lastRequest, planGroupings],
+  )
+
+  const canLazyExpandRow = useCallback(
+    (row: TreeRowData) => {
+      if (planGroupings.length === 0) return false
+      if (row.depth + 1 >= planGroupings.length) return false
+      if (row.loaded) return false
+      if (row.children?.length) return false
+      return Boolean(row.groupIds?.[0])
+    },
+    [planGroupings],
   )
 
   const columnDefs: ColumnDef<TreeRowData, unknown>[] = useMemo(() => {
     if (!report) return []
     const groupingCol: ColumnDef<TreeRowData, unknown> = {
-      id: 'name',
-      header: report.columns[0]?.name ?? 'Name',
-      accessorFn: (row: TreeRowData) => row.cells[0]?.formatted ?? '',
+      id: "name",
+      header: report.columns[0]?.name ?? "Name",
+      accessorFn: (row: TreeRowData) => row.cells[0]?.formatted ?? "",
       enableSorting: true,
       size: 300,
       meta: { flex: 1 },
-      cell: (info: { getValue: () => unknown }) => <span className="font-medium">{String(info.getValue())}</span>,
+      cell: (info: { getValue: () => unknown }) => (
+        <span className="font-medium">{String(info.getValue())}</span>
+      ),
     }
     return [groupingCol, ...buildColumnsFromReport<TreeRowData>(report.columns)]
   }, [report])
 
   const pinnedBottomRows = useMemo(() => {
     if (!report?.totals?.cells) return undefined
-    return [{
-      _id: "totals",
-      cells: report.totals.cells,
-      depth: 0,
-    }]
+    return [
+      {
+        _id: "totals",
+        treePath: "totals",
+        cells: report.totals.cells,
+        depth: 0,
+      },
+    ] as TreeRowData[]
   }, [report])
 
-  const getSubRows = useCallback((row: TreeRowData) => row._children, [])
+  const getSubRows = useCallback((row: TreeRowData) => row.children, [])
 
   return (
     <PageShell title="Drilldown Report (Tree)" fillHeight>
@@ -206,6 +306,7 @@ export function DrilldownTreePage() {
           treeMode
           getSubRows={getSubRows}
           onExpandRow={handleExpandRow}
+          canLazyExpandRow={canLazyExpandRow}
           expanded={expanded}
           onExpandedChange={setExpanded}
           pinnedBottomRows={pinnedBottomRows}

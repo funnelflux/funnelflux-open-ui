@@ -55,6 +55,11 @@ export interface DataTableProps<TData> {
   treeMode?: boolean
   getSubRows?: (row: TData) => TData[] | undefined
   onExpandRow?: (row: TData) => Promise<void>
+  /**
+   * TanStack would hide the expand control on rows that have no sub-rows yet. Return true to keep
+   * the chevron visible so `onExpandRow` can lazy load them.
+   */
+  canLazyExpandRow?: (row: TData) => boolean
   expanded?: ExpandedState
   onExpandedChange?: (expanded: ExpandedState) => void
 

@@ -84,6 +84,9 @@ export function ThingsPage() {
 
 ## DataTable rules
 
+### Tree mode & lazy loading
+See `open-ui-datatable-tree-lazy-loading.mdc` for the full set of rules whenever you use `treeMode` on `DataTable` (or build something like `DrilldownTreePage`). Key points: `paginateExpandedRows` must be `true` when `noPagination` is set, lazy rows need a `canLazyExpandRow` prop, and ancestor whitelists must be carried on each row.
+
 ### Column definitions MUST be memoized
 ```tsx
 // WRONG — new array every render, causes grid thrashing

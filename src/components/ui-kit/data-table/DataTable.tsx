@@ -49,6 +49,7 @@ function DataTableInner<TData>({
   treeMode,
   getSubRows,
   onExpandRow,
+  canLazyExpandRow,
   expanded: controlledExpanded,
   onExpandedChange,
   rowClassName,
@@ -156,8 +157,13 @@ function DataTableInner<TData>({
   const table = useReactTable({
     data,
     columns,
-    /** Paginate top-level rows only; expanded children stay with their parent page. */
-    paginateExpandedRows: treeMode ? false : true,
+    /**
+     * In tree mode with pagination, `false` keeps expanded children on the parent's page
+     * (flattening happens in `getPaginationRowModel`). With `noPagination`, there is no
+     * pagination row model, so we must leave this `true` for `getExpandedRowModel` to
+     * flatten parent+children into the visible rows.
+     */
+    paginateExpandedRows: treeMode && usePagination ? false : true,
     state: {
       sorting: effectiveSorting,
       rowSelection: selection,
@@ -179,6 +185,13 @@ function DataTableInner<TData>({
     getExpandedRowModel: treeMode ? getExpandedRowModel() : undefined,
     getFilteredRowModel: getFilteredRowModel(),
     getSubRows: getSubRows as never,
+    getRowCanExpand:
+      treeMode && onExpandRow
+        ? (row) => {
+            if ((row.subRows?.length ?? 0) > 0) return true
+            return canLazyExpandRow?.(row.original as TData) ?? false
+          }
+        : undefined,
     enableRowSelection: enableRowSelection as never,
     enableColumnResizing,
     columnResizeMode: 'onChange',
@@ -218,14 +231,19 @@ function DataTableInner<TData>({
 
   const handleToggleExpand = useCallback(
     async (row: Row<TData>) => {
-      if (onExpandRow && !row.getIsExpanded()) {
-        const id = row.id
-        setExpandingRowId(id)
+      const lazyLoad = Boolean(onExpandRow && !row.getIsExpanded())
+      if (lazyLoad) {
+        setExpandingRowId(row.id)
         try {
-          await onExpandRow(row.original)
+          await onExpandRow?.(row.original)
         } finally {
           setExpandingRowId(null)
         }
+        /** Parent may own `expanded` state and have already opened this row; only toggle if still closed. */
+        if (!row.getIsExpanded()) {
+          row.toggleExpanded(true)
+        }
+        return
       }
       row.toggleExpanded()
     },
@@ -287,7 +305,7 @@ function DataTableInner<TData>({
                 {isTreeTarget && (
                   <>
                     <span className="dt-indent" style={{ width: depth * 20 }} />
-                    {row.getCanExpand() ? (
+                    {row.getCanExpand() && (
                       <button
                         className={`dt-expand-toggle${row.getIsExpanded() ? ' dt-expand-toggle--expanded' : ''}`}
                         onClick={(e) => { e.stopPropagation(); handleToggleExpand(row) }}
@@ -299,8 +317,6 @@ function DataTableInner<TData>({
                           <ChevronRight size={14} />
                         )}
                       </button>
-                    ) : (
-                      <span style={{ width: 20 }} />
                     )}
                   </>
                 )}
