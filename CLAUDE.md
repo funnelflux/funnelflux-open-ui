@@ -61,6 +61,7 @@ pnpm lint     # ESLint
 
 | Working on... | Read these |
 |---------------|-----------|
+| Active gotchas & non-obvious rules | `docs/_ai_context/hot-memory.md` |
 | New entity page | `docs/REACT_UI_EXEC_PLAN.md`, `src/pages/campaigns/CampaignsPage.tsx` |
 | UI kit components | `src/components/ui-kit/index.ts`, `src/components/ui-kit/CLAUDE.md`, `src/styles/design-tokens.css` |
 | Data tables (`DataTable`) | `src/components/ui-kit/data-table/`, `src/components/ui-kit/CLAUDE.md` |
@@ -96,3 +97,22 @@ Before marking work as complete, verify:
 - [ ] `columns` arrays passed to `DataTable` are wrapped in `useMemo` with stable deps
 - [ ] Action handlers inside memoized `columns` use the `useRef` pattern, not direct mutation/toast refs
 - [ ] Controlled `sorting` / `rowSelection` / `pagination` / `columnVisibility` state is owned by the parent, not derived inline each render
+
+## Hot Memory Protocol
+
+`docs/_ai_context/hot-memory.md` is the runtime source of truth for non-obvious operational knowledge.
+
+Mandatory update triggers:
+- Root cause found for a bug/regression.
+- Agent made a wrong assumption and corrected it.
+- Tooling/infra trap caused avoidable failure or confusion.
+- Business-logic constraint was discovered that is not obvious from code/API names.
+
+Entry requirements:
+- Add date (`YYYY-MM-DD`), scope, status (`active`, `resolved`, or `superseded`), and concrete rule/gotcha.
+- Keep entries short and action-oriented; include file paths/commands when useful.
+- When resolving/superseding an entry, do not delete history silently. Mark status and link replacement.
+
+Consolidation:
+- Prune stale items, merge duplicates, and move old resolved entries to `docs/_ai_context/memory-archive.md`.
+- Keep hot memory lean: current truths and active risks only.
