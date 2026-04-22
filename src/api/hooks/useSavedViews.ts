@@ -11,16 +11,10 @@ export interface SavedView {
   groupingFilters?: Record<number, { whitelist: string[]; blacklist: string[] }>
 }
 
-interface RawSavedView {
-  idView?: string
+/** One level in `stats_grouping_views.settings` (PHP). Only a single whitelist id per level is stored. */
+interface LegacyViewSetting {
+  by: string
   id?: string
-  name?: string
-  groupings?: string[]
-  groupBys?: string[]
-  timezone?: string
-  timeZone?: string
-  dateRange?: { start: string; end: string } | null
-  groupingFilters?: Record<number, { whitelist?: string[]; blacklist?: string[] }>
 }
 
 interface SaveViewRequest {
@@ -32,23 +26,44 @@ interface SaveViewRequest {
   groupingFilters?: Record<number, { whitelist: string[]; blacklist: string[] }>
 }
 
-function normalizeSavedView(view: RawSavedView): SavedView {
-  const groupingFilters = Object.fromEntries(
-    Object.entries(view.groupingFilters ?? {}).map(([level, filters]) => [
-      Number(level),
-      {
-        whitelist: filters.whitelist ?? [],
-        blacklist: filters.blacklist ?? [],
-      },
-    ]),
-  ) as SavedView['groupingFilters']
+/** Row shape from `POST /ui/drilldowns/load/` when `elements` includes `availableViews`. */
+interface DrilldownViewRow {
+  id: string
+  name: string
+  groupings?: Array<{ groupBy: string; whitelistFilters?: string[] }>
+}
 
+interface DrilldownLoadResponse {
+  availableViews?: DrilldownViewRow[]
+}
+
+function buildLegacySettings(view: SaveViewRequest): LegacyViewSetting[] {
+  return view.groupings.map((by, level) => {
+    const whitelist = view.groupingFilters?.[level]?.whitelist ?? []
+    const first = whitelist.find((x) => x.trim() !== '')
+    if (first) {
+      return { by, id: first }
+    }
+    return { by }
+  })
+}
+
+function drilldownViewRowToSavedView(row: DrilldownViewRow): SavedView {
+  const levels = row.groupings ?? []
+  const groupingFilters: Record<number, { whitelist: string[]; blacklist: string[] }> = {}
+  levels.forEach((g, i) => {
+    groupingFilters[i] = {
+      whitelist: g.whitelistFilters ?? [],
+      blacklist: [],
+    }
+  })
   return {
-    idView: String(view.idView ?? view.id ?? ''),
-    name: view.name ?? 'Untitled view',
-    groupings: view.groupings ?? view.groupBys ?? [],
-    timezone: view.timezone ?? view.timeZone,
-    dateRange: view.dateRange ?? null,
+    idView: String(row.id),
+    name: row.name,
+    groupings: levels.map((g) => g.groupBy),
+    /** Backend `stats_grouping_views` stores groupings only; date/time are not persisted. */
+    dateRange: null,
+    timezone: undefined,
     groupingFilters,
   }
 }
@@ -57,9 +72,11 @@ export function useSavedViews() {
   return useQuery({
     queryKey: queryKeys.savedViews.list(),
     queryFn: async () => {
-      const response = await api.get<RawSavedView[] | { views?: RawSavedView[] }>('/data/reporting/views/list/')
-      const views = Array.isArray(response) ? response : response.views ?? []
-      return views.map(normalizeSavedView)
+      const data = await api.post<DrilldownLoadResponse>('/ui/drilldowns/load/', {
+        elements: ['availableViews'],
+      })
+      const views = data.availableViews ?? []
+      return views.map(drilldownViewRowToSavedView)
     },
   })
 }
@@ -68,8 +85,16 @@ export function useSaveView() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: (view: SaveViewRequest) =>
-      api.post<{ idView?: string }>('/data/reporting/views/save/', view),
+    mutationFn: async (view: SaveViewRequest) => {
+      const idView = view.idView?.trim() ? view.idView.trim() : undefined
+      const body = {
+        name: view.name.trim(),
+        ...(idView ? { idView } : {}),
+        settings: buildLegacySettings(view),
+        columns: [] as unknown[],
+      }
+      return api.post<{ idView?: string }>('/ui/drilldowns/view/save/', body)
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.savedViews.all })
     },
@@ -80,7 +105,8 @@ export function useDeleteView() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: (idView: string) => api.delete('/data/reporting/views/delete/', { idView }),
+    mutationFn: (idView: string) =>
+      api.delete('/ui/drilldowns/view/delete/', { idView }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.savedViews.all })
     },

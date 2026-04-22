@@ -12,19 +12,24 @@ description: >-
 
 # FunnelFlux V2 — sampled request/response wire shapes
 
+## When to use
+
+- Implementing or debugging hooks, report/drilldown pages, entity grids, lists, or traffic filters UI that call the sampled routes below.
+- Wire samples disagree with YAML: trust `definition.yaml` and generated types; fix the client.
+
 ## Relationship to OpenAPI
 
 - **Canonical contracts** live in `admin/api/v2/*/definition.yaml` (on disk as `../admin/api/v2/...` when this app sits in `funnelflux-open-ui/` beside `admin/`) and `src/types/generated/` (regenerate with `pnpm generate-types` from this package root).
 - This skill captures **observed JSON on the wire** from captured traffic (`structure.txt` in repo root). If YAML and a sample disagree, **trust YAML** and fix the client.
 
-## Auth and base URL
+## Instructions
+
+### Auth and base URL
 
 - Browser/dev: requests go to the Vite origin (e.g. `http://localhost:5173`) and path `/admin/api/v2/...` (proxied to PHP).
 - Session cookie **`PHPSESSID`** (and legacy admin session) authenticate the same as the PHP admin UI.
 
----
-
-## POST `/admin/api/v2/stats/reporting/drilldown/`
+### POST `/admin/api/v2/stats/reporting/drilldown/`
 
 **Headers:** `Content-Type: application/json`, session cookie.
 
@@ -93,9 +98,7 @@ description: >-
 - Prefer **`raw`** for sorting, aggregations, and export; use **`formatted`** for display.
 - First column is usually the grouping label; `raw` may still be an entity id string for offers/pages/etc.
 
----
-
-## GET `/admin/api/v2/data/page/list/?pageType=offer`
+### GET `/admin/api/v2/data/page/list/?pageType=offer`
 
 **Query:** `pageType` — e.g. `offer` (and other page types per API).
 
@@ -105,9 +108,7 @@ description: >-
 [{ "id": "<string>", "name": "<string>" }]
 ```
 
----
-
-## GET `/admin/api/v2/data/page/category/list/`
+### GET `/admin/api/v2/data/page/category/list/`
 
 **Response:** JSON **array**:
 
@@ -115,9 +116,7 @@ description: >-
 [{ "id": "<string>", "name": "<string>" }]
 ```
 
----
-
-## GET `/admin/api/v2/data/offersource/find/byStatus/?status=active`
+### GET `/admin/api/v2/data/offersource/find/byStatus/?status=active`
 
 **Query:** `status` — e.g. `active`.
 
@@ -132,9 +131,7 @@ description: >-
 
 OpenAPI may expose booleans or renamed fields — align types with generated wrappers.
 
----
-
-## GET `/admin/api/v2/data/trafficsource/list/`
+### GET `/admin/api/v2/data/trafficsource/list/`
 
 **Response:** JSON **array** (representative):
 
@@ -151,9 +148,7 @@ OpenAPI may expose booleans or renamed fields — align types with generated wra
 
 **Note:** `defaultCostPerEntrance` appears as a **string** on the wire in samples.
 
----
-
-## GET `/admin/api/v2/ui/trafficfilters/load/`
+### GET `/admin/api/v2/ui/trafficfilters/load/`
 
 **Response:** JSON **object** (not a top-level array). The table rows live in **`filters`**.
 
@@ -172,15 +167,13 @@ const { filters, availableCountries, treeGrid } = await api.get<TrafficFiltersDa
 
 OpenAPI `TrafficFiltersData.filters` is an **array** of `TrafficFilter`; older clients that typed the response as `TrafficFilter[]` will show an empty table because the payload is wrapped.
 
----
-
-## When editing related UI code
+### When editing related UI code
 
 1. Confirm shapes against **`funnelflux-v2-api-openapi`** skill and YAML.
 2. Use **`pnpm generate-types`** after YAML changes.
 3. For drilldown/report tables, keep **column index** and **`formatted`/`raw`** split consistent with the API.
 4. For list endpoints, expect a **top-level JSON array** (not `{ data: [...] }`) unless YAML says otherwise.
 
-## Optional full dumps
+### Optional full dumps
 
 Verbose curl/response captures: `structure.txt` at repository root (not for hand-editing types).

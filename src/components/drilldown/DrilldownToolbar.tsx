@@ -1,7 +1,16 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useMemo, useId, type FormEvent } from "react"
 import { Download, Loader2, Play, Save, Trash2 } from "lucide-react"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
-import { Button, Select, TimezoneSelect, useToastApi } from "@/components/ui-kit"
+import {
+  Button,
+  FormField,
+  Modal,
+  Select,
+  Space,
+  TimezoneSelect,
+  Input,
+  useToastApi,
+} from "@/components/ui-kit"
 import { GroupingsCascade } from "@/components/drilldown/GroupingsCascade"
 import { useDrilldownStore } from "@/store/drilldown"
 import {
@@ -24,25 +33,19 @@ interface DrilldownToolbarProps {
 function useDatePickerState(timezone: string) {
   const { dateRange, setDateRange } = useDrilldownStore()
 
-  const defaultRange = getPresetRange("today", timezone)
-  const initialValue: DateRange & { preset: string | null } = dateRange
-    ? { from: new Date(dateRange.start), to: new Date(dateRange.end), preset: null }
-    : { ...defaultRange, preset: "today" }
-
-  const [value, setValue] = useState(initialValue)
-
-  // Sync store → local state when saved views update the store
-  const storeStart = dateRange?.start
-  const storeEnd = dateRange?.end
-  useEffect(() => {
-    if (storeStart && storeEnd) {
-      setValue({ from: new Date(storeStart), to: new Date(storeEnd), preset: null })
+  const value = useMemo((): DateRange & { preset: string | null } => {
+    if (dateRange?.start && dateRange?.end) {
+      return {
+        from: new Date(dateRange.start),
+        to: new Date(dateRange.end),
+        preset: null,
+      }
     }
-  }, [storeStart, storeEnd])
+    return { ...getPresetRange("today", timezone), preset: "today" }
+  }, [dateRange, timezone])
 
   const handleChange = useCallback(
     (range: DateRange & { preset: string | null }) => {
-      setValue(range)
       setDateRange({
         start: range.from.toISOString(),
         end: range.to.toISOString(),
@@ -80,6 +83,9 @@ export function DrilldownToolbar({
   const [datePickerValue, setDatePickerValue] = useDatePickerState(timezone)
   const [selectedViewId, setSelectedViewId] = useState("")
   const [isExporting, setIsExporting] = useState(false)
+  const [saveModalOpen, setSaveModalOpen] = useState(false)
+  const [saveViewName, setSaveViewName] = useState("")
+  const saveViewFormId = useId()
 
   const buildRequest = useCallback((): DrilldownRequest => {
     return {
@@ -154,28 +160,48 @@ export function DrilldownToolbar({
     [savedViews, setDateRange, setGroupingFilters, setGroupings, setTimezone],
   )
 
-  const handleSaveView = useCallback(async () => {
-    const existingName = savedViews?.find((view) => view.idView === selectedViewId)?.name ?? ""
-    const name = window.prompt("Save current report as", existingName)
-    if (!name?.trim()) {
-      return
-    }
+  const openSaveViewModal = useCallback(() => {
+    const existingName =
+      savedViews?.find((view) => view.idView === selectedViewId)?.name ?? ""
+    setSaveViewName(existingName)
+    setSaveModalOpen(true)
+  }, [savedViews, selectedViewId])
 
-    try {
-      await saveView.mutateAsync({
-        idView: selectedViewId || undefined,
-        name: name.trim(),
-        groupings,
-        timezone,
-        dateRange,
-        groupingFilters,
-      })
-      toast.success("View saved")
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save view"
-      toast.error(message)
-    }
-  }, [dateRange, groupingFilters, groupings, saveView, savedViews, selectedViewId, timezone, toast])
+  const handleSaveViewSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault()
+      const name = saveViewName.trim()
+      if (!name) {
+        return
+      }
+
+      try {
+        await saveView.mutateAsync({
+          idView: selectedViewId || undefined,
+          name,
+          groupings,
+          timezone,
+          dateRange,
+          groupingFilters,
+        })
+        toast.success("View saved")
+        setSaveModalOpen(false)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to save view"
+        toast.error(message)
+      }
+    },
+    [
+      dateRange,
+      groupingFilters,
+      groupings,
+      saveView,
+      saveViewName,
+      selectedViewId,
+      timezone,
+      toast,
+    ],
+  )
 
   const handleDeleteView = useCallback(async () => {
     if (!selectedViewId) {
@@ -214,9 +240,15 @@ export function DrilldownToolbar({
         <TimezoneSelect value={timezone} onChange={setTimezone} />
         <Button
           htmlType="button"
-          onClick={() => void handleSaveView()}
+          onClick={openSaveViewModal}
           disabled={saveView.isPending}
-          icon={saveView.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          icon={
+            saveView.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )
+          }
         >
           Save
         </Button>
@@ -245,6 +277,45 @@ export function DrilldownToolbar({
           Export CSV
         </Button>
       </div>
+      <Modal
+        title="Save report view"
+        open={saveModalOpen}
+        onCancel={() => setSaveModalOpen(false)}
+        destroyOnHidden
+        width={440}
+        footer={
+          <Space>
+            <Button htmlType="button" onClick={() => setSaveModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              form={saveViewFormId}
+              loading={saveView.isPending}
+            >
+              Save
+            </Button>
+          </Space>
+        }
+      >
+        <form id={saveViewFormId} className="space-y-4" onSubmit={(e) => void handleSaveViewSubmit(e)}>
+          <p className="text-sm text-muted-foreground">
+            Name this grouping, date range, and filters so you can load it again from Saved views.
+          </p>
+          <FormField label="View name" htmlFor={`${saveViewFormId}-name`} required>
+            <Input
+              id={`${saveViewFormId}-name`}
+              value={saveViewName}
+              onChange={(ev) => setSaveViewName(ev.target.value)}
+              placeholder="e.g. Weekly offer breakdown"
+              autoFocus
+              allowClear
+            />
+          </FormField>
+        </form>
+      </Modal>
+
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-muted-foreground shrink-0">
           Group by:

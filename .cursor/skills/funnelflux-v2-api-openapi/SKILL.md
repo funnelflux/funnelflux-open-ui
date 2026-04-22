@@ -2,22 +2,26 @@
 name: funnelflux-v2-api-openapi
 description: >-
   Requires reading the V2 OpenAPI definition.yaml specs before implementing API-related work. Use for funnelflux-open-ui (React /v2-ui), admin/api/v2 PHP endpoints, or any client of /admin/api/v2/. Trigger when the user works in funnelflux-open-ui, implements UI features, API hooks, src/api/, or mentions V2 API, definition.yaml, OpenAPI, or Swagger.
+compatibility: >-
+  Large Swagger 2.0 YAML files; use targeted search/read, not full-file load in one shot.
 ---
 
 # FunnelFlux V2 API — OpenAPI-first context
 
-## Paths on disk
-
-- **Workspace = self-hosted monorepo root:** OpenAPI files are `admin/api/v2/...`.
-- **Workspace = `funnelflux-open-ui/` package:** use `../admin/api/v2/...` (this Cursor config lives under that package).
-
-## When this applies
+## When to use
 
 - **`funnelflux-open-ui/`** — New admin UI (React + Vite). Any feature that calls the backend: hooks, `src/api/client.ts`, types, pages, or components that fetch `/admin/api/v2/`.
 - **`admin/api/v2/`** — PHP endpoints, tests, or OpenAPI docs.
 - **Other consumers** of `/admin/api/v2/` (scripts, integrations).
 
-## funnelflux-open-ui (primary for UI work)
+## Paths on disk
+
+- **Workspace = self-hosted monorepo root:** OpenAPI files are `admin/api/v2/...`.
+- **Workspace = `funnelflux-open-ui/` package:** use `../admin/api/v2/...` (this skill lives under that package).
+
+## Instructions
+
+### funnelflux-open-ui (primary for UI work)
 
 1. **Canonical contract** for request/response shapes lives in the **self-hosted repo root**, not only in the submodule’s `docs/api-specs/` copies:
    - **`admin/api/v2/ui/definition.yaml`** — start here for most UI features (BFF / aggregated endpoints).
@@ -29,7 +33,7 @@ description: >-
 
 3. **Server-side changes** (PHP) are documented in `admin/api/v2/CLAUDE.md` (Toolbox, auth, errors). OpenAPI-first: keep YAML and behavior in sync.
 
-## Before writing or changing code (all targets)
+### Before writing or changing code (all targets)
 
 1. **Pick the API layer** (paths use `basePath: /admin/api/v2`):
    - **Data** — CRUD and entity operations → `admin/api/v2/data/definition.yaml`
@@ -43,7 +47,7 @@ description: >-
 
 4. **PHP endpoints only** — after aligning with the YAML contract, follow `admin/api/v2/CLAUDE.md`.
 
-## Quick map
+### Quick map
 
 | File | Role |
 |------|------|
@@ -52,7 +56,7 @@ description: >-
 | `admin/api/v2/ui/definition.yaml` | UI API — aggregated endpoints for admin UI |
 | `admin/api/v2/system/definition.yaml` | System API — domains, version, system links |
 
-## Checklist
+### Checklist
 
 - [ ] Identified correct `definition.yaml`(s) for the feature
 - [ ] Read the paths, parameters, responses, and `#/definitions` relevant to the change
