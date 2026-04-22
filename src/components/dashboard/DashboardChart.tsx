@@ -31,6 +31,9 @@ interface DashboardChartProps {
   metric: string
   onMetricChange: (metric: string) => void
   isLoading: boolean
+  /** Plot area height in px (default 260). */
+  chartHeight?: number
+  className?: string
 }
 
 const METRICS = [
@@ -69,6 +72,8 @@ export function DashboardChart({
   metric,
   onMetricChange,
   isLoading,
+  chartHeight = 260,
+  className,
 }: DashboardChartProps) {
   const mode = useThemeStore((s) => s.mode)
   const tooltipStyle = CHART_TOOLTIP_STYLE[mode]
@@ -77,6 +82,7 @@ export function DashboardChart({
 
   return (
     <Card
+      className={className}
       title={
         <div className="flex flex-wrap items-center gap-1">
           {METRICS.map(({ key, label }) => (
@@ -95,15 +101,18 @@ export function DashboardChart({
       styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}
     >
         {isLoading ? (
-          <Skeleton.Node active style={{ width: '100%', height: 300 }}>
-            <div style={{ width: '100%', height: 300 }} />
+          <Skeleton.Node active style={{ width: '100%', height: chartHeight }}>
+            <div style={{ width: '100%', height: chartHeight }} />
           </Skeleton.Node>
         ) : data.length === 0 ? (
-          <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">
+          <div
+            className="flex items-center justify-center text-sm text-muted-foreground"
+            style={{ height: chartHeight }}
+          >
             No data for the selected period.
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={chartHeight}>
             <LineChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
               <CartesianGrid {...gridStyle} />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} {...axisStyle} />

@@ -4,8 +4,8 @@ import { getStoredTimezone, storeTimezonePreference } from './timezoneStorage'
 import type { ControlSize } from '@/lib/controlSize'
 
 const UTC_OFFSETS: { value: string; offset: number; label: string; city?: string }[] = [
-  { value: 'Etc/GMT+12', offset: -12, label: 'UTC-12' },
-  { value: 'Etc/GMT+11', offset: -11, label: 'UTC-11' },
+  { value: 'Etc/GMT+12', offset: -12, label: 'UTC-12', city: 'Baker Island (US)' },
+  { value: 'Etc/GMT+11', offset: -11, label: 'UTC-11', city: 'American Samoa' },
   { value: 'Etc/GMT+10', offset: -10, label: 'UTC-10', city: 'Honolulu' },
   { value: 'Etc/GMT+9', offset: -9, label: 'UTC-9', city: 'Anchorage' },
   { value: 'Etc/GMT+8', offset: -8, label: 'UTC-8', city: 'Los Angeles' },
@@ -14,9 +14,9 @@ const UTC_OFFSETS: { value: string; offset: number; label: string; city?: string
   { value: 'Etc/GMT+5', offset: -5, label: 'UTC-5', city: 'New York' },
   { value: 'Etc/GMT+4', offset: -4, label: 'UTC-4', city: 'Santiago' },
   { value: 'Etc/GMT+3', offset: -3, label: 'UTC-3', city: 'São Paulo' },
-  { value: 'Etc/GMT+2', offset: -2, label: 'UTC-2' },
-  { value: 'Etc/GMT+1', offset: -1, label: 'UTC-1' },
-  { value: 'UTC', offset: 0, label: 'UTC', city: 'London' },
+  { value: 'Etc/GMT+2', offset: -2, label: 'UTC-2', city: 'South Georgia' },
+  { value: 'Etc/GMT+1', offset: -1, label: 'UTC-1', city: 'Azores (Portugal)' },
+  { value: 'UTC', offset: 0, label: 'UTC+0', city: 'London' },
   { value: 'Etc/GMT-1', offset: 1, label: 'UTC+1', city: 'Berlin' },
   { value: 'Etc/GMT-2', offset: 2, label: 'UTC+2', city: 'Athens' },
   { value: 'Etc/GMT-3', offset: 3, label: 'UTC+3', city: 'Moscow' },
@@ -28,10 +28,10 @@ const UTC_OFFSETS: { value: string; offset: number; label: string; city?: string
   { value: 'Etc/GMT-8', offset: 8, label: 'UTC+8', city: 'Singapore' },
   { value: 'Etc/GMT-9', offset: 9, label: 'UTC+9', city: 'Tokyo' },
   { value: 'Etc/GMT-10', offset: 10, label: 'UTC+10', city: 'Sydney' },
-  { value: 'Etc/GMT-11', offset: 11, label: 'UTC+11' },
+  { value: 'Etc/GMT-11', offset: 11, label: 'UTC+11', city: 'Solomon Islands' },
   { value: 'Etc/GMT-12', offset: 12, label: 'UTC+12', city: 'Auckland' },
-  { value: 'Etc/GMT-13', offset: 13, label: 'UTC+13' },
-  { value: 'Etc/GMT-14', offset: 14, label: 'UTC+14' },
+  { value: 'Etc/GMT-13', offset: 13, label: 'UTC+13', city: 'Samoa' },
+  { value: 'Etc/GMT-14', offset: 14, label: 'UTC+14', city: 'Kiribati (Line Islands)' },
 ]
 
 const TZ_OPTIONS: SelectOption[] = UTC_OFFSETS.map((tz) => ({

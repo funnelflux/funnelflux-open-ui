@@ -73,7 +73,7 @@ export function DateRangePicker({
       // Explicit height: removed !py-0 which collapsed the picker below Select/Button; matches CONTROL_SIZE_HEIGHT_PX
       style={{ height: heightPx, minHeight: heightPx }}
       className={cn(
-        'ff-date-range-picker box-border !rounded-md !border-input !bg-background !px-2.5 !text-sm !shadow-sm',
+        'ff-date-range-picker box-border !rounded-md !border-input !bg-background !px-2.5 !text-sm !shadow-[0_1px_2px_rgba(15,23,42,0.04)]',
         '[&_.ant-picker-input>input]:text-foreground [&_.ant-picker-input>input]:placeholder:text-muted-foreground',
         '[&_.ant-picker-separator]:text-muted-foreground [&_.ant-picker-suffix]:text-muted-foreground',
         '[&_.ant-picker-active-bar]:bg-primary',

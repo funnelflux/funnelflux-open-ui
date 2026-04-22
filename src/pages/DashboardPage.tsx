@@ -1,31 +1,36 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { subDays } from 'date-fns'
-import { RefreshCw } from 'lucide-react'
-import type { ColumnDef } from '@tanstack/react-table'
-import { api } from '@/api/client'
-import { useDashboardStore } from '@/store/dashboard'
-import { StatsCards } from '@/components/dashboard/StatsCards'
-import { DashboardChart } from '@/components/dashboard/DashboardChart'
-import { PageShell, DataTable, TimezoneSelect } from '@/components/ui-kit'
-import { cellRaw, entityRowId } from '@/components/ui-kit/data-table'
-import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { Card, Tag } from '@/components/ui-kit'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui-kit'
-import { toApiDateTimeRange } from '@/types/stats'
-import type { Report } from '@/types/stats'
-import type { LiveStats } from '@/types/ui'
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
+import { subDays } from "date-fns"
+import { RefreshCw, Timer } from "lucide-react"
+import { api } from "@/api/client"
+import { useDashboardStore } from "@/store/dashboard"
+import { StatsCards, type DashboardSummaryStats } from "@/components/dashboard/StatsCards"
+import { DashboardChart } from "@/components/dashboard/DashboardChart"
+import { DashboardTopTable } from "@/components/dashboard/DashboardTopTable"
+import { PageShell, TimezoneSelect } from "@/components/ui-kit"
+import { DateRangePicker } from "@/components/shared/DateRangePicker"
+import { Tag } from "@/components/ui-kit"
+import { Button } from "@/components/ui-kit"
+import { toApiDateTimeRange } from "@/types/stats"
+import type { Report } from "@/types/stats"
+import { cellRaw } from "@/components/ui-kit/data-table"
 
-const ZERO_STATS: LiveStats = { visits: 0, clicks: 0, conversions: 0, revenue: 0, cost: 0, net: 0, roi: 'N/A' }
-
-/** Card body: table header (~32px) + 5 data rows (36px) + borders + card chrome — avoids layout jump while loading */
-const WIDGET_CARD_MIN_HEIGHT_PX = 300
+const ZERO_STATS: DashboardSummaryStats = {
+  visits: 0,
+  clicks: 0,
+  landerViews: 0,
+  offerViews: 0,
+  conversions: 0,
+  revenue: 0,
+  cost: 0,
+  net: 0,
+  roi: "N/A",
+}
 
 const WIDGETS = [
-  { id: 'dashboard-widget-top-funnels', title: 'Top Funnels', groupBy: 'Element: Funnel', quickviewType: 'Element: Funnel' },
-  { id: 'dashboard-widget-top-traffic-sources', title: 'Top Traffic Sources', groupBy: 'Third Parties: Traffic Source', quickviewType: 'Third Parties: Traffic Source' },
-  { id: 'dashboard-widget-top-landers', title: 'Top Landers', groupBy: 'Element: Lander', quickviewType: 'Element: Lander' },
-  { id: 'dashboard-widget-top-offers', title: 'Top Offers', groupBy: 'Element: Offer', quickviewType: 'Element: Offer' },
+  { id: "dashboard-widget-top-funnels", title: "Top Funnels", groupBy: "Element: Funnel" },
+  { id: "dashboard-widget-top-traffic-sources", title: "Top Traffic Sources", groupBy: "Third Parties: Traffic Source" },
+  { id: "dashboard-widget-top-landers", title: "Top Landers", groupBy: "Element: Lander" },
+  { id: "dashboard-widget-top-offers", title: "Top Offers", groupBy: "Element: Offer" },
 ] as const
 
 interface ChartPoint {
@@ -38,43 +43,41 @@ interface ChartPoint {
   roi: number
 }
 
-interface WidgetRow {
-  id: string
-  name: string
-  visits: number
-  visitsFormatted: string
-}
-
-interface WidgetState {
-  title: string
-  quickviewType: string
-  rows: WidgetRow[]
-  isLoading: boolean
-}
-
 function buildColMap(report: Report): Map<string, number> {
   const map = new Map<string, number>()
-  report.columns?.forEach((column, index) => map.set(column.name?.toLowerCase() ?? '', index))
+  report.columns?.forEach((column, index) => map.set(column.name?.toLowerCase() ?? "", index))
   return map
 }
 
-function extractStats(report: Report): LiveStats {
+function extractStats(report: Report): DashboardSummaryStats {
   const cells = report.totals?.cells
   if (!cells || cells.length === 0) return ZERO_STATS
 
   const map = buildColMap(report)
   const get = (name: string) => cellRaw(cells[map.get(name) ?? -1])
 
-  const visits = get('entrances')
-  const landerClicks = get('lander clicks')
-  const offerClicks = get('offer clicks')
-  const conversions = get('conversions')
-  const revenue = get('revenue')
-  const cost = get('cost')
-  const roiCell = cells[map.get('roi') ?? -1]
-  const roi = roiCell?.formatted ?? 'N/A'
+  const visits = get("entrances")
+  const landerViews = get("lander views")
+  const offerViews = get("offer views")
+  const landerClicks = get("lander clicks")
+  const offerClicks = get("offer clicks")
+  const conversions = get("conversions")
+  const revenue = get("revenue")
+  const cost = get("cost")
+  const roiCell = cells[map.get("roi") ?? -1]
+  const roi = roiCell?.formatted ?? "N/A"
 
-  return { visits, clicks: landerClicks + offerClicks, conversions, revenue, cost, net: revenue - cost, roi }
+  return {
+    visits,
+    landerViews,
+    offerViews,
+    clicks: landerClicks + offerClicks,
+    conversions,
+    revenue,
+    cost,
+    net: revenue - cost,
+    roi,
+  }
 }
 
 function extractChartData(report: Report): ChartPoint[] {
@@ -86,95 +89,21 @@ function extractChartData(report: Report): ChartPoint[] {
     const get = (name: string) => cellRaw(cells[map.get(name) ?? -1])
 
     return {
-      date: cells[0]?.formatted ?? '',
-      visits: get('entrances'),
-      clicks: get('lander clicks') + get('offer clicks'),
-      conversions: get('conversions'),
-      revenue: get('revenue'),
-      cost: get('cost'),
-      roi: get('roi'),
+      date: cells[0]?.formatted ?? "",
+      visits: get("entrances"),
+      clicks: get("lander clicks") + get("offer clicks"),
+      conversions: get("conversions"),
+      revenue: get("revenue"),
+      cost: get("cost"),
+      roi: get("roi"),
     }
   })
 }
 
-function extractWidgetRows(report: Report): WidgetRow[] {
-  const map = buildColMap(report)
-  const visitsIndex = map.get('entrances') ?? 1
-
-  return (report.rows ?? []).map((row, index) => {
-    const cells = row.cells ?? []
-    return {
-      id: String(cells[0]?.raw ?? index),
-      name: cells[0]?.formatted ?? '',
-      visits: cellRaw(cells[visitsIndex]),
-      visitsFormatted: cells[visitsIndex]?.formatted ?? '0',
-    }
-  })
-}
-
-function statsChanged(previous: LiveStats | undefined, next: LiveStats): boolean {
+function statsChanged(previous: DashboardSummaryStats | undefined, next: DashboardSummaryStats): boolean {
   if (!previous) return false
-  return Object.keys(next).some((key) => previous[key as keyof LiveStats] !== next[key as keyof LiveStats])
-}
-
-const widgetColumnDefs: ColumnDef<WidgetRow, unknown>[] = [
-  {
-    id: 'name',
-    header: 'Name',
-    accessorKey: 'name',
-    size: 250,
-    meta: { flex: 1 },
-    cell: (info) => <span className="font-medium">{String(info.getValue())}</span>,
-  },
-  {
-    id: 'visits',
-    header: 'Visits',
-    accessorKey: 'visitsFormatted',
-    size: 100,
-    meta: { numeric: true },
-  },
-]
-
-function WidgetTable({
-  tableConfigKey,
-  title,
-  rows,
-  isLoading,
-  pulse,
-}: {
-  tableConfigKey: string
-  title: string
-  rows: WidgetRow[]
-  isLoading: boolean
-  pulse: boolean
-}) {
-  return (
-    <Card
-      className={cn('flex min-h-0 w-full min-w-0 flex-col', pulse && 'animate-pulse')}
-      style={{ minHeight: WIDGET_CARD_MIN_HEIGHT_PX }}
-      title={<span className="text-sm font-medium">{title}</span>}
-      styles={{
-        header: { padding: '16px 16px 8px', flexShrink: 0 },
-        body: {
-          padding: '0 16px 16px',
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-        },
-      }}
-    >
-      <DataTable
-        className="min-h-0 flex-1"
-        height="100%"
-        data={rows}
-        columns={widgetColumnDefs}
-        loading={isLoading}
-        getRowId={entityRowId}
-        noPagination
-        tableConfigKey={tableConfigKey}
-      />
-    </Card>
+  return (Object.keys(next) as (keyof DashboardSummaryStats)[]).some(
+    (key) => previous[key] !== next[key],
   )
 }
 
@@ -187,22 +116,14 @@ export function DashboardPage() {
   }))
   const [isAutoRefresh, setIsAutoRefresh] = useState(true)
   const [pulseStats, setPulseStats] = useState(false)
-  const [pulseWidgets, setPulseWidgets] = useState(false)
+  const [dataVersion, setDataVersion] = useState(0)
 
-  const [stats, setStats] = useState<LiveStats | undefined>(undefined)
+  const [stats, setStats] = useState<DashboardSummaryStats | undefined>(undefined)
   const [chartPoints, setChartPoints] = useState<ChartPoint[]>([])
   const [statsLoaded, setStatsLoaded] = useState(false)
   const [chartLoaded, setChartLoaded] = useState(false)
-  const [widgets, setWidgets] = useState<WidgetState[]>(
-    WIDGETS.map((widget) => ({
-      title: widget.title,
-      quickviewType: widget.quickviewType,
-      rows: [],
-      isLoading: true,
-    })),
-  )
 
-  const previousStatsRef = useRef<LiveStats | undefined>(undefined)
+  const previousStatsRef = useRef<DashboardSummaryStats | undefined>(undefined)
   const pulseTimerRef = useRef<number | undefined>(undefined)
   const dateRangeRef = useRef(dateRange)
   const tzRef = useRef(tz)
@@ -214,17 +135,17 @@ export function DashboardPage() {
     [dateRange.from, dateRange.to, tz],
   )
 
-  const triggerPulse = useCallback((type: 'stats' | 'widgets') => {
+  const timeRange = useMemo(
+    () => toApiDateTimeRange(dateRange.from, dateRange.to),
+    [dateRange.from, dateRange.to],
+  )
+
+  const triggerPulse = useCallback(() => {
     if (pulseTimerRef.current) {
       window.clearTimeout(pulseTimerRef.current)
     }
-    if (type === 'stats') {
-      setPulseStats(true)
-      pulseTimerRef.current = window.setTimeout(() => setPulseStats(false), 900)
-    } else {
-      setPulseWidgets(true)
-      pulseTimerRef.current = window.setTimeout(() => setPulseWidgets(false), 900)
-    }
+    setPulseStats(true)
+    pulseTimerRef.current = window.setTimeout(() => setPulseStats(false), 900)
   }, [])
 
   useEffect(() => {
@@ -235,28 +156,29 @@ export function DashboardPage() {
     }
   }, [])
 
-  /** Stable identity: reads latest range/tz from refs so effects/intervals don’t re-run when unrelated state updates. */
-  const loadData = useCallback(() => {
+  useEffect(() => {
     const { from, to } = dateRangeRef.current
-    const timeRange = toApiDateTimeRange(from, to)
+    const tr = toApiDateTimeRange(from, to)
     const timeZone = { name: tzRef.current }
 
     setStatsLoaded(false)
     setChartLoaded(false)
-    setWidgets((current) => current.map((widget) => ({ ...widget, isLoading: true })))
+
+    let cancelled = false
 
     api
-      .post<Report>('/stats/reporting/drilldown/', {
-        timeRange,
+      .post<Report>("/stats/reporting/drilldown/", {
+        timeRange: tr,
         timeZone,
-        groupings: [{ groupBy: 'Time: Date', whitelistFilters: [], blacklistFilters: [] }],
+        groupings: [{ groupBy: "Time: Date", whitelistFilters: [], blacklistFilters: [] }],
         paging: { start: 0, length: 9999 },
-        options: { viewType: 'flat' },
+        options: { viewType: "flat" },
       })
       .then((report) => {
+        if (cancelled) return
         const nextStats = extractStats(report)
         if (statsChanged(previousStatsRef.current, nextStats)) {
-          triggerPulse('stats')
+          triggerPulse()
         }
         previousStatsRef.current = nextStats
         setStats(nextStats)
@@ -265,78 +187,52 @@ export function DashboardPage() {
         setChartLoaded(true)
       })
       .catch(() => {
+        if (cancelled) return
         setStats(ZERO_STATS)
         setStatsLoaded(true)
         setChartPoints([])
         setChartLoaded(true)
       })
 
-    Promise.all(
-      WIDGETS.map(async (widget) => {
-        const report = await api.post<Report>('/stats/reporting/drilldown/', {
-          timeRange,
-          timeZone,
-          groupings: [{ groupBy: widget.groupBy, whitelistFilters: [], blacklistFilters: [] }],
-          paging: { start: 0, length: 5 },
-          sorting: { column: 1, direction: 'desc' },
-          options: { viewType: 'flat' },
-        })
-
-        return {
-          title: widget.title,
-          quickviewType: widget.quickviewType,
-          rows: extractWidgetRows(report),
-          isLoading: false,
-        }
-      }),
-    )
-      .then((nextWidgets) => {
-        setWidgets(nextWidgets)
-        triggerPulse('widgets')
-      })
-      .catch(() => {
-        setWidgets(
-          WIDGETS.map((widget) => ({
-            title: widget.title,
-            quickviewType: widget.quickviewType,
-            rows: [],
-            isLoading: false,
-          })),
-        )
-      })
-  }, [triggerPulse])
-
-  useEffect(() => {
-    loadData()
-  }, [reloadKey, loadData])
+    return () => {
+      cancelled = true
+    }
+  }, [reloadKey, dataVersion, triggerPulse])
 
   useEffect(() => {
     if (!isAutoRefresh) return
 
     const intervalId = window.setInterval(() => {
-      loadData()
+      setDataVersion((v) => v + 1)
     }, 30_000)
 
     return () => window.clearInterval(intervalId)
-  }, [isAutoRefresh, loadData])
+  }, [isAutoRefresh])
+
+  const bumpRefresh = useCallback(() => {
+    setDataVersion((v) => v + 1)
+  }, [])
 
   return (
     <PageShell
       title="Dashboard"
-      subtitle={isAutoRefresh ? undefined : undefined}
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isAutoRefresh && <Tag>Live</Tag>}
           <Button
             htmlType="button"
-            type={isAutoRefresh ? 'primary' : 'default'}
+            type={isAutoRefresh ? "primary" : "default"}
             onClick={() => setIsAutoRefresh((current) => !current)}
           >
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isAutoRefresh ? 'animate-spin' : ''}`} />
+            <Timer className={`mr-1.5 h-3.5 w-3.5 ${isAutoRefresh ? "animate-pulse" : ""}`} />
             Auto-refresh
           </Button>
+          <Button htmlType="button" type="default" onClick={bumpRefresh}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            Refresh
+          </Button>
           <DateRangePicker
-            value={{ from: dateRange.from, to: dateRange.to, preset: 'last30' }}
+            value={{ from: dateRange.from, to: dateRange.to, preset: "last30" }}
             timezone={tz}
             onChange={(value) => {
               if (value.from && value.to) {
@@ -348,26 +244,30 @@ export function DashboardPage() {
         </div>
       }
     >
-      <div className={pulseStats ? 'animate-pulse' : undefined}>
-        <StatsCards stats={stats} isLoading={!statsLoaded} />
-      </div>
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch lg:gap-4">
+        <DashboardChart
+          className="min-h-0 min-w-0 shadow-sm"
+          data={chartPoints}
+          metric={chartMetric}
+          onMetricChange={setChartMetric}
+          isLoading={!chartLoaded}
+          chartHeight={260}
+        />
+        <div className={pulseStats ? "min-h-0 animate-pulse" : "min-h-0"}>
+          <StatsCards stats={stats} isLoading={!statsLoaded} layout="dashboard" className="h-full min-h-[280px]" />
+        </div>
+      </section>
 
-      <DashboardChart
-        data={chartPoints}
-        metric={chartMetric}
-        onMetricChange={setChartMetric}
-        isLoading={!chartLoaded}
-      />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
-        {widgets.map((widget, index) => (
-          <WidgetTable
-            key={WIDGETS[index].id}
-            tableConfigKey={WIDGETS[index].id}
+      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {WIDGETS.map((widget) => (
+          <DashboardTopTable
+            key={widget.id}
             title={widget.title}
-            rows={widget.rows}
-            isLoading={widget.isLoading}
-            pulse={pulseWidgets}
+            groupBy={widget.groupBy}
+            tableConfigKey={widget.id}
+            timeRange={timeRange}
+            timezone={tz}
+            dataVersion={dataVersion}
           />
         ))}
       </div>

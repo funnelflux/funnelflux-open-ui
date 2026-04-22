@@ -9,6 +9,8 @@ interface StatCardProps {
   suffix?: string
   trend?: { value: number; label?: string }
   className?: string
+  /** Smaller padding and value size (e.g. dashboard summary grid). */
+  compact?: boolean
 }
 
 export function StatCard({
@@ -18,13 +20,27 @@ export function StatCard({
   suffix,
   trend,
   className,
+  compact = false,
 }: StatCardProps) {
   return (
-    <Card className={cn('', className)} styles={{ body: { padding: 20 } }}>
-      <p className="text-sm font-medium text-muted-foreground">{title}</p>
-      <div className="flex items-baseline gap-2 mt-1">
+    <Card
+      className={cn('h-full min-h-0', className)}
+      styles={{ body: { padding: compact ? 12 : 20 } }}
+    >
+      <p className={cn('font-medium text-muted-foreground', compact ? 'text-xs' : 'text-sm')}>
+        {title}
+      </p>
+      <div className="mt-1 flex items-baseline gap-2">
         {prefix && <span className="text-muted-foreground">{prefix}</span>}
-        <span className="text-2xl font-semibold text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+        <span
+          className={cn(
+            'font-semibold text-foreground',
+            compact ? 'text-lg' : 'text-2xl',
+          )}
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {value}
+        </span>
         {suffix && (
           <span className="text-sm text-muted-foreground">{suffix}</span>
         )}
