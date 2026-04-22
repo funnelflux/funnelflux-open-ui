@@ -91,3 +91,62 @@ html.dark .ant-message {
 html.dark .ant-message .ant-message-notice-content {
   background-color: var(--ff-gray-800);
 }
+
+/* Dropdown menus: router links match menu item text (not default blue anchors). */
+.ant-dropdown-menu-item .ant-dropdown-menu-title-content a {
+  color: inherit;
+}
+
+/*
+ * App navbar: Ant Design injects `.ant-app a { color: token.colorLink }`, which beats
+ * single Tailwind utilities and tints some router links blue. Buttons also inherit
+ * `text-white` from the bar. Scope neutral chrome here so links + dropdown triggers match.
+ */
+.ant-app nav.ff-navbar a.ff-navbar-brand {
+  color: var(--nav-fg);
+  text-decoration: none;
+}
+.ant-app nav.ff-navbar a.ff-navbar-brand:hover {
+  color: var(--nav-fg);
+}
+
+.ant-app nav.ff-navbar a.ff-navbar-item {
+  color: var(--ff-gray-300);
+  text-decoration: none;
+}
+.ant-app nav.ff-navbar a.ff-navbar-item:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+.ant-app nav.ff-navbar a.ff-navbar-item.ff-navbar-item--active {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+.ant-app nav.ff-navbar a.ff-navbar-item.ff-navbar-item--active:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+
+.ant-app nav.ff-navbar button.ff-navbar-item {
+  color: var(--ff-gray-300);
+}
+.ant-app nav.ff-navbar button.ff-navbar-item:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+.ant-app nav.ff-navbar button.ff-navbar-item.ff-navbar-item--active {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+.ant-app nav.ff-navbar button.ff-navbar-item.ff-navbar-item--active:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+
+.ant-app nav.ff-navbar button.ff-navbar-util-btn {
+  color: var(--ff-gray-300);
+}
+.ant-app nav.ff-navbar button.ff-navbar-util-btn:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
