@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
 import { Upload } from 'lucide-react'
@@ -29,7 +29,8 @@ import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
 import { useCategories, useDeletePage, useClonePage, useArchivePage } from '@/api/hooks'
-import { useLanderGridStore, buildMergedRows, buildTotalsRow, type EntityGridRow } from '@/store/entityGrid'
+import { useEntityGrid, buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
+import { pagesToListEntities } from '@/lib/entityGridUtils'
 import { PageForm } from '@/components/forms/PageForm'
 import { api } from '@/api/client'
 import type { Page } from '@/types/entities'
@@ -68,25 +69,21 @@ export function LandersPage() {
   const archiveMutation = useArchivePage()
 
   const {
-    entities,
-    statsById,
+    mergedRows,
     reportColumns,
     totalsCells,
     isLoading,
-    fetchAll,
-    reload,
-    upsertEntity,
-    removeEntity,
-  } = useLanderGridStore()
-
-  useEffect(() => {
-    fetchAll({ dateFrom: dateRange.from, dateTo: dateRange.to, timezone: tz })
-  }, [dateRange.from, dateRange.to, tz, fetchAll])
-
-  const mergedRows = useMemo(
-    () => buildMergedRows(entities, statsById, reportColumns),
-    [entities, statsById, reportColumns],
-  )
+    refetch: reload,
+  } = useEntityGrid({
+    entityKey: 'landers',
+    listEndpoint: '/data/page/find/byStatus/',
+    listParams: { pageType: 'lander', status: 'all' },
+    groupBy: 'Element: Lander',
+    dateFrom: dateRange.from,
+    dateTo: dateRange.to,
+    timezone: tz,
+    mapListToEntities: (items) => pagesToListEntities(items as Page[]),
+  })
 
   const pinnedBottomRows = useMemo(
     () => {
@@ -142,12 +139,8 @@ export function LandersPage() {
       onSuccess: () => {
         toast.success(editId ? 'Lander updated' : 'Lander created')
         setSheetOpen(false)
-        if (editId) {
-          upsertEntity({ id: editId, name: data.pageName })
-        } else {
-          reload()
-        }
         setEditId(null)
+        reload()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
@@ -172,7 +165,7 @@ export function LandersPage() {
   const handleDelete = () => {
     if (!deleteId) return
     deleteMutation.mutate(deleteId, {
-      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); removeEntity(deleteId) },
+      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); reload() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
@@ -279,9 +272,7 @@ export function LandersPage() {
         count={selectedIds.length}
         onDeselectAll={() => setRowSelection({})}
         onArchive={async () => {
-          for (const id of selectedIds) {
-            await archiveMutation.mutateAsync({ id, archive: true })
-          }
+          await api.put('/data/page/archive/', { ids: selectedIds, archive: true })
           toast.success('Selected landers archived')
           setRowSelection({})
           reload()

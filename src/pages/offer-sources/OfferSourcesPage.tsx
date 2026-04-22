@@ -1,6 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
-import { subDays } from 'date-fns'
-import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import type { ColumnDef, Table } from '@tanstack/react-table'
 import { Button } from '@/components/ui-kit'
 import {
   PageShell,
@@ -22,13 +21,14 @@ import {
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
+import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
 import {
   useSaveOfferSource,
   useDeleteOfferSource,
   useOfferSource,
 } from '@/api/hooks'
-import { useOfferSourceGridStore, buildMergedRows, buildTotalsRow, type EntityGridRow } from '@/store/entityGrid'
+import { buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
+import { useEntityPage } from '@/hooks/useEntityPage'
 import { OfferSourceForm } from '@/components/forms/OfferSourceForm'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
 import { getErrorMessage } from '@/lib/utils'
@@ -39,42 +39,23 @@ export function OfferSourcesPage() {
   const toast = useToastApi()
   const tableRef = useRef<Table<OfferSourceGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<OfferSourceGridRow> | null>(null)
-  const [search, setSearch] = useState('')
-  const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [tz, setTz] = useState('UTC')
-  const [dateRange, setDateRange] = useState(() => ({
-    from: subDays(new Date(), 365),
-    to: new Date(),
-  }))
+
+  const {
+    filtered, reportColumns, totalsCells, isLoading, refetch: reload,
+    search, setSearch, archiveStatus, setArchiveStatus,
+    rowSelection, setRowSelection, selectedIds,
+    sheetOpen, setSheetOpen, editId, setEditId,
+    deleteId, setDeleteId, dateRange, setDateRange,
+    tz, setTz, handleCreate, handleEdit,
+  } = useEntityPage({
+    entityKey: 'offer-sources',
+    listEndpoint: '/data/offersource/list/',
+    groupBy: 'Third Parties: Offer Source',
+  })
 
   const { data: editSource } = useOfferSource(editId ?? '')
   const saveMutation = useSaveOfferSource()
   const deleteMutation = useDeleteOfferSource()
-
-  const {
-    entities,
-    statsById,
-    reportColumns,
-    totalsCells,
-    isLoading,
-    fetchAll,
-    reload,
-    upsertEntity,
-    removeEntity,
-  } = useOfferSourceGridStore()
-
-  useEffect(() => {
-    fetchAll({ dateFrom: dateRange.from, dateTo: dateRange.to, timezone: tz })
-  }, [dateRange.from, dateRange.to, tz, fetchAll])
-
-  const mergedRows = useMemo(
-    () => buildMergedRows(entities, statsById, reportColumns),
-    [entities, statsById, reportColumns],
-  )
 
   const pinnedBottomRows = useMemo(
     () => {
@@ -83,17 +64,6 @@ export function OfferSourcesPage() {
     },
     [totalsCells],
   )
-
-  const filtered = useMemo((): OfferSourceGridRow[] => {
-    const searchText = search.toLowerCase()
-    return mergedRows.filter((row) => {
-      const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
-      const matchesArchive =
-        archiveStatus === 'all' ||
-        (archiveStatus === 'archived' ? row.isArchived === true : row.isArchived !== true)
-      return matchesSearch && matchesArchive
-    }) as OfferSourceGridRow[]
-  }, [archiveStatus, mergedRows, search])
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -106,21 +76,13 @@ export function OfferSourcesPage() {
     return () => cancelAnimationFrame(id)
   }, [isLoading, filtered.length])
 
-  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
-
-  const handleCreate = () => { setEditId(null); setSheetOpen(true) }
-
   const handleSubmit = (data: OfferSourceFormData) => {
     saveMutation.mutate({ offerSource: data, isCreate: !editId }, {
       onSuccess: () => {
         toast.success(editId ? 'Offer source updated' : 'Offer source created')
         setSheetOpen(false)
-        if (editId) {
-          upsertEntity({ id: editId, name: data.offerSourceName })
-        } else {
-          reload()
-        }
         setEditId(null)
+        reload()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
@@ -129,7 +91,7 @@ export function OfferSourcesPage() {
   const handleDelete = () => {
     if (!deleteId) return
     deleteMutation.mutate(deleteId, {
-      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); removeEntity(deleteId) },
+      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); reload() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
@@ -139,14 +101,16 @@ export function OfferSourcesPage() {
     [reportColumns],
   )
 
+  const handleRequestDelete = useCallback((id: string) => setDeleteId(id), [setDeleteId])
+
   const columnDefs = useMemo<ColumnDef<OfferSourceGridRow, unknown>[]>(() => [
     selectionColumn<OfferSourceGridRow>(),
     nameColumn<OfferSourceGridRow>(),
-    editBtnColumn<OfferSourceGridRow>((row) => { setEditId(row.id); setSheetOpen(true) }),
-    deleteBtnColumn<OfferSourceGridRow>((row) => setDeleteId(row.id)),
+    editBtnColumn<OfferSourceGridRow>((row) => handleEdit(row.id)),
+    deleteBtnColumn<OfferSourceGridRow>((row) => handleRequestDelete(row.id)),
     idColumn<OfferSourceGridRow>(),
     ...statCols,
-  ], [statCols])
+  ], [statCols, handleEdit, handleRequestDelete])
 
   return (
     <PageShell

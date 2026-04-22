@@ -21,6 +21,6 @@ export function useDrilldownReport() {
 export function useExportCsv() {
   return useMutation({
     mutationFn: (request: DrilldownRequest) =>
-      api.post<Blob>('/stats/reporting/export/csv/', request),
+      api.postBlob('/stats/reporting/export/csv/', request),
   })
 }

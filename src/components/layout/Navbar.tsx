@@ -256,7 +256,8 @@ function UserDropdown() {
 
   const handleLogout = () => {
     clearAuth()
-    window.location.href = "/admin/login.php?logout=1"
+    const basePath = import.meta.env.VITE_BASE_PATH_PREFIX || ''
+    window.location.href = `${basePath}/admin/login.php?logout=1`
   }
 
   const items: MenuProps["items"] = [

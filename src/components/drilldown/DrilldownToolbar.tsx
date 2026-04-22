@@ -11,6 +11,7 @@ import {
   Input,
   useToastApi,
 } from "@/components/ui-kit"
+import { api } from "@/api/client"
 import { GroupingsCascade } from "@/components/drilldown/GroupingsCascade"
 import { useDrilldownStore } from "@/store/drilldown"
 import {
@@ -97,7 +98,7 @@ export function DrilldownToolbar({
         blacklistFilters: groupingFilters[index]?.blacklist ?? [],
       })),
       options: { viewType },
-      paging: paging ?? { start: 0, length: 50 },
+      paging: paging ?? { start: 0, length: 100 },
     }
   }, [datePickerValue, timezone, groupings, groupingFilters, viewType, paging])
 
@@ -109,17 +110,7 @@ export function DrilldownToolbar({
     setIsExporting(true)
     try {
       const request = buildRequest()
-      const blob = await fetch("/admin/api/v2/stats/reporting/export/csv/", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-      }).then(async (response) => {
-        if (!response.ok) {
-          throw new Error("CSV export failed")
-        }
-        return response.blob()
-      })
+      const blob = await api.postBlob("/stats/reporting/export/csv/", request)
 
       const url = URL.createObjectURL(blob)
       const link = document.createElement("a")

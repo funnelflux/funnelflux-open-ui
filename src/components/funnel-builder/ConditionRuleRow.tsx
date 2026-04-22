@@ -107,6 +107,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         type="text"
         className="h-8 w-8 shrink-0"
         onClick={onRemove}
+        aria-label="Remove rule"
       >
         <X className="h-3.5 w-3.5" />
       </Button>

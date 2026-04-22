@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Copy, Loader2, Link } from 'lucide-react'
 import { Button, Input, AntdSelect, Card } from '@/components/ui-kit'
 import { PageShell, Select, useToastApi } from '@/components/ui-kit'
@@ -22,6 +22,7 @@ function CopyButton({ value }: { value: string }) {
     <Button
       htmlType="button"
       type="text"
+      aria-label="Copy to clipboard"
       onClick={() =>
         navigator.clipboard.writeText(value).then(
           () => toast.success('Copied to clipboard'),
@@ -49,6 +50,7 @@ export function SystemLinksPage() {
   const [entranceLink, setEntranceLink] = useState('')
   const [actionLinks, setActionLinks] = useState<string[]>([])
   const [universalJs, setUniversalJs] = useState('')
+  const requestIdRef = useRef(0)
 
   const { data: funnels } = useFunnels(selectedCampaign)
   const { data: funnelDetail } = useFunnel(selectedFunnel)
@@ -71,6 +73,8 @@ export function SystemLinksPage() {
       return
     }
 
+    const thisRequest = ++requestIdRef.current
+
     const request = {
       idCampaign: selectedCampaign,
       idFunnel: selectedFunnel,
@@ -80,18 +84,18 @@ export function SystemLinksPage() {
     }
 
     generateEntranceLink.mutate(request, {
-      onSuccess: (data) => setEntranceLink(data || ''),
-      onError: (error) => toast.error(getErrorMessage(error)),
+      onSuccess: (data) => { if (requestIdRef.current === thisRequest) setEntranceLink(data || '') },
+      onError: (error) => { if (requestIdRef.current === thisRequest) toast.error(getErrorMessage(error)) },
     })
 
     generateNoRedirectJS.mutate(request, {
-      onSuccess: (data) => setUniversalJs(data || ''),
-      onError: (error) => toast.error(getErrorMessage(error)),
+      onSuccess: (data) => { if (requestIdRef.current === thisRequest) setUniversalJs(data || '') },
+      onError: (error) => { if (requestIdRef.current === thisRequest) toast.error(getErrorMessage(error)) },
     })
 
     generateActionLink.mutate(request, {
-      onSuccess: (data) => setActionLinks(data ? [data] : []),
-      onError: (error) => toast.error(getErrorMessage(error)),
+      onSuccess: (data) => { if (requestIdRef.current === thisRequest) setActionLinks(data ? [data] : []) },
+      onError: (error) => { if (requestIdRef.current === thisRequest) toast.error(getErrorMessage(error)) },
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mutation objects are stable (.mutate), only selection values should trigger
   }, [selectedCampaign, selectedDomain, selectedFunnel, selectedNode, selectedTrafficSource])

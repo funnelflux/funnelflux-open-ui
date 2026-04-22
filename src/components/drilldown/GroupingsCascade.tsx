@@ -81,6 +81,7 @@ export function GroupingsCascade({
                 className="h-[35px] w-8 min-w-8 px-0"
                 icon={<X className="h-3.5 w-3.5" />}
                 onClick={() => handleRemove(index)}
+                aria-label="Remove grouping"
               />
             )}
           </div>

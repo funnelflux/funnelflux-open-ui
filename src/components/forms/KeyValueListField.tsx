@@ -61,6 +61,7 @@ export function KeyValueListField({
             htmlType="button"
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
             onClick={() => removeRow(i)}
+            aria-label="Remove row"
             icon={<Trash2 className="h-3.5 w-3.5" />}
           />
         </div>

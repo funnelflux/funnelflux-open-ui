@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ConfigProvider, AntdApp } from "@/components/ui-kit"
@@ -8,48 +9,54 @@ import { useNotifications } from "@/hooks/useNotifications"
 import { useAuthStore } from "@/store/auth"
 import { AppLayout } from "@/components/layout/AppLayout"
 import { LoginPage } from "@/pages/LoginPage"
-import { DashboardPage } from "@/pages/DashboardPage"
-import { CampaignsPage } from "@/pages/campaigns/CampaignsPage"
-import { TrafficSourcesPage } from "@/pages/traffic-sources/TrafficSourcesPage"
-import { OfferSourcesPage } from "@/pages/offer-sources/OfferSourcesPage"
-import { LandersPage } from "@/pages/landers/LandersPage"
-import { OffersPage } from "@/pages/offers/OffersPage"
-import { TagsPage } from "@/pages/settings/TagsPage"
-import { TrafficFiltersPage } from "@/pages/settings/TrafficFiltersPage"
-import { SystemSettingsPage } from "@/pages/settings/SystemSettingsPage"
-import { UserManagementPage } from "@/pages/settings/UserManagementPage"
-import { UserEditPage } from "@/pages/settings/UserEditPage"
-import { AccessLogPage } from "@/pages/settings/AccessLogPage"
-import { InboxPage } from "@/pages/inbox/InboxPage"
-import { DrilldownTreePage } from "@/pages/reports/DrilldownTreePage"
-import { DrilldownFlatPage } from "@/pages/reports/DrilldownFlatPage"
-import { QuickViewPage } from "@/pages/quickview/QuickViewPage"
-import { SystemLinksPage } from "@/pages/links/SystemLinksPage"
-import { StoredLinksPage } from "@/pages/links/StoredLinksPage"
-import { ConversionsPage } from "@/pages/data-updates/ConversionsPage"
-import { CostUpdatePage } from "@/pages/data-updates/CostUpdatePage"
-import { ResetStatsPage } from "@/pages/data-updates/ResetStatsPage"
-import { FunnelEditorPage } from "@/pages/funnels/FunnelEditorPage"
-import { FunnelBuilderLegacyRedirect } from "@/pages/funnels/FunnelBuilderLegacyRedirect"
-import { GlobalConditionsPage } from "@/pages/settings/GlobalConditionsPage"
 import { useToastApi } from "@/components/ui-kit"
 import type { Permissions } from "@/types/api"
 import { lazy, Suspense } from "react"
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 
-const DesignSystemPage = lazy(() =>
-  import("@/pages/design-system/DesignSystemPage").then((m) => ({
-    default: m.DesignSystemPage,
-  })),
-)
+const lazyPage = (loader: () => Promise<Record<string, unknown>>, name: string) =>
+  lazy(() => loader().then((m) => {
+    const component = m[name] as React.ComponentType
+    if (!component) throw new Error(`Module does not export "${name}"`)
+    return { default: component }
+  }))
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: 1,
+const DashboardPage = lazyPage(() => import("@/pages/DashboardPage"), "DashboardPage")
+const CampaignsPage = lazyPage(() => import("@/pages/campaigns/CampaignsPage"), "CampaignsPage")
+const TrafficSourcesPage = lazyPage(() => import("@/pages/traffic-sources/TrafficSourcesPage"), "TrafficSourcesPage")
+const OfferSourcesPage = lazyPage(() => import("@/pages/offer-sources/OfferSourcesPage"), "OfferSourcesPage")
+const LandersPage = lazyPage(() => import("@/pages/landers/LandersPage"), "LandersPage")
+const OffersPage = lazyPage(() => import("@/pages/offers/OffersPage"), "OffersPage")
+const FunnelEditorPage = lazyPage(() => import("@/pages/funnels/FunnelEditorPage"), "FunnelEditorPage")
+const FunnelBuilderLegacyRedirect = lazyPage(() => import("@/pages/funnels/FunnelBuilderLegacyRedirect"), "FunnelBuilderLegacyRedirect")
+const DrilldownTreePage = lazyPage(() => import("@/pages/reports/DrilldownTreePage"), "DrilldownTreePage")
+const DrilldownFlatPage = lazyPage(() => import("@/pages/reports/DrilldownFlatPage"), "DrilldownFlatPage")
+const QuickViewPage = lazyPage(() => import("@/pages/quickview/QuickViewPage"), "QuickViewPage")
+const SystemLinksPage = lazyPage(() => import("@/pages/links/SystemLinksPage"), "SystemLinksPage")
+const StoredLinksPage = lazyPage(() => import("@/pages/links/StoredLinksPage"), "StoredLinksPage")
+const TagsPage = lazyPage(() => import("@/pages/settings/TagsPage"), "TagsPage")
+const TrafficFiltersPage = lazyPage(() => import("@/pages/settings/TrafficFiltersPage"), "TrafficFiltersPage")
+const SystemSettingsPage = lazyPage(() => import("@/pages/settings/SystemSettingsPage"), "SystemSettingsPage")
+const UserManagementPage = lazyPage(() => import("@/pages/settings/UserManagementPage"), "UserManagementPage")
+const UserEditPage = lazyPage(() => import("@/pages/settings/UserEditPage"), "UserEditPage")
+const AccessLogPage = lazyPage(() => import("@/pages/settings/AccessLogPage"), "AccessLogPage")
+const GlobalConditionsPage = lazyPage(() => import("@/pages/settings/GlobalConditionsPage"), "GlobalConditionsPage")
+const InboxPage = lazyPage(() => import("@/pages/inbox/InboxPage"), "InboxPage")
+const ConversionsPage = lazyPage(() => import("@/pages/data-updates/ConversionsPage"), "ConversionsPage")
+const CostUpdatePage = lazyPage(() => import("@/pages/data-updates/CostUpdatePage"), "CostUpdatePage")
+const ResetStatsPage = lazyPage(() => import("@/pages/data-updates/ResetStatsPage"), "ResetStatsPage")
+const DesignSystemPage = lazyPage(() => import("@/pages/design-system/DesignSystemPage"), "DesignSystemPage")
+
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30_000,
+        retry: 1,
+      },
     },
-  },
-})
+  })
+}
 
 function PermissionGuard({
   check,
@@ -225,6 +232,7 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [queryClient] = useState(createQueryClient)
   const themeMode = useThemeStore((s) => s.mode)
   const antdTheme = themeMode === 'dark' ? darkTheme : lightTheme
 
@@ -232,7 +240,7 @@ export default function App() {
     <ConfigProvider theme={antdTheme}>
       <AntdApp message={{ maxCount: 3 }}>
         <QueryClientProvider client={queryClient}>
-            <BrowserRouter basename="/v2-ui">
+            <BrowserRouter basename={import.meta.env.VITE_UI_BASENAME || '/v2-ui'}>
               <Routes>
                 {/* Design system reference (no auth required) */}
                 <Route
@@ -244,7 +252,7 @@ export default function App() {
                   }
                 />
                 {/* All other routes require auth */}
-                <Route path="*" element={<AuthGate><AppRoutes /></AuthGate>} />
+                <Route path="*" element={<AuthGate><ErrorBoundary><Suspense fallback={<div className="flex items-center justify-center h-full p-8 text-muted-foreground">Loading...</div>}><AppRoutes /></Suspense></ErrorBoundary></AuthGate>} />
               </Routes>
             </BrowserRouter>
         </QueryClientProvider>

@@ -1,4 +1,5 @@
 export function LoginPage() {
+  const basePath = import.meta.env.VITE_BASE_PATH_PREFIX || ''
   return (
     <div className="min-h-screen bg-surface-secondary flex items-center justify-center p-4">
       <div className="bg-surface rounded-lg shadow-md p-8 w-full max-w-md">
@@ -14,7 +15,7 @@ export function LoginPage() {
           </div>
 
           <a
-            href="/admin/login.php"
+            href={`${basePath}/admin/login.php`}
             className="block w-full bg-primary text-primary-foreground py-2 px-4 rounded-md text-sm font-medium hover:bg-primary-hover text-center"
           >
             Open Admin Login

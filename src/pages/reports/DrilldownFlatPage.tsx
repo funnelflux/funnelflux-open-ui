@@ -32,7 +32,7 @@ export function DrilldownFlatPage() {
   const [report, setReport] = useState<Report | null>(null)
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
   const [page, setPage] = useState(0)
-  const pageSize = 50
+  const pageSize = 100
   const [sorting, setSorting] = useState<SortingState>(() => {
     const saved = selectTableConfig(DRILLDOWN_FLAT_TABLE_KEY)(useTableConfigStore.getState()).sorting
     return saved.length > 0 ? saved : DEFAULT_TABLE_SORTING
@@ -125,7 +125,6 @@ export function DrilldownFlatPage() {
           manualSorting
           pinnedBottomRows={pinnedBottomRows}
           tableRef={tableRef}
-          noPagination
         />
       ) : (
         !drilldownMutation.isPending && (

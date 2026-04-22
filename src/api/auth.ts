@@ -1,31 +1,21 @@
-import type { SessionResponse, UserProfile } from '@/types/api'
-
-const API_PATH = '/admin/api/v2'
+import { api } from '@/api/client'
+import type { ApiError, SessionResponse, UserProfile } from '@/types/api'
 
 export async function bootstrapAuth(): Promise<UserProfile> {
-  const sessionRes = await fetch(`${API_PATH}/auth/session/`, {
-    credentials: 'same-origin',
-  })
-
-  if (sessionRes.status === 401) {
-    throw new Error('AUTH_REQUIRED')
+  let session: SessionResponse
+  try {
+    session = await api.get<SessionResponse>('/auth/session/')
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && (err as ApiError).code === 401) {
+      throw new Error('AUTH_REQUIRED')
+    }
+    const message = err instanceof Error ? err.message : 'Failed to verify session'
+    throw new Error(message)
   }
-  if (!sessionRes.ok) {
-    throw new Error('Failed to verify session')
-  }
 
-  const session: SessionResponse = await sessionRes.json()
   if (!session.authenticated) {
     throw new Error('AUTH_REQUIRED')
   }
 
-  return fetchUserProfile()
-}
-
-async function fetchUserProfile(): Promise<UserProfile> {
-  const res = await fetch(`${API_PATH}/ui/userprofile/loggedin/load/`, {
-    credentials: 'same-origin',
-  })
-  if (!res.ok) throw new Error('Failed to load user profile')
-  return res.json()
+  return api.get<UserProfile>('/ui/userprofile/loggedin/load/')
 }

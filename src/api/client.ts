@@ -1,12 +1,7 @@
 import type { ApiError } from '@/types/api'
 
-const API_PATH = '/admin/api/v2'
+const API_PATH = import.meta.env.VITE_API_PATH || '/admin/api/v2'
 
-/**
- * JSON.parse rounds integers past Number.MAX_SAFE_INTEGER. The stats API emits Snowflake-style
- * element ids as JSON numbers; if we let them become rounded floats, React keys and grouping
- * filters stop matching. Quote any `"raw": <16+ digit int>` as a string before parsing.
- */
 function parseStatsJsonPreserveLargeIntRaw(text: string): unknown {
   const fixed = text.replace(/"raw"\s*:\s*(\d{16,})(\s*)([,}]|])/g, '"raw":"$1"$2$3')
   return JSON.parse(fixed)
@@ -62,13 +57,40 @@ export class ApiClient {
     const res = await fetch(this.buildUrl(endpoint, params), {
       method: 'DELETE',
       credentials: 'same-origin',
-      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
     })
     return this.handleResponse<T>(res, endpoint)
   }
 
+  async postBlob(endpoint: string, body?: unknown): Promise<Blob> {
+    const res = await fetch(this.buildUrl(endpoint), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+    if (res.status === 401) {
+      const basePath = import.meta.env.VITE_BASE_PATH_PREFIX || ''
+      window.location.href = `${basePath}/admin/login.php`
+      throw new Error('Session expired')
+    }
+    if (!res.ok) {
+      const error: ApiError = await res.json().catch(() => ({
+        code: res.status,
+        message: res.statusText,
+      }))
+      throw error
+    }
+    return res.blob()
+  }
+
   private async handleResponse<T>(res: Response, endpoint?: string): Promise<T> {
+    if (res.status === 401 && !endpoint?.includes('/auth/session')) {
+      const basePath = import.meta.env.VITE_BASE_PATH_PREFIX || ''
+      window.location.href = `${basePath}/admin/login.php`
+      throw new Error('Session expired')
+    }
     if (!res.ok) {
       const error: ApiError = await res.json().catch(() => ({
         code: res.status,

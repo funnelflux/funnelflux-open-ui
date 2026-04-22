@@ -128,6 +128,7 @@ export function DomainsManager() {
                     onClick={() => handleSetDefault(domain)}
                     disabled={setDefaultDomain.isPending}
                     title="Set as default"
+                    aria-label="Set as default"
                   >
                     <Star className="h-4 w-4" />
                   </Button>
@@ -138,6 +139,7 @@ export function DomainsManager() {
                   onClick={() => setDeleteTarget(domain)}
                   className="text-destructive hover:text-destructive"
                   title="Delete domain"
+                  aria-label="Delete domain"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

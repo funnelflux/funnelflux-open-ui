@@ -17,25 +17,25 @@ import type {
 } from "@/types/stats"
 
 const DRILLDOWN_TREE_TABLE_KEY = "reports-drilldown-tree"
+const CHILD_PAGE_SIZE = 500
 
 interface TreeRowData {
   _id: string
-  /**
-   * Stable positional key used for React identity and parent lookup. Do not derive from `raw` —
-   * Snowflake ids overflow Number.MAX_SAFE_INTEGER and equality breaks after JSON parse.
-   */
   treePath: string
   cells: ReportCell[]
   depth: number
-  /** Whitelist ids to use as the row's own grouping filter when expanding its children. */
   groupIds?: string[]
-  /**
-   * Whitelist ids for ancestor groupings (level 0..depth-1). When lazy-loading children of a
-   * nested row, every ancestor level must be re-applied so the backend filters all levels.
-   */
   ancestorKeys: string[]
   children?: TreeRowData[]
   loaded?: boolean
+  _loadMore?: {
+    parentTreePath: string
+    parentKey: string
+    nextOffset: number
+    groupings: Grouping[]
+    depth: number
+    ancestorKeys: string[]
+  }
 }
 
 /** Extract a non-empty, non-rollup grouping id from a row's first cell. */
@@ -116,7 +116,7 @@ export function DrilldownTreePage() {
   /** Full grouping stack from the toolbar (all levels); initial request uses only the first. */
   const [planGroupings, setPlanGroupings] = useState<Grouping[]>([])
   const [page, setPage] = useState(0)
-  const pageSize = 50
+  const pageSize = 100
   const [sorting, setSorting] = useState<SortingState>(() => {
     const saved = selectTableConfig(DRILLDOWN_TREE_TABLE_KEY)(useTableConfigStore.getState()).sorting
     return saved.length > 0 ? saved : DEFAULT_TABLE_SORTING
@@ -178,8 +178,56 @@ export function DrilldownTreePage() {
 
   const handleExpandRow = useCallback(
     async (row: TreeRowData) => {
-      if (row.loaded || row.children?.length) return
       if (!lastRequest) return
+
+      if (row._loadMore) {
+        const { parentTreePath, parentKey, nextOffset, groupings, depth, ancestorKeys } = row._loadMore
+        const childReport = await api.post<Report>("/stats/reporting/drilldown/", {
+          ...lastRequest,
+          groupings,
+          topLevelFilters: [],
+          paging: { start: nextOffset, length: CHILD_PAGE_SIZE },
+        })
+
+        const leafRows = leafRowsForLazyExpand(childReport, parentKey)
+        const childTreeRows = reportRowsToTreeRows(
+          leafRows,
+          childReport.columns.length,
+          depth,
+          parentTreePath,
+          ancestorKeys,
+        )
+
+        const hasMore = leafRows.length >= CHILD_PAGE_SIZE
+        const loadMoreRow: TreeRowData | null = hasMore ? {
+          _id: `load-more-${parentTreePath}-${nextOffset + CHILD_PAGE_SIZE}`,
+          treePath: `${parentTreePath}-loadmore`,
+          cells: [{ raw: '', formatted: `Load more rows...` }],
+          depth,
+          ancestorKeys,
+          _loadMore: { parentTreePath, parentKey, nextOffset: nextOffset + CHILD_PAGE_SIZE, groupings, depth, ancestorKeys },
+        } : null
+
+        setTreeData((prev) => {
+          const appendChildren = (rows: TreeRowData[]): TreeRowData[] =>
+            rows.map((r) => {
+              if (r.treePath === parentTreePath) {
+                const existingChildren = (r.children ?? []).filter((c) => !c._loadMore)
+                const newChildren = [...existingChildren, ...childTreeRows]
+                if (loadMoreRow) newChildren.push(loadMoreRow)
+                return { ...r, children: newChildren, loaded: !hasMore }
+              }
+              if (r.children?.length) {
+                return { ...r, children: appendChildren(r.children) }
+              }
+              return r
+            })
+          return appendChildren(prev)
+        })
+        return
+      }
+
+      if (row.loaded || row.children?.length) return
       const plan = planGroupings
       if (plan.length === 0) return
       const nextDepth = row.depth + 1
@@ -187,11 +235,6 @@ export function DrilldownTreePage() {
       const parentKey = row.groupIds?.[0]
       if (!parentKey) return
 
-      /**
-       * Request groupings up to (and including) the child level. Every ancestor grouping gets
-       * the row's recorded ancestor key, the row's own grouping gets `parentKey`, and the child
-       * level is unfiltered (so all its values are returned).
-       */
       const levelKeys: (string | undefined)[] = [...row.ancestorKeys, parentKey]
       const groupings: Grouping[] = plan.slice(0, nextDepth + 1).map((g, idx) => {
         const levelKey = levelKeys[idx]
@@ -208,23 +251,36 @@ export function DrilldownTreePage() {
         ...lastRequest,
         groupings,
         topLevelFilters: [],
-        paging: { start: 0, length: 99999 },
+        paging: { start: 0, length: CHILD_PAGE_SIZE },
       })
 
       const leafRows = leafRowsForLazyExpand(childReport, parentKey)
+      const newAncestorKeys = [...row.ancestorKeys, parentKey]
       const childTreeRows = reportRowsToTreeRows(
         leafRows,
         childReport.columns.length,
         nextDepth,
         row.treePath,
-        [...row.ancestorKeys, parentKey],
+        newAncestorKeys,
       )
+
+      const hasMore = leafRows.length >= CHILD_PAGE_SIZE
+      if (hasMore) {
+        childTreeRows.push({
+          _id: `load-more-${row.treePath}-${CHILD_PAGE_SIZE}`,
+          treePath: `${row.treePath}-loadmore`,
+          cells: [{ raw: '', formatted: `Load more rows...` }],
+          depth: nextDepth,
+          ancestorKeys: newAncestorKeys,
+          _loadMore: { parentTreePath: row.treePath, parentKey, nextOffset: CHILD_PAGE_SIZE, groupings, depth: nextDepth, ancestorKeys: newAncestorKeys },
+        })
+      }
 
       setTreeData((prev) => {
         const updateChildren = (rows: TreeRowData[]): TreeRowData[] =>
           rows.map((r) => {
             if (r.treePath === row.treePath) {
-              return { ...r, children: childTreeRows, loaded: true }
+              return { ...r, children: childTreeRows, loaded: !hasMore }
             }
             if (r.children?.length) {
               return { ...r, children: updateChildren(r.children) }
@@ -233,7 +289,6 @@ export function DrilldownTreePage() {
           })
         return updateChildren(prev)
       })
-      /** Own the expand state alongside the tree so they commit together and no stale row flips it back. */
       setExpanded((prev) => {
         const base: Record<string, boolean> =
           prev === true || !prev ? {} : { ...(prev as Record<string, boolean>) }
@@ -246,6 +301,7 @@ export function DrilldownTreePage() {
 
   const canLazyExpandRow = useCallback(
     (row: TreeRowData) => {
+      if (row._loadMore) return true
       if (planGroupings.length === 0) return false
       if (row.depth + 1 >= planGroupings.length) return false
       if (row.loaded) return false
@@ -264,9 +320,13 @@ export function DrilldownTreePage() {
       enableSorting: true,
       size: 300,
       meta: { flex: 1 },
-      cell: (info: { getValue: () => unknown }) => (
-        <span className="font-medium">{String(info.getValue())}</span>
-      ),
+      cell: (info) => {
+        const row = info.row.original
+        if (row._loadMore) {
+          return <span className="text-primary text-xs cursor-pointer">Load more rows...</span>
+        }
+        return <span className="font-medium">{String(info.getValue())}</span>
+      },
     }
     return [groupingCol, ...buildColumnsFromReport<TreeRowData>(report.columns)]
   }, [report])
@@ -311,7 +371,6 @@ export function DrilldownTreePage() {
           onExpandedChange={setExpanded}
           pinnedBottomRows={pinnedBottomRows}
           tableRef={tableRef}
-          noPagination
         />
       ) : (
         !drilldownMutation.isPending && (

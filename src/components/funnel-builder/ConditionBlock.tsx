@@ -70,6 +70,7 @@ export function ConditionBlock({
             type="text"
             className="h-7 w-7"
             onClick={onRemove}
+            aria-label="Remove condition block"
           >
             <X className="h-3.5 w-3.5" />
           </Button>

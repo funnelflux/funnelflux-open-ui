@@ -1,73 +1,72 @@
-# React + TypeScript + Vite
+# FunnelFlux Open UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Open-source React UI for the [FunnelFlux](https://funnelflux.com) tracking platform. This is the v2 frontend that provides campaign management, visual funnel building, reporting, and analytics dashboards.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **React 19** + **TypeScript 5.9** -- UI framework
+- **Vite 8** -- build tooling and dev server
+- **Ant Design 6** -- component library
+- **TanStack React Query 5** -- server state and data fetching
+- **Zustand 5** -- client-side UI state management
+- **Tailwind CSS 4** -- utility-first styling
+- **react-hook-form 7** + **Zod 4** -- form state and validation
+- **@xyflow/react 12** -- visual funnel builder canvas
+- **Recharts 3** -- charts and data visualization
+- **date-fns 4** -- date manipulation
 
-## React Compiler
+## Prerequisites
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Node.js 22+**
+- **npm 10+**
+- A running FunnelFlux backend API on port 8080 (for development)
 
-## Expanding the ESLint configuration
+## Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+git clone https://github.com/nicosistemas/funnelflux-open-ui.git
+cd funnelflux-open-ui
+npm install
+cp .env.example .env   # configure API endpoint and other settings
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev       # start Vite dev server on http://localhost:5173
 ```
+
+The dev server proxies `/admin/api/v2` requests to `http://localhost:8080`, so you need the FunnelFlux backend running locally. The UI is served under the `/v2-ui/` base path.
+
+## Build
+
+```bash
+npm run build     # runs tsc -b && vite build, outputs to dist/
+```
+
+The build output in `dist/` is deployed into the parent FunnelFlux application's `v2-ui/` folder.
+
+## Testing
+
+```bash
+npm test
+```
+
+## Linting
+
+```bash
+npm run lint      # ESLint
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, directory structure, and coding patterns.
+
+## Architecture
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design decisions and system architecture.
+
+## License
+
+MIT

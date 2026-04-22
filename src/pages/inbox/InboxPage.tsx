@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { sanitizeHtml } from '@/lib/sanitize'
 import { Mail, MailOpen, Trash2, Inbox } from 'lucide-react'
 import { Button, Collapse, Tag } from '@/components/ui-kit'
 import { PageShell, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
@@ -137,7 +138,7 @@ export function InboxPage() {
             children: (
               <div
                 className="prose prose-sm max-w-none text-sm text-foreground"
-                dangerouslySetInnerHTML={{ __html: message.body }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(message.body) }}
               />
             ),
           }))}
