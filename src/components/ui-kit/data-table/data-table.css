@@ -112,6 +112,13 @@
   padding: 0 2px;
 }
 
+/* Header checkbox: content wrapper defaults to flex-start + flex:1; center like body cells */
+.dt-header-cell[data-col-id="select"] .dt-header-cell-content {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+}
+
 .dt-header-cell:has(.dt-checkbox),
 .dt-cell:has(.dt-checkbox) {
   justify-content: center;
