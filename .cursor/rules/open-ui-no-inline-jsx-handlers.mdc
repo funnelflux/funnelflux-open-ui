@@ -1,0 +1,45 @@
+---
+description: Avoid inline function expressions in JSX props; use named handlers (useCallback when needed).
+globs: src/**/*.tsx,funnelflux-open-ui/**/*.tsx
+alwaysApply: false
+---
+
+# No inline functions in JSX
+
+**Glob note:** Same **dual-pattern** convention as all other `funnelflux-open-ui/.cursor/rules/*.mdc` files: `src/...` for a package-root workspace and `funnelflux-open-ui/...` for the monorepo root. Multiple patterns: comma with **no space** after it.
+
+When passing callbacks to JSX props (`onClick`, `onChange`, `onConfirm`, `render`, etc.), **do not** write new arrow functions or `.bind()` calls in the JSX tree.
+
+## Do this instead
+
+- Define a **named** function or `const` in the component body (or outside, if it does not need closure).
+- For handlers that close over props/state and are passed to **memoized children** or **lists**, wrap with **`useCallback`** and correct dependency arrays.
+- For **stable** setters from `useState` / external stores (e.g. `setFoo`, `setRowSelection`), passing the setter reference directly is fine.
+
+## Examples
+
+```tsx
+// Bad
+<Button onClick={() => setOpen(true)} />
+<DataTable onColumnSizingChange={(s) => setSizing(tableKey, s)} />
+
+// Good
+const handleOpen = useCallback(() => setOpen(true), [])
+const handleColumnSizingChange = useCallback(
+  (s: Record<string, number>) => setSizing(tableKey, s),
+  [setSizing, tableKey],
+)
+return (
+  <>
+    <Button onClick={handleOpen} />
+    <DataTable onColumnSizingChange={handleColumnSizingChange} />
+  </>
+)
+```
+
+## Exceptions
+
+- **Library-required** inline render props where the API expects a function defined at the call site and extracting it would only rename without benefit — still prefer a **named** function in the same file when the body is non-trivial (more than one line or nontrivial logic).
+- **eslint-disable** is not a substitute; fix the pattern or ask for a narrow exception in review.
+
+This keeps diffs readable, avoids accidental re-renders, and matches project review expectations.

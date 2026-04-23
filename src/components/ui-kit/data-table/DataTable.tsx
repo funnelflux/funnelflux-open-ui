@@ -299,14 +299,16 @@ function DataTableInner<TData>({
             return (
               <div
                 key={cell.id}
+                data-col-id={cell.column.id}
                 className={cellClasses}
                 style={{ width: getColWidth(cell.column) }}
               >
                 {isTreeTarget && (
                   <>
-                    <span className="dt-indent" style={{ width: depth * 20 }} />
+                    <span className="dt-indent" style={{ width: depth * 24 }} />
                     {row.getCanExpand() && (
                       <button
+                        type="button"
                         className={`dt-expand-toggle${row.getIsExpanded() ? ' dt-expand-toggle--expanded' : ''}`}
                         onClick={(e) => { e.stopPropagation(); handleToggleExpand(row) }}
                         aria-label={row.getIsExpanded() ? 'Collapse' : 'Expand'}
@@ -318,6 +320,7 @@ function DataTableInner<TData>({
                         )}
                       </button>
                     )}
+                    {row.getCanExpand() ? <span className="dt-expand-gap" aria-hidden /> : null}
                   </>
                 )}
                 {isActionBtn ? content : <span className="dt-cell-text">{content}</span>}
@@ -348,15 +351,27 @@ function DataTableInner<TData>({
             {row.getVisibleCells().map((cell) => {
               const meta = cell.column.columnDef.meta as Record<string, unknown> | undefined
               const cellAlign = (meta?.align as ColumnAlign | undefined)
+              const isActionBtn = !!meta?.actionBtn
+              const isSelect = cell.column.id === 'select'
+              if (isActionBtn || isSelect) {
+                return (
+                  <div
+                    key={cell.id}
+                    data-col-id={cell.column.id}
+                    className={'dt-cell' + alignClass(cellAlign)}
+                    style={{ width: getColWidth(cell.column) }}
+                  />
+                )
+              }
+              const content = flexRender(cell.column.columnDef.cell, cell.getContext())
               return (
                 <div
                   key={cell.id}
+                  data-col-id={cell.column.id}
                   className={'dt-cell' + alignClass(cellAlign)}
                   style={{ width: getColWidth(cell.column) }}
                 >
-                  <span className="dt-cell-text">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </span>
+                  <span className="dt-cell-text">{content}</span>
                 </div>
               )
             })}
@@ -412,10 +427,11 @@ function DataTableInner<TData>({
                 return (
                   <div
                     key={header.id}
+                    data-col-id={header.column.id}
                     className={`dt-header-cell${canSort ? ' dt-header-cell--sortable' : ''}${alignClass(headerAlign)}`}
                     style={{ width: getColWidth(header.column) }}
                   >
-                    {isFirstDataCol && <span style={{ width: 20, flexShrink: 0 }} />}
+                    {isFirstDataCol && <span className="dt-tree-header-spacer" />}
                     <div
                       className="dt-header-cell-content"
                       onClick={canSort ? header.column.getToggleSortingHandler() : undefined}

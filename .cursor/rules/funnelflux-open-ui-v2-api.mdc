@@ -1,6 +1,6 @@
 ---
 description: Open UI must align with V2 OpenAPI — read definition.yaml before API-related changes
-globs: "**/*"
+globs: src/**/*,funnelflux-open-ui/**/*
 alwaysApply: false
 ---
 

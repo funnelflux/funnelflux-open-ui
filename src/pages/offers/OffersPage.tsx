@@ -36,6 +36,7 @@ import { api } from '@/api/client'
 import type { Page } from '@/types/entities'
 import type { PageFormData } from '@/schemas/page'
 import { getErrorMessage } from '@/lib/utils'
+import type { DateRange } from '@/lib/date-presets'
 
 type OfferGridRow = EntityGridRow & { _isCategoryHeader?: boolean } & Record<string, unknown>
 
@@ -84,14 +85,6 @@ export function OffersPage() {
     mapListToEntities: (items) => pagesToListEntities(items as Page[]),
   })
 
-  const pinnedBottomRows = useMemo(
-    () => {
-      const row = buildTotalsRow(totalsCells)
-      return row ? [row as OfferGridRow] : undefined
-    },
-    [totalsCells],
-  )
-
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const c of categories ?? []) map.set(c.idCategory, c.name)
@@ -126,6 +119,20 @@ export function OffersPage() {
     }
     return result
   }, [archiveStatus, mergedRows, search, selectedCategoryId, categoryMap])
+
+  const hasMetricRows = useMemo(
+    () => filtered.some((r) => !r._isCategoryHeader),
+    [filtered],
+  )
+
+  const pinnedBottomRows = useMemo(
+    () => {
+      if (!hasMetricRows) return undefined
+      const row = buildTotalsRow(totalsCells)
+      return row ? [row as OfferGridRow] : undefined
+    },
+    [totalsCells, hasMetricRows],
+  )
 
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
@@ -189,7 +196,7 @@ export function OffersPage() {
   }
 
   const statCols = useMemo(
-    () => buildColumnsFromReport<OfferGridRow>(reportColumns),
+    () => buildColumnsFromReport<OfferGridRow>(reportColumns, { hideScopes: new Set(['lander']) }),
     [reportColumns],
   )
 
@@ -203,16 +210,67 @@ export function OffersPage() {
         return <span className="truncate">{row.name}</span>
       },
     }),
-    editBtnColumn<OfferGridRow>((row) => handleEdit(row.id), { hidden: (row) => !!row._isCategoryHeader }),
-    cloneBtnColumn<OfferGridRow>((row) => handleClone(row.id), { hidden: (row) => !!row._isCategoryHeader }),
+    editBtnColumn<OfferGridRow>((row) => handleEdit(row.id), { hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__' }),
+    cloneBtnColumn<OfferGridRow>((row) => handleClone(row.id), { hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__' }),
     archiveBtnColumn<OfferGridRow>(
       (row, archive) => handleArchive(row.id, archive),
-      { hidden: (row) => !!row._isCategoryHeader, isArchived: (row) => row.isArchived === true },
+      {
+        hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__',
+        isArchived: (row) => row.isArchived === true,
+      },
     ),
-    deleteBtnColumn<OfferGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader }),
+    deleteBtnColumn<OfferGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__' }),
     idColumn<OfferGridRow>(),
     ...statCols,
   ], [statCols, handleEdit, handleClone, handleArchive])
+
+  const handleBulkDeselectAllOffers = useCallback(() => setRowSelection({}), [])
+
+  const handleBulkArchiveOffers = useCallback(async () => {
+    await api.put('/data/page/archive/', { ids: selectedIds, archive: true })
+    toast.success('Selected offers archived')
+    setRowSelection({})
+    reload()
+  }, [selectedIds, toast, reload])
+
+  const handleBulkDeleteOffers = useCallback(async () => {
+    for (const id of selectedIds) {
+      await deleteMutation.mutateAsync(id)
+    }
+    toast.success('Selected offers deleted')
+    setRowSelection({})
+    reload()
+  }, [selectedIds, deleteMutation, toast, reload])
+
+  const handleBulkAssignOfferCategory = useCallback(async (idCategory: string) => {
+    await api.put('/data/page/category/assign/', {
+      pageIds: selectedIds,
+      idCategory,
+    })
+    toast.success('Selected offers moved')
+    reload()
+  }, [selectedIds, toast, reload])
+
+  const offersBulkMoveToCategory = useMemo(
+    () => ({
+      categories: categories ?? [],
+      onMove: handleBulkAssignOfferCategory,
+    }),
+    [categories, handleBulkAssignOfferCategory],
+  )
+
+  const handleOffersDateRangeChange = useCallback((v: DateRange & { preset: string | null }) => {
+    if (v.from && v.to) setDateRange({ from: v.from, to: v.to })
+  }, [])
+
+  const handleOpenImportOffers = useCallback(() => setImportOpen(true), [])
+
+  const handleOfferFormOpenChange = useCallback((open: boolean) => {
+    setSheetOpen(open)
+    if (!open) setEditId(null)
+  }, [])
+
+  const handleDismissOfferDelete = useCallback(() => setDeleteId(null), [])
 
   return (
     <PageShell
@@ -220,7 +278,7 @@ export function OffersPage() {
       title="Offers"
       actions={
         <>
-          <Button onClick={() => setImportOpen(true)}>
+          <Button onClick={handleOpenImportOffers}>
             <Upload className="mr-1.5 h-3.5 w-3.5" />
             Import CSV
           </Button>
@@ -247,12 +305,19 @@ export function OffersPage() {
             <DateRangePicker
               value={{ from: dateRange.from, to: dateRange.to, preset: null }}
               timezone={tz}
-              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+              onChange={handleOffersDateRangeChange}
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="offers" /> : null}
+        actions={tableForChooser ? (
+          <ColumnChooser
+            columns={columnDefs}
+            table={tableForChooser}
+            storageKey="offers"
+            hideScopes={new Set(['lander'])}
+          />
+        ) : null}
       />
 
       <DataTable
@@ -273,32 +338,10 @@ export function OffersPage() {
 
       <BulkActionsBar
         count={selectedIds.length}
-        onDeselectAll={() => setRowSelection({})}
-        onArchive={async () => {
-          await api.put('/data/page/archive/', { ids: selectedIds, archive: true })
-          toast.success('Selected offers archived')
-          setRowSelection({})
-          reload()
-        }}
-        onDelete={async () => {
-          for (const id of selectedIds) {
-            await deleteMutation.mutateAsync(id)
-          }
-          toast.success('Selected offers deleted')
-          setRowSelection({})
-          reload()
-        }}
-        onMoveToCategory={{
-          categories: categories ?? [],
-          onMove: async (idCategory) => {
-            await api.put('/data/page/category/assign/', {
-              pageIds: selectedIds,
-              idCategory,
-            })
-            toast.success('Selected offers moved')
-            reload()
-          },
-        }}
+        onDeselectAll={handleBulkDeselectAllOffers}
+        onArchive={handleBulkArchiveOffers}
+        onDelete={handleBulkDeleteOffers}
+        onMoveToCategory={offersBulkMoveToCategory}
       />
 
       <CsvImportDialog
@@ -320,7 +363,7 @@ export function OffersPage() {
 
       <PageForm
         open={sheetOpen}
-        onOpenChange={(open) => { setSheetOpen(open); if (!open) setEditId(null) }}
+        onOpenChange={handleOfferFormOpenChange}
         pageType="offer"
         initialData={editId ? editPage : undefined}
         onSubmit={handleSubmit}
@@ -329,7 +372,7 @@ export function OffersPage() {
 
       <ConfirmModal
         open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
+        onCancel={handleDismissOfferDelete}
         title="Delete Offer"
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}

@@ -1,6 +1,6 @@
 ---
 description: Before importing from antd, check ui-kit; use ui-kit when a wrapper or export exists
-globs: "src/**/*.{tsx,ts}"
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
 alwaysApply: true
 ---
 

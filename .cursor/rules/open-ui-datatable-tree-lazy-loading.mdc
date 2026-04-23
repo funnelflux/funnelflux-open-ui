@@ -1,6 +1,6 @@
 ---
 description: DataTable tree mode and lazy-loading rules — TanStack row model gotchas learned from the drilldown tree report
-globs: "src/**/*.{tsx,ts}"
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
 alwaysApply: false
 ---
 

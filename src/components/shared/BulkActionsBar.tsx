@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Archive, FolderInput, Trash2 } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
+import { Archive, FolderInput, Trash2, Workflow } from 'lucide-react'
 import { AntdSelect, Button, ConfirmModal, Modal } from '@/components/ui-kit'
+import { cn } from '@/lib/utils'
 
 interface Category {
   idCategory: string
@@ -12,10 +13,14 @@ interface BulkActionsBarProps {
   onDeselectAll: () => void
   onArchive?: () => Promise<void>
   onDelete?: () => Promise<void>
+  /** Campaigns-style bulk move (e.g. funnels) */
+  onMove?: () => void
   onMoveToCategory?: {
     categories: Category[]
     onMove: (categoryId: string) => Promise<void>
   }
+  /** Bottom bar (default) or top overlay that overlaps the nav slightly */
+  variant?: 'bottom' | 'floatingTop'
 }
 
 export function BulkActionsBar({
@@ -23,14 +28,16 @@ export function BulkActionsBar({
   onDeselectAll,
   onArchive,
   onDelete,
+  onMove,
   onMoveToCategory,
+  variant = 'bottom',
 }: BulkActionsBarProps) {
   const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null)
   const [moveModalOpen, setMoveModalOpen] = useState(false)
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleConfirm = async () => {
+  const runArchiveOrDelete = useCallback(async () => {
     if (!confirmAction) return
 
     setIsSubmitting(true)
@@ -44,9 +51,29 @@ export function BulkActionsBar({
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [confirmAction, onArchive, onDelete])
 
-  const handleMove = async () => {
+  const handleConfirmModalConfirm = useCallback(() => {
+    void runArchiveOrDelete()
+  }, [runArchiveOrDelete])
+
+  const handleDismissConfirm = useCallback(() => {
+    setConfirmAction(null)
+  }, [])
+
+  const handleRequestArchive = useCallback(() => {
+    setConfirmAction('archive')
+  }, [])
+
+  const handleRequestDelete = useCallback(() => {
+    setConfirmAction('delete')
+  }, [])
+
+  const handleOpenMoveCategoryModal = useCallback(() => {
+    setMoveModalOpen(true)
+  }, [])
+
+  const runCategoryMove = useCallback(async () => {
     if (!selectedCategoryId || !onMoveToCategory) return
 
     setIsSubmitting(true)
@@ -57,36 +84,67 @@ export function BulkActionsBar({
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [selectedCategoryId, onMoveToCategory])
+
+  const handleMoveModalOk = useCallback(() => {
+    void runCategoryMove()
+  }, [runCategoryMove])
+
+  const handleMoveModalCancel = useCallback(() => {
+    setMoveModalOpen(false)
+    setSelectedCategoryId('')
+  }, [])
+
+  const moveCategoryOptions = useMemo(
+    () =>
+      (onMoveToCategory?.categories ?? []).map((c) => ({
+        value: c.idCategory,
+        label: c.name,
+      })),
+    [onMoveToCategory?.categories],
+  )
 
   if (count <= 0) return null
 
   return (
     <>
-      <div className="sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-lg border bg-background p-4 shadow-lg">
+      <div
+        className={cn(
+          'z-30 flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-md',
+          variant === 'floatingTop'
+            ? 'fixed top-2 left-1/2 -translate-x-1/2 w-[min(720px,calc(100vw-24px))]'
+            : 'sticky bottom-4',
+        )}
+      >
         <div className="text-sm font-medium">{count} selected</div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button htmlType="button" onClick={onDeselectAll}>
-            Deselect All
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Button htmlType="button" type="default" size="small" onClick={onDeselectAll}>
+            Clear
           </Button>
-          {onMoveToCategory && (
-            <Button htmlType="button" onClick={() => setMoveModalOpen(true)}>
-              <FolderInput className="mr-1.5 h-3.5 w-3.5" />
-              Move to Category
+          {onMove ? (
+            <Button htmlType="button" type="default" size="small" onClick={onMove}>
+              <Workflow className="mr-1.5 h-3.5 w-3.5" />
+              Move
             </Button>
-          )}
-          {onArchive && (
-            <Button htmlType="button" onClick={() => setConfirmAction('archive')}>
+          ) : null}
+          {onMoveToCategory ? (
+            <Button htmlType="button" type="default" size="small" onClick={handleOpenMoveCategoryModal}>
+              <FolderInput className="mr-1.5 h-3.5 w-3.5" />
+              Move to category
+            </Button>
+          ) : null}
+          {onArchive ? (
+            <Button htmlType="button" type="default" size="small" onClick={handleRequestArchive}>
               <Archive className="mr-1.5 h-3.5 w-3.5" />
               Archive
             </Button>
-          )}
-          {onDelete && (
-            <Button htmlType="button" danger type="primary" onClick={() => setConfirmAction('delete')}>
+          ) : null}
+          {onDelete ? (
+            <Button htmlType="button" danger type="primary" size="small" onClick={handleRequestDelete}>
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Delete
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -101,16 +159,16 @@ export function BulkActionsBar({
         confirmText={confirmAction === 'archive' ? 'Archive' : 'Delete'}
         danger={confirmAction === 'delete'}
         loading={isSubmitting}
-        onConfirm={() => void handleConfirm()}
-        onCancel={() => setConfirmAction(null)}
+        onConfirm={handleConfirmModalConfirm}
+        onCancel={handleDismissConfirm}
       />
 
-      {onMoveToCategory && (
+      {onMoveToCategory ? (
         <Modal
           open={moveModalOpen}
-          title="Move to Category"
-          onCancel={() => { setMoveModalOpen(false); setSelectedCategoryId('') }}
-          onOk={() => void handleMove()}
+          title="Move to category"
+          onCancel={handleMoveModalCancel}
+          onOk={handleMoveModalOk}
           okText="Move"
           confirmLoading={isSubmitting}
           okButtonProps={{ disabled: !selectedCategoryId }}
@@ -122,14 +180,11 @@ export function BulkActionsBar({
               onChange={setSelectedCategoryId}
               placeholder="Select a category"
               className="w-full"
-              options={onMoveToCategory.categories.map((c) => ({
-                value: c.idCategory,
-                label: c.name,
-              }))}
+              options={moveCategoryOptions}
             />
           </div>
         </Modal>
-      )}
+      ) : null}
     </>
   )
 }

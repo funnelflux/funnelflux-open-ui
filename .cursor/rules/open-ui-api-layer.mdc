@@ -1,6 +1,6 @@
 ---
 description: API layer rules — hooks only, no direct fetch in components
-globs: "src/**/*.{tsx,ts}"
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
 alwaysApply: false
 ---
 

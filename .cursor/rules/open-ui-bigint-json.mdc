@@ -1,6 +1,6 @@
 ---
 description: Preserve Snowflake-style integer ids through JSON.parse — stats drilldown responses
-globs: "src/**/*.{tsx,ts}"
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
 alwaysApply: false
 ---
 

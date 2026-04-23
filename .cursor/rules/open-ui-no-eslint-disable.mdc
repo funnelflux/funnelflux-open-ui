@@ -1,6 +1,6 @@
 ---
 description: Ban eslint-disable comments in funnelflux-open-ui unless genuinely unavoidable
-globs: "src/**/*.{ts,tsx}"
+globs: src/**/*.{ts,tsx},funnelflux-open-ui/**/*.{ts,tsx}
 alwaysApply: false
 ---
 

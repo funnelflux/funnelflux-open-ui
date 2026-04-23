@@ -37,6 +37,7 @@ import type { Page } from '@/types/entities'
 import type { PageFormData } from '@/schemas/page'
 import { useSavePage, usePage } from '@/api/hooks'
 import { getErrorMessage } from '@/lib/utils'
+import type { DateRange } from '@/lib/date-presets'
 
 type LanderGridRow = EntityGridRow & { _isCategoryHeader?: boolean } & Record<string, unknown>
 
@@ -85,14 +86,6 @@ export function LandersPage() {
     mapListToEntities: (items) => pagesToListEntities(items as Page[]),
   })
 
-  const pinnedBottomRows = useMemo(
-    () => {
-      const row = buildTotalsRow(totalsCells)
-      return row ? [row as LanderGridRow] : undefined
-    },
-    [totalsCells],
-  )
-
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const c of categories ?? []) map.set(c.idCategory, c.name)
@@ -127,6 +120,20 @@ export function LandersPage() {
     }
     return result
   }, [archiveStatus, mergedRows, search, selectedCategoryId, categoryMap])
+
+  const hasMetricRows = useMemo(
+    () => filtered.some((r) => !r._isCategoryHeader),
+    [filtered],
+  )
+
+  const pinnedBottomRows = useMemo(
+    () => {
+      if (!hasMetricRows) return undefined
+      const row = buildTotalsRow(totalsCells)
+      return row ? [row as LanderGridRow] : undefined
+    },
+    [totalsCells, hasMetricRows],
+  )
 
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
@@ -186,7 +193,7 @@ export function LandersPage() {
   }
 
   const statCols = useMemo(
-    () => buildColumnsFromReport<LanderGridRow>(reportColumns),
+    () => buildColumnsFromReport<LanderGridRow>(reportColumns, { hideScopes: new Set(['offer']) }),
     [reportColumns],
   )
 
@@ -200,16 +207,67 @@ export function LandersPage() {
         return <span className="truncate">{row.name}</span>
       },
     }),
-    editBtnColumn<LanderGridRow>((row) => handleEdit(row.id), { hidden: (row) => !!row._isCategoryHeader }),
-    cloneBtnColumn<LanderGridRow>((row) => handleClone(row.id), { hidden: (row) => !!row._isCategoryHeader }),
+    editBtnColumn<LanderGridRow>((row) => handleEdit(row.id), { hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__' }),
+    cloneBtnColumn<LanderGridRow>((row) => handleClone(row.id), { hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__' }),
     archiveBtnColumn<LanderGridRow>(
       (row, archive) => handleArchive(row.id, archive),
-      { hidden: (row) => !!row._isCategoryHeader, isArchived: (row) => row.isArchived === true },
+      {
+        hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__',
+        isArchived: (row) => row.isArchived === true,
+      },
     ),
-    deleteBtnColumn<LanderGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader }),
+    deleteBtnColumn<LanderGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__' }),
     idColumn<LanderGridRow>(),
     ...statCols,
   ], [statCols, handleEdit, handleClone, handleArchive])
+
+  const handleBulkDeselectAllLanders = useCallback(() => setRowSelection({}), [])
+
+  const handleBulkArchiveLanders = useCallback(async () => {
+    await api.put('/data/page/archive/', { ids: selectedIds, archive: true })
+    toast.success('Selected landers archived')
+    setRowSelection({})
+    reload()
+  }, [selectedIds, toast, reload])
+
+  const handleBulkDeleteLanders = useCallback(async () => {
+    for (const id of selectedIds) {
+      await deleteMutation.mutateAsync(id)
+    }
+    toast.success('Selected landers deleted')
+    setRowSelection({})
+    reload()
+  }, [selectedIds, deleteMutation, toast, reload])
+
+  const handleBulkAssignLanderCategory = useCallback(async (idCategory: string) => {
+    await api.put('/data/page/category/assign/', {
+      pageIds: selectedIds,
+      idCategory,
+    })
+    toast.success('Selected landers moved')
+    reload()
+  }, [selectedIds, toast, reload])
+
+  const landersBulkMoveToCategory = useMemo(
+    () => ({
+      categories: categories ?? [],
+      onMove: handleBulkAssignLanderCategory,
+    }),
+    [categories, handleBulkAssignLanderCategory],
+  )
+
+  const handleLandersDateRangeChange = useCallback((v: DateRange & { preset: string | null }) => {
+    if (v.from && v.to) setDateRange({ from: v.from, to: v.to })
+  }, [])
+
+  const handleOpenImportLanders = useCallback(() => setImportOpen(true), [])
+
+  const handleLanderFormOpenChange = useCallback((open: boolean) => {
+    setSheetOpen(open)
+    if (!open) setEditId(null)
+  }, [])
+
+  const handleDismissLanderDelete = useCallback(() => setDeleteId(null), [])
 
   return (
     <PageShell
@@ -217,7 +275,7 @@ export function LandersPage() {
       title="Landers"
       actions={
         <div className="flex items-center gap-2">
-          <Button onClick={() => setImportOpen(true)}>
+          <Button onClick={handleOpenImportLanders}>
             <Upload className="mr-1.5 h-3.5 w-3.5" />
             Import CSV
           </Button>
@@ -244,12 +302,19 @@ export function LandersPage() {
             <DateRangePicker
               value={{ from: dateRange.from, to: dateRange.to, preset: null }}
               timezone={tz}
-              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+              onChange={handleLandersDateRangeChange}
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="landers" /> : null}
+        actions={tableForChooser ? (
+          <ColumnChooser
+            columns={columnDefs}
+            table={tableForChooser}
+            storageKey="landers"
+            hideScopes={new Set(['offer'])}
+          />
+        ) : null}
       />
 
       <DataTable<LanderGridRow>
@@ -270,32 +335,10 @@ export function LandersPage() {
 
       <BulkActionsBar
         count={selectedIds.length}
-        onDeselectAll={() => setRowSelection({})}
-        onArchive={async () => {
-          await api.put('/data/page/archive/', { ids: selectedIds, archive: true })
-          toast.success('Selected landers archived')
-          setRowSelection({})
-          reload()
-        }}
-        onDelete={async () => {
-          for (const id of selectedIds) {
-            await deleteMutation.mutateAsync(id)
-          }
-          toast.success('Selected landers deleted')
-          setRowSelection({})
-          reload()
-        }}
-        onMoveToCategory={{
-          categories: categories ?? [],
-          onMove: async (idCategory) => {
-            await api.put('/data/page/category/assign/', {
-              pageIds: selectedIds,
-              idCategory,
-            })
-            toast.success('Selected landers moved')
-            reload()
-          },
-        }}
+        onDeselectAll={handleBulkDeselectAllLanders}
+        onArchive={handleBulkArchiveLanders}
+        onDelete={handleBulkDeleteLanders}
+        onMoveToCategory={landersBulkMoveToCategory}
       />
 
       <CsvImportDialog
@@ -315,7 +358,7 @@ export function LandersPage() {
 
       <PageForm
         open={sheetOpen}
-        onOpenChange={(open) => { setSheetOpen(open); if (!open) setEditId(null) }}
+        onOpenChange={handleLanderFormOpenChange}
         pageType="lander"
         initialData={editId ? editPage : undefined}
         onSubmit={handleSubmit}
@@ -324,7 +367,7 @@ export function LandersPage() {
 
       <ConfirmModal
         open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
+        onCancel={handleDismissLanderDelete}
         title="Delete Lander"
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}

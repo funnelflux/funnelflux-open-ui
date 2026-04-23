@@ -1,6 +1,6 @@
 ---
 description: UI-kit component usage — always use shared components, follow DataTable patterns
-globs: "src/**/*.{tsx,ts}"
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
 alwaysApply: false
 ---
 

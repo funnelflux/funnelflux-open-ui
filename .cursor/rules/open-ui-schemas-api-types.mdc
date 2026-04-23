@@ -1,7 +1,8 @@
 ---
 description: Zod schemas must anchor to OpenAPI-generated types (entities/ui wrappers)
 globs:
-  - "src/schemas/**/*.ts"
+  - src/schemas/**/*.ts
+  - funnelflux-open-ui/src/schemas/**/*.ts
 alwaysApply: true
 ---
 

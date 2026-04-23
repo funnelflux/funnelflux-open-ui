@@ -1,6 +1,6 @@
 ---
 description: Entity page pattern — list + edit modal + CRUD flow
-globs: "src/pages/**/*.{tsx,ts}"
+globs: src/pages/**/*.{tsx,ts},funnelflux-open-ui/src/pages/**/*.{tsx,ts}
 alwaysApply: false
 ---
 

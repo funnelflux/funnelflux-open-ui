@@ -1,6 +1,6 @@
 ---
 description: Styling rules — design tokens, Tailwind utilities, no hardcoded colors
-globs: "src/**/*.{tsx,ts,css}"
+globs: src/**/*.{tsx,ts,css},funnelflux-open-ui/**/*.{tsx,ts,css}
 alwaysApply: false
 ---
 

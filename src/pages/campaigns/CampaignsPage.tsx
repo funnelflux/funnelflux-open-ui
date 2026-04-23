@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { subDays } from 'date-fns'
-import type { ColumnDef, RowSelectionState, ExpandedState, Table } from '@tanstack/react-table'
+import type { ColumnDef, RowSelectionState, ExpandedState, Table, VisibilityState } from '@tanstack/react-table'
 import { Button } from '@/components/ui-kit'
 import {
   PageShell,
@@ -18,8 +18,7 @@ import {
   editBtnColumn,
   cloneBtnColumn,
   deleteBtnColumn,
-  addFunnelBtnColumn,
-  moveBtnColumn,
+  addFunnelOrMoveColumn,
   buildColumnsFromReport,
   entityRowId,
 } from '@/components/ui-kit/data-table'
@@ -40,6 +39,7 @@ import {
 import { CampaignEditForm } from './CampaignEditForm'
 import { AddCampaignOrFunnelModal } from './AddCampaignOrFunnelModal'
 import { MoveFunnelModal, type MoveFunnelTarget } from './MoveFunnelModal'
+import type { Funnel } from '@/types/entities'
 import {
   buildCampaignTreeFromMysqlAndFlatFunnelReport,
   type CampaignHierarchyResponse,
@@ -50,6 +50,7 @@ import { toApiDateTimeRange } from '@/types/stats'
 import type { Report, ReportCell } from '@/types/stats'
 import type { CampaignFormData } from '@/schemas/campaign'
 import { getErrorMessage } from '@/lib/utils'
+import type { DateRange } from '@/lib/date-presets'
 import { generateId } from '@/lib/id-generator'
 
 function isCampaignTotalsRow(row: CampaignTreeRow): boolean {
@@ -67,6 +68,25 @@ function buildCampaignTotalsRow(cells: ReportCell[] | null | undefined): Campaig
   }
 }
 
+function findCampaignRowById(rows: CampaignTreeRow[], id: string): CampaignTreeRow | undefined {
+  for (const r of rows) {
+    if (r.id === id) return r
+    const nested = r._children && findCampaignRowById(r._children, id)
+    if (nested) return nested
+  }
+  return undefined
+}
+
+async function archiveFunnelRemote(funnelId: string): Promise<void> {
+  const funnel = await api.get<Funnel>('/data/campaign/funnel/find/byId/', {
+    idFunnel: funnelId,
+    loadDependencies: 'true',
+  })
+  await api.put<Funnel>('/data/campaign/funnel/save/', { ...funnel, isArchived: true }, {
+    deleteDependencies: 'false',
+  })
+}
+
 const TABLE_KEY = 'campaigns'
 
 export function CampaignsPage() {
@@ -80,7 +100,7 @@ export function CampaignsPage() {
   const [addCombinedOpen, setAddCombinedOpen] = useState(false)
   const [funnelPrefillCampaignId, setFunnelPrefillCampaignId] = useState<string | null>(null)
   const [addModalKey, setAddModalKey] = useState(0)
-  const [moveFunnelTarget, setMoveFunnelTarget] = useState<MoveFunnelTarget | null>(null)
+  const [moveFunnelTarget, setMoveFunnelTarget] = useState<MoveFunnelTarget | MoveFunnelTarget[] | null>(null)
   const [tz, setTz] = useState('UTC')
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 365),
@@ -148,17 +168,18 @@ export function CampaignsPage() {
   }, [treeData, search])
 
   const pinnedBottomRows = useMemo(() => {
+    if (filtered.length === 0) return undefined
     const row = buildCampaignTotalsRow(totalsCells)
     return row ? [row] : undefined
-  }, [totalsCells])
+  }, [totalsCells, filtered.length])
 
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
 
-  const openAddCampaignOrFunnel = (prefillCampaignId?: string | null) => {
+  const openAddCampaignOrFunnel = useCallback((prefillCampaignId?: string | null) => {
     setFunnelPrefillCampaignId(prefillCampaignId ?? null)
     setAddModalKey((k) => k + 1)
     setAddCombinedOpen(true)
-  }
+  }, [])
 
   const handleOpenCampaignFormFromCombined = () => {
     setEditId(null)
@@ -166,7 +187,7 @@ export function CampaignsPage() {
   }
 
   const handleCreate = () => openAddCampaignOrFunnel()
-  const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
+  const handleEdit = useCallback((id: string) => { setEditId(id); setSheetOpen(true) }, [])
 
   const handleSubmit = (data: CampaignFormData) => {
     const isNew = !data.idCampaign || data.idCampaign === '0'
@@ -186,12 +207,12 @@ export function CampaignsPage() {
     })
   }
 
-  const handleCloneCampaign = (id: string) => {
+  const handleCloneCampaign = useCallback((id: string) => {
     cloneMutation.mutate(id, {
       onSuccess: () => { toast.success('Campaign cloned'); fetchData() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }
+  }, [cloneMutation, fetchData, toast])
 
   const handleDelete = () => {
     if (!deleteTarget) return
@@ -264,21 +285,103 @@ export function CampaignsPage() {
     )
   }
 
-  const handleCloneFunnel = (funnelId: string) => {
+  const handleCloneFunnel = useCallback((funnelId: string) => {
     cloneFunnel.mutate(funnelId, {
       onSuccess: () => { toast.success('Funnel cloned'); fetchData() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }
+  }, [cloneFunnel, fetchData, toast])
 
-  const openMoveFunnelModal = (row: CampaignTreeRow) => {
+  const openMoveFunnelModal = useCallback((row: CampaignTreeRow) => {
     if (row.kind !== 'funnel' || !row.funnelId) return
     setMoveFunnelTarget({
       funnelId: row.funnelId,
       funnelName: row.name,
       currentCampaignId: row.campaignId,
     })
-  }
+  }, [])
+
+  const handleBulkDeselectAll = useCallback(() => {
+    setRowSelection({})
+  }, [])
+
+  const handleBulkMoveFunnels = useCallback(() => {
+    const targets: MoveFunnelTarget[] = []
+    for (const id of selectedIds) {
+      const row = findCampaignRowById(treeData, id)
+      if (row?.kind === 'funnel' && row.funnelId) {
+        targets.push({
+          funnelId: row.funnelId,
+          funnelName: row.name,
+          currentCampaignId: row.campaignId,
+        })
+      }
+    }
+    if (targets.length === 0) {
+      toast.error('Select one or more funnels to move')
+      return
+    }
+    setMoveFunnelTarget(targets.length === 1 ? targets[0]! : targets)
+  }, [selectedIds, treeData, toast])
+
+  const handleBulkArchiveFunnels = useCallback(async () => {
+    let archived = 0
+    for (const id of selectedIds) {
+      const row = findCampaignRowById(treeData, id)
+      if (row?.kind !== 'funnel' || !row.funnelId) continue
+      try {
+        await archiveFunnelRemote(row.funnelId)
+        archived += 1
+      } catch (err) {
+        toast.error(getErrorMessage(err))
+        return
+      }
+    }
+    if (archived === 0) {
+      toast.error('Select funnels to archive')
+      return
+    }
+    toast.success(archived === 1 ? 'Funnel archived' : `${archived} funnels archived`)
+    setRowSelection({})
+    fetchData()
+  }, [selectedIds, treeData, toast, fetchData])
+
+  const handleBulkDeleteSelection = useCallback(async () => {
+    for (const id of selectedIds) {
+      const row = findCampaignRowById(treeData, id)
+      if (row?.kind === 'campaign') {
+        await deleteMutation.mutateAsync(row.campaignId)
+      } else if (row?.kind === 'funnel' && row.funnelId) {
+        await deleteFunnel.mutateAsync(row.funnelId)
+      }
+    }
+    toast.success('Selected items deleted')
+    setRowSelection({})
+    fetchData()
+  }, [selectedIds, treeData, deleteMutation, deleteFunnel, toast, fetchData])
+
+  const handleCampaignDateRangeChange = useCallback((v: DateRange & { preset: string | null }) => {
+    if (v.from && v.to) setDateRange({ from: v.from, to: v.to })
+  }, [])
+
+  const handleTableColumnSizingChange = useCallback((sizing: Record<string, number>) => {
+    setColumnSizing(TABLE_KEY, sizing)
+  }, [setColumnSizing])
+
+  const handleTableColumnVisibilityChange = useCallback((vis: VisibilityState) => {
+    setColumnVisibility(TABLE_KEY, vis)
+  }, [setColumnVisibility])
+
+  const handleCloseAddCombinedModal = useCallback(() => setAddCombinedOpen(false), [])
+
+  const handleCloseMoveFunnelModal = useCallback(() => setMoveFunnelTarget(null), [])
+
+  const handleCampaignEditOpenChange = useCallback((open: boolean) => {
+    setSheetOpen(open)
+    if (!open) setEditId(null)
+  }, [])
+
+  const handleDismissDeleteCampaignOrFunnel = useCallback(() => setDeleteTarget(null), [])
 
   const getSubRows = useCallback((row: CampaignTreeRow) => row._children, [])
 
@@ -298,13 +401,14 @@ export function CampaignsPage() {
       if (row.kind === 'campaign') handleCloneCampaign(row.campaignId)
       else if (row.funnelId) handleCloneFunnel(row.funnelId)
     }, { hidden: isCampaignTotalsRow }),
-    addFunnelBtnColumn<CampaignTreeRow>(
+    addFunnelOrMoveColumn<CampaignTreeRow>(
       (row) => openAddCampaignOrFunnel(row.campaignId),
-      { hidden: (row) => isCampaignTotalsRow(row) || row.kind !== 'campaign' },
-    ),
-    moveBtnColumn<CampaignTreeRow>(
       (row) => { openMoveFunnelModal(row) },
-      { hidden: (row) => isCampaignTotalsRow(row) || row.kind !== 'funnel' },
+      {
+        hidden: isCampaignTotalsRow,
+        showAdd: (row) => row.kind === 'campaign',
+        showMove: (row) => row.kind === 'funnel',
+      },
     ),
     deleteBtnColumn<CampaignTreeRow>((row) => {
       if (row.kind === 'campaign') setDeleteTarget({ id: row.campaignId, kind: 'campaign' })
@@ -315,8 +419,15 @@ export function CampaignsPage() {
       accessorFn: (row) => row.kind === 'campaign' ? row.campaignId : row.funnelId,
     },
     ...statCols,
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [statCols, navigate])
+  ], [
+    statCols,
+    navigate,
+    handleEdit,
+    handleCloneCampaign,
+    handleCloneFunnel,
+    openAddCampaignOrFunnel,
+    openMoveFunnelModal,
+  ])
 
   return (
     <PageShell
@@ -337,7 +448,7 @@ export function CampaignsPage() {
             <DateRangePicker
               value={{ from: dateRange.from, to: dateRange.to, preset: null }}
               timezone={tz}
-              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+              onChange={handleCampaignDateRangeChange}
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
@@ -361,42 +472,25 @@ export function CampaignsPage() {
         onExpandedChange={setExpanded}
         tableRef={tableRef}
         columnSizing={tableConfig.columnSizing}
-        onColumnSizingChange={(sizing) => setColumnSizing(TABLE_KEY, sizing)}
+        onColumnSizingChange={handleTableColumnSizingChange}
         columnVisibility={tableConfig.columnVisibility}
-        onColumnVisibilityChange={(vis) => setColumnVisibility(TABLE_KEY, vis)}
+        onColumnVisibilityChange={handleTableColumnVisibilityChange}
         emptyMessage={search ? 'No campaigns match your search.' : 'No campaigns found.'}
       />
 
       <BulkActionsBar
+        variant="floatingTop"
         count={selectedIds.length}
-        onDeselectAll={() => setRowSelection({})}
-        onDelete={async () => {
-          for (const id of selectedIds) {
-            const findRow = (rows: CampaignTreeRow[]): CampaignTreeRow | undefined => {
-              for (const r of rows) {
-                if (r.id === id) return r
-                const found = r._children && findRow(r._children)
-                if (found) return found
-              }
-              return undefined
-            }
-            const row = findRow(treeData)
-            if (row?.kind === 'campaign') {
-              await deleteMutation.mutateAsync(row.campaignId)
-            } else if (row?.kind === 'funnel' && row.funnelId) {
-              await deleteFunnel.mutateAsync(row.funnelId)
-            }
-          }
-          toast.success('Selected items deleted')
-          setRowSelection({})
-          fetchData()
-        }}
+        onDeselectAll={handleBulkDeselectAll}
+        onMove={handleBulkMoveFunnels}
+        onArchive={handleBulkArchiveFunnels}
+        onDelete={handleBulkDeleteSelection}
       />
 
       <AddCampaignOrFunnelModal
         key={addModalKey}
         open={addCombinedOpen}
-        onClose={() => setAddCombinedOpen(false)}
+        onClose={handleCloseAddCombinedModal}
         initialCampaignId={funnelPrefillCampaignId}
         onOpenCampaignForm={handleOpenCampaignFormFromCombined}
         onCreateFunnel={handleCreateFunnelFromModal}
@@ -408,13 +502,13 @@ export function CampaignsPage() {
       <MoveFunnelModal
         open={!!moveFunnelTarget}
         target={moveFunnelTarget}
-        onClose={() => setMoveFunnelTarget(null)}
+        onClose={handleCloseMoveFunnelModal}
         onMoved={fetchData}
       />
 
       <CampaignEditForm
         open={sheetOpen}
-        onOpenChange={(open) => { setSheetOpen(open); if (!open) setEditId(null) }}
+        onOpenChange={handleCampaignEditOpenChange}
         initialData={editId ? editCampaign : undefined}
         onSubmit={handleSubmit}
         isSubmitting={saveMutation.isPending}
@@ -422,7 +516,7 @@ export function CampaignsPage() {
 
       <ConfirmModal
         open={!!deleteTarget}
-        onCancel={() => setDeleteTarget(null)}
+        onCancel={handleDismissDeleteCampaignOrFunnel}
         title={deleteTarget?.kind === 'campaign' ? 'Delete Campaign' : 'Delete Funnel'}
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}

@@ -1,6 +1,6 @@
 ---
 description: Form patterns for funnelflux-open-ui — RHF + Zod + Ant Design + Controller
-globs: "src/**/*.{tsx,ts}"
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
 alwaysApply: false
 ---
 

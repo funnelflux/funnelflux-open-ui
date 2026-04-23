@@ -32,6 +32,7 @@ import { api } from '@/api/client'
 import type { TrafficSource } from '@/types/entities'
 import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 import { getErrorMessage } from '@/lib/utils'
+import type { DateRange } from '@/lib/date-presets'
 
 type TrafficSourceGridRow = EntityGridRow & Record<string, unknown>
 
@@ -62,10 +63,11 @@ export function TrafficSourcesPage() {
 
   const pinnedBottomRows = useMemo(
     () => {
+      if (filtered.length === 0) return undefined
       const row = buildTotalsRow(totalsCells)
       return row ? [row as TrafficSourceGridRow] : undefined
     },
-    [totalsCells],
+    [totalsCells, filtered.length],
   )
 
   const handleSubmit = (data: TrafficSourceFormData) => {
@@ -100,6 +102,7 @@ export function TrafficSourcesPage() {
   }
 
   const isDefaultSource = (row: TrafficSourceGridRow) => row.id === '1'
+  const hideActions = (row: TrafficSourceGridRow) => isDefaultSource(row) || row.id === '__totals__'
 
   const statCols = useMemo(
     () => buildColumnsFromReport<TrafficSourceGridRow>(reportColumns),
@@ -111,12 +114,58 @@ export function TrafficSourcesPage() {
   const columnDefs = useMemo<ColumnDef<TrafficSourceGridRow, unknown>[]>(() => [
     selectionColumn<TrafficSourceGridRow>(),
     nameColumn<TrafficSourceGridRow>(),
-    editBtnColumn<TrafficSourceGridRow>((row) => handleEdit(row.id), { hidden: isDefaultSource }),
-    cloneBtnColumn<TrafficSourceGridRow>((row) => handleClone(row.id), { hidden: isDefaultSource }),
-    deleteBtnColumn<TrafficSourceGridRow>((row) => handleRequestDelete(row.id), { hidden: isDefaultSource }),
+    editBtnColumn<TrafficSourceGridRow>((row) => handleEdit(row.id), { hidden: hideActions }),
+    cloneBtnColumn<TrafficSourceGridRow>((row) => handleClone(row.id), { hidden: hideActions }),
+    deleteBtnColumn<TrafficSourceGridRow>((row) => handleRequestDelete(row.id), { hidden: hideActions }),
     idColumn<TrafficSourceGridRow>(),
     ...statCols,
   ], [statCols, handleEdit, handleClone, handleRequestDelete])
+
+  const handleBulkDeselectAllTrafficSources = useCallback(() => setRowSelection({}), [])
+
+  const handleBulkArchiveTrafficSources = useCallback(async () => {
+    await api.put('/data/trafficsource/archive/', { ids: selectedIds, archive: true })
+    toast.success('Selected traffic sources archived')
+    setRowSelection({})
+    reload()
+  }, [selectedIds, toast, reload])
+
+  const handleBulkDeleteTrafficSources = useCallback(async () => {
+    for (const id of selectedIds) {
+      await deleteMutation.mutateAsync(id)
+    }
+    toast.success('Selected traffic sources deleted')
+    setRowSelection({})
+    reload()
+  }, [selectedIds, deleteMutation, toast, reload])
+
+  const handleBulkAssignTrafficSourceCategory = useCallback(async (idCategory: string) => {
+    await api.put('/data/trafficsource/category/assign/', {
+      trafficSourceIds: selectedIds,
+      idCategory,
+    })
+    toast.success('Selected traffic sources moved')
+    reload()
+  }, [selectedIds, toast, reload])
+
+  const trafficSourcesBulkMoveToCategory = useMemo(
+    () => ({
+      categories: categories ?? [],
+      onMove: handleBulkAssignTrafficSourceCategory,
+    }),
+    [categories, handleBulkAssignTrafficSourceCategory],
+  )
+
+  const handleTrafficSourcesDateRangeChange = useCallback((v: DateRange & { preset: string | null }) => {
+    if (v.from && v.to) setDateRange({ from: v.from, to: v.to })
+  }, [])
+
+  const handleTrafficSourceFormOpenChange = useCallback((open: boolean) => {
+    setSheetOpen(open)
+    if (!open) setEditId(null)
+  }, [])
+
+  const handleDismissTrafficSourceDelete = useCallback(() => setDeleteId(null), [])
 
   return (
     <PageShell
@@ -143,7 +192,7 @@ export function TrafficSourcesPage() {
             <DateRangePicker
               value={{ from: dateRange.from, to: dateRange.to, preset: null }}
               timezone={tz}
-              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+              onChange={handleTrafficSourcesDateRangeChange}
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
@@ -168,37 +217,15 @@ export function TrafficSourcesPage() {
 
       <BulkActionsBar
         count={selectedIds.length}
-        onDeselectAll={() => setRowSelection({})}
-        onArchive={async () => {
-          await api.put('/data/trafficsource/archive/', { ids: selectedIds, archive: true })
-          toast.success('Selected traffic sources archived')
-          setRowSelection({})
-          reload()
-        }}
-        onDelete={async () => {
-          for (const id of selectedIds) {
-            await deleteMutation.mutateAsync(id)
-          }
-          toast.success('Selected traffic sources deleted')
-          setRowSelection({})
-          reload()
-        }}
-        onMoveToCategory={{
-          categories: categories ?? [],
-          onMove: async (idCategory) => {
-            await api.put('/data/trafficsource/category/assign/', {
-              trafficSourceIds: selectedIds,
-              idCategory,
-            })
-            toast.success('Selected traffic sources moved')
-            reload()
-          },
-        }}
+        onDeselectAll={handleBulkDeselectAllTrafficSources}
+        onArchive={handleBulkArchiveTrafficSources}
+        onDelete={handleBulkDeleteTrafficSources}
+        onMoveToCategory={trafficSourcesBulkMoveToCategory}
       />
 
       <TrafficSourceForm
         open={sheetOpen}
-        onOpenChange={(open) => { setSheetOpen(open); if (!open) setEditId(null) }}
+        onOpenChange={handleTrafficSourceFormOpenChange}
         initialData={editId ? editSource : undefined}
         onSubmit={handleSubmit}
         isSubmitting={saveMutation.isPending}
@@ -206,7 +233,7 @@ export function TrafficSourcesPage() {
 
       <ConfirmModal
         open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
+        onCancel={handleDismissTrafficSourceDelete}
         title="Delete Traffic Source"
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}

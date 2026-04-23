@@ -1,8 +1,10 @@
 ---
 description: Rules for OpenAPI-to-TypeScript type generation pipeline
 globs:
-  - "src/types/**"
-  - "../admin/api/v2/*/definition.yaml"
+  - src/types/**
+  - funnelflux-open-ui/src/types/**
+  - ../admin/api/v2/*/definition.yaml
+  - admin/api/v2/*/definition.yaml
 alwaysApply: true
 ---
 

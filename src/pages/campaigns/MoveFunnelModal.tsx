@@ -21,7 +21,8 @@ export interface MoveFunnelTarget {
 export interface MoveFunnelModalProps {
   open: boolean
   onClose: () => void
-  target: MoveFunnelTarget | null
+  /** Single funnel, or several with the same workflow (bulk move to one campaign) */
+  target: MoveFunnelTarget | MoveFunnelTarget[] | null
   onMoved: () => void
 }
 
@@ -37,7 +38,12 @@ export function MoveFunnelModal({
   const [manualCampaignId, setManualCampaignId] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const currentCampaignId = target?.currentCampaignId ?? ''
+  const targets = useMemo((): MoveFunnelTarget[] => {
+    if (!target) return []
+    return Array.isArray(target) ? target : [target]
+  }, [target])
+
+  const currentCampaignId = targets[0]?.currentCampaignId ?? ''
 
   const selectOptions = useMemo(
     () =>
@@ -60,23 +66,26 @@ export function MoveFunnelModal({
   const resolvedTargetId = manualCampaignId.trim() || selectedCampaignId?.trim() || ''
 
   const handleSubmit = async () => {
-    if (!target?.funnelId) return
+    if (targets.length === 0) return
     if (!resolvedTargetId) {
       toast.error('Select a campaign or enter a campaign ID')
       return
     }
-    if (resolvedTargetId === currentCampaignId) {
-      toast.error('Choose a different campaign than the current one')
+    const wrongCampaign = targets.some((t) => resolvedTargetId === t.currentCampaignId)
+    if (wrongCampaign) {
+      toast.error('Choose a different campaign than a funnel’s current campaign')
       return
-    }
-    const body: FunnelMoveRequest = {
-      idFunnel: target.funnelId,
-      idCampaign: resolvedTargetId,
     }
     setSubmitting(true)
     try {
-      await api.put('/data/campaign/funnel/move/', body)
-      toast.success('Funnel moved')
+      for (const t of targets) {
+        const body: FunnelMoveRequest = {
+          idFunnel: t.funnelId,
+          idCampaign: resolvedTargetId,
+        }
+        await api.put('/data/campaign/funnel/move/', body)
+      }
+      toast.success(targets.length > 1 ? `${targets.length} funnels moved` : 'Funnel moved')
       onMoved()
       onClose()
     } catch (err) {
@@ -88,7 +97,7 @@ export function MoveFunnelModal({
 
   return (
     <Modal
-      title="Move funnel to another campaign"
+      title={targets.length > 1 ? `Move ${targets.length} funnels` : 'Move funnel to another campaign'}
       open={open}
       onCancel={onClose}
       destroyOnHidden
@@ -110,10 +119,17 @@ export function MoveFunnelModal({
       width={480}
     >
       <div className="space-y-4 pt-1">
-        {target?.funnelName ? (
+        {targets.length === 1 && targets[0]?.funnelName ? (
           <p className="text-sm text-muted-foreground">
-            Funnel: <span className="font-medium text-foreground">{target.funnelName}</span>
+            Funnel: <span className="font-medium text-foreground">{targets[0].funnelName}</span>
           </p>
+        ) : null}
+        {targets.length > 1 ? (
+          <ul className="text-sm text-muted-foreground max-h-32 overflow-y-auto list-disc pl-5 space-y-0.5">
+            {targets.map((t) => (
+              <li key={t.funnelId}><span className="text-foreground">{t.funnelName}</span></li>
+            ))}
+          </ul>
         ) : null}
 
         <FormField

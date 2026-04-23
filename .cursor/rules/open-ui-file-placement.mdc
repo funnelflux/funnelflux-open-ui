@@ -1,5 +1,6 @@
 ---
 description: Place code in semantically appropriate modules; avoid dumping unrelated logic into convenient files.
+globs: src/**/*,funnelflux-open-ui/**/*
 alwaysApply: true
 ---
 

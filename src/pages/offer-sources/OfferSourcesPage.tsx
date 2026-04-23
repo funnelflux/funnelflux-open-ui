@@ -32,6 +32,7 @@ import { useEntityPage } from '@/hooks/useEntityPage'
 import { OfferSourceForm } from '@/components/forms/OfferSourceForm'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
 import { getErrorMessage } from '@/lib/utils'
+import type { DateRange } from '@/lib/date-presets'
 
 type OfferSourceGridRow = EntityGridRow & Record<string, unknown>
 
@@ -57,14 +58,6 @@ export function OfferSourcesPage() {
   const saveMutation = useSaveOfferSource()
   const deleteMutation = useDeleteOfferSource()
 
-  const pinnedBottomRows = useMemo(
-    () => {
-      const row = buildTotalsRow(totalsCells)
-      return row ? [row as OfferSourceGridRow] : undefined
-    },
-    [totalsCells],
-  )
-
   useEffect(() => {
     const id = requestAnimationFrame(() => {
       if (!isLoading && filtered.length === 0) {
@@ -75,6 +68,15 @@ export function OfferSourcesPage() {
     })
     return () => cancelAnimationFrame(id)
   }, [isLoading, filtered.length])
+
+  const pinnedBottomRows = useMemo(
+    () => {
+      if (filtered.length === 0) return undefined
+      const row = buildTotalsRow(totalsCells)
+      return row ? [row as OfferSourceGridRow] : undefined
+    },
+    [totalsCells, filtered.length],
+  )
 
   const handleSubmit = (data: OfferSourceFormData) => {
     saveMutation.mutate({ offerSource: data, isCreate: !editId }, {
@@ -97,7 +99,7 @@ export function OfferSourcesPage() {
   }
 
   const statCols = useMemo(
-    () => buildColumnsFromReport<OfferSourceGridRow>(reportColumns),
+    () => buildColumnsFromReport<OfferSourceGridRow>(reportColumns, { hideScopes: new Set(['lander']) }),
     [reportColumns],
   )
 
@@ -106,11 +108,33 @@ export function OfferSourcesPage() {
   const columnDefs = useMemo<ColumnDef<OfferSourceGridRow, unknown>[]>(() => [
     selectionColumn<OfferSourceGridRow>(),
     nameColumn<OfferSourceGridRow>(),
-    editBtnColumn<OfferSourceGridRow>((row) => handleEdit(row.id)),
-    deleteBtnColumn<OfferSourceGridRow>((row) => handleRequestDelete(row.id)),
+    editBtnColumn<OfferSourceGridRow>((row) => handleEdit(row.id), { hidden: (row) => row.id === '__totals__' }),
+    deleteBtnColumn<OfferSourceGridRow>((row) => handleRequestDelete(row.id), { hidden: (row) => row.id === '__totals__' }),
     idColumn<OfferSourceGridRow>(),
     ...statCols,
   ], [statCols, handleEdit, handleRequestDelete])
+
+  const handleBulkDeselectAllOfferSources = useCallback(() => setRowSelection({}), [])
+
+  const handleBulkDeleteOfferSources = useCallback(async () => {
+    for (const id of selectedIds) {
+      await deleteMutation.mutateAsync(id)
+    }
+    toast.success('Selected offer sources deleted')
+    setRowSelection({})
+    reload()
+  }, [selectedIds, deleteMutation, toast, reload])
+
+  const handleOfferSourcesDateRangeChange = useCallback((v: DateRange & { preset: string | null }) => {
+    if (v.from && v.to) setDateRange({ from: v.from, to: v.to })
+  }, [])
+
+  const handleOfferSourceFormOpenChange = useCallback((open: boolean) => {
+    setSheetOpen(open)
+    if (!open) setEditId(null)
+  }, [])
+
+  const handleDismissOfferSourceDelete = useCallback(() => setDeleteId(null), [])
 
   return (
     <PageShell
@@ -128,12 +152,19 @@ export function OfferSourcesPage() {
             <DateRangePicker
               value={{ from: dateRange.from, to: dateRange.to, preset: null }}
               timezone={tz}
-              onChange={(v) => { if (v.from && v.to) setDateRange({ from: v.from, to: v.to }) }}
+              onChange={handleOfferSourcesDateRangeChange}
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="offer-sources" /> : null}
+        actions={tableForChooser ? (
+          <ColumnChooser
+            columns={columnDefs}
+            table={tableForChooser}
+            storageKey="offer-sources"
+            hideScopes={new Set(['lander'])}
+          />
+        ) : null}
       />
 
       <DataTable
@@ -152,20 +183,13 @@ export function OfferSourcesPage() {
 
       <BulkActionsBar
         count={selectedIds.length}
-        onDeselectAll={() => setRowSelection({})}
-        onDelete={async () => {
-          for (const id of selectedIds) {
-            await deleteMutation.mutateAsync(id)
-          }
-          toast.success('Selected offer sources deleted')
-          setRowSelection({})
-          reload()
-        }}
+        onDeselectAll={handleBulkDeselectAllOfferSources}
+        onDelete={handleBulkDeleteOfferSources}
       />
 
       <OfferSourceForm
         open={sheetOpen}
-        onOpenChange={(open) => { setSheetOpen(open); if (!open) setEditId(null) }}
+        onOpenChange={handleOfferSourceFormOpenChange}
         initialData={editId ? editSource ?? null : null}
         onSubmit={handleSubmit}
         isSubmitting={saveMutation.isPending}
@@ -173,7 +197,7 @@ export function OfferSourcesPage() {
 
       <ConfirmModal
         open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
+        onCancel={handleDismissOfferSourceDelete}
         title="Delete Offer Source"
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}

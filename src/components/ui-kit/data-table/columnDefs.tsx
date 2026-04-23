@@ -5,6 +5,22 @@ import { Pencil, Copy, Trash2, Archive, ArchiveRestore, Plus, Workflow, RotateCc
 import { Tooltip } from '../Tooltip'
 import { Button } from '../Button'
 import type { ReportCell } from '@/types/stats'
+import {
+  getColumnMeta,
+  ENTITY_ID_COLUMN_META,
+  type MetricScope,
+} from './columnRegistry'
+
+export type { ColumnGroupDef, ColumnMeta, MetricScope } from './columnRegistry'
+export {
+  ALL_COLUMN_GROUPS,
+  getColumnMeta,
+  getDefaultVisibleIds,
+  ENTITY_ID_COLUMN_META,
+  COLUMN_CHOOSER_OTHER_GROUP,
+  buildChooserGroupsForPage,
+  filterColumnGroupsByScope,
+} from './columnRegistry'
 
 // ---------- Cell helpers ----------
 
@@ -42,152 +58,6 @@ interface ColumnOpts {
 interface NameColumnOpts<T> extends ColumnOpts {
   actions?: (row: T) => ReactNode
   cellContent?: (row: T) => ReactNode
-}
-
-// ---------- Column group / registry types ----------
-
-export interface ColumnGroupDef {
-  groupId: string
-  groupLabel: string
-  columns: ColumnMeta[]
-}
-
-export interface ColumnMeta {
-  id: string
-  label: string
-  abbr: string
-  defaultVisible: boolean
-  size: number
-  minSize: number
-  colorize?: boolean
-  symbol?: string
-  fractionDigits?: number
-}
-
-// ---------- Column groups registry ----------
-
-const TRAFFIC_COLUMNS: ColumnMeta[] = [
-  { id: 'visits', label: 'Visits', abbr: 'Visits', defaultVisible: true, size: 90, minSize: 75 },
-  { id: 'visitors', label: 'Unique Visitors', abbr: 'Visitors', defaultVisible: false, size: 90, minSize: 75 },
-  { id: 'uniqueness', label: 'Uniqueness %', abbr: 'Uniq %', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 2 },
-  { id: 'costPerVisit', label: 'Cost per Visit', abbr: 'CPVi', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'costPerVisitor', label: 'Cost per Visitor', abbr: 'u|CPV', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'costPerUniqueVisitor', label: 'Cost per Unique Visitor', abbr: 'u|CPV', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerVisit', label: 'Revenue per Visit', abbr: 'RPVi', defaultVisible: true, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerVisitor', label: 'Revenue per Visitor', abbr: 'u|RPV', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerUniqueVisitor', label: 'Revenue per Unique Visitor', abbr: 'u|RPV', defaultVisible: false, size: 90, minSize: 90, symbol: '$', fractionDigits: 4 },
-  { id: 'conversionPerVisit', label: 'Conversion per Visit', abbr: 'Cv %', defaultVisible: true, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerVisitor', label: 'Conversion per Visitor', abbr: 'u|Cv %', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerUniqueVisitor', label: 'Conversion per Unique Visitor', abbr: 'u|Cv %', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-  { id: 'visitPercentVsTopLevel', label: 'Visit % vs Top Level', abbr: 'top|V%', defaultVisible: false, size: 90, minSize: 90, symbol: '%', fractionDigits: 2 },
-  { id: 'visitPercentVsParent', label: 'Visit % vs Parent', abbr: 'rel|V%', defaultVisible: false, size: 90, minSize: 90, symbol: '%', fractionDigits: 2 },
-  { id: 'conversionPercentVsTopLevel', label: 'Conversion % vs Top Level', abbr: 'top|Cv%', defaultVisible: false, size: 90, minSize: 90, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPercentVsParent', label: 'Conversion % vs Parent', abbr: 'rel|Cv%', defaultVisible: false, size: 90, minSize: 90, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerParentVisit', label: 'Conversion per Parent Visit', abbr: 'CvPV', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerParentVisitUnique', label: 'Conversion per Unique Parent Visit', abbr: 'u|CvPV', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-]
-
-const LANDER_COLUMNS: ColumnMeta[] = [
-  { id: 'landerViews', label: 'Lander Views', abbr: 'L-Views', defaultVisible: true, size: 90, minSize: 75 },
-  { id: 'landerViewsUnique', label: 'Unique Lander Views', abbr: 'u|L-Views', defaultVisible: false, size: 110, minSize: 90 },
-  { id: 'landerClicks', label: 'Lander Clicks', abbr: 'L-Clicks', defaultVisible: true, size: 100, minSize: 75 },
-  { id: 'landerClicksUnique', label: 'Unique Lander Clicks', abbr: 'u|L-Clicks', defaultVisible: false, size: 110, minSize: 90 },
-  { id: 'landerClickthroughRate', label: 'Lander CTR', abbr: 'L-CTR', defaultVisible: true, size: 90, minSize: 75, symbol: '%', fractionDigits: 2 },
-  { id: 'landerClickthroughRateUnique', label: 'Unique Lander CTR', abbr: 'u|L-CTR', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 2 },
-  { id: 'costPerLanderView', label: 'Cost per Lander View', abbr: 'CPLV', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'costPerLanderClick', label: 'Cost per Lander Click', abbr: 'CPLC', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'costPerUniqueLanderView', label: 'Cost per Unique Lander View', abbr: 'u|CPLV', defaultVisible: false, size: 90, minSize: 90, symbol: '$', fractionDigits: 4 },
-  { id: 'costPerUniqueLanderClick', label: 'Cost per Unique Lander Click', abbr: 'u|CPLC', defaultVisible: false, size: 90, minSize: 90, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerLanderView', label: 'Revenue per Lander View', abbr: 'RPLV', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerLanderClick', label: 'Revenue per Lander Click', abbr: 'RPLC', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerUniqueLanderView', label: 'Revenue per Unique Lander View', abbr: 'u|RPLV', defaultVisible: false, size: 110, minSize: 90, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerUniqueLanderClick', label: 'Revenue per Unique Lander Click', abbr: 'u|RPLC', defaultVisible: false, size: 100, minSize: 90, symbol: '$', fractionDigits: 4 },
-  { id: 'conversionPerLanderView', label: 'Conversion per Lander View', abbr: 'CvLV', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerLanderClick', label: 'Conversion per Lander Click', abbr: 'CvLC', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerUniqueLanderView', label: 'Conversion per Unique Lander View', abbr: 'u|CvLV', defaultVisible: false, size: 90, minSize: 90, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerUniqueLanderClick', label: 'Conversion per Unique Lander Click', abbr: 'u|CvLC', defaultVisible: false, size: 90, minSize: 90, symbol: '%', fractionDigits: 4 },
-]
-
-const OFFER_COLUMNS: ColumnMeta[] = [
-  { id: 'offerViews', label: 'Offer Views', abbr: 'O-Views', defaultVisible: true, size: 100, minSize: 75 },
-  { id: 'offerViewsUnique', label: 'Unique Offer Views', abbr: 'u|O-Views', defaultVisible: false, size: 110, minSize: 90 },
-  { id: 'offerClicks', label: 'Offer Clicks', abbr: 'O-Clicks', defaultVisible: false, size: 100, minSize: 75 },
-  { id: 'offerClicksUnique', label: 'Unique Offer Clicks', abbr: 'u|O-Clicks', defaultVisible: false, size: 110, minSize: 90 },
-  { id: 'offerClickthroughRate', label: 'Offer CTR', abbr: 'O-CTR', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 2 },
-  { id: 'offerClickthroughRateUnique', label: 'Unique Offer CTR', abbr: 'u|O-CTR', defaultVisible: false, size: 100, minSize: 90, symbol: '%', fractionDigits: 2 },
-  { id: 'costPerOfferView', label: 'Cost per Offer View', abbr: 'CPOV', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'costPerOfferClick', label: 'Cost per Offer Click', abbr: 'CPOC', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'costPerUniqueOfferView', label: 'Cost per Unique Offer View', abbr: 'u|CPOV', defaultVisible: false, size: 90, minSize: 90, symbol: '$', fractionDigits: 4 },
-  { id: 'costPerUniqueOfferClick', label: 'Cost per Unique Offer Click', abbr: 'u|CPOC', defaultVisible: false, size: 90, minSize: 90, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerOfferView', label: 'Revenue per Offer View', abbr: 'RPOV', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerOfferClick', label: 'Revenue per Offer Click', abbr: 'RPOC', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerUniqueOfferView', label: 'Revenue per Unique Offer View', abbr: 'u|RPOV', defaultVisible: false, size: 90, minSize: 90, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerUniqueOfferClick', label: 'Revenue per Unique Offer Click', abbr: 'u|RPOC', defaultVisible: false, size: 90, minSize: 90, symbol: '$', fractionDigits: 4 },
-  { id: 'conversionPerOfferView', label: 'Conversion per Offer View', abbr: 'CvOV', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerOfferClick', label: 'Conversion per Offer Click', abbr: 'CvOC', defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerUniqueOfferView', label: 'Conversion per Unique Offer View', abbr: 'u|CvOV', defaultVisible: false, size: 90, minSize: 90, symbol: '%', fractionDigits: 4 },
-  { id: 'conversionPerUniqueOfferClick', label: 'Conversion per Unique Offer Click', abbr: 'u|CvOC', defaultVisible: false, size: 90, minSize: 90, symbol: '%', fractionDigits: 4 },
-  { id: 'offerPayout', label: 'Offer Payout', abbr: 'Payout', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 2 },
-  { id: 'offerURL', label: 'Offer URL', abbr: 'Offer URL', defaultVisible: false, size: 150, minSize: 75 },
-]
-
-const CONVERSION_COLUMNS: ColumnMeta[] = [
-  { id: 'conversions', label: 'Conversions', abbr: 'Conv', defaultVisible: true, size: 90, minSize: 75 },
-  { id: 'indirectConversions', label: 'Conversions (Indirect)', abbr: 'i|Conv', defaultVisible: false, size: 90, minSize: 80 },
-  { id: 'conversionsLifetime', label: 'Conversions (Lifetime)', abbr: 'L|Conv', defaultVisible: false, size: 90, minSize: 90 },
-  { id: 'costPerConversion', label: 'Cost per Conversion', abbr: 'CPCv', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-  { id: 'revenuePerConversion', label: 'Revenue per Conversion', abbr: 'RPCv', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-]
-
-const REVENUE_COST_COLUMNS: ColumnMeta[] = [
-  { id: 'revenue', label: 'Revenue', abbr: 'Revenue', defaultVisible: true, size: 100, minSize: 75, symbol: '$', fractionDigits: 2 },
-  { id: 'conversionRevenue', label: 'Conversion Revenue', abbr: 'Conv Rev', defaultVisible: false, size: 100, minSize: 75, symbol: '$', fractionDigits: 2 },
-  { id: 'revenueIndirect', label: 'Revenue (Indirect)', abbr: 'i|Rev', defaultVisible: false, size: 90, minSize: 80, symbol: '$', fractionDigits: 2 },
-  { id: 'revenueLifetime', label: 'Revenue (Lifetime)', abbr: 'L|Rev', defaultVisible: false, size: 90, minSize: 80, symbol: '$', fractionDigits: 2 },
-  { id: 'cost', label: 'Traffic Cost', abbr: 'Cost', defaultVisible: true, size: 90, minSize: 75, symbol: '$', fractionDigits: 2 },
-  { id: 'profitAndLoss', label: 'Profit & Loss', abbr: 'P/L', defaultVisible: true, size: 100, minSize: 75, colorize: true, symbol: '$', fractionDigits: 2 },
-  { id: 'returnOnInvestment', label: 'Return on Investment', abbr: 'ROI', defaultVisible: true, size: 90, minSize: 75, colorize: true, symbol: '%', fractionDigits: 2 },
-]
-
-const RESOURCE_COLUMNS: ColumnMeta[] = [
-  { id: 'resourceId', label: 'Resource ID', abbr: 'Res ID', defaultVisible: false, size: 120, minSize: 75 },
-  { id: 'landerURL', label: 'Lander URL', abbr: 'Lander URL', defaultVisible: false, size: 150, minSize: 75 },
-]
-
-function makeCustomEventColumns(): ColumnMeta[] {
-  const cols: ColumnMeta[] = []
-  for (let i = 1; i <= 10; i++) {
-    cols.push(
-      { id: `customEvent${i}Count`, label: `Custom Event ${i} Count`, abbr: `CE${i}`, defaultVisible: false, size: 90, minSize: 75 },
-      { id: `customEvent${i}Revenue`, label: `Custom Event ${i} Revenue`, abbr: `CE${i} Rev`, defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 2 },
-      { id: `customEvent${i}PerVisit`, label: `Custom Event ${i} per Visit`, abbr: `CE${i} %`, defaultVisible: false, size: 90, minSize: 75, symbol: '%', fractionDigits: 4 },
-      { id: `costPerEvent${i}`, label: `Cost per Event ${i}`, abbr: `CPCE${i}`, defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-      { id: `revenuePerEvent${i}`, label: `Revenue per Event ${i}`, abbr: `RPCE${i}`, defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
-    )
-  }
-  return cols
-}
-
-const CUSTOM_EVENT_COLUMNS = makeCustomEventColumns()
-
-export const ALL_COLUMN_GROUPS: ColumnGroupDef[] = [
-  { groupId: 'traffic', groupLabel: 'Traffic', columns: TRAFFIC_COLUMNS },
-  { groupId: 'lander', groupLabel: 'Lander', columns: LANDER_COLUMNS },
-  { groupId: 'offer', groupLabel: 'Offer', columns: OFFER_COLUMNS },
-  { groupId: 'conversions', groupLabel: 'Conversions', columns: CONVERSION_COLUMNS },
-  { groupId: 'revenueCost', groupLabel: 'Revenue & Cost', columns: REVENUE_COST_COLUMNS },
-  { groupId: 'resource', groupLabel: 'Resource Info', columns: RESOURCE_COLUMNS },
-  { groupId: 'customEvents', groupLabel: 'Custom Events', columns: CUSTOM_EVENT_COLUMNS },
-]
-
-const ALL_COLUMNS_FLAT = ALL_COLUMN_GROUPS.flatMap((g) => g.columns)
-
-export function getColumnMeta(id: string): ColumnMeta | undefined {
-  return ALL_COLUMNS_FLAT.find((c) => c.id === id)
-}
-
-export function getDefaultVisibleIds(): string[] {
-  return ALL_COLUMNS_FLAT.filter((c) => c.defaultVisible).map((c) => c.id)
 }
 
 /**
@@ -291,20 +161,31 @@ export function resolveApiColumnId(apiName: string): string | undefined {
   return undefined
 }
 
+export interface BuildColumnsFromReportOptions {
+  /** Omit metrics scoped to lander (Offers / Offer Sources) or offer (Landers) */
+  hideScopes?: Set<MetricScope>
+}
+
 /**
  * Build TanStack column defs for every metric column returned by the API.
  * Skips the first column (index 0) which is the grouping/name column.
  * Columns that match the registry get proper sizing/colorize; unknown columns
  * get a generic stat column with the API name as header.
+ * Cell indices always match the API row `cells[i]` even when columns are filtered out.
  */
 export function buildColumnsFromReport<T extends HasCells>(
   apiColumns: { name: string; type?: string }[],
+  options?: BuildColumnsFromReportOptions,
 ): ColumnDef<T, unknown>[] {
   const cols: ColumnDef<T, unknown>[] = []
+  const hideScopes = options?.hideScopes
   for (let i = 1; i < apiColumns.length; i++) {
     const apiCol = apiColumns[i]
     const registryId = resolveApiColumnId(apiCol.name)
     const meta = registryId ? getColumnMeta(registryId) : undefined
+    if (hideScopes?.size && meta?.scope && hideScopes.has(meta.scope)) {
+      continue
+    }
 
     cols.push(statColumn<T>(
       registryId ?? `col-${i}`,
@@ -401,15 +282,19 @@ export function nameColumn<T extends HasName>(opts?: NameColumnOpts<T>): ColumnD
 export function idColumn<T extends HasName>(opts?: ColumnOpts): ColumnDef<T, unknown> {
   return {
     id: 'id',
-    header: opts?.headerName ?? 'ID',
+    header: opts?.headerName ?? ENTITY_ID_COLUMN_META.abbr,
     accessorFn: (row) => row.id,
-    size: opts?.size ?? 170,
-    minSize: 100,
+    size: opts?.size ?? ENTITY_ID_COLUMN_META.size,
+    minSize: ENTITY_ID_COLUMN_META.minSize,
     enableSorting: false,
     meta: { ...(opts?.align ? { align: opts.align } : {}) },
-    cell: (info) => (
-      <span className="dt-cell-text" style={{ color: 'var(--muted-fg)', fontSize: '12px' }}>{String(info.getValue())}</span>
-    ),
+    cell: (info) => {
+      const row = info.row.original as HasName
+      if (row.id === '__totals__') return null
+      return (
+        <span className="dt-cell-text" style={{ color: 'var(--muted-fg)', fontSize: '12px' }}>{String(info.getValue())}</span>
+      )
+    },
   }
 }
 
@@ -563,7 +448,55 @@ export function addFunnelBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden
 }
 
 export function moveBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_move', Workflow, 'Move', onClick, opts)
+  return actionBtnColumn('btn_move', Workflow, 'Move funnel to another campaign', onClick, opts)
+}
+
+/** One column: Add Funnel (campaign rows) and Move (funnel rows). */
+export function addFunnelOrMoveColumn<T>(
+  onAddFunnel: (row: T) => void,
+  onMove: (row: T) => void,
+  opts: { hidden?: (row: T) => boolean; showAdd: (row: T) => boolean; showMove: (row: T) => boolean },
+): ColumnDef<T, unknown> {
+  return {
+    id: 'btn_add_or_move_funnel',
+    header: '',
+    size: ACTION_COL_SIZE * 2,
+    minSize: ACTION_COL_SIZE * 2,
+    maxSize: ACTION_COL_SIZE * 2,
+    enableSorting: false,
+    enableResizing: false,
+    meta: { actionBtn: true },
+    cell: (info) => {
+      const row = info.row.original
+      if (opts.hidden?.(row)) return null
+      return (
+        <div className="flex items-center justify-center gap-0.5 w-full">
+          {opts.showAdd(row) ? (
+            <Tooltip title="Add Funnel">
+              <Button
+                type="text"
+                size="small"
+                className="dt-action-btn"
+                onClick={(e) => { e.stopPropagation(); onAddFunnel(row) }}
+                icon={<Plus className="h-3.5 w-3.5" />}
+              />
+            </Tooltip>
+          ) : null}
+          {opts.showMove(row) ? (
+            <Tooltip title="Move funnel to another campaign">
+              <Button
+                type="text"
+                size="small"
+                className="dt-action-btn"
+                onClick={(e) => { e.stopPropagation(); onMove(row) }}
+                icon={<Workflow className="h-3.5 w-3.5" />}
+              />
+            </Tooltip>
+          ) : null}
+        </div>
+      )
+    },
+  }
 }
 
 export function resetStatsBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
@@ -588,9 +521,9 @@ function isPinnedTotalsRow(row: unknown): boolean {
 export function selectionColumn<T>(): ColumnDef<T, unknown> {
   return {
     id: 'select',
-    size: 48,
-    minSize: 48,
-    maxSize: 48,
+    size: 40,
+    minSize: 40,
+    maxSize: 40,
     enableSorting: false,
     enableResizing: false,
     header: ({ table }) => (

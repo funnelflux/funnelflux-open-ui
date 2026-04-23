@@ -1,6 +1,6 @@
 ---
 description: Semantic naming for variables and parameters in funnelflux-open-ui
-globs: "**/*"
+globs: src/**/*,funnelflux-open-ui/**/*
 alwaysApply: true
 ---
 

@@ -34,6 +34,7 @@ export {
   deleteBtnColumn,
   archiveBtnColumn,
   addFunnelBtnColumn,
+  addFunnelOrMoveColumn,
   moveBtnColumn,
   resetStatsBtnColumn,
   enableBtnColumn,
@@ -44,5 +45,8 @@ export {
   buildColumnsFromReport,
   resolveApiColumnId,
   ALL_COLUMN_GROUPS,
+  buildChooserGroupsForPage,
+  COLUMN_CHOOSER_OTHER_GROUP,
+  filterColumnGroupsByScope,
 } from './columnDefs'
-export type { ColumnAlign, ColumnGroupDef, ColumnMeta } from './columnDefs'
+export type { ColumnAlign, ColumnGroupDef, ColumnMeta, MetricScope } from './columnDefs'

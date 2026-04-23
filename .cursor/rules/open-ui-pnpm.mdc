@@ -1,7 +1,6 @@
 ---
 description: Always use pnpm for the React UI project
-globs:
-  - "**/*"
+globs: "**/*,funnelflux-open-ui/**/*"
 alwaysApply: true
 ---
 

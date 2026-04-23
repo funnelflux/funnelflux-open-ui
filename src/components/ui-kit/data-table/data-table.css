@@ -101,11 +101,22 @@
   color: var(--primary);
 }
 
-/* Checkbox column — center the checkbox with reduced padding */
+/* Checkbox column — same width and centering as body for header/body alignment */
+.dt-header-cell[data-col-id="select"],
+.dt-cell[data-col-id="select"] {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  flex-shrink: 0;
+  justify-content: center;
+  padding: 0 2px;
+}
+
 .dt-header-cell:has(.dt-checkbox),
 .dt-cell:has(.dt-checkbox) {
   justify-content: center;
-  padding: 0 4px;
+  align-items: center;
+  padding: 0 2px;
 }
 
 /* Action button cells — centered, compact */
@@ -175,12 +186,10 @@
 }
 
 .dt-row--depth-0 {}
-.dt-row--depth-1 {
-  background: var(--surface-secondary);
-}
+.dt-row--depth-1,
 .dt-row--depth-2,
 .dt-row--depth-3 {
-  background: var(--muted);
+  background: transparent;
 }
 
 /* ---- Cell ---- */
@@ -285,20 +294,35 @@
   opacity: 1;
 }
 
+/* Align header label with tree rows (indent + expand + gap) */
+.dt-tree-header-spacer {
+  display: inline-block;
+  width: 52px;
+  flex-shrink: 0;
+}
+
+/* Space between expand chevron and name */
+.dt-expand-gap {
+  display: inline-block;
+  width: 8px;
+  flex-shrink: 0;
+}
+
 /* ---- Expand toggle ---- */
 .dt-expand-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
   border: none;
   background: transparent;
   cursor: pointer;
   color: var(--muted-fg);
-  border-radius: 3px;
-  padding: 0;
+  border-radius: 4px;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .dt-expand-toggle:hover {

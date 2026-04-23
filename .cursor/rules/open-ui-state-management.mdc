@@ -1,6 +1,6 @@
 ---
 description: State management rules — React Query for server data, Zustand for UI state only
-globs: "src/**/*.{tsx,ts}"
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
 alwaysApply: false
 ---
 

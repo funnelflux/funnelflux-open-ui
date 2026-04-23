@@ -1,6 +1,6 @@
 ---
 description: File structure and naming conventions for funnelflux-open-ui
-globs: "src/**/*.{tsx,ts}"
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
 alwaysApply: false
 ---
 

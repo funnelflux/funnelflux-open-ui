@@ -1,6 +1,6 @@
 ---
 description: General guardrails and anti-patterns for funnelflux-open-ui contributors
-globs: "**/*"
+globs: src/**/*,funnelflux-open-ui/**/*
 alwaysApply: false
 ---
 
@@ -28,6 +28,9 @@ alwaysApply: false
 ## Import alias
 Always `@/` for `src/`. Never relative paths that traverse up (`../../../`).
 
+## Cursor rule globs (monorepo vs package workspace)
+Rules under `.cursor/rules/` use **paired globs** so validation works whether the IDE workspace root is **`funnelflux-open-ui`** or the **`funnelflux-self-hosted`** monorepo: a `src/...` pattern plus `funnelflux-open-ui/...` (comma-separated, **no space** after the comma). Extra paths (e.g. `admin/api/v2/*/definition.yaml`) are duplicated for repo-root resolution where needed.
+
 ## TypeScript
 - Strict mode. No `@ts-ignore`. Minimize `as any` — use `as Resolver<T>` for form resolvers if needed.
 - Types for API responses must match `definition.yaml`. If the API shape changes, update types first.
@@ -35,10 +38,11 @@ Always `@/` for `src/`. Never relative paths that traverse up (`../../../`).
 
 ## Performance rules (from CLAUDE.md — critical)
 1. **`columnDefs` MUST be in `useMemo`** with stable deps.
-2. **Action handlers in memoized columns MUST use `useRef`** pattern.
-3. **Never put `.filter()`, `.map()`, `[...spread]` in `useEffect` dependencies** — they create new references every render.
-4. **Never call expensive APIs in effects without diffing** previous vs current.
-5. **Before writing any `useEffect`**, trace the cascade: state change → re-render → prop change → effect fire → API call? If data hasn't semantically changed, you have a bug.
+2. **No inline arrow functions in JSX** for event props (`onClick`, `onChange`, etc.) — use named handlers; see `open-ui-no-inline-jsx-handlers.mdc`.
+3. **Action handlers in memoized columns MUST use `useRef`** pattern.
+4. **Never put `.filter()`, `.map()`, `[...spread]` in `useEffect` dependencies** — they create new references every render.
+5. **Never call expensive APIs in effects without diffing** previous vs current.
+6. **Before writing any `useEffect`**, trace the cascade: state change → re-render → prop change → effect fire → API call? If data hasn't semantically changed, you have a bug.
 
 ## Error handling
 - Always import `getErrorMessage` from `@/lib/utils` for mutation errors.

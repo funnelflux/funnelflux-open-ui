@@ -1,6 +1,6 @@
 ---
 description: React.memo and prop stability rules for the open-ui React app — prevents unnecessary re-renders of expensive components like DataTable
-globs: "src/**/*.tsx"
+globs: src/**/*.tsx,funnelflux-open-ui/**/*.tsx
 alwaysApply: false
 ---
 
