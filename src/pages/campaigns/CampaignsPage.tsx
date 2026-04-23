@@ -49,7 +49,7 @@ import { api } from '@/api/client'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { Report, ReportCell } from '@/types/stats'
 import type { CampaignFormData } from '@/schemas/campaign'
-import { getErrorMessage } from '@/lib/utils'
+import { getErrorMessage, selectedRowIds } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
 import { generateId } from '@/lib/id-generator'
 
@@ -173,7 +173,7 @@ export function CampaignsPage() {
     return row ? [row] : undefined
   }, [totalsCells, filtered.length])
 
-  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
+  const selectedIds = useMemo(() => selectedRowIds(rowSelection), [rowSelection])
 
   const openAddCampaignOrFunnel = useCallback((prefillCampaignId?: string | null) => {
     setFunnelPrefillCampaignId(prefillCampaignId ?? null)
@@ -479,12 +479,13 @@ export function CampaignsPage() {
       />
 
       <BulkActionsBar
-        variant="floatingTop"
         count={selectedIds.length}
         onDeselectAll={handleBulkDeselectAll}
         onMove={handleBulkMoveFunnels}
         onArchive={handleBulkArchiveFunnels}
         onDelete={handleBulkDeleteSelection}
+        moveLabel="Move funnels"
+        archiveLabel="Archive funnels"
       />
 
       <AddCampaignOrFunnelModal

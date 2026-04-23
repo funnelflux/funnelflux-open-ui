@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { selectedRowIds } from '@/lib/utils'
 import { subDays } from 'date-fns'
 import type { RowSelectionState } from '@tanstack/react-table'
 import { useEntityGrid } from '@/api/hooks/useEntityGrid'
@@ -46,7 +47,7 @@ export function useEntityPage(options: UseEntityPageOptions) {
     })
   }, [archiveStatus, grid.mergedRows, search, selectedCategoryId])
 
-  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
+  const selectedIds = useMemo(() => selectedRowIds(rowSelection), [rowSelection])
 
   const handleCreate = useCallback(() => { setEditId(null); setSheetOpen(true) }, [])
   const handleEdit = useCallback((id: string) => { setEditId(id); setSheetOpen(true) }, [])

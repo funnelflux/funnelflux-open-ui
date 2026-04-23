@@ -19,8 +19,12 @@ interface BulkActionsBarProps {
     categories: Category[]
     onMove: (categoryId: string) => Promise<void>
   }
-  /** Bottom bar (default) or top overlay that overlaps the nav slightly */
-  variant?: 'bottom' | 'floatingTop'
+  /** Primary move action label (e.g. "Move funnels" on campaigns). */
+  moveLabel?: string
+  /** Bulk archive button label (e.g. "Archive funnels"). */
+  archiveLabel?: string
+  /** Top overlay above the navbar (`z-50`) or legacy sticky bottom inside the page. */
+  variant?: 'floatingTop' | 'bottom'
 }
 
 export function BulkActionsBar({
@@ -30,7 +34,9 @@ export function BulkActionsBar({
   onDelete,
   onMove,
   onMoveToCategory,
-  variant = 'bottom',
+  moveLabel = 'Move',
+  archiveLabel = 'Archive',
+  variant = 'floatingTop',
 }: BulkActionsBarProps) {
   const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null)
   const [moveModalOpen, setMoveModalOpen] = useState(false)
@@ -110,10 +116,10 @@ export function BulkActionsBar({
     <>
       <div
         className={cn(
-          'z-30 flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-md',
+          'flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-lg',
           variant === 'floatingTop'
-            ? 'fixed top-2 left-1/2 -translate-x-1/2 w-[min(720px,calc(100vw-24px))]'
-            : 'sticky bottom-4',
+            ? 'fixed top-2 left-1/2 z-[100] w-[min(720px,calc(100vw-24px))] -translate-x-1/2'
+            : 'sticky bottom-4 z-30 shadow-md',
         )}
       >
         <div className="text-sm font-medium">{count} selected</div>
@@ -124,7 +130,7 @@ export function BulkActionsBar({
           {onMove ? (
             <Button htmlType="button" type="default" size="small" onClick={onMove}>
               <Workflow className="mr-1.5 h-3.5 w-3.5" />
-              Move
+              {moveLabel}
             </Button>
           ) : null}
           {onMoveToCategory ? (
@@ -136,7 +142,7 @@ export function BulkActionsBar({
           {onArchive ? (
             <Button htmlType="button" type="default" size="small" onClick={handleRequestArchive}>
               <Archive className="mr-1.5 h-3.5 w-3.5" />
-              Archive
+              {archiveLabel}
             </Button>
           ) : null}
           {onDelete ? (

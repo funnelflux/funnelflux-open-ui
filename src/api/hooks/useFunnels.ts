@@ -60,7 +60,7 @@ export function useSaveFunnel() {
 export function useDeleteFunnel() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete('/data/campaign/funnel/delete/', { id }),
+    mutationFn: (id: string) => api.delete('/data/campaign/funnel/delete/', { idFunnel: id }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.funnels.all })
     },
@@ -70,7 +70,8 @@ export function useDeleteFunnel() {
 export function useCloneFunnel() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.post('/data/campaign/funnel/clone/', { id }),
+    mutationFn: (id: string) =>
+      api.post('/data/campaign/funnel/clone/', undefined, { idFunnel: id }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.funnels.all })
     },

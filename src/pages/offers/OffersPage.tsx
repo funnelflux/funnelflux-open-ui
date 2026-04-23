@@ -35,7 +35,7 @@ import { PageForm } from '@/components/forms/PageForm'
 import { api } from '@/api/client'
 import type { Page } from '@/types/entities'
 import type { PageFormData } from '@/schemas/page'
-import { getErrorMessage } from '@/lib/utils'
+import { getErrorMessage, selectedRowIds } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
 
 type OfferGridRow = EntityGridRow & { _isCategoryHeader?: boolean } & Record<string, unknown>
@@ -134,7 +134,7 @@ export function OffersPage() {
     [totalsCells, hasMetricRows],
   )
 
-  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection])
+  const selectedIds = useMemo(() => selectedRowIds(rowSelection), [rowSelection])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
 
