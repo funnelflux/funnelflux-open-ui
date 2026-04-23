@@ -25,7 +25,7 @@ export function InboxPage() {
       if (!activeKeys.length || !messages) return
       const lastKey = activeKeys[activeKeys.length - 1]
       const message = messages.find((m) => m.id === lastKey)
-      if (message && !message.isRead) {
+      if (message && !message.alreadyRead) {
         changeReadStatus.mutate({ id: message.id, isRead: true })
       }
     },
@@ -34,10 +34,10 @@ export function InboxPage() {
 
   function toggleReadStatus(message: InboxMessage) {
     changeReadStatus.mutate(
-      { id: message.id, isRead: !message.isRead },
+      { id: message.id, isRead: !message.alreadyRead },
       {
         onSuccess: () => {
-          toast.success(message.isRead ? 'Marked as unread' : 'Marked as read')
+          toast.success(message.alreadyRead ? 'Marked as unread' : 'Marked as read')
         },
         onError: (err) => {
           toast.error(`Failed to update status: ${(err as Error).message}`)
@@ -60,9 +60,9 @@ export function InboxPage() {
     })
   }
 
-  function formatDate(dateStr: string) {
+  function formatDate(timestamp: number) {
     try {
-      return new Date(dateStr).toLocaleDateString(undefined, {
+      return new Date(timestamp * 1000).toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -70,7 +70,7 @@ export function InboxPage() {
         minute: '2-digit',
       })
     } catch {
-      return dateStr
+      return String(timestamp)
     }
   }
 
@@ -100,30 +100,30 @@ export function InboxPage() {
                   <div className="flex items-center gap-2">
                     <span
                       className={
-                        message.isRead
+                        message.alreadyRead
                           ? 'text-sm text-muted-foreground'
                           : 'text-sm font-semibold text-foreground'
                       }
                     >
-                      {message.subject}
+                      {message.title}
                     </span>
-                    {!message.isRead && (
+                    {!message.alreadyRead && (
                       <Tag color="blue" className="text-[10px] px-1.5 py-0">
                         New
                       </Tag>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatDate(message.date)}
+                    {formatDate(message.timestamp)}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <Button
                     type="text"
                     className="h-7 w-7"
-                    icon={message.isRead ? <Mail className="h-3.5 w-3.5" /> : <MailOpen className="h-3.5 w-3.5" />}
+                    icon={message.alreadyRead ? <Mail className="h-3.5 w-3.5" /> : <MailOpen className="h-3.5 w-3.5" />}
                     onClick={() => toggleReadStatus(message)}
-                    title={message.isRead ? 'Mark as unread' : 'Mark as read'}
+                    title={message.alreadyRead ? 'Mark as unread' : 'Mark as read'}
                   />
                   <Button
                     type="text"
@@ -148,7 +148,7 @@ export function InboxPage() {
       <ConfirmModal
         open={!!deleteTarget}
         title="Delete Message"
-        description={`Are you sure you want to delete "${deleteTarget?.subject}"?`}
+        description={`Are you sure you want to delete "${deleteTarget?.title}"?`}
         confirmText="Delete"
         danger
         onConfirm={confirmDelete}
