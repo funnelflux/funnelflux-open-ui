@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Columns3, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { Drawer } from '@/components/ui-kit'
 import { Button, Input, Switch } from '@/components/ui-kit'
@@ -9,6 +9,7 @@ import {
   type ColumnGroupDef,
   type MetricScope,
 } from '@/components/ui-kit/data-table/columnRegistry'
+import { listToggleableColumns } from '@/lib/entityGridColumnVisibility'
 
 interface ColumnChooserProps<TData = unknown> {
   columns: ColumnDef<TData, unknown>[]
@@ -22,41 +23,12 @@ interface ColumnChooserProps<TData = unknown> {
    * When omitted, visibility falls back to `defaultVisible` in the column registry.
    */
   defaultVisibleColumnIds?: readonly string[]
-}
-
-const ALWAYS_VISIBLE = new Set(['name', 'select'])
-
-function isActionBtnColumn(col: ColumnDef<unknown, unknown>): boolean {
-  return !!col.id?.startsWith('btn_') || !!(col.meta as Record<string, unknown> | undefined)?.actionBtn
-}
-
-function readStoredHidden(lsKey: string): Set<string> | null {
-  try {
-    const raw = localStorage.getItem(lsKey)
-    if (raw === null) return null
-    return new Set(JSON.parse(raw) as string[])
-  } catch {
-    return null
-  }
-}
-
-function computeDefaultHiddenForColumns(
-  tableCols: { id: string }[],
-  defaultVisibleSet: Set<string> | null,
-): Set<string> {
-  const hidden = new Set<string>()
-  if (defaultVisibleSet) {
-    for (const col of tableCols) {
-      if (!defaultVisibleSet.has(col.id)) hidden.add(col.id)
-    }
-  } else {
-    for (const col of tableCols) {
-      const meta = getColumnMeta(col.id)
-      const visibleDefault = meta?.defaultVisible ?? (col.id.startsWith('col-') ? false : true)
-      if (!visibleDefault) hidden.add(col.id)
-    }
-  }
-  return hidden
+  /**
+   * Controlled hidden set (e.g. from `useEntityGridColumnVisibility`). Parent must drive `DataTable` visibility.
+   * When set, this component does not call `table.setColumnVisibility` or run first-visit effects.
+   */
+  hiddenCols?: Set<string>
+  onHiddenChange?: (next: Set<string>) => void
 }
 
 export function ColumnChooser<TData>({
@@ -66,6 +38,8 @@ export function ColumnChooser<TData>({
   groups: groupsProp,
   hideScopes,
   defaultVisibleColumnIds,
+  hiddenCols: hiddenColsProp,
+  onHiddenChange: onHiddenChangeProp,
 }: ColumnChooserProps<TData>) {
   const groups = useMemo(
     () => groupsProp ?? buildChooserGroupsForPage(hideScopes),
@@ -82,47 +56,107 @@ export function ColumnChooser<TData>({
   const [search, setSearch] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
-  /** `null` = no `ff_columns_*` yet — visibility follows derived defaults for current column defs. */
-  const [savedHidden, setSavedHidden] = useState<Set<string> | null>(() => readStoredHidden(lsKey))
-
-  const tableColumns = useMemo(() => {
-    return columnDefs
-      .filter((c) => c.id && !ALWAYS_VISIBLE.has(c.id) && !isActionBtnColumn(c as ColumnDef<unknown, unknown>))
-      .map((c) => ({
-        id: c.id!,
-        headerName: typeof c.header === 'string' ? c.header : c.id!,
-      }))
-  }, [columnDefs])
+  const tableColumns = useMemo(
+    () => listToggleableColumns(columnDefs as ColumnDef<unknown, unknown>[]),
+    [columnDefs],
+  )
 
   const tableColumnIds = useMemo(() => new Set(tableColumns.map((c) => c.id)), [tableColumns])
 
-  const derivedHidden = useMemo(
-    () => computeDefaultHiddenForColumns(tableColumns, defaultVisibleSet),
-    [tableColumns, defaultVisibleSet],
+  const isControlled = hiddenColsProp != null && onHiddenChangeProp != null
+
+  const [internalHiddenCols, setInternalHiddenCols] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(lsKey)
+      if (stored) return new Set(JSON.parse(stored) as string[])
+    } catch { /* ignore */ }
+    return new Set()
+  })
+
+  const effectiveHidden = isControlled ? hiddenColsProp! : internalHiddenCols
+
+  const defaultsAppliedRef = useRef(false)
+
+  const initialSyncDone = useRef(false)
+  useEffect(() => {
+    if (isControlled) return
+    if (initialSyncDone.current) return
+    initialSyncDone.current = true
+    if (internalHiddenCols.size > 0) {
+      const vis: Record<string, boolean> = {}
+      for (const col of tableColumns) {
+        vis[col.id] = !internalHiddenCols.has(col.id)
+      }
+      table.setColumnVisibility(vis)
+    }
+  }, [isControlled, internalHiddenCols, tableColumns, table])
+
+  /** First visit (uncontrolled only): hide metrics from registry or `defaultVisibleColumnIds` */
+  useEffect(() => {
+    if (isControlled) return
+    if (defaultsAppliedRef.current) return
+    if (tableColumns.length === 0) return
+    try {
+      if (localStorage.getItem(lsKey)) {
+        defaultsAppliedRef.current = true
+        return
+      }
+    } catch {
+      defaultsAppliedRef.current = true
+      return
+    }
+
+    const hidden = new Set<string>()
+    if (defaultVisibleSet) {
+      for (const col of tableColumns) {
+        if (!defaultVisibleSet.has(col.id)) hidden.add(col.id)
+      }
+    } else {
+      for (const col of tableColumns) {
+        const meta = getColumnMeta(col.id)
+        const visibleDefault = meta?.defaultVisible ?? (col.id.startsWith('col-') ? false : true)
+        if (!visibleDefault) hidden.add(col.id)
+      }
+    }
+
+    defaultsAppliedRef.current = true
+    if (hidden.size === 0) return
+
+    setInternalHiddenCols(hidden)
+    table.setColumnVisibility(
+      Object.fromEntries(tableColumns.map((c) => [c.id, !hidden.has(c.id)])),
+    )
+    try {
+      localStorage.setItem(lsKey, JSON.stringify([...hidden]))
+    } catch { /* ignore */ }
+  }, [isControlled, defaultVisibleSet, lsKey, table, tableColumns])
+
+  const applyVisibilityToTable = useCallback(
+    (hidden: Set<string>) => {
+      table.setColumnVisibility(
+        Object.fromEntries(tableColumns.map((c) => [c.id, !hidden.has(c.id)])),
+      )
+    },
+    [table, tableColumns],
   )
 
-  const effectiveHidden = savedHidden ?? derivedHidden
-
-  useEffect(() => {
-    if (tableColumns.length === 0) return
-    table.setColumnVisibility(
-      Object.fromEntries(tableColumns.map((c) => [c.id, !effectiveHidden.has(c.id)])),
-    )
-  }, [effectiveHidden, table, tableColumns])
-
   const handleToggle = useCallback((colId: string, visible: boolean) => {
-    setSavedHidden((prev) => {
-      const base = prev ?? derivedHidden
-      const next = new Set(base)
+    if (isControlled) {
+      const next = new Set(effectiveHidden)
       if (visible) next.delete(colId)
       else next.add(colId)
-      table.setColumnVisibility(
-        Object.fromEntries(tableColumns.map((c) => [c.id, !next.has(c.id)])),
-      )
+      onHiddenChangeProp!(next)
+      return
+    }
+    setInternalHiddenCols((prev) => {
+      const next = new Set(prev)
+      if (visible) next.delete(colId)
+      else next.add(colId)
+      applyVisibilityToTable(next)
       localStorage.setItem(lsKey, JSON.stringify([...next]))
       return next
     })
-  }, [derivedHidden, table, tableColumns, lsKey])
+  }, [isControlled, effectiveHidden, onHiddenChangeProp, applyVisibilityToTable, lsKey])
 
   const toggleGroup = useCallback((groupId: string) => {
     setCollapsedGroups((prev) => {
@@ -166,25 +200,29 @@ export function ColumnChooser<TData>({
   const visibleCount = tableColumns.filter((c) => !effectiveHidden.has(c.id)).length
 
   const showAll = useCallback(() => {
-    setSavedHidden(() => {
-      table.setColumnVisibility(
-        Object.fromEntries(tableColumns.map((c) => [c.id, true])),
-      )
+    if (isControlled) {
+      onHiddenChangeProp!(new Set())
+      return
+    }
+    setInternalHiddenCols(() => {
+      applyVisibilityToTable(new Set())
       localStorage.setItem(lsKey, JSON.stringify([]))
       return new Set()
     })
-  }, [table, tableColumns, lsKey])
+  }, [isControlled, onHiddenChangeProp, applyVisibilityToTable, lsKey])
 
   const hideAll = useCallback(() => {
-    setSavedHidden(() => {
-      const allIds = tableColumns.map((c) => c.id)
-      table.setColumnVisibility(
-        Object.fromEntries(tableColumns.map((c) => [c.id, false])),
-      )
-      localStorage.setItem(lsKey, JSON.stringify(allIds))
-      return new Set(allIds)
+    const allHidden = new Set(tableColumns.map((c) => c.id))
+    if (isControlled) {
+      onHiddenChangeProp!(allHidden)
+      return
+    }
+    setInternalHiddenCols(() => {
+      applyVisibilityToTable(allHidden)
+      localStorage.setItem(lsKey, JSON.stringify([...allHidden]))
+      return allHidden
     })
-  }, [table, tableColumns, lsKey])
+  }, [isControlled, onHiddenChangeProp, applyVisibilityToTable, tableColumns, lsKey])
 
   return (
     <>
