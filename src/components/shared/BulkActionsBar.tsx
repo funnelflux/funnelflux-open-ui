@@ -23,6 +23,9 @@ interface BulkActionsBarProps {
   moveLabel?: string
   /** Bulk archive button label (e.g. "Archive funnels"). */
   archiveLabel?: string
+  /** Override delete confirmation copy (e.g. category + child rows). */
+  deleteConfirmTitle?: string
+  deleteConfirmDescription?: string
   /** Top overlay above the navbar (`z-50`) or legacy sticky bottom inside the page. */
   variant?: 'floatingTop' | 'bottom'
 }
@@ -36,6 +39,8 @@ export function BulkActionsBar({
   onMoveToCategory,
   moveLabel = 'Move',
   archiveLabel = 'Archive',
+  deleteConfirmTitle,
+  deleteConfirmDescription,
   variant = 'floatingTop',
 }: BulkActionsBarProps) {
   const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null)
@@ -156,11 +161,15 @@ export function BulkActionsBar({
 
       <ConfirmModal
         open={!!confirmAction}
-        title={confirmAction === 'archive' ? 'Archive selected items' : 'Delete selected items'}
+        title={
+          confirmAction === 'archive'
+            ? 'Archive selected items'
+            : (deleteConfirmTitle ?? 'Delete selected items')
+        }
         description={
           confirmAction === 'archive'
             ? 'Archive all selected items?'
-            : 'Delete all selected items? This cannot be undone.'
+            : (deleteConfirmDescription ?? 'Delete all selected items? This cannot be undone.')
         }
         confirmText={confirmAction === 'archive' ? 'Archive' : 'Delete'}
         danger={confirmAction === 'delete'}

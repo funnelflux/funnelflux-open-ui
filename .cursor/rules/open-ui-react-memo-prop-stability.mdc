@@ -37,6 +37,24 @@ const pinnedBottomRows = useMemo(
 )
 ```
 
+### Select / dropdown `options` built with `.map`
+
+**Do not** write `options={(items ?? []).map(...)}` (or any `.map`) directly in JSX. That allocates a new array every render and breaks memoisation downstream.
+
+```tsx
+// ❌ New options array every render
+<Select options={categories.map((c) => ({ value: c.id, label: c.name }))} />
+
+// ✅ Stable reference when `categories` is unchanged
+const categoryOptions = useMemo(
+  () => (categories ?? []).map((c) => ({ value: c.idCategory, label: c.name })),
+  [categories],
+)
+<Select options={categoryOptions} />
+```
+
+For **static** option lists, hoist a module-level `const` (or `useMemo(..., [])`) instead of an inline `[...]` literal in JSX if the parent is memoised or the list is large.
+
 ### Inline predicate / className functions
 
 ```tsx

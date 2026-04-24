@@ -1,8 +1,8 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { subDays } from 'date-fns'
-import type { ColumnDef, RowSelectionState, Table } from '@tanstack/react-table'
+import type { ColumnDef, RowSelectionState, Table, PaginationState, Updater } from '@tanstack/react-table'
 import { Upload } from 'lucide-react'
-import { Button } from '@/components/ui-kit'
+import { Button, Modal, Input } from '@/components/ui-kit'
 import {
   ConfirmModal,
   TimezoneSelect,
@@ -28,7 +28,16 @@ import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
-import { useCategories, useDeletePage, useClonePage, useArchivePage, useSavePage, usePage } from '@/api/hooks'
+import {
+  useCategories,
+  useDeletePage,
+  useClonePage,
+  useArchivePage,
+  useSavePage,
+  usePage,
+  useSaveCategory,
+  useDeleteCategory,
+} from '@/api/hooks'
 import { useEntityGrid, buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
 import { pagesToListEntities } from '@/lib/entityGridUtils'
 import { PageForm } from '@/components/forms/PageForm'
@@ -37,16 +46,34 @@ import type { Page } from '@/types/entities'
 import type { PageFormData } from '@/schemas/page'
 import { getErrorMessage, selectedRowIds } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
+import { paginateCategorySegments } from '@/lib/paginateCategorySegments'
+import { buildCategorySegmentsFromRows, mapStatColsForCategoryStrip } from '@/lib/categoryStripTable'
+import {
+  syncCategoryStripRowSelection,
+  entityRowIdsFromSelection,
+  deletableCategoryStripRowIds,
+  categoryKeyFromStripRowId,
+} from '@/lib/categoryStripSelection'
 
-type OfferGridRow = EntityGridRow & { _isCategoryHeader?: boolean } & Record<string, unknown>
+const PAGE_CATEGORY_ENTITY = 'page' as const
 
-const canSelectRow = (row: { original: OfferGridRow }) => !row.original._isCategoryHeader
-const categoryRowClassName = (row: OfferGridRow) => row._isCategoryHeader ? 'dt-row--depth-1' : undefined
+type OfferGridRow = EntityGridRow & {
+  _isCategoryHeader?: boolean
+  _categoryId?: string
+} & Record<string, unknown>
+
+const canSelectRow = (row: { original: OfferGridRow }) => row.original.id !== '__totals__'
+const categoryRowClassName = (row: OfferGridRow) =>
+  row._isCategoryHeader ? 'dt-row--category-strip' : undefined
 
 export function OffersPage() {
   const toast = useToastApi()
   const tableRef = useRef<Table<OfferGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<OfferGridRow> | null>(null)
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
+  const [categoryRename, setCategoryRename] = useState<{ idCategory: string; name: string } | null>(null)
+  const [categoryRenameDraft, setCategoryRenameDraft] = useState('')
+  const [categoryDeleteId, setCategoryDeleteId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -61,12 +88,14 @@ export function OffersPage() {
     to: new Date(),
   }))
 
-  const { data: categories } = useCategories('page')
+  const { data: categories } = useCategories(PAGE_CATEGORY_ENTITY)
   const { data: editPage } = usePage(editId ?? '')
   const saveMutation = useSavePage()
   const deleteMutation = useDeletePage()
   const cloneMutation = useClonePage()
   const archiveMutation = useArchivePage()
+  const saveCategoryMutation = useSaveCategory()
+  const deleteCategoryMutation = useDeleteCategory()
 
   const offerListParams = useMemo(
     () => ({ pageType: 'offer', status: archiveStatus } as const),
@@ -97,36 +126,46 @@ export function OffersPage() {
     return map
   }, [categories])
 
-  const filtered = useMemo((): OfferGridRow[] => {
+  const listFiltered = useMemo(() => {
     const searchText = search.toLowerCase()
-    const base = mergedRows.filter((row) => {
+    return mergedRows.filter((row) => {
       const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
       const matchesCategory = !selectedCategoryId || row.categoryId === selectedCategoryId
       return matchesSearch && matchesCategory
     })
+  }, [mergedRows, search, selectedCategoryId])
 
-    const grouped = new Map<string, EntityGridRow[]>()
-    for (const row of base) {
-      const catId = (row.categoryId as string) ?? ''
-      const catName = catId ? (categoryMap.get(catId) ?? 'Unknown') : 'Uncategorized'
-      if (!grouped.has(catName)) grouped.set(catName, [])
-      grouped.get(catName)!.push(row)
-    }
-
-    if (grouped.size <= 1) return base as OfferGridRow[]
-
-    const result: OfferGridRow[] = []
-    for (const [catName, catRows] of grouped) {
-      result.push({ id: `cat-${catName}`, name: catName, cells: [], _isCategoryHeader: true })
-      result.push(...(catRows as OfferGridRow[]))
-    }
-    return result
-  }, [mergedRows, search, selectedCategoryId, categoryMap])
-
-  const hasMetricRows = useMemo(
-    () => filtered.some((r) => !r._isCategoryHeader),
-    [filtered],
+  const segments = useMemo(
+    () => buildCategorySegmentsFromRows(listFiltered as OfferGridRow[], categoryMap),
+    [listFiltered, categoryMap],
   )
+
+  const totalDataCount = useMemo(
+    () => segments.reduce((n, s) => n + s.items.length, 0),
+    [segments],
+  )
+
+  const pageSlice = useMemo(
+    () => paginateCategorySegments(segments, pagination.pageIndex, pagination.pageSize),
+    [segments, pagination.pageIndex, pagination.pageSize],
+  )
+
+  const filterResetKey = useMemo(
+    () => [search, selectedCategoryId, archiveStatus].join('\0'),
+    [search, selectedCategoryId, archiveStatus],
+  )
+
+  useEffect(() => {
+    setPagination((p) => ({ ...p, pageIndex: 0 }))
+  }, [filterResetKey])
+
+  useEffect(() => {
+    if (pagination.pageIndex > pageSlice.pageCount - 1 && pageSlice.pageCount > 0) {
+      setPagination((p) => ({ ...p, pageIndex: Math.max(0, pageSlice.pageCount - 1) }))
+    }
+  }, [pagination.pageIndex, pageSlice.pageCount])
+
+  const hasMetricRows = listFiltered.length > 0
 
   const pinnedBottomRows = useMemo(
     () => {
@@ -138,6 +177,27 @@ export function OffersPage() {
   )
 
   const selectedIds = useMemo(() => selectedRowIds(rowSelection), [rowSelection])
+
+  const handleRowSelectionChange = useCallback(
+    (updater: Updater<RowSelectionState>) => {
+      setRowSelection((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater
+        return syncCategoryStripRowSelection(prev, next, listFiltered as OfferGridRow[])
+      })
+    },
+    [listFiltered],
+  )
+
+  const entityIdsForBulk = useMemo(() => entityRowIdsFromSelection(selectedIds), [selectedIds])
+
+  const bulkDeleteConfirmCopy = useMemo(() => {
+    const catStrips = deletableCategoryStripRowIds(selectedIds)
+    if (catStrips.length === 0 || entityIdsForBulk.length === 0) return null
+    return {
+      title: 'Delete categories and offers?',
+      description: `This will delete ${entityIdsForBulk.length} offer(s) and remove ${catStrips.length} categor${catStrips.length === 1 ? 'y' : 'ies'}. This cannot be undone.`,
+    }
+  }, [selectedIds, entityIdsForBulk])
 
   const handleCreate = () => { setEditId(null); setSheetOpen(true) }
 
@@ -198,61 +258,166 @@ export function OffersPage() {
     reload()
   }
 
+  const hideCategoryStripEditDelete = (row: OfferGridRow) => {
+    if (!row._isCategoryHeader) return false
+    const cid = row._categoryId ?? ''
+    return cid === ''
+  }
+
+  const hideEditButton = (row: OfferGridRow) => {
+    if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
+    return row.id === '__totals__'
+  }
+
+  const hideCloneArchive = (row: OfferGridRow) =>
+    !!row._isCategoryHeader || row.id === '__totals__'
+
+  const hideDeleteButton = (row: OfferGridRow) => {
+    if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
+    return row.id === '__totals__'
+  }
+
   const statCols = useMemo(
-    () => buildColumnsFromReport<OfferGridRow>(reportColumns, { hideScopes: new Set(['lander']) }),
+    () =>
+      mapStatColsForCategoryStrip(
+        buildColumnsFromReport<OfferGridRow>(reportColumns, { hideScopes: new Set(['lander']) }),
+      ),
     [reportColumns],
   )
+
+  const handleRequestDelete = useCallback((id: string) => setDeleteId(id), [])
+
+  const openCategoryRename = useCallback((row: OfferGridRow) => {
+    const idCategory = row._categoryId ?? ''
+    if (!idCategory) return
+    setCategoryRename({ idCategory, name: row.name })
+    setCategoryRenameDraft(row.name)
+  }, [])
+
+  const handleEditOrCategory = useCallback(
+    (row: OfferGridRow) => {
+      if (row._isCategoryHeader) openCategoryRename(row)
+      else handleEdit(row.id)
+    },
+    [handleEdit, openCategoryRename],
+  )
+
+  const handleDeleteOrCategory = useCallback(
+    (row: OfferGridRow) => {
+      const cid = row._categoryId ?? ''
+      if (row._isCategoryHeader) {
+        if (!cid) return
+        setCategoryDeleteId(cid)
+        return
+      }
+      handleRequestDelete(row.id)
+    },
+    [handleRequestDelete],
+  )
+
+  const handleConfirmCategoryRename = useCallback(() => {
+    if (!categoryRename) return
+    const name = categoryRenameDraft.trim()
+    if (!name) return
+    saveCategoryMutation.mutate(
+      { entityType: PAGE_CATEGORY_ENTITY, idCategory: categoryRename.idCategory, name },
+      {
+        onSuccess: () => {
+          toast.success('Category renamed')
+          setCategoryRename(null)
+          reload()
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+      },
+    )
+  }, [categoryRename, categoryRenameDraft, saveCategoryMutation, toast, reload])
+
+  const handleConfirmCategoryDelete = useCallback(() => {
+    if (!categoryDeleteId) return
+    deleteCategoryMutation.mutate(
+      { entityType: PAGE_CATEGORY_ENTITY, idCategory: categoryDeleteId },
+      {
+        onSuccess: () => {
+          toast.success('Category deleted')
+          setCategoryDeleteId(null)
+          if (selectedCategoryId === categoryDeleteId) setSelectedCategoryId('')
+          reload()
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+      },
+    )
+  }, [
+    categoryDeleteId,
+    deleteCategoryMutation,
+    toast,
+    selectedCategoryId,
+    reload,
+  ])
 
   const columnDefs = useMemo<ColumnDef<OfferGridRow, unknown>[]>(() => [
     selectionColumn<OfferGridRow>(),
     nameColumn<OfferGridRow>({
       cellContent: (row) => {
         if (row._isCategoryHeader) {
-          return <span className="font-semibold text-muted-foreground uppercase text-xs">{row.name}</span>
+          return (
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {row.name}
+            </span>
+          )
         }
         return <span className="truncate">{row.name}</span>
       },
     }),
-    editBtnColumn<OfferGridRow>((row) => handleEdit(row.id), { hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__' }),
-    cloneBtnColumn<OfferGridRow>((row) => handleClone(row.id), { hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__' }),
+    editBtnColumn<OfferGridRow>((row) => handleEditOrCategory(row), { hidden: hideEditButton }),
+    cloneBtnColumn<OfferGridRow>((row) => handleClone(row.id), { hidden: hideCloneArchive }),
     archiveBtnColumn<OfferGridRow>(
       (row, archive) => handleArchive(row.id, archive),
       {
-        hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__',
+        hidden: hideCloneArchive,
         isArchived: (row) => row.isArchived === true,
       },
     ),
-    deleteBtnColumn<OfferGridRow>((row) => setDeleteId(row.id), { hidden: (row) => !!row._isCategoryHeader || row.id === '__totals__' }),
-    idColumn<OfferGridRow>(),
+    deleteBtnColumn<OfferGridRow>((row) => handleDeleteOrCategory(row), { hidden: hideDeleteButton }),
+    idColumn<OfferGridRow>({ hideIdForRow: (row) => !!row._isCategoryHeader }),
     ...statCols,
-  ], [statCols, handleEdit, handleClone, handleArchive])
+  ], [statCols, handleEditOrCategory, handleClone, handleArchive, handleDeleteOrCategory])
 
   const handleBulkDeselectAllOffers = useCallback(() => setRowSelection({}), [])
 
   const handleBulkArchiveOffers = useCallback(async () => {
-    await api.put('/data/page/archive/', { ids: selectedIds, archive: true })
+    await api.put('/data/page/archive/', { ids: entityIdsForBulk, archive: true })
     toast.success('Selected offers archived')
     setRowSelection({})
     reload()
-  }, [selectedIds, toast, reload])
+  }, [entityIdsForBulk, toast, reload])
 
   const handleBulkDeleteOffers = useCallback(async () => {
-    for (const id of selectedIds) {
+    const categoryKeys = [
+      ...new Set(
+        deletableCategoryStripRowIds(selectedIds)
+          .map((id) => categoryKeyFromStripRowId(id))
+          .filter((k): k is string => k != null && k !== ''),
+      ),
+    ]
+    for (const id of entityIdsForBulk) {
       await deleteMutation.mutateAsync(id)
     }
-    toast.success('Selected offers deleted')
+    for (const idCategory of categoryKeys) {
+      await deleteCategoryMutation.mutateAsync({ entityType: PAGE_CATEGORY_ENTITY, idCategory })
+    }
+    toast.success('Selected items deleted')
     setRowSelection({})
     reload()
-  }, [selectedIds, deleteMutation, toast, reload])
+  }, [selectedIds, entityIdsForBulk, deleteMutation, deleteCategoryMutation, toast, reload])
 
   const handleBulkAssignOfferCategory = useCallback(async (idCategory: string) => {
     await api.put('/data/page/category/assign/', {
-      pageIds: selectedIds,
+      pageIds: entityIdsForBulk,
       idCategory,
     })
     toast.success('Selected offers moved')
     reload()
-  }, [selectedIds, toast, reload])
+  }, [entityIdsForBulk, toast, reload])
 
   const offersBulkMoveToCategory = useMemo(
     () => ({
@@ -299,7 +464,7 @@ export function OffersPage() {
           <>
             <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />
             <CategoryManager
-              entityType="page"
+              entityType={PAGE_CATEGORY_ENTITY}
               selectedCategoryId={selectedCategoryId}
               onSelectCategory={setSelectedCategoryId}
             />
@@ -325,8 +490,8 @@ export function OffersPage() {
         ) : null}
       />
 
-      <DataTable
-        data={filtered}
+      <DataTable<OfferGridRow>
+        data={pageSlice.pageRows}
         columns={columnDefs}
         loading={isLoading}
         getRowId={entityRowId}
@@ -334,11 +499,16 @@ export function OffersPage() {
         pinnedBottomRows={pinnedBottomRows}
         enableRowSelection={canSelectRow}
         rowSelection={rowSelection}
-        onRowSelectionChange={setRowSelection}
+        onRowSelectionChange={handleRowSelectionChange}
         rowClassName={categoryRowClassName}
         tableRef={tableRef}
         onTableInstance={setTableForChooser}
         emptyMessage={search || selectedCategoryId ? 'No offers match your filters.' : 'No offers found.'}
+        manualPagination
+        pageCount={pageSlice.pageCount}
+        manualPaginationTotalRows={totalDataCount}
+        pagination={pagination}
+        onPaginationChange={setPagination}
       />
 
       <BulkActionsBar
@@ -347,6 +517,8 @@ export function OffersPage() {
         onArchive={handleBulkArchiveOffers}
         onDelete={handleBulkDeleteOffers}
         onMoveToCategory={offersBulkMoveToCategory}
+        deleteConfirmTitle={bulkDeleteConfirmCopy?.title}
+        deleteConfirmDescription={bulkDeleteConfirmCopy?.description}
       />
 
       <CsvImportDialog
@@ -382,6 +554,36 @@ export function OffersPage() {
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}
         loading={deleteMutation.isPending}
+        danger
+      />
+
+      <Modal
+        open={!!categoryRename}
+        title="Rename category"
+        onCancel={() => setCategoryRename(null)}
+        onOk={() => void handleConfirmCategoryRename()}
+        okText="Save"
+        confirmLoading={saveCategoryMutation.isPending}
+        okButtonProps={{ disabled: !categoryRenameDraft.trim() }}
+        destroyOnHidden
+      >
+        <div className="py-4">
+          <Input
+            value={categoryRenameDraft}
+            onChange={(e) => setCategoryRenameDraft(e.target.value)}
+            placeholder="Category name"
+            onPressEnter={() => void handleConfirmCategoryRename()}
+          />
+        </div>
+      </Modal>
+
+      <ConfirmModal
+        open={!!categoryDeleteId}
+        onCancel={() => setCategoryDeleteId(null)}
+        title="Delete category"
+        description="Delete this category? Offers in it will become uncategorized."
+        onConfirm={() => void handleConfirmCategoryDelete()}
+        loading={deleteCategoryMutation.isPending}
         danger
       />
     </PageShell>

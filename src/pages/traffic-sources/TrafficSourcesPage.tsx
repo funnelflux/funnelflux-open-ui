@@ -1,6 +1,6 @@
-import { useMemo, useCallback, useRef, useState } from 'react'
-import { Button } from '@/components/ui-kit'
-import type { ColumnDef, Table } from '@tanstack/react-table'
+import { useMemo, useCallback, useRef, useState, useEffect } from 'react'
+import { type ColumnDef, type Table, type PaginationState, type Updater, type RowSelectionState } from '@tanstack/react-table'
+import { Button, Modal, Input } from '@/components/ui-kit'
 import {
   ConfirmModal,
   TimezoneSelect,
@@ -32,6 +32,8 @@ import {
   useCloneTrafficSource,
   useArchiveTrafficSource,
   useTrafficSource,
+  useSaveCategory,
+  useDeleteCategory,
 } from '@/api/hooks'
 import { buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
 import { trafficSourceListToListEntities } from '@/lib/entityGridUtils'
@@ -42,17 +44,38 @@ import type { TrafficSource } from '@/types/entities'
 import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 import { getErrorMessage } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
+import { paginateCategorySegments } from '@/lib/paginateCategorySegments'
+import { buildCategorySegmentsFromRows, mapStatColsForCategoryStrip } from '@/lib/categoryStripTable'
+import {
+  syncCategoryStripRowSelection,
+  entityRowIdsFromSelection,
+  deletableCategoryStripRowIds,
+  categoryKeyFromStripRowId,
+} from '@/lib/categoryStripSelection'
 
-type TrafficSourceGridRow = EntityGridRow & { _isCategoryHeader?: boolean } & Record<string, unknown>
+type TrafficSourceGridRow = EntityGridRow & {
+  _isCategoryHeader?: boolean
+  /** Real category id for strip rows; '' for uncategorized. */
+  _categoryId?: string
+} & Record<string, unknown>
 
-const canSelectTrafficSourceRow = (row: { original: TrafficSourceGridRow }) => !row.original._isCategoryHeader
+const canSelectTrafficSourceRow = (row: { original: TrafficSourceGridRow }) => {
+  const r = row.original
+  if (r.id === '__totals__') return false
+  if (r.id === '1') return false
+  return true
+}
 const trafficCategoryRowClassName = (row: TrafficSourceGridRow) =>
-  row._isCategoryHeader ? 'dt-row--depth-1' : undefined
+  row._isCategoryHeader ? 'dt-row--category-strip' : undefined
 
 export function TrafficSourcesPage() {
   const toast = useToastApi()
   const tableRef = useRef<Table<TrafficSourceGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<TrafficSourceGridRow> | null>(null)
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
+  const [categoryRename, setCategoryRename] = useState<{ idCategory: string; name: string } | null>(null)
+  const [categoryRenameDraft, setCategoryRenameDraft] = useState('')
+  const [categoryDeleteId, setCategoryDeleteId] = useState<string | null>(null)
 
   const {
     filtered: listFiltered,
@@ -79,34 +102,66 @@ export function TrafficSourcesPage() {
     return map
   }, [categories])
 
-  const filtered = useMemo(() => {
-    const grouped = new Map<string, EntityGridRow[]>()
-    for (const row of listFiltered) {
-      const catId = (row.categoryId as string) ?? ''
-      const catName = catId ? (categoryMap.get(catId) ?? 'Unknown') : 'Uncategorized'
-      if (!grouped.has(catName)) grouped.set(catName, [])
-      grouped.get(catName)!.push(row)
-    }
+  const segments = useMemo(
+    () => buildCategorySegmentsFromRows(listFiltered as TrafficSourceGridRow[], categoryMap),
+    [listFiltered, categoryMap],
+  )
 
-    if (grouped.size <= 1) return listFiltered as TrafficSourceGridRow[]
+  const totalDataCount = useMemo(
+    () => segments.reduce((n, s) => n + s.items.length, 0),
+    [segments],
+  )
 
-    const result: TrafficSourceGridRow[] = []
-    for (const [catName, catRows] of grouped) {
-      result.push({ id: `cat-${catName}`, name: catName, cells: [], _isCategoryHeader: true })
-      result.push(...(catRows as TrafficSourceGridRow[]))
+  const pageSlice = useMemo(
+    () => paginateCategorySegments(segments, pagination.pageIndex, pagination.pageSize),
+    [segments, pagination.pageIndex, pagination.pageSize],
+  )
+
+  const filterResetKey = useMemo(
+    () => [search, selectedCategoryId, archiveStatus].join('\0'),
+    [search, selectedCategoryId, archiveStatus],
+  )
+
+  useEffect(() => {
+    setPagination((p) => ({ ...p, pageIndex: 0 }))
+  }, [filterResetKey])
+
+  useEffect(() => {
+    if (pagination.pageIndex > pageSlice.pageCount - 1 && pageSlice.pageCount > 0) {
+      setPagination((p) => ({ ...p, pageIndex: Math.max(0, pageSlice.pageCount - 1) }))
     }
-    return result
-  }, [listFiltered, categoryMap])
+  }, [pagination.pageIndex, pageSlice.pageCount])
+
+  const handleRowSelectionChange = useCallback(
+    (updater: Updater<RowSelectionState>) => {
+      setRowSelection((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater
+        return syncCategoryStripRowSelection(prev, next, listFiltered as TrafficSourceGridRow[])
+      })
+    },
+    [listFiltered, setRowSelection],
+  )
+
+  const entityIdsForBulk = useMemo(() => entityRowIdsFromSelection(selectedIds), [selectedIds])
+
+  const bulkDeleteConfirmCopy = useMemo(() => {
+    const catStrips = deletableCategoryStripRowIds(selectedIds)
+    if (catStrips.length === 0 || entityIdsForBulk.length === 0) return null
+    return {
+      title: 'Delete categories and traffic sources?',
+      description: `This will delete ${entityIdsForBulk.length} traffic source(s) and remove ${catStrips.length} categor${catStrips.length === 1 ? 'y' : 'ies'}. This cannot be undone.`,
+    }
+  }, [selectedIds, entityIdsForBulk])
+
   const { data: editSource } = useTrafficSource(editId ?? '')
   const saveMutation = useSaveTrafficSource()
   const deleteMutation = useDeleteTrafficSource()
   const cloneMutation = useCloneTrafficSource()
   const archiveMutation = useArchiveTrafficSource()
+  const saveCategoryMutation = useSaveCategory()
+  const deleteCategoryMutation = useDeleteCategory()
 
-  const hasMetricRows = useMemo(
-    () => filtered.some((r) => !r._isCategoryHeader),
-    [filtered],
-  )
+  const hasMetricRows = listFiltered.length > 0
 
   const pinnedBottomRows = useMemo(
     () => {
@@ -157,66 +212,171 @@ export function TrafficSourcesPage() {
   }
 
   const isDefaultSource = (row: TrafficSourceGridRow) => row.id === '1'
-  const hideActions = (row: TrafficSourceGridRow) =>
+  const hideCategoryStripEditDelete = (row: TrafficSourceGridRow) => {
+    if (!row._isCategoryHeader) return false
+    const cid = row._categoryId ?? ''
+    return cid === ''
+  }
+
+  const hideEditButton = (row: TrafficSourceGridRow) => {
+    if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
+    return isDefaultSource(row) || row.id === '__totals__'
+  }
+
+  const hideCloneArchive = (row: TrafficSourceGridRow) =>
     !!row._isCategoryHeader || isDefaultSource(row) || row.id === '__totals__'
 
+  const hideDeleteButton = (row: TrafficSourceGridRow) => {
+    if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
+    return isDefaultSource(row) || row.id === '__totals__'
+  }
+
   const statCols = useMemo(
-    () => buildColumnsFromReport<TrafficSourceGridRow>(reportColumns),
+    () => mapStatColsForCategoryStrip(buildColumnsFromReport<TrafficSourceGridRow>(reportColumns)),
     [reportColumns],
   )
 
   const handleRequestDelete = useCallback((id: string) => setDeleteId(id), [setDeleteId])
+
+  const openCategoryRename = useCallback((row: TrafficSourceGridRow) => {
+    const idCategory = row._categoryId ?? ''
+    if (!idCategory) return
+    setCategoryRename({ idCategory, name: row.name })
+    setCategoryRenameDraft(row.name)
+  }, [])
+
+  const handleEditOrCategory = useCallback(
+    (row: TrafficSourceGridRow) => {
+      if (row._isCategoryHeader) openCategoryRename(row)
+      else handleEdit(row.id)
+    },
+    [handleEdit, openCategoryRename],
+  )
+
+  const handleDeleteOrCategory = useCallback(
+    (row: TrafficSourceGridRow) => {
+      const cid = row._categoryId ?? ''
+      if (row._isCategoryHeader) {
+        if (!cid) return
+        setCategoryDeleteId(cid)
+        return
+      }
+      handleRequestDelete(row.id)
+    },
+    [handleRequestDelete],
+  )
+
+  const handleConfirmCategoryRename = useCallback(() => {
+    if (!categoryRename) return
+    const name = categoryRenameDraft.trim()
+    if (!name) return
+    saveCategoryMutation.mutate(
+      { entityType: 'trafficsource', idCategory: categoryRename.idCategory, name },
+      {
+        onSuccess: () => {
+          toast.success('Category renamed')
+          setCategoryRename(null)
+          reload()
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+      },
+    )
+  }, [categoryRename, categoryRenameDraft, saveCategoryMutation, toast, reload])
+
+  const handleConfirmCategoryDelete = useCallback(() => {
+    if (!categoryDeleteId) return
+    deleteCategoryMutation.mutate(
+      { entityType: 'trafficsource', idCategory: categoryDeleteId },
+      {
+        onSuccess: () => {
+          toast.success('Category deleted')
+          setCategoryDeleteId(null)
+          if (selectedCategoryId === categoryDeleteId) setSelectedCategoryId('')
+          reload()
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+      },
+    )
+  }, [
+    categoryDeleteId,
+    deleteCategoryMutation,
+    toast,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    reload,
+  ])
 
   const columnDefs = useMemo<ColumnDef<TrafficSourceGridRow, unknown>[]>(() => [
     selectionColumn<TrafficSourceGridRow>(),
     nameColumn<TrafficSourceGridRow>({
       cellContent: (row) => {
         if (row._isCategoryHeader) {
-          return <span className="font-semibold text-muted-foreground uppercase text-xs">{row.name}</span>
+          return (
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {row.name}
+            </span>
+          )
         }
         return <span className="truncate">{row.name}</span>
       },
     }),
-    editBtnColumn<TrafficSourceGridRow>((row) => handleEdit(row.id), { hidden: hideActions }),
-    cloneBtnColumn<TrafficSourceGridRow>((row) => handleClone(row.id), { hidden: hideActions }),
+    editBtnColumn<TrafficSourceGridRow>((row) => handleEditOrCategory(row), { hidden: hideEditButton }),
+    cloneBtnColumn<TrafficSourceGridRow>((row) => handleClone(row.id), { hidden: hideCloneArchive }),
     archiveBtnColumn<TrafficSourceGridRow>(
       (row, archive) => handleArchiveTrafficSource(row.id, archive),
       {
-        hidden: hideActions,
+        hidden: hideCloneArchive,
         isArchived: (row) => row.isArchived === true,
       },
     ),
-    deleteBtnColumn<TrafficSourceGridRow>((row) => handleRequestDelete(row.id), { hidden: hideActions }),
-    idColumn<TrafficSourceGridRow>(),
+    deleteBtnColumn<TrafficSourceGridRow>((row) => handleDeleteOrCategory(row), { hidden: hideDeleteButton }),
+    idColumn<TrafficSourceGridRow>({ hideIdForRow: (row) => !!row._isCategoryHeader }),
     ...statCols,
-  ], [statCols, handleEdit, handleClone, handleArchiveTrafficSource, handleRequestDelete])
+  ], [
+    statCols,
+    handleEditOrCategory,
+    handleClone,
+    handleArchiveTrafficSource,
+    handleDeleteOrCategory,
+  ])
 
   const handleBulkDeselectAllTrafficSources = useCallback(() => setRowSelection({}), [])
 
   const handleBulkArchiveTrafficSources = useCallback(async () => {
-    await api.put('/data/trafficsource/archive/', { ids: selectedIds, archive: true })
+    await api.put('/data/trafficsource/archive/', { ids: entityIdsForBulk, archive: true })
     toast.success('Selected traffic sources archived')
     setRowSelection({})
     reload()
-  }, [selectedIds, toast, reload])
+  }, [entityIdsForBulk, toast, reload])
 
   const handleBulkDeleteTrafficSources = useCallback(async () => {
-    for (const id of selectedIds) {
+    const categoryKeys = [
+      ...new Set(
+        deletableCategoryStripRowIds(selectedIds)
+          .map((id) => categoryKeyFromStripRowId(id))
+          .filter((k): k is string => k != null && k !== ''),
+      ),
+    ]
+    for (const id of entityIdsForBulk) {
+      if (id === '1') continue
       await deleteMutation.mutateAsync(id)
     }
-    toast.success('Selected traffic sources deleted')
+    for (const idCategory of categoryKeys) {
+      await deleteCategoryMutation.mutateAsync({ entityType: 'trafficsource', idCategory })
+    }
+    toast.success('Selected items deleted')
     setRowSelection({})
     reload()
-  }, [selectedIds, deleteMutation, toast, reload])
+  }, [selectedIds, entityIdsForBulk, deleteMutation, deleteCategoryMutation, toast, reload])
 
   const handleBulkAssignTrafficSourceCategory = useCallback(async (idCategory: string) => {
     await api.put('/data/trafficsource/category/assign/', {
-      trafficSourceIds: selectedIds,
+      trafficSourceIds: entityIdsForBulk,
       idCategory,
     })
     toast.success('Selected traffic sources moved')
     reload()
-  }, [selectedIds, toast, reload])
+  }, [entityIdsForBulk, toast, reload])
 
   const trafficSourcesBulkMoveToCategory = useMemo(
     () => ({
@@ -273,7 +433,7 @@ export function TrafficSourcesPage() {
       />
 
       <DataTable<TrafficSourceGridRow>
-        data={filtered}
+        data={pageSlice.pageRows}
         columns={columnDefs}
         loading={isLoading}
         getRowId={entityRowId}
@@ -281,11 +441,16 @@ export function TrafficSourcesPage() {
         pinnedBottomRows={pinnedBottomRows}
         enableRowSelection={canSelectTrafficSourceRow}
         rowSelection={rowSelection}
-        onRowSelectionChange={setRowSelection}
+        onRowSelectionChange={handleRowSelectionChange}
         rowClassName={trafficCategoryRowClassName}
         tableRef={tableRef}
         onTableInstance={setTableForChooser}
         emptyMessage={search || selectedCategoryId ? 'No traffic sources match your filters.' : 'No traffic sources found.'}
+        manualPagination
+        pageCount={pageSlice.pageCount}
+        manualPaginationTotalRows={totalDataCount}
+        pagination={pagination}
+        onPaginationChange={setPagination}
       />
 
       <BulkActionsBar
@@ -294,6 +459,8 @@ export function TrafficSourcesPage() {
         onArchive={handleBulkArchiveTrafficSources}
         onDelete={handleBulkDeleteTrafficSources}
         onMoveToCategory={trafficSourcesBulkMoveToCategory}
+        deleteConfirmTitle={bulkDeleteConfirmCopy?.title}
+        deleteConfirmDescription={bulkDeleteConfirmCopy?.description}
       />
 
       <TrafficSourceForm
@@ -311,6 +478,36 @@ export function TrafficSourcesPage() {
         description="Are you sure? This cannot be undone."
         onConfirm={handleDelete}
         loading={deleteMutation.isPending}
+        danger
+      />
+
+      <Modal
+        open={!!categoryRename}
+        title="Rename category"
+        onCancel={() => setCategoryRename(null)}
+        onOk={() => void handleConfirmCategoryRename()}
+        okText="Save"
+        confirmLoading={saveCategoryMutation.isPending}
+        okButtonProps={{ disabled: !categoryRenameDraft.trim() }}
+        destroyOnHidden
+      >
+        <div className="py-4">
+          <Input
+            value={categoryRenameDraft}
+            onChange={(e) => setCategoryRenameDraft(e.target.value)}
+            placeholder="Category name"
+            onPressEnter={() => void handleConfirmCategoryRename()}
+          />
+        </div>
+      </Modal>
+
+      <ConfirmModal
+        open={!!categoryDeleteId}
+        onCancel={() => setCategoryDeleteId(null)}
+        title="Delete category"
+        description="Delete this category? Traffic sources in it will become uncategorized."
+        onConfirm={() => void handleConfirmCategoryDelete()}
+        loading={deleteCategoryMutation.isPending}
         danger
       />
     </PageShell>

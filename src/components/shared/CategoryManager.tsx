@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Plus, Settings2, Pencil, Trash2, Check, X } from 'lucide-react'
 import { Popconfirm } from '@/components/ui-kit'
 import { Button, Input, Select, Modal, useToastApi } from '@/components/ui-kit'
@@ -73,6 +73,19 @@ export function CategoryManager({
     setEditingName('')
   }
 
+  const filterSelectOptions = useMemo(() => {
+    const sorted = [...(categories ?? [])].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+    )
+    return [
+      { value: '__all__', label: 'All Categories' },
+      ...sorted.map((category) => ({
+        value: category.idCategory,
+        label: category.name,
+      })),
+    ]
+  }, [categories])
+
   return (
     <>
       <div className="flex items-center gap-1.5">
@@ -80,13 +93,8 @@ export function CategoryManager({
           value={selectedCategoryId || '__all__'}
           onChange={(value) => onSelectCategory(value === '__all__' ? '' : value)}
           style={{ width: 220 }}
-          options={[
-            { value: '__all__', label: 'All Categories' },
-            ...(categories ?? []).map((category) => ({
-              value: category.idCategory,
-              label: category.name,
-            })),
-          ]}
+          alphabetical={false}
+          options={filterSelectOptions}
         />
         <Button
           type="text"

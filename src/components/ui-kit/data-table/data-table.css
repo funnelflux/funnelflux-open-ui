@@ -199,6 +199,16 @@
   background: transparent;
 }
 
+/* Category strip (group header row): dark band, no hover wash */
+.dt-row--category-strip {
+  background: color-mix(in srgb, var(--foreground) 8%, var(--surface));
+  font-weight: 600;
+}
+
+.dt-row--category-strip:hover {
+  background: color-mix(in srgb, var(--foreground) 10%, var(--surface));
+}
+
 /* ---- Cell ---- */
 .dt-cell {
   display: flex;

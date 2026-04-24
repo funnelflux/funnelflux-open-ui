@@ -1,5 +1,5 @@
 // Re-export generated types from the OpenAPI spec
-import type { Page as GeneratedPage } from './generated/data';
+import type { Page as GeneratedPage, TrafficSource as GeneratedTrafficSource } from './generated/data';
 
 export type {
   Campaign,
@@ -25,7 +25,6 @@ export type {
   FluxifyLinkRewriterParams,
   FluxifyContentRewriterParams,
   FluxifyReferrerAndUASpooferParams,
-  TrafficSource,
   Postback,
   OfferSource,
   OfferSourceSaveRequest,
@@ -48,6 +47,9 @@ export type {
   CampaignsFunnelsAndNodes,
   CodeSnippetTemplateList,
 } from './generated/data';
+
+/** Traffic source as returned by v2 (includes `idCategory` from API; spec may lag). */
+export type TrafficSource = GeneratedTrafficSource & { idCategory?: string };
 
 // Page type extended with fields present at runtime but not yet in the YAML spec
 export type Page = GeneratedPage & {

@@ -19,6 +19,8 @@ export const trafficSourceSchema = z.object({
     postbackType: z.enum(['none', 'postbackUrl', 'pixelUrl', 'javascript']),
     postbackCode: z.string(),
   }),
+  /** Empty = uncategorized. Sent on save as `idCategory` for the v2 TrafficSource model. */
+  idCategory: z.string().optional(),
   isArchived: z.boolean().optional(),
 })
 

@@ -45,6 +45,11 @@ export interface DataTableProps<TData> {
   onPaginationChange?: (pagination: PaginationState) => void
   manualPagination?: boolean
   pageCount?: number
+  /**
+   * When `manualPagination` is true, total number of data rows across all pages (excluding
+   * repeated category headers) for the footer range label and pagination visibility.
+   */
+  manualPaginationTotalRows?: number
   pageSizeOptions?: number[]
 
   /** Column visibility (controlled). */

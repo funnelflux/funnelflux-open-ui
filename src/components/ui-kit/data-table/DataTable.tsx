@@ -43,6 +43,7 @@ function DataTableInner<TData>({
   onPaginationChange,
   manualPagination,
   pageCount,
+  manualPaginationTotalRows,
   pageSizeOptions = DEFAULT_PAGE_SIZES,
   columnVisibility: controlledVisibility,
   onColumnVisibilityChange,
@@ -382,7 +383,13 @@ function DataTableInner<TData>({
   }
 
   const totalRowCount = manualPagination ? (pageCount ?? 0) * pagination.pageSize : data.length
-  const showPagination = usePagination && totalRowCount > pagination.pageSize
+  const effectiveTotalForPagination =
+    manualPagination && manualPaginationTotalRows != null
+      ? manualPaginationTotalRows
+      : manualPagination
+        ? totalRowCount
+        : data.length
+  const showPagination = usePagination && effectiveTotalForPagination > pagination.pageSize
 
   const totalPages = table.getPageCount()
   const currentPage = pagination.pageIndex
@@ -482,7 +489,9 @@ function DataTableInner<TData>({
           <div className="dt-footer-info">
             <span>
               {manualPagination
-                ? `${totalRowCount.toLocaleString()} rows`
+                ? manualPaginationTotalRows != null
+                  ? `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min((pagination.pageIndex + 1) * pagination.pageSize, manualPaginationTotalRows)} of ${manualPaginationTotalRows.toLocaleString()}`
+                  : `${totalRowCount.toLocaleString()} rows`
                 : `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min((pagination.pageIndex + 1) * pagination.pageSize, data.length)} of ${data.length.toLocaleString()}`}
             </span>
             <select

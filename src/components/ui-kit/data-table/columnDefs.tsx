@@ -279,7 +279,9 @@ export function nameColumn<T extends HasName>(opts?: NameColumnOpts<T>): ColumnD
   }
 }
 
-export function idColumn<T extends HasName>(opts?: ColumnOpts): ColumnDef<T, unknown> {
+export function idColumn<T extends HasName>(
+  opts?: ColumnOpts & { hideIdForRow?: (row: T) => boolean },
+): ColumnDef<T, unknown> {
   return {
     id: 'id',
     header: opts?.headerName ?? ENTITY_ID_COLUMN_META.abbr,
@@ -289,8 +291,9 @@ export function idColumn<T extends HasName>(opts?: ColumnOpts): ColumnDef<T, unk
     enableSorting: false,
     meta: { ...(opts?.align ? { align: opts.align } : {}) },
     cell: (info) => {
-      const row = info.row.original as HasName
-      if (row.id === '__totals__') return null
+      const row = info.row.original as T
+      if (opts?.hideIdForRow?.(row)) return null
+      if ((row as HasName).id === '__totals__') return null
       return (
         <span className="dt-cell-text" style={{ color: 'var(--muted-fg)', fontSize: '12px' }}>{String(info.getValue())}</span>
       )
