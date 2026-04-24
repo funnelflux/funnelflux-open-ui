@@ -14,6 +14,8 @@ import {
   idColumn,
   selectionColumn,
   editBtnColumn,
+  cloneBtnColumn,
+  archiveBtnColumn,
   deleteBtnColumn,
   buildColumnsFromReport,
   entityRowId,
@@ -25,12 +27,17 @@ import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
 import {
   useSaveOfferSource,
   useDeleteOfferSource,
+  useArchiveOfferSource,
+  useCloneOfferSource,
   useOfferSource,
 } from '@/api/hooks'
 import { buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
+import { offerSourcesToListEntities } from '@/lib/entityGridUtils'
 import { useEntityPage } from '@/hooks/useEntityPage'
 import { OfferSourceForm } from '@/components/forms/OfferSourceForm'
+import type { OfferSource } from '@/types/entities'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
+import { api } from '@/api/client'
 import { getErrorMessage } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
 
@@ -42,7 +49,7 @@ export function OfferSourcesPage() {
   const [tableForChooser, setTableForChooser] = useState<Table<OfferSourceGridRow> | null>(null)
 
   const {
-    filtered, reportColumns, totalsCells, isLoading, refetch: reload,
+    filtered, reportColumns, totalsCells, isLoading, isFetching, refetch: reload,
     search, setSearch, archiveStatus, setArchiveStatus,
     rowSelection, setRowSelection, selectedIds,
     sheetOpen, setSheetOpen, editId, setEditId,
@@ -50,13 +57,17 @@ export function OfferSourcesPage() {
     tz, setTz, handleCreate, handleEdit,
   } = useEntityPage({
     entityKey: 'offer-sources',
-    listEndpoint: '/data/offersource/list/',
+    listEndpoint: '/data/offersource/find/byStatus/',
     groupBy: 'Third Parties: Offer Source',
+    archiveListFilter: 'status',
+    mapListToEntities: (items) => offerSourcesToListEntities(items as OfferSource[]),
   })
 
   const { data: editSource } = useOfferSource(editId ?? '')
   const saveMutation = useSaveOfferSource()
   const deleteMutation = useDeleteOfferSource()
+  const archiveMutation = useArchiveOfferSource()
+  const cloneMutation = useCloneOfferSource()
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -105,16 +116,56 @@ export function OfferSourcesPage() {
 
   const handleRequestDelete = useCallback((id: string) => setDeleteId(id), [setDeleteId])
 
+  const hideRowActions = useCallback((row: OfferSourceGridRow) => row.id === '__totals__', [])
+
+  const cloneMutate = cloneMutation.mutate
+  const handleCloneOfferSource = useCallback((id: string) => {
+    cloneMutate(id, {
+      onSuccess: () => { toast.success('Offer source cloned'); reload() },
+      onError: (err) => toast.error(getErrorMessage(err)),
+    })
+  }, [cloneMutate, toast, reload])
+
+  const archiveMutate = archiveMutation.mutate
+  const handleArchiveOfferSource = useCallback((id: string, archive: boolean) => {
+    archiveMutate({ ids: [id], archive }, {
+      onSuccess: () => { toast.success(archive ? 'Archived' : 'Restored'); reload() },
+      onError: (err) => toast.error(getErrorMessage(err)),
+    })
+  }, [archiveMutate, toast, reload])
+
   const columnDefs = useMemo<ColumnDef<OfferSourceGridRow, unknown>[]>(() => [
     selectionColumn<OfferSourceGridRow>(),
     nameColumn<OfferSourceGridRow>(),
-    editBtnColumn<OfferSourceGridRow>((row) => handleEdit(row.id), { hidden: (row) => row.id === '__totals__' }),
-    deleteBtnColumn<OfferSourceGridRow>((row) => handleRequestDelete(row.id), { hidden: (row) => row.id === '__totals__' }),
+    editBtnColumn<OfferSourceGridRow>((row) => handleEdit(row.id), { hidden: hideRowActions }),
+    cloneBtnColumn<OfferSourceGridRow>((row) => handleCloneOfferSource(row.id), { hidden: hideRowActions }),
+    archiveBtnColumn<OfferSourceGridRow>(
+      (row, archive) => handleArchiveOfferSource(row.id, archive),
+      {
+        hidden: hideRowActions,
+        isArchived: (row) => row.isArchived === true,
+      },
+    ),
+    deleteBtnColumn<OfferSourceGridRow>((row) => handleRequestDelete(row.id), { hidden: hideRowActions }),
     idColumn<OfferSourceGridRow>(),
     ...statCols,
-  ], [statCols, handleEdit, handleRequestDelete])
+  ], [
+    statCols,
+    handleEdit,
+    hideRowActions,
+    handleCloneOfferSource,
+    handleArchiveOfferSource,
+    handleRequestDelete,
+  ])
 
   const handleBulkDeselectAllOfferSources = useCallback(() => setRowSelection({}), [])
+
+  const handleBulkArchiveOfferSources = useCallback(async () => {
+    await api.put('/data/offersource/archive/', { ids: selectedIds, archive: true })
+    toast.success('Selected offer sources archived')
+    setRowSelection({})
+    reload()
+  }, [selectedIds, toast, reload])
 
   const handleBulkDeleteOfferSources = useCallback(async () => {
     for (const id of selectedIds) {
@@ -146,6 +197,8 @@ export function OfferSourcesPage() {
         value={search}
         onChange={setSearch}
         placeholder="Search offer sources..."
+        onRefresh={reload}
+        refreshLoading={isFetching}
         filters={<ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />}
         trailing={
           <>
@@ -184,6 +237,7 @@ export function OfferSourcesPage() {
       <BulkActionsBar
         count={selectedIds.length}
         onDeselectAll={handleBulkDeselectAllOfferSources}
+        onArchive={handleBulkArchiveOfferSources}
         onDelete={handleBulkDeleteOfferSources}
       />
 

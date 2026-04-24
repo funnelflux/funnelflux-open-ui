@@ -68,16 +68,22 @@ export function OffersPage() {
   const cloneMutation = useClonePage()
   const archiveMutation = useArchivePage()
 
+  const offerListParams = useMemo(
+    () => ({ pageType: 'offer', status: archiveStatus } as const),
+    [archiveStatus],
+  )
+
   const {
     mergedRows,
     reportColumns,
     totalsCells,
     isLoading,
+    isFetching,
     refetch: reload,
   } = useEntityGrid({
     entityKey: 'offers',
     listEndpoint: '/data/page/find/byStatus/',
-    listParams: { pageType: 'offer', status: 'all' },
+    listParams: offerListParams,
     groupBy: 'Element: Offer',
     dateFrom: dateRange.from,
     dateTo: dateRange.to,
@@ -96,10 +102,7 @@ export function OffersPage() {
     const base = mergedRows.filter((row) => {
       const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
       const matchesCategory = !selectedCategoryId || row.categoryId === selectedCategoryId
-      const matchesArchive =
-        archiveStatus === 'all' ||
-        (archiveStatus === 'archived' ? row.isArchived === true : row.isArchived !== true)
-      return matchesSearch && matchesCategory && matchesArchive
+      return matchesSearch && matchesCategory
     })
 
     const grouped = new Map<string, EntityGridRow[]>()
@@ -118,7 +121,7 @@ export function OffersPage() {
       result.push(...(catRows as OfferGridRow[]))
     }
     return result
-  }, [archiveStatus, mergedRows, search, selectedCategoryId, categoryMap])
+  }, [mergedRows, search, selectedCategoryId, categoryMap])
 
   const hasMetricRows = useMemo(
     () => filtered.some((r) => !r._isCategoryHeader),
@@ -290,6 +293,8 @@ export function OffersPage() {
         value={search}
         onChange={setSearch}
         placeholder="Search offers..."
+        onRefresh={reload}
+        refreshLoading={isFetching}
         filters={
           <>
             <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />

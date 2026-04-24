@@ -96,6 +96,7 @@ export function useEntityGrid(options: UseEntityGridOptions) {
     reportColumns,
     totalsCells,
     isLoading: listQuery.isLoading || statsQuery.isLoading,
+    isFetching: listQuery.isFetching || statsQuery.isFetching,
     error: listQuery.error || statsQuery.error,
     refetch,
   }

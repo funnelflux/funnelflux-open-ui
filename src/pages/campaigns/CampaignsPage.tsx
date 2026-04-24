@@ -443,6 +443,8 @@ export function CampaignsPage() {
         value={search}
         onChange={setSearch}
         placeholder="Search campaigns..."
+        onRefresh={fetchData}
+        refreshLoading={isLoading}
         trailing={
           <>
             <DateRangePicker

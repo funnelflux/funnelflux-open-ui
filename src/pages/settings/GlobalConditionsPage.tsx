@@ -16,7 +16,7 @@ import type { FunnelCondition } from '@/types/entities'
 
 export function GlobalConditionsPage() {
   const toast = useToastApi()
-  const { data: conditionRows, isLoading } = useConditions()
+  const { data: conditionRows, isLoading, refetch: refetchConditions, isFetching } = useConditions()
   const saveCondition = useSaveCondition()
   const deleteCondition = useDeleteCondition()
 
@@ -52,6 +52,10 @@ export function GlobalConditionsPage() {
       toast.error(getErrorMessage(err))
     }
   }, [deleteId, deleteCondition, toast])
+
+  const handleRefreshConditions = useCallback(() => {
+    void refetchConditions()
+  }, [refetchConditions])
 
   const columns = useMemo<ColumnDef<ConditionListItem, unknown>[]>(
     () => [
@@ -141,7 +145,13 @@ export function GlobalConditionsPage() {
         </Button>
       }
     >
-      <SearchToolbar value={search} onChange={setSearch} placeholder="Search conditions..." />
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search conditions..."
+        onRefresh={handleRefreshConditions}
+        refreshLoading={isFetching}
+      />
 
       <DataTable<ConditionListItem>
         data={filtered}

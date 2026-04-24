@@ -28,7 +28,7 @@ export function useOfferSources(status?: string) {
 export function useOfferSource(id: string) {
   return useQuery({
     queryKey: queryKeys.offerSources.detail(id),
-    queryFn: () => api.get<OfferSource>('/data/offersource/find/byId/', { id }),
+    queryFn: () => api.get<OfferSource>('/data/offersource/find/byId/', { idOfferSource: id }),
     enabled: !!id,
   })
 }
@@ -42,6 +42,7 @@ export function useSaveOfferSource() {
         : api.put<OfferSource>('/data/offersource/save/', offerSource),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+      queryClient.invalidateQueries({ queryKey: ['offer-sources'] })
     },
   })
 }
@@ -49,9 +50,34 @@ export function useSaveOfferSource() {
 export function useDeleteOfferSource() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete('/data/offersource/delete/', { id }),
+    mutationFn: (id: string) => api.delete('/data/offersource/delete/', { idOfferSource: id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+      queryClient.invalidateQueries({ queryKey: ['offer-sources'] })
+    },
+  })
+}
+
+export function useArchiveOfferSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, archive }: { ids: string[]; archive: boolean }) =>
+      api.put('/data/offersource/archive/', { ids, archive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+      queryClient.invalidateQueries({ queryKey: ['offer-sources'] })
+    },
+  })
+}
+
+export function useCloneOfferSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post('/data/offersource/clone/', undefined, { idOfferSource: id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+      queryClient.invalidateQueries({ queryKey: ['offer-sources'] })
     },
   })
 }

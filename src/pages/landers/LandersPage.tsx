@@ -69,16 +69,22 @@ export function LandersPage() {
   const cloneMutation = useClonePage()
   const archiveMutation = useArchivePage()
 
+  const landerListParams = useMemo(
+    () => ({ pageType: 'lander', status: archiveStatus } as const),
+    [archiveStatus],
+  )
+
   const {
     mergedRows,
     reportColumns,
     totalsCells,
     isLoading,
+    isFetching,
     refetch: reload,
   } = useEntityGrid({
     entityKey: 'landers',
     listEndpoint: '/data/page/find/byStatus/',
-    listParams: { pageType: 'lander', status: 'all' },
+    listParams: landerListParams,
     groupBy: 'Element: Lander',
     dateFrom: dateRange.from,
     dateTo: dateRange.to,
@@ -97,10 +103,7 @@ export function LandersPage() {
     const base = mergedRows.filter((row) => {
       const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
       const matchesCategory = !selectedCategoryId || row.categoryId === selectedCategoryId
-      const matchesArchive =
-        archiveStatus === 'all' ||
-        (archiveStatus === 'archived' ? row.isArchived === true : row.isArchived !== true)
-      return matchesSearch && matchesCategory && matchesArchive
+      return matchesSearch && matchesCategory
     })
 
     const grouped = new Map<string, EntityGridRow[]>()
@@ -119,7 +122,7 @@ export function LandersPage() {
       result.push(...(catRows as LanderGridRow[]))
     }
     return result
-  }, [archiveStatus, mergedRows, search, selectedCategoryId, categoryMap])
+  }, [mergedRows, search, selectedCategoryId, categoryMap])
 
   const hasMetricRows = useMemo(
     () => filtered.some((r) => !r._isCategoryHeader),
@@ -287,6 +290,8 @@ export function LandersPage() {
         value={search}
         onChange={setSearch}
         placeholder="Search landers..."
+        onRefresh={reload}
+        refreshLoading={isFetching}
         filters={
           <>
             <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />

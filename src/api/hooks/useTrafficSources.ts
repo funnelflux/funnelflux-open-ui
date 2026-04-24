@@ -70,7 +70,8 @@ export function useDeleteTrafficSource() {
 export function useCloneTrafficSource() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.post('/data/trafficsource/clone/', { idTrafficSource: id }),
+    mutationFn: (id: string) =>
+      api.post('/data/trafficsource/clone/', undefined, { idTrafficSource: id }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.trafficSources.all })
     },

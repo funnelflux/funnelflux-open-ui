@@ -1,5 +1,5 @@
 import type { ReportCell, ReportColumn } from '@/types/stats'
-import type { Page } from '@/types/entities'
+import type { OfferSource, Page } from '@/types/entities'
 
 export interface ListEntity {
   id: string
@@ -47,6 +47,30 @@ export function pagesToListEntities(pages: Page[]): ListEntity[] {
     }
     if (page.categoryId != null && page.categoryId !== '') {
       entity.categoryId = page.categoryId
+    }
+    return entity
+  })
+}
+
+export function offerSourcesToListEntities(items: OfferSource[]): ListEntity[] {
+  return items.map((os) => ({
+    id: os.idOfferSource,
+    name: os.offerSourceName,
+    isArchived: os.isArchived === true,
+  }))
+}
+
+/** Map v2 GET /data/trafficsource/list/ rows to grid entities (includes optional categoryId). */
+export function trafficSourceListToListEntities(items: unknown[]): ListEntity[] {
+  return (items as Array<Record<string, unknown>>).map((row) => {
+    const entity: ListEntity = {
+      id: String(row.id ?? ''),
+      name: String(row.name ?? ''),
+      isArchived: row.isArchived === true,
+    }
+    const cat = row.categoryId
+    if (cat != null && String(cat) !== '') {
+      entity.categoryId = String(cat)
     }
     return entity
   })
