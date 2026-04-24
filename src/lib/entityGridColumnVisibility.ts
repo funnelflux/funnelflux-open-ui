@@ -46,7 +46,9 @@ function readHiddenFromLs(lsKey: string): Set<string> | null {
   try {
     const raw = localStorage.getItem(lsKey)
     if (raw === null) return null
-    return new Set(JSON.parse(raw) as string[])
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return null
+    return new Set(parsed as string[])
   } catch {
     return null
   }
@@ -86,6 +88,11 @@ export function useEntityGridColumnVisibility(
     [tableColumns, hiddenCols],
   )
 
+  /** Toggleable column ids that are visible (shown in the table / “on” in the picker). */
+  const selectedCols = useMemo(() => {
+    return new Set(tableColumns.map((c) => c.id).filter((id) => !hiddenCols.has(id)))
+  }, [tableColumns, hiddenCols])
+
   const persistHidden = useCallback(
     (hidden: Set<string>) => {
       try {
@@ -96,6 +103,17 @@ export function useEntityGridColumnVisibility(
       setBump((b) => b + 1)
     },
     [lsKey],
+  )
+
+  const onColumnsChange = useCallback(
+    (nextSelected: Set<string>) => {
+      const hidden = new Set<string>()
+      for (const c of tableColumns) {
+        if (!nextSelected.has(c.id)) hidden.add(c.id)
+      }
+      persistHidden(hidden)
+    },
+    [tableColumns, persistHidden],
   )
 
   const onColumnVisibilityChange = useCallback(
@@ -115,9 +133,9 @@ export function useEntityGridColumnVisibility(
 
   return {
     tableColumns,
-    hiddenCols,
+    selectedCols,
     columnVisibility,
-    onHiddenChange: persistHidden,
+    onColumnsChange,
     onColumnVisibilityChange,
   }
 }

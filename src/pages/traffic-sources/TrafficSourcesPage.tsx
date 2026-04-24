@@ -53,6 +53,7 @@ import {
   categoryKeyFromStripRowId,
 } from '@/lib/categoryStripSelection'
 import { defaultColIds } from '@/lib/entityPageDefaultColIds'
+import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
 
 type TrafficSourceGridRow = EntityGridRow & {
   _isCategoryHeader?: boolean
@@ -341,6 +342,12 @@ export function TrafficSourcesPage() {
     handleDeleteOrCategory,
   ])
 
+  const gridColumnVisibility = useEntityGridColumnVisibility(
+    columnDefs as ColumnDef<unknown, unknown>[],
+    'traffic-sources',
+    { defaultVisibleColumnIds: defaultColIds },
+  )
+
   const handleBulkDeselectAllTrafficSources = useCallback(() => setRowSelection({}), [])
 
   const handleBulkArchiveTrafficSources = useCallback(async () => {
@@ -436,6 +443,8 @@ export function TrafficSourcesPage() {
             table={tableForChooser}
             storageKey="traffic-sources"
             defaultVisibleColumnIds={defaultColIds}
+            selectedCols={gridColumnVisibility.selectedCols}
+            onColumnsChange={gridColumnVisibility.onColumnsChange}
           />
         ) : null}
       />
@@ -459,6 +468,8 @@ export function TrafficSourcesPage() {
         manualPaginationTotalRows={totalDataCount}
         pagination={pagination}
         onPaginationChange={setPagination}
+        columnVisibility={gridColumnVisibility.columnVisibility}
+        onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
       />
 
       <BulkActionsBar

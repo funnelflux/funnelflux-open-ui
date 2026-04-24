@@ -55,6 +55,7 @@ import {
   categoryKeyFromStripRowId,
 } from '@/lib/categoryStripSelection'
 import { defaultColIds } from '@/lib/entityPageDefaultColIds'
+import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
 
 const PAGE_CATEGORY_ENTITY = 'page' as const
 
@@ -383,6 +384,12 @@ export function OffersPage() {
     ...statCols,
   ], [statCols, handleEditOrCategory, handleClone, handleArchive, handleDeleteOrCategory])
 
+  const gridColumnVisibility = useEntityGridColumnVisibility(
+    columnDefs as ColumnDef<unknown, unknown>[],
+    'offers',
+    { defaultVisibleColumnIds: defaultColIds },
+  )
+
   const handleBulkDeselectAllOffers = useCallback(() => setRowSelection({}), [])
 
   const handleBulkArchiveOffers = useCallback(async () => {
@@ -488,6 +495,8 @@ export function OffersPage() {
             storageKey="offers"
             hideScopes={new Set(['lander'])}
             defaultVisibleColumnIds={defaultColIds}
+            selectedCols={gridColumnVisibility.selectedCols}
+            onColumnsChange={gridColumnVisibility.onColumnsChange}
           />
         ) : null}
       />
@@ -511,6 +520,8 @@ export function OffersPage() {
         manualPaginationTotalRows={totalDataCount}
         pagination={pagination}
         onPaginationChange={setPagination}
+        columnVisibility={gridColumnVisibility.columnVisibility}
+        onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
       />
 
       <BulkActionsBar

@@ -24,11 +24,12 @@ interface ColumnChooserProps<TData = unknown> {
    */
   defaultVisibleColumnIds?: readonly string[]
   /**
-   * Controlled hidden set (e.g. from `useEntityGridColumnVisibility`). Parent must drive `DataTable` visibility.
-   * When set, this component does not call `table.setColumnVisibility` or run first-visit effects.
+   * Controlled: visible toggleable column ids (e.g. from `useEntityGridColumnVisibility.selectedCols`).
+   * Parent must drive `DataTable` via the same hook’s `columnVisibility` / `onColumnVisibilityChange`.
    */
-  hiddenCols?: Set<string>
-  onHiddenChange?: (next: Set<string>) => void
+  selectedCols?: Set<string>
+  /** Receives the next set of visible toggleable column ids. */
+  onColumnsChange?: (next: Set<string>) => void
 }
 
 export function ColumnChooser<TData>({
@@ -38,8 +39,8 @@ export function ColumnChooser<TData>({
   groups: groupsProp,
   hideScopes,
   defaultVisibleColumnIds,
-  hiddenCols: hiddenColsProp,
-  onHiddenChange: onHiddenChangeProp,
+  selectedCols: selectedColsProp,
+  onColumnsChange: onColumnsChangeProp,
 }: ColumnChooserProps<TData>) {
   const groups = useMemo(
     () => groupsProp ?? buildChooserGroupsForPage(hideScopes),
@@ -63,7 +64,7 @@ export function ColumnChooser<TData>({
 
   const tableColumnIds = useMemo(() => new Set(tableColumns.map((c) => c.id)), [tableColumns])
 
-  const isControlled = hiddenColsProp != null && onHiddenChangeProp != null
+  const isControlled = selectedColsProp != null && onColumnsChangeProp != null
 
   const [internalHiddenCols, setInternalHiddenCols] = useState<Set<string>>(() => {
     try {
@@ -73,7 +74,10 @@ export function ColumnChooser<TData>({
     return new Set()
   })
 
-  const effectiveHidden = isControlled ? hiddenColsProp! : internalHiddenCols
+  const effectiveSelected = useMemo(() => {
+    if (isControlled) return selectedColsProp!
+    return new Set(tableColumns.map((c) => c.id).filter((id) => !internalHiddenCols.has(id)))
+  }, [isControlled, selectedColsProp, tableColumns, internalHiddenCols])
 
   const defaultsAppliedRef = useRef(false)
 
@@ -142,10 +146,10 @@ export function ColumnChooser<TData>({
 
   const handleToggle = useCallback((colId: string, visible: boolean) => {
     if (isControlled) {
-      const next = new Set(effectiveHidden)
-      if (visible) next.delete(colId)
-      else next.add(colId)
-      onHiddenChangeProp!(next)
+      const next = new Set(effectiveSelected)
+      if (visible) next.add(colId)
+      else next.delete(colId)
+      onColumnsChangeProp!(next)
       return
     }
     setInternalHiddenCols((prev) => {
@@ -156,7 +160,7 @@ export function ColumnChooser<TData>({
       localStorage.setItem(lsKey, JSON.stringify([...next]))
       return next
     })
-  }, [isControlled, effectiveHidden, onHiddenChangeProp, applyVisibilityToTable, lsKey])
+  }, [isControlled, effectiveSelected, onColumnsChangeProp, applyVisibilityToTable, lsKey])
 
   const toggleGroup = useCallback((groupId: string) => {
     setCollapsedGroups((prev) => {
@@ -197,11 +201,11 @@ export function ColumnChooser<TData>({
     )
   }, [ungroupedColumns, searchLower])
 
-  const visibleCount = tableColumns.filter((c) => !effectiveHidden.has(c.id)).length
+  const visibleCount = effectiveSelected.size
 
   const showAll = useCallback(() => {
     if (isControlled) {
-      onHiddenChangeProp!(new Set())
+      onColumnsChangeProp!(new Set(tableColumns.map((c) => c.id)))
       return
     }
     setInternalHiddenCols(() => {
@@ -209,20 +213,20 @@ export function ColumnChooser<TData>({
       localStorage.setItem(lsKey, JSON.stringify([]))
       return new Set()
     })
-  }, [isControlled, onHiddenChangeProp, applyVisibilityToTable, lsKey])
+  }, [isControlled, onColumnsChangeProp, applyVisibilityToTable, lsKey, tableColumns])
 
   const hideAll = useCallback(() => {
-    const allHidden = new Set(tableColumns.map((c) => c.id))
     if (isControlled) {
-      onHiddenChangeProp!(allHidden)
+      onColumnsChangeProp!(new Set())
       return
     }
+    const allHidden = new Set(tableColumns.map((c) => c.id))
     setInternalHiddenCols(() => {
       applyVisibilityToTable(allHidden)
       localStorage.setItem(lsKey, JSON.stringify([...allHidden]))
       return allHidden
     })
-  }, [isControlled, onHiddenChangeProp, applyVisibilityToTable, tableColumns, lsKey])
+  }, [isControlled, onColumnsChangeProp, applyVisibilityToTable, tableColumns, lsKey])
 
   return (
     <>
@@ -273,7 +277,7 @@ export function ColumnChooser<TData>({
             {filteredGroups.map((group) => {
               const isCollapsed = collapsedGroups.has(group.groupId) && !searchLower
               const groupColsInTable = group.columns.filter((c) => tableColumnIds.has(c.id))
-              const visibleInGroup = groupColsInTable.filter((c) => !effectiveHidden.has(c.id)).length
+              const visibleInGroup = groupColsInTable.filter((c) => effectiveSelected.has(c.id)).length
               const totalInGroup = groupColsInTable.length
               if (totalInGroup === 0 && !searchLower) return null
 
@@ -297,7 +301,7 @@ export function ColumnChooser<TData>({
                     <div className="pb-2">
                       {group.columns.map((col) => {
                         if (!tableColumnIds.has(col.id)) return null
-                        const isVisible = !effectiveHidden.has(col.id)
+                        const isVisible = effectiveSelected.has(col.id)
                         return (
                           <div
                             key={col.id}
@@ -333,21 +337,22 @@ export function ColumnChooser<TData>({
                 </div>
                 <div className="pb-2">
                   {filteredUngrouped.map((col) => {
-                    const isVisible = !effectiveHidden.has(col.id)
+                    const isVisible = effectiveSelected.has(col.id)
                     const meta = getColumnMeta(col.id)
+                    const rowLabel = meta?.label ?? col.headerName
+                    const rowAbbr = meta?.abbr ?? col.headerName
                     return (
                       <div
                         key={col.id}
                         className="flex items-center gap-2 px-3 py-1.5 pl-9 hover:bg-[var(--surface-hover)]"
                       >
-                        <span className="text-sm truncate flex-1 min-w-0">{col.headerName}</span>
-                        {meta ? (
-                          <span className="shrink-0 text-[10px] font-medium tabular-nums px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--muted-fg)] bg-[var(--surface-secondary)] max-w-[4.5rem] truncate">
-                            {meta.abbr}
-                          </span>
-                        ) : (
-                          <span className="shrink-0 w-10" />
-                        )}
+                        <span className="text-sm truncate flex-1 min-w-0">{rowLabel}</span>
+                        <span
+                          className="shrink-0 text-[10px] font-medium tabular-nums px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--muted-fg)] bg-[var(--surface-secondary)] max-w-[4.5rem] truncate"
+                          title={rowAbbr}
+                        >
+                          {rowAbbr}
+                        </span>
                         <Switch
                           size="small"
                           checked={isVisible}

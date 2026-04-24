@@ -132,6 +132,13 @@ const CALCULATED_COLUMNS: ColumnMeta[] = [
   { id: 'conversionPerUniqueOfferClick', label: 'Conversion per Unique Offer Click', abbr: 'u|CvOC', defaultVisible: false, size: 90, minSize: 90, symbol: '%', fractionDigits: 4, scope: 'offer' },
   { id: 'costPerConversion', label: 'Cost per Conversion', abbr: 'CPCv', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
   { id: 'revenuePerConversion', label: 'Revenue per Conversion', abbr: 'RPCv', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
+  /** Node views (funnel step) — API names CVRnv / EPnv / CPnv */
+  { id: 'conversionRateNodeViews', label: 'Conversion rate (node views)', abbr: 'CVRnv', defaultVisible: false, size: 90, minSize: 80, symbol: '%', fractionDigits: 4 },
+  { id: 'revenuePerNodeView', label: 'Earning per node view', abbr: 'EPnv', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
+  { id: 'costPerNodeView', label: 'Cost per node view', abbr: 'CPnv', defaultVisible: false, size: 90, minSize: 75, symbol: '$', fractionDigits: 4 },
+  { id: 'conversionRateNodeViewsUnique', label: 'Conversion rate (unique node views)', abbr: 'u|CVRnv', defaultVisible: false, size: 100, minSize: 90, symbol: '%', fractionDigits: 4 },
+  { id: 'revenuePerUniqueNodeView', label: 'Earning per unique node view', abbr: 'u|EPnv', defaultVisible: false, size: 100, minSize: 90, symbol: '$', fractionDigits: 4 },
+  { id: 'costPerUniqueNodeView', label: 'Cost per unique node view', abbr: 'u|CPnv', defaultVisible: false, size: 100, minSize: 90, symbol: '$', fractionDigits: 4 },
 ]
 
 function makeCustomEventCalculatedColumns(): ColumnMeta[] {

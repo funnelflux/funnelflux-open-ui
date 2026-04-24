@@ -41,6 +41,7 @@ import { api } from '@/api/client'
 import { getErrorMessage } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
 import { defaultColIds } from '@/lib/entityPageDefaultColIds'
+import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
 
 type OfferSourceGridRow = EntityGridRow & Record<string, unknown>
 
@@ -159,6 +160,12 @@ export function OfferSourcesPage() {
     handleRequestDelete,
   ])
 
+  const gridColumnVisibility = useEntityGridColumnVisibility(
+    columnDefs as ColumnDef<unknown, unknown>[],
+    'offer-sources',
+    { defaultVisibleColumnIds: defaultColIds },
+  )
+
   const handleBulkDeselectAllOfferSources = useCallback(() => setRowSelection({}), [])
 
   const handleBulkArchiveOfferSources = useCallback(async () => {
@@ -218,6 +225,8 @@ export function OfferSourcesPage() {
             storageKey="offer-sources"
             hideScopes={new Set(['lander'])}
             defaultVisibleColumnIds={defaultColIds}
+            selectedCols={gridColumnVisibility.selectedCols}
+            onColumnsChange={gridColumnVisibility.onColumnsChange}
           />
         ) : null}
       />
@@ -234,6 +243,8 @@ export function OfferSourcesPage() {
         onRowSelectionChange={setRowSelection}
         tableRef={tableRef}
         emptyMessage={search ? 'No offer sources match your search.' : 'No offer sources found.'}
+        columnVisibility={gridColumnVisibility.columnVisibility}
+        onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
       />
 
       <BulkActionsBar
