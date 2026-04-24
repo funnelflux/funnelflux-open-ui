@@ -52,6 +52,7 @@ import {
   deletableCategoryStripRowIds,
   categoryKeyFromStripRowId,
 } from '@/lib/categoryStripSelection'
+import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 
 type TrafficSourceGridRow = EntityGridRow & {
   _isCategoryHeader?: boolean
@@ -429,7 +430,14 @@ export function TrafficSourcesPage() {
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="traffic-sources" /> : null}
+        actions={tableForChooser ? (
+          <ColumnChooser
+            columns={columnDefs}
+            table={tableForChooser}
+            storageKey="traffic-sources"
+            defaultVisibleColumnIds={defaultColIds}
+          />
+        ) : null}
       />
 
       <DataTable<TrafficSourceGridRow>

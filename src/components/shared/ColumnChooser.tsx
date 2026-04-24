@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Columns3, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { Drawer } from '@/components/ui-kit'
 import { Button, Input, Switch } from '@/components/ui-kit'
@@ -17,6 +17,11 @@ interface ColumnChooserProps<TData = unknown> {
   groups?: ColumnGroupDef[]
   /** Hide lander or offer metric groups in the picker (matches table column filter) */
   hideScopes?: Set<MetricScope>
+  /**
+   * When set (first visit only, no saved `ff_columns_*` prefs), only these toggleable column ids stay visible.
+   * When omitted, visibility falls back to `defaultVisible` in the column registry.
+   */
+  defaultVisibleColumnIds?: readonly string[]
 }
 
 const ALWAYS_VISIBLE = new Set(['name', 'select'])
@@ -25,22 +30,60 @@ function isActionBtnColumn(col: ColumnDef<unknown, unknown>): boolean {
   return !!col.id?.startsWith('btn_') || !!(col.meta as Record<string, unknown> | undefined)?.actionBtn
 }
 
+function readStoredHidden(lsKey: string): Set<string> | null {
+  try {
+    const raw = localStorage.getItem(lsKey)
+    if (raw === null) return null
+    return new Set(JSON.parse(raw) as string[])
+  } catch {
+    return null
+  }
+}
+
+function computeDefaultHiddenForColumns(
+  tableCols: { id: string }[],
+  defaultVisibleSet: Set<string> | null,
+): Set<string> {
+  const hidden = new Set<string>()
+  if (defaultVisibleSet) {
+    for (const col of tableCols) {
+      if (!defaultVisibleSet.has(col.id)) hidden.add(col.id)
+    }
+  } else {
+    for (const col of tableCols) {
+      const meta = getColumnMeta(col.id)
+      const visibleDefault = meta?.defaultVisible ?? (col.id.startsWith('col-') ? false : true)
+      if (!visibleDefault) hidden.add(col.id)
+    }
+  }
+  return hidden
+}
+
 export function ColumnChooser<TData>({
   columns: columnDefs,
   table,
   storageKey,
   groups: groupsProp,
   hideScopes,
+  defaultVisibleColumnIds,
 }: ColumnChooserProps<TData>) {
   const groups = useMemo(
     () => groupsProp ?? buildChooserGroupsForPage(hideScopes),
     [groupsProp, hideScopes],
   )
 
+  const defaultVisibleSet = useMemo(
+    () => (defaultVisibleColumnIds ? new Set(defaultVisibleColumnIds) : null),
+    [defaultVisibleColumnIds],
+  )
+
   const lsKey = `ff_columns_${storageKey}`
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+
+  /** `null` = no `ff_columns_*` yet — visibility follows derived defaults for current column defs. */
+  const [savedHidden, setSavedHidden] = useState<Set<string> | null>(() => readStoredHidden(lsKey))
 
   const tableColumns = useMemo(() => {
     return columnDefs
@@ -53,64 +96,24 @@ export function ColumnChooser<TData>({
 
   const tableColumnIds = useMemo(() => new Set(tableColumns.map((c) => c.id)), [tableColumns])
 
-  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem(lsKey)
-      if (stored) return new Set(JSON.parse(stored) as string[])
-    } catch { /* ignore */ }
-    return new Set()
-  })
+  const derivedHidden = useMemo(
+    () => computeDefaultHiddenForColumns(tableColumns, defaultVisibleSet),
+    [tableColumns, defaultVisibleSet],
+  )
 
-  const defaultsAppliedRef = useRef(false)
+  const effectiveHidden = savedHidden ?? derivedHidden
 
-  const initialSyncDone = useRef(false)
   useEffect(() => {
-    if (initialSyncDone.current) return
-    initialSyncDone.current = true
-    if (hiddenCols.size > 0) {
-      const vis: Record<string, boolean> = {}
-      for (const col of tableColumns) {
-        vis[col.id] = !hiddenCols.has(col.id)
-      }
-      table.setColumnVisibility(vis)
-    }
-  }, [hiddenCols, tableColumns, table])
-
-  /** First visit: hide metrics that are not defaultVisible in the shared dictionary */
-  useEffect(() => {
-    if (defaultsAppliedRef.current) return
     if (tableColumns.length === 0) return
-    try {
-      if (localStorage.getItem(lsKey)) {
-        defaultsAppliedRef.current = true
-        return
-      }
-    } catch {
-      defaultsAppliedRef.current = true
-      return
-    }
-
-    const hidden = new Set<string>()
-    for (const col of tableColumns) {
-      const meta = getColumnMeta(col.id)
-      const visibleDefault = meta?.defaultVisible ?? (col.id.startsWith('col-') ? false : true)
-      if (!visibleDefault) hidden.add(col.id)
-    }
-    defaultsAppliedRef.current = true
-    if (hidden.size === 0) return
-
-    setHiddenCols(hidden)
     table.setColumnVisibility(
-      Object.fromEntries(tableColumns.map((c) => [c.id, !hidden.has(c.id)])),
+      Object.fromEntries(tableColumns.map((c) => [c.id, !effectiveHidden.has(c.id)])),
     )
-    try {
-      localStorage.setItem(lsKey, JSON.stringify([...hidden]))
-    } catch { /* ignore */ }
-  }, [lsKey, table, tableColumns])
+  }, [effectiveHidden, table, tableColumns])
 
   const handleToggle = useCallback((colId: string, visible: boolean) => {
-    setHiddenCols((prev) => {
-      const next = new Set(prev)
+    setSavedHidden((prev) => {
+      const base = prev ?? derivedHidden
+      const next = new Set(base)
       if (visible) next.delete(colId)
       else next.add(colId)
       table.setColumnVisibility(
@@ -119,7 +122,7 @@ export function ColumnChooser<TData>({
       localStorage.setItem(lsKey, JSON.stringify([...next]))
       return next
     })
-  }, [table, tableColumns, lsKey])
+  }, [derivedHidden, table, tableColumns, lsKey])
 
   const toggleGroup = useCallback((groupId: string) => {
     setCollapsedGroups((prev) => {
@@ -160,10 +163,10 @@ export function ColumnChooser<TData>({
     )
   }, [ungroupedColumns, searchLower])
 
-  const visibleCount = tableColumns.filter((c) => !hiddenCols.has(c.id)).length
+  const visibleCount = tableColumns.filter((c) => !effectiveHidden.has(c.id)).length
 
   const showAll = useCallback(() => {
-    setHiddenCols(() => {
+    setSavedHidden(() => {
       table.setColumnVisibility(
         Object.fromEntries(tableColumns.map((c) => [c.id, true])),
       )
@@ -173,7 +176,7 @@ export function ColumnChooser<TData>({
   }, [table, tableColumns, lsKey])
 
   const hideAll = useCallback(() => {
-    setHiddenCols(() => {
+    setSavedHidden(() => {
       const allIds = tableColumns.map((c) => c.id)
       table.setColumnVisibility(
         Object.fromEntries(tableColumns.map((c) => [c.id, false])),
@@ -232,7 +235,7 @@ export function ColumnChooser<TData>({
             {filteredGroups.map((group) => {
               const isCollapsed = collapsedGroups.has(group.groupId) && !searchLower
               const groupColsInTable = group.columns.filter((c) => tableColumnIds.has(c.id))
-              const visibleInGroup = groupColsInTable.filter((c) => !hiddenCols.has(c.id)).length
+              const visibleInGroup = groupColsInTable.filter((c) => !effectiveHidden.has(c.id)).length
               const totalInGroup = groupColsInTable.length
               if (totalInGroup === 0 && !searchLower) return null
 
@@ -256,7 +259,7 @@ export function ColumnChooser<TData>({
                     <div className="pb-2">
                       {group.columns.map((col) => {
                         if (!tableColumnIds.has(col.id)) return null
-                        const isVisible = !hiddenCols.has(col.id)
+                        const isVisible = !effectiveHidden.has(col.id)
                         return (
                           <div
                             key={col.id}
@@ -292,7 +295,7 @@ export function ColumnChooser<TData>({
                 </div>
                 <div className="pb-2">
                   {filteredUngrouped.map((col) => {
-                    const isVisible = !hiddenCols.has(col.id)
+                    const isVisible = !effectiveHidden.has(col.id)
                     const meta = getColumnMeta(col.id)
                     return (
                       <div

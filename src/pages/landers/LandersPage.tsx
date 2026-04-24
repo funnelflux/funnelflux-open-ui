@@ -54,6 +54,7 @@ import {
   deletableCategoryStripRowIds,
   categoryKeyFromStripRowId,
 } from '@/lib/categoryStripSelection'
+import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 
 const PAGE_CATEGORY_ENTITY = 'page' as const
 
@@ -482,6 +483,7 @@ export function LandersPage() {
             table={tableForChooser}
             storageKey="landers"
             hideScopes={new Set(['offer'])}
+            defaultVisibleColumnIds={defaultColIds}
           />
         ) : null}
       />

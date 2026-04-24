@@ -40,6 +40,7 @@ import type { OfferSourceFormData } from '@/schemas/offerSource'
 import { api } from '@/api/client'
 import { getErrorMessage } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
+import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 
 type OfferSourceGridRow = EntityGridRow & Record<string, unknown>
 
@@ -216,6 +217,7 @@ export function OfferSourcesPage() {
             table={tableForChooser}
             storageKey="offer-sources"
             hideScopes={new Set(['lander'])}
+            defaultVisibleColumnIds={defaultColIds}
           />
         ) : null}
       />
