@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import {
-  AntdSelect,
   Checkbox,
   DatePicker,
   FormField,
   Input,
   InputNumber,
   Radio,
+  Select,
   Switch,
 } from '@/components/ui-kit'
 
@@ -31,7 +31,7 @@ export function FormsSection() {
         </FormField>
 
         <FormField label="Traffic Source" help="Select the traffic source for this campaign">
-          <AntdSelect
+          <Select
             placeholder="Choose source"
             options={[
               { label: 'Facebook', value: 'fb' },

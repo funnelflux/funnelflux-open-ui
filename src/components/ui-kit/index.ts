@@ -11,8 +11,14 @@ export { Checkbox } from './Checkbox'
 export type { CheckboxProps } from './Checkbox'
 export { InputNumber } from './InputNumber'
 export type { InputNumberProps } from './InputNumber'
-export { Select, SmartMultiSelect, AntdSelect } from './Select'
-export type { SelectProps, SelectOption, AntdSelectProps } from './Select'
+export { Select, SmartMultiSelect, VirtualizedMultiSelect, GroupedSelect } from './Select'
+export type {
+  SelectProps,
+  SelectOption,
+  VirtualizedMultiSelectProps,
+  GroupedSelectProps,
+  SelectOptionGroup,
+} from './Select'
 export { getStoredTimezone } from './timezoneStorage'
 export { Switch } from './Switch'
 export type { SwitchProps } from './Switch'

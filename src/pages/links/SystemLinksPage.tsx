@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Copy, Loader2, Link } from 'lucide-react'
-import { Button, Input, AntdSelect, Card } from '@/components/ui-kit'
-import { PageShell, Select, useToastApi } from '@/components/ui-kit'
+import { Button, Card, Input, PageShell, Select, useToastApi } from '@/components/ui-kit'
 import type { SelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
@@ -123,6 +122,18 @@ export function SystemLinksPage() {
     [linksData?.domains],
   )
 
+  const nodeOptions: SelectOption[] = useMemo(
+    () => [
+      { label: 'Default funnel entry', value: '__default__' },
+      ...nodes.map((node) => ({
+        label: node.nodeName,
+        value: node.idNode,
+        searchId: node.idNode,
+      })),
+    ],
+    [nodes],
+  )
+
   const postbackUrl = trafficSource?.postback?.postbackCode ?? ''
   const isGenerating =
     generateEntranceLink.isPending ||
@@ -158,20 +169,14 @@ export function SystemLinksPage() {
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Node</label>
-              <AntdSelect
+              <Select
+                options={nodeOptions}
                 value={selectedNode || '__default__'}
                 onChange={(value) => setSelectedNode(value === '__default__' ? '' : value)}
                 disabled={!selectedFunnel}
                 placeholder={selectedFunnel ? 'Select node' : 'Select a funnel first'}
                 className="w-full"
-              >
-                <AntdSelect.Option value="__default__">Default funnel entry</AntdSelect.Option>
-                {nodes.map((node) => (
-                  <AntdSelect.Option key={node.idNode} value={node.idNode}>
-                    {node.nodeName}
-                  </AntdSelect.Option>
-                ))}
-              </AntdSelect>
+              />
             </div>
 
             <div className="space-y-1.5">

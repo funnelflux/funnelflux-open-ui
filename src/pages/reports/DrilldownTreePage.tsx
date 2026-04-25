@@ -2,7 +2,15 @@ import { useState, useMemo, useCallback, useRef } from "react"
 import type { ColumnDef, SortingState, ExpandedState, Table } from "@tanstack/react-table"
 import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
 import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
-import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
+import { ColumnChooser } from "@/components/shared/ColumnChooser"
+import { defaultColIds } from "@/lib/entityPageDefaultColIds"
+import { useEntityGridColumnVisibility } from "@/lib/entityGridColumnVisibility"
+import {
+  DrilldownToolbarProvider,
+  DrilldownToolbarHeaderFilters,
+  DrilldownToolbarReportActions,
+  DrilldownToolbarGroupings,
+} from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
 import { api } from "@/api/client"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
@@ -123,6 +131,7 @@ export function DrilldownTreePage() {
   })
   const [expanded, setExpanded] = useState<ExpandedState>({})
   const tableRef = useRef<Table<TreeRowData> | null>(null)
+  const [tableForChooser, setTableForChooser] = useState<Table<TreeRowData> | null>(null)
 
   const runRequest = useCallback(
     (request: DrilldownRequest) => {
@@ -315,7 +324,7 @@ export function DrilldownTreePage() {
     if (!report) return []
     const groupingCol: ColumnDef<TreeRowData, unknown> = {
       id: "name",
-      header: report.columns[0]?.name ?? "Name",
+      header: "Name",
       accessorFn: (row: TreeRowData) => row.cells[0]?.formatted ?? "",
       enableSorting: true,
       size: 300,
@@ -330,6 +339,12 @@ export function DrilldownTreePage() {
     }
     return [groupingCol, ...buildColumnsFromReport<TreeRowData>(report.columns)]
   }, [report])
+
+  const gridColumnVisibility = useEntityGridColumnVisibility(
+    columnDefs as ColumnDef<unknown, unknown>[],
+    DRILLDOWN_TREE_TABLE_KEY,
+    { defaultVisibleColumnIds: defaultColIds },
+  )
 
   const pinnedBottomRows = useMemo(() => {
     if (!report?.totals?.cells) return undefined
@@ -346,37 +361,59 @@ export function DrilldownTreePage() {
   const getSubRows = useCallback((row: TreeRowData) => row.children, [])
 
   return (
-    <PageShell title="Drilldown Report (Tree)" fillHeight>
-      <DrilldownToolbar
-        onApply={handleApply}
-        isLoading={drilldownMutation.isPending}
-        viewType="tree"
-        paging={{ start: page * pageSize, length: pageSize }}
-      />
-
-      {report ? (
-        <DataTable
-          data={treeData}
-          columns={columnDefs}
-          loading={drilldownMutation.isPending}
-          getRowId={(row) => row._id}
-          sorting={sorting}
-          onSortingChange={handleSortingChange}
-          manualSorting
-          treeMode
-          getSubRows={getSubRows}
-          onExpandRow={handleExpandRow}
-          canLazyExpandRow={canLazyExpandRow}
-          expanded={expanded}
-          onExpandedChange={setExpanded}
-          pinnedBottomRows={pinnedBottomRows}
-          tableRef={tableRef}
-        />
-      ) : (
-        !drilldownMutation.isPending && (
-          <EmptyState message="Select your groupings and date range, then click Apply to generate a report." />
-        )
-      )}
-    </PageShell>
+    <DrilldownToolbarProvider
+      onApply={handleApply}
+      isLoading={drilldownMutation.isPending}
+      viewType="tree"
+      paging={{ start: page * pageSize, length: pageSize }}
+    >
+      <PageShell
+        title="Drilldown Report (Tree)"
+        fillHeight
+        className="gap-3"
+        actions={<DrilldownToolbarHeaderFilters />}
+      >
+        <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-2 w-full shrink-0">
+          <DrilldownToolbarReportActions />
+          {tableForChooser && report ? (
+            <ColumnChooser
+              columns={columnDefs}
+              table={tableForChooser}
+              storageKey={DRILLDOWN_TREE_TABLE_KEY}
+              defaultVisibleColumnIds={defaultColIds}
+              selectedCols={gridColumnVisibility.selectedCols}
+              onColumnsChange={gridColumnVisibility.onColumnsChange}
+            />
+          ) : null}
+          <DrilldownToolbarGroupings />
+        </div>
+        {report ? (
+          <DataTable
+            data={treeData}
+            columns={columnDefs}
+            loading={drilldownMutation.isPending}
+            getRowId={(row) => row._id}
+            sorting={sorting}
+            onSortingChange={handleSortingChange}
+            manualSorting
+            treeMode
+            getSubRows={getSubRows}
+            onExpandRow={handleExpandRow}
+            canLazyExpandRow={canLazyExpandRow}
+            expanded={expanded}
+            onExpandedChange={setExpanded}
+            pinnedBottomRows={pinnedBottomRows}
+            tableRef={tableRef}
+            onTableInstance={setTableForChooser}
+            columnVisibility={gridColumnVisibility.columnVisibility}
+            onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
+          />
+        ) : (
+          !drilldownMutation.isPending && (
+            <EmptyState message="Select your groupings and date range, then click Apply to generate a report." />
+          )
+        )}
+      </PageShell>
+    </DrilldownToolbarProvider>
   )
 }

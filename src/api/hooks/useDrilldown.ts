@@ -1,12 +1,16 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
+import { filterDrilldownGroupingOptions } from '@/lib/drilldownGroupings'
 import type { DrilldownRequest, Report } from '@/types/stats'
 
 export function useGroupings() {
   return useQuery({
     queryKey: queryKeys.drilldown.groupings,
-    queryFn: () => api.get<string[]>('/stats/reporting/groupings/'),
+    queryFn: async () => {
+      const rows = await api.get<string[]>('/stats/reporting/groupings/')
+      return filterDrilldownGroupingOptions(rows)
+    },
     staleTime: Infinity,
   })
 }

@@ -1,37 +1,33 @@
 ---
-description: Before importing from antd, check ui-kit; use ui-kit when a wrapper or export exists
+description: Never import antd outside ui-kit; use @/components/ui-kit wrappers only
 globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
 alwaysApply: true
 ---
 
-# Ant Design: check ui-kit first
+# Ant Design: ui-kit only
 
-When adding or editing imports **outside** `src/components/ui-kit/**`:
+## Hard rule
 
-## Required workflow
+**Do not import from `antd`, `antd/*`, or `@ant-design/*` anywhere except inside `src/components/ui-kit/**`.**
 
-1. **Open** `src/components/ui-kit/index.ts` and scan its exports.
-2. **If** the component or hook you need is exported there (or is clearly the app’s replacement for an Ant component, e.g. `ConfirmModal`, `SmartSelect`, `DataTable`), **import it from `@/components/ui-kit`** — **not** from `antd`.
-3. **If** it is **not** in `index.ts`, quickly check `src/components/ui-kit/*.tsx` for a file that re-exports or wraps the Ant primitive (some exports are only used internally; prefer adding a barrel export when introducing a new wrapper).
-4. **Only if** there is **no** ui-kit equivalent should you import that symbol from `antd`.
+App code, pages, features, shared components, hooks, and `src/lib/**` must use **`@/components/ui-kit`** (or relative imports to ui-kit modules). If you need behavior that does not exist yet, **add a wrapper or primitive under `src/components/ui-kit/`** and export it from `index.ts` — then consume that export.
+
+- **No** re-exporting raw Ant Design components from the barrel (e.g. do not expose `Select as AntdSelect`).
+- **No** `import type { … } from 'antd'` outside ui-kit (types leak implementation; keep them internal to wrappers).
 
 ## Inside `src/components/ui-kit/**`
 
-- Importing from `antd` is allowed **only** to implement wrappers, re-exports, or tightly coupled ui-kit modules (e.g. `SmartSelect` using Ant `Select` internally).
-- **Avoid circular imports:** files under `ui-kit/data-table/` and similar **must not** import from `@/components/ui-kit` (barrel). Import siblings with relative paths (e.g. `../Button`, `../Input`).
+- Importing from `antd` is allowed **only** to implement wrappers (e.g. `Button`, `Select`, `GroupedSelect`, `Modal`).
+- **Avoid circular imports:** sub-packages like `ui-kit/data-table/` must not import the barrel `@/components/ui-kit`; use relative paths to siblings.
 
-## Currently exported from the barrel (non-exhaustive)
+## Selects
 
-Primitives / Ant-aligned: `Button`, `Input`, `Checkbox`, `InputNumber`, `Select`, `Switch`, `Collapse`, `Modal`, `FormField`, and their `*Props` types where listed.
-
-App / composite: `ConfirmModal`, `SmartSelect`, `SmartMultiSelect`, `TimezoneSelect`, `DateTimeRangePicker`, `PageShell`, `StatCard`, `EmptyState`, `SearchToolbar`, `DataTable`, column helpers, `useToastApi`, etc.
+- Flat, searchable lists: **`Select`** or **`SmartMultiSelect`**.
+- Grouped optgroups (e.g. drilldown groupings): **`GroupedSelect`** (`optionGroups` prop).
+- Do not reach for Ant `Select` directly.
 
 ## Adding a new wrapper
 
-1. Add `src/components/ui-kit/<Name>.tsx` (re-export or custom implementation).
+1. Implement under `src/components/ui-kit/<Name>.tsx`.
 2. Export from `src/components/ui-kit/index.ts`.
-3. Use `@/components/ui-kit` everywhere outside ui-kit.
-
-## Still typically from `antd` (until a ui-kit wrapper exists)
-
-Examples: `ConfigProvider`, `App`, `theme`, `DatePicker`, `Tabs`, `Card`, `Drawer`, `Form`, `List`, `Tag`, `Space`, `Segmented`, `Popconfirm`, `Tooltip` — **unless** a matching export appears in ui-kit; then switch to ui-kit per the workflow above.
+3. Use `@/components/ui-kit` everywhere else.

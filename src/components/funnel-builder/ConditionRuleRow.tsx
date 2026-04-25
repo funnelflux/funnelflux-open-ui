@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { AntdSelect, Button, Input } from '@/components/ui-kit'
+import { Button, Input, Select } from '@/components/ui-kit'
 import type { ConditionRule, ConditionField, ConditionOperator } from '@/types/funnel'
 import { CONDITION_FIELDS, CONDITION_OPERATORS } from '@/types/funnel'
 import { ConditionFieldValueInput } from './ConditionFieldValueInput'
@@ -60,7 +60,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
   return (
     <div className="flex items-start gap-2">
       {/* Field selector */}
-      <AntdSelect
+      <Select
         value={rule.field || undefined}
         onChange={(val) =>
           onChange({ ...rule, field: val as ConditionField, value: '', extraKey: undefined })
@@ -68,6 +68,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         placeholder="Field"
         className="w-40 shrink-0"
         size="small"
+        alphabetical={false}
         options={CONDITION_FIELDS.map((f) => ({ value: f, label: FIELD_LABELS[f] }))}
       />
 
@@ -82,7 +83,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
       )}
 
       {/* Operator selector */}
-      <AntdSelect
+      <Select
         value={rule.operator || undefined}
         onChange={(val) =>
           onChange({ ...rule, operator: val as ConditionOperator })
@@ -90,6 +91,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         placeholder="Operator"
         className="w-40 shrink-0"
         size="small"
+        alphabetical={false}
         options={CONDITION_OPERATORS.map((op) => ({ value: op, label: OPERATOR_LABELS[op] }))}
       />
 

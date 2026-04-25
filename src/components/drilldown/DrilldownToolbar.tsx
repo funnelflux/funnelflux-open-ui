@@ -1,6 +1,15 @@
-import { useState, useCallback, useMemo, useId, type FormEvent } from "react"
-import { Download, Loader2, Play, Save, Trash2 } from "lucide-react"
-import { DateRangePicker } from "@/components/shared/DateRangePicker"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useId,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
+import dayjs, { type Dayjs } from 'dayjs'
+import { Check, Download, Layers, Loader2, Pencil, Play, Plus, Settings2, Trash2, X } from 'lucide-react'
 import {
   Button,
   FormField,
@@ -10,24 +19,28 @@ import {
   TimezoneSelect,
   Input,
   useToastApi,
-} from "@/components/ui-kit"
-import { api } from "@/api/client"
-import { GroupingsCascade } from "@/components/drilldown/GroupingsCascade"
-import { useDrilldownStore } from "@/store/drilldown"
+  DateTimeRangePicker,
+  Popconfirm,
+} from '@/components/ui-kit'
+import { CONTROL_SIZE_HEIGHT_PX } from '@/lib/controlSize'
+import { api } from '@/api/client'
+import { DrilldownGroupingsBar } from '@/components/drilldown/DrilldownGroupingsBar'
+import { useDrilldownStore } from '@/store/drilldown'
 import {
   useDeleteView,
   useGroupings,
   useSavedViews,
   useSaveView,
-} from "@/api/hooks"
-import { getPresetRange } from "@/lib/date-presets"
-import { toApiDateTimeRange, type DrilldownRequest } from "@/types/stats"
-import type { DateRange } from "@/lib/date-presets"
+} from '@/api/hooks'
+import { getErrorMessage } from '@/lib/utils'
+import { DATE_PRESETS, getPresetRange, type DateRange } from '@/lib/date-presets'
+import { validateGroupingStackForRequest } from '@/lib/drilldownGroupings'
+import { toApiDateTime, type DrilldownRequest } from '@/types/stats'
 
-interface DrilldownToolbarProps {
+export interface DrilldownToolbarProps {
   onApply: (request: DrilldownRequest) => void
   isLoading: boolean
-  viewType: "tree" | "flat"
+  viewType: 'tree' | 'flat'
   paging?: { start: number; length: number }
 }
 
@@ -42,7 +55,7 @@ function useDatePickerState(timezone: string) {
         preset: null,
       }
     }
-    return { ...getPresetRange("today", timezone), preset: "today" }
+    return { ...getPresetRange('today', timezone), preset: 'today' }
   }, [dateRange, timezone])
 
   const handleChange = useCallback(
@@ -58,12 +71,62 @@ function useDatePickerState(timezone: string) {
   return [value, handleChange] as const
 }
 
-export function DrilldownToolbar({
-  onApply,
-  isLoading,
-  viewType,
-  paging,
-}: DrilldownToolbarProps) {
+function presetRangesDayjs(tz: string): { label: string; value: [Dayjs, Dayjs] }[] {
+  return DATE_PRESETS.map((p) => {
+    const range = getPresetRange(p.value, tz)
+    return {
+      label: p.label,
+      value: [dayjs(range.from), dayjs(range.to)] as [Dayjs, Dayjs],
+    }
+  })
+}
+
+interface DrilldownToolbarContextValue {
+  dateTimeRangeValue: [Dayjs, Dayjs]
+  onDateTimeRangeChange: (dates: [Dayjs, Dayjs] | null) => void
+  timezone: string
+  setTimezone: (tz: string) => void
+  selectedViewId: string
+  handleSelectView: (idView: string) => void
+  savedViews: ReturnType<typeof useSavedViews>['data']
+  openSaveNewViewModal: () => void
+  saveModalOpen: boolean
+  setSaveModalOpen: (open: boolean) => void
+  saveViewFormId: string
+  saveViewName: string
+  setSaveViewName: (name: string) => void
+  handleSaveViewSubmit: (e: FormEvent) => Promise<void>
+  saveViewPending: boolean
+  handleApply: () => void
+  handleExport: () => Promise<void>
+  isLoading: boolean
+  isExporting: boolean
+  groupings: string[]
+  groupingFilters: Record<number, { whitelist: string[]; blacklist: string[] }>
+  availableGroupings: string[] | undefined
+  setGroupings: (g: string[]) => void
+  setGroupingFilter: (
+    level: number,
+    type: 'whitelist' | 'blacklist',
+    values: string[],
+  ) => void
+  groupingsDrawerOpen: boolean
+  openGroupingsDrawer: () => void
+  closeGroupingsDrawer: () => void
+}
+
+const DrilldownToolbarContext = createContext<DrilldownToolbarContextValue | null>(null)
+
+function useDrilldownToolbarContext(): DrilldownToolbarContextValue {
+  const v = useContext(DrilldownToolbarContext)
+  if (!v) {
+    throw new Error('Drilldown toolbar pieces must be used within DrilldownToolbarProvider')
+  }
+  return v
+}
+
+function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolbarContextValue {
+  const { onApply, isLoading, viewType, paging } = props
   const toast = useToastApi()
   const {
     groupings,
@@ -73,6 +136,7 @@ export function DrilldownToolbar({
     setGroupings,
     setGroupingFilter,
     setGroupingFilters,
+    replaceGroupingsStack,
     setTimezone,
     setDateRange,
   } = useDrilldownStore()
@@ -80,41 +144,87 @@ export function DrilldownToolbar({
   const { data: availableGroupings } = useGroupings()
   const { data: savedViews } = useSavedViews()
   const saveView = useSaveView()
-  const deleteView = useDeleteView()
   const [datePickerValue, setDatePickerValue] = useDatePickerState(timezone)
-  const [selectedViewId, setSelectedViewId] = useState("")
+  const [selectedViewId, setSelectedViewId] = useState('')
   const [isExporting, setIsExporting] = useState(false)
   const [saveModalOpen, setSaveModalOpen] = useState(false)
-  const [saveViewName, setSaveViewName] = useState("")
+  const [saveViewName, setSaveViewName] = useState('')
+  const [groupingsDrawerOpen, setGroupingsDrawerOpen] = useState(false)
   const saveViewFormId = useId()
 
-  const buildRequest = useCallback((): DrilldownRequest => {
-    return {
-      timeRange: toApiDateTimeRange(datePickerValue.from, datePickerValue.to),
+  const openGroupingsDrawer = useCallback(() => {
+    setGroupingsDrawerOpen(true)
+  }, [])
+
+  const closeGroupingsDrawer = useCallback(() => {
+    setGroupingsDrawerOpen(false)
+  }, [])
+
+  const dateTimeRangeValue = useMemo(
+    (): [Dayjs, Dayjs] => [dayjs(datePickerValue.from), dayjs(datePickerValue.to)],
+    [datePickerValue.from, datePickerValue.to],
+  )
+
+  const onDateTimeRangeChange = useCallback(
+    (dates: [Dayjs, Dayjs] | null) => {
+      if (dates?.[0] && dates?.[1]) {
+        setDatePickerValue({
+          from: dates[0].toDate(),
+          to: dates[1].toDate(),
+          preset: null,
+        })
+      }
+    },
+    [setDatePickerValue],
+  )
+
+  const toDrilldownRequest = useCallback(
+    (
+      levels: Array<{
+        groupBy: string
+        whitelistFilters: string[]
+        blacklistFilters: string[]
+      }>,
+    ): DrilldownRequest => ({
+      timeRange: {
+        start: toApiDateTime(datePickerValue.from),
+        end: toApiDateTime(datePickerValue.to),
+      },
       timeZone: { name: timezone },
-      groupings: groupings.map((grouping, index) => ({
-        groupBy: grouping,
-        whitelistFilters: groupingFilters[index]?.whitelist ?? [],
-        blacklistFilters: groupingFilters[index]?.blacklist ?? [],
+      groupings: levels.map((L) => ({
+        groupBy: L.groupBy,
+        whitelistFilters: L.whitelistFilters,
+        blacklistFilters: L.blacklistFilters,
       })),
       options: { viewType },
       paging: paging ?? { start: 0, length: 100 },
-    }
-  }, [datePickerValue, timezone, groupings, groupingFilters, viewType, paging])
+    }),
+    [datePickerValue.from, datePickerValue.to, timezone, viewType, paging],
+  )
 
   const handleApply = useCallback(() => {
-    onApply(buildRequest())
-  }, [buildRequest, onApply])
+    const v = validateGroupingStackForRequest(groupings, groupingFilters)
+    if (!v.ok) {
+      toast.error(v.message)
+      return
+    }
+    onApply(toDrilldownRequest(v.levels))
+  }, [groupingFilters, groupings, onApply, toast, toDrilldownRequest])
 
   const handleExport = useCallback(async () => {
     setIsExporting(true)
     try {
-      const request = buildRequest()
-      const blob = await api.postBlob("/stats/reporting/export/csv/", request)
+      const v = validateGroupingStackForRequest(groupings, groupingFilters)
+      if (!v.ok) {
+        toast.error(v.message)
+        return
+      }
+      const request = toDrilldownRequest(v.levels)
+      const blob = await api.postBlob('/stats/reporting/export/csv/', request)
 
       const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+      const link = document.createElement('a')
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       link.href = url
       link.download = `drilldown-export-${timestamp}.csv`
       document.body.appendChild(link)
@@ -122,12 +232,12 @@ export function DrilldownToolbar({
       link.remove()
       URL.revokeObjectURL(url)
     } catch (error) {
-      const message = error instanceof Error ? error.message : "CSV export failed"
+      const message = error instanceof Error ? error.message : 'CSV export failed'
       toast.error(message)
     } finally {
       setIsExporting(false)
     }
-  }, [buildRequest, toast])
+  }, [groupingFilters, groupings, toast, toDrilldownRequest])
 
   const handleSelectView = useCallback(
     (idView: string) => {
@@ -138,7 +248,9 @@ export function DrilldownToolbar({
       }
 
       if (view.groupings.length > 0) {
-        setGroupings(view.groupings)
+        replaceGroupingsStack(view.groupings, view.groupingFilters ?? {})
+      } else {
+        setGroupingFilters(view.groupingFilters ?? {})
       }
       if (view.timezone) {
         setTimezone(view.timezone)
@@ -146,17 +258,14 @@ export function DrilldownToolbar({
       if (view.dateRange?.start && view.dateRange?.end) {
         setDateRange(view.dateRange)
       }
-      setGroupingFilters(view.groupingFilters ?? {})
     },
-    [savedViews, setDateRange, setGroupingFilters, setGroupings, setTimezone],
+    [savedViews, setDateRange, setGroupingFilters, replaceGroupingsStack, setTimezone],
   )
 
-  const openSaveViewModal = useCallback(() => {
-    const existingName =
-      savedViews?.find((view) => view.idView === selectedViewId)?.name ?? ""
-    setSaveViewName(existingName)
+  const openSaveNewViewModal = useCallback(() => {
+    setSaveViewName('')
     setSaveModalOpen(true)
-  }, [savedViews, selectedViewId])
+  }, [])
 
   const handleSaveViewSubmit = useCallback(
     async (e: FormEvent) => {
@@ -168,106 +277,241 @@ export function DrilldownToolbar({
 
       try {
         await saveView.mutateAsync({
-          idView: selectedViewId || undefined,
           name,
           groupings,
           timezone,
           dateRange,
           groupingFilters,
         })
-        toast.success("View saved")
+        toast.success('View saved')
         setSaveModalOpen(false)
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to save view"
-        toast.error(message)
+        toast.error(getErrorMessage(error))
       }
     },
-    [
-      dateRange,
-      groupingFilters,
-      groupings,
-      saveView,
-      saveViewName,
-      selectedViewId,
-      timezone,
-      toast,
-    ],
+    [dateRange, groupingFilters, groupings, saveView, saveViewName, timezone, toast],
   )
 
-  const handleDeleteView = useCallback(async () => {
-    if (!selectedViewId) {
-      return
-    }
+  return {
+    dateTimeRangeValue,
+    onDateTimeRangeChange,
+    timezone,
+    setTimezone,
+    selectedViewId,
+    handleSelectView,
+    savedViews,
+    openSaveNewViewModal,
+    saveModalOpen,
+    setSaveModalOpen,
+    saveViewFormId,
+    saveViewName,
+    setSaveViewName,
+    handleSaveViewSubmit,
+    saveViewPending: saveView.isPending,
+    handleApply,
+    handleExport,
+    isLoading,
+    isExporting,
+    groupings,
+    groupingFilters,
+    availableGroupings,
+    setGroupings,
+    setGroupingFilter,
+    groupingsDrawerOpen,
+    openGroupingsDrawer,
+    closeGroupingsDrawer,
+  }
+}
 
-    try {
-      await deleteView.mutateAsync(selectedViewId)
-      setSelectedViewId("")
-      toast.success("View deleted")
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to delete view"
-      toast.error(message)
-    }
-  }, [deleteView, selectedViewId, toast])
+export function DrilldownToolbarProvider({
+  children,
+  ...props
+}: DrilldownToolbarProps & { children: ReactNode }) {
+  const value = useDrilldownToolbarState(props)
+  return (
+    <DrilldownToolbarContext.Provider value={value}>
+      {children}
+    </DrilldownToolbarContext.Provider>
+  )
+}
+
+/** Date/time range + timezone — for `PageShell` `actions` (top row, right). */
+export function DrilldownToolbarHeaderFilters() {
+  const { dateTimeRangeValue, onDateTimeRangeChange, timezone, setTimezone } =
+    useDrilldownToolbarContext()
+
+  const pickerHeight = CONTROL_SIZE_HEIGHT_PX.md
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex flex-wrap items-center gap-2">
+      <DateTimeRangePicker
+        showTime
+        value={dateTimeRangeValue}
+        onChange={(dates) => {
+          const a = dates?.[0]
+          const b = dates?.[1]
+          if (a && b) {
+            onDateTimeRangeChange([a, b])
+          }
+        }}
+        presets={presetRangesDayjs(timezone)}
+        allowClear={false}
+        style={{ height: pickerHeight, minHeight: pickerHeight }}
+        className="ff-drilldown-datetime-range [&_.ant-picker]:h-full [&_.ant-picker-input>input]:text-xs"
+      />
+      <TimezoneSelect value={timezone} onChange={setTimezone} />
+    </div>
+  )
+}
+
+/** Saved views dropdown (+ / manage) plus apply/export — second row with groupings (left-aligned). */
+export function DrilldownToolbarReportActions() {
+  const toast = useToastApi()
+  const { timezone, dateRange } = useDrilldownStore()
+  const saveView = useSaveView()
+  const deleteView = useDeleteView()
+  const [manageOpen, setManageOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
+
+  const {
+    selectedViewId,
+    handleSelectView,
+    savedViews,
+    openSaveNewViewModal,
+    saveModalOpen,
+    setSaveModalOpen,
+    saveViewFormId,
+    saveViewName,
+    setSaveViewName,
+    handleSaveViewSubmit,
+    saveViewPending,
+    handleApply,
+    handleExport,
+    isLoading,
+    isExporting,
+    openGroupingsDrawer,
+  } = useDrilldownToolbarContext()
+
+  const handleOpenManage = useCallback(() => {
+    setManageOpen(true)
+  }, [])
+
+  const handleCloseManage = useCallback(() => {
+    setManageOpen(false)
+    setEditingId(null)
+    setEditingName('')
+  }, [])
+
+  const cancelEditing = useCallback(() => {
+    setEditingId(null)
+    setEditingName('')
+  }, [])
+
+  const startEditing = useCallback((idView: string, name: string) => {
+    setEditingId(idView)
+    setEditingName(name)
+  }, [])
+
+  const handleRenameView = useCallback(
+    async (idView: string) => {
+      const view = savedViews?.find((v) => v.idView === idView)
+      if (!view || !editingName.trim()) return
+      try {
+        await saveView.mutateAsync({
+          idView,
+          name: editingName.trim(),
+          groupings: view.groupings,
+          timezone: view.timezone ?? timezone,
+          dateRange: view.dateRange ?? dateRange,
+          groupingFilters: view.groupingFilters ?? {},
+        })
+        toast.success('View renamed')
+        cancelEditing()
+      } catch (error) {
+        toast.error(getErrorMessage(error))
+      }
+    },
+    [cancelEditing, dateRange, editingName, saveView, savedViews, timezone, toast],
+  )
+
+  const handleDeleteViewById = useCallback(
+    async (idView: string) => {
+      try {
+        await deleteView.mutateAsync(idView)
+        if (selectedViewId === idView) {
+          handleSelectView('')
+        }
+        toast.success('View deleted')
+      } catch (error) {
+        toast.error(getErrorMessage(error))
+      }
+    },
+    [deleteView, handleSelectView, selectedViewId, toast],
+  )
+
+  const handleOpenSaveNewFromManage = useCallback(() => {
+    handleCloseManage()
+    openSaveNewViewModal()
+  }, [handleCloseManage, openSaveNewViewModal])
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
         <Select
           value={selectedViewId || undefined}
           onChange={handleSelectView}
           placeholder="Saved views"
-          className="w-[220px] text-xs"
+          style={{ width: 220 }}
+          className="text-xs"
           options={(savedViews ?? []).map((view) => ({
             key: view.idView,
             value: view.idView,
             label: view.name,
           }))}
         />
-        <DateRangePicker
-          value={datePickerValue}
-          timezone={timezone}
-          onChange={setDatePickerValue}
+        <Button
+          type="text"
+          size="small"
+          icon={<Plus className="h-3.5 w-3.5" />}
+          onClick={openSaveNewViewModal}
+          title="Save current view"
         />
-        <TimezoneSelect value={timezone} onChange={setTimezone} />
-        <Button
-          htmlType="button"
-          onClick={openSaveViewModal}
-          disabled={saveView.isPending}
-          icon={
-            saveView.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )
-          }
-        >
-          Save
-        </Button>
-        <Button
-          htmlType="button"
-          onClick={() => void handleDeleteView()}
-          disabled={!selectedViewId || deleteView.isPending}
-          icon={deleteView.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-        >
-          Delete
-        </Button>
-        <Button
-          type="primary"
-          onClick={handleApply}
-          disabled={isLoading}
-          icon={isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-        >
-          Apply
-        </Button>
-        <Button
-          htmlType="button"
-          onClick={() => void handleExport()}
-          disabled={isExporting}
-          icon={isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-        >
-          Export CSV
-        </Button>
+        {(savedViews ?? []).length > 0 && (
+          <Button
+            type="text"
+            size="small"
+            icon={<Settings2 className="h-3.5 w-3.5" />}
+            onClick={handleOpenManage}
+            title="Manage saved views"
+          />
+        )}
       </div>
+      <Button
+        type="primary"
+        onClick={handleApply}
+        disabled={isLoading}
+        icon={isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+      >
+        Apply
+      </Button>
+      <Button
+        htmlType="button"
+        onClick={() => void handleExport()}
+        disabled={isExporting}
+        icon={isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+      >
+        Export CSV
+      </Button>
+      <Button
+        htmlType="button"
+        className="text-xs shrink-0"
+        icon={<Layers className="h-3.5 w-3.5" />}
+        onClick={openGroupingsDrawer}
+      >
+        Edit levels
+      </Button>
+
       <Modal
         title="Save report view"
         open={saveModalOpen}
@@ -283,7 +527,7 @@ export function DrilldownToolbar({
               type="primary"
               htmlType="submit"
               form={saveViewFormId}
-              loading={saveView.isPending}
+              loading={saveViewPending}
             >
               Save
             </Button>
@@ -292,7 +536,7 @@ export function DrilldownToolbar({
       >
         <form id={saveViewFormId} className="space-y-4" onSubmit={(e) => void handleSaveViewSubmit(e)}>
           <p className="text-sm text-muted-foreground">
-            Name this grouping, date range, and filters so you can load it again from Saved views.
+            Save the current grouping, date range, and filters so you can load them again from Saved views.
           </p>
           <FormField label="View name" htmlFor={`${saveViewFormId}-name`} required>
             <Input
@@ -307,21 +551,162 @@ export function DrilldownToolbar({
         </form>
       </Modal>
 
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground shrink-0">
-          Group by:
-        </span>
-        <GroupingsCascade
-          groupings={groupings}
-          groupingFilters={groupingFilters}
-          availableGroupings={availableGroupings ?? []}
-          onChange={setGroupings}
-          onFilterChange={(level, next) => {
-            setGroupingFilter(level, "whitelist", next.whitelist)
-            setGroupingFilter(level, "blacklist", next.blacklist)
-          }}
-        />
-      </div>
+      <Modal
+        open={manageOpen}
+        title="Manage saved views"
+        onCancel={handleCloseManage}
+        footer={
+          <Button onClick={handleCloseManage}>
+            Close
+          </Button>
+        }
+        width={480}
+        destroyOnHidden
+      >
+        <div className="py-2">
+          {(savedViews ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No saved views yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {(savedViews ?? []).map((view) => (
+                <div
+                  key={view.idView}
+                  className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/50 group"
+                >
+                  {editingId === view.idView ? (
+                    <>
+                      <Input
+                        size="small"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onPressEnter={() => void handleRenameView(view.idView)}
+                        autoFocus
+                        className="flex-1"
+                      />
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<Check className="h-3.5 w-3.5 text-green-600" />}
+                        onClick={() => void handleRenameView(view.idView)}
+                        disabled={!editingName.trim() || editingName.trim() === view.name}
+                        loading={saveView.isPending}
+                      />
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<X className="h-3.5 w-3.5" />}
+                        onClick={cancelEditing}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-sm truncate">{view.name}</span>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<Pencil className="h-3 w-3" />}
+                        onClick={() => startEditing(view.idView, view.name)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Rename"
+                      />
+                      <Popconfirm
+                        title="Delete saved view?"
+                        description="This cannot be undone."
+                        onConfirm={() => void handleDeleteViewById(view.idView)}
+                        okText="Delete"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <Button
+                          type="text"
+                          size="small"
+                          danger
+                          icon={<Trash2 className="h-3 w-3" />}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
+                      </Popconfirm>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4 pt-3 border-t border-border">
+            <Button
+              type="dashed"
+              block
+              icon={<Plus className="h-3.5 w-3.5" />}
+              onClick={handleOpenSaveNewFromManage}
+            >
+              Save current as new view
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
+  )
+}
+
+/** Full control strip (legacy / embedded toolbars): header filters + report actions in one row. */
+export function DrilldownToolbarControls() {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <DrilldownToolbarHeaderFilters />
+      <DrilldownToolbarReportActions />
+    </div>
+  )
+}
+
+/** Group-by cascade — use on the second toolbar row next to `DrilldownToolbarReportActions`. */
+export function DrilldownToolbarGroupings() {
+  const {
+    groupings,
+    groupingFilters,
+    availableGroupings,
+    setGroupings,
+    setGroupingFilter,
+    groupingsDrawerOpen,
+    closeGroupingsDrawer,
+  } = useDrilldownToolbarContext()
+  const replaceGroupingsStack = useDrilldownStore((s) => s.replaceGroupingsStack)
+
+  const handleGroupingFilterApply = useCallback(
+    (level: number, next: { whitelist: string[]; blacklist: string[] }) => {
+      setGroupingFilter(level, 'whitelist', next.whitelist)
+      setGroupingFilter(level, 'blacklist', next.blacklist)
+    },
+    [setGroupingFilter],
+  )
+
+  return (
+    <div className="flex flex-wrap items-center justify-start gap-2 min-h-[2.25rem] min-w-0 flex-1">
+      <DrilldownGroupingsBar
+        groupings={groupings}
+        groupingFilters={groupingFilters}
+        availableGroupings={availableGroupings ?? []}
+        onGroupingsChange={setGroupings}
+        onReplaceStack={replaceGroupingsStack}
+        onFilterChange={handleGroupingFilterApply}
+        drawerOpen={groupingsDrawerOpen}
+        onCloseDrawer={closeGroupingsDrawer}
+      />
+    </div>
+  )
+}
+
+/** Standalone layout (legacy); matches `PageShell` + split rows when not using the shell. */
+export function DrilldownToolbar(props: DrilldownToolbarProps) {
+  return (
+    <DrilldownToolbarProvider {...props}>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 w-full">
+          <DrilldownToolbarHeaderFilters />
+        </div>
+        <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-2 w-full">
+          <DrilldownToolbarReportActions />
+          <DrilldownToolbarGroupings />
+        </div>
+      </div>
+    </DrilldownToolbarProvider>
   )
 }

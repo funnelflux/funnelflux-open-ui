@@ -120,11 +120,11 @@ runRequest({ ...request, groupings: initialGroupings, topLevelFilters: [] })
 
 Keep the full plan in component state (`planGroupings`) for the expand handler. Sending the whole plan up front defeats lazy loading and makes the backend build a large tree for no reason.
 
-## 8. Tree indent in DataTable: one step per depth
+## 8. Tree indent in DataTable: depth + chevron lane
 
-`DataTable` renders only the `dt-indent` span for leaf rows (no empty 20px placeholder where a chevron would be). Do not re-introduce the placeholder — it creates **two visual indent steps** (indent + empty slot) for leaves and makes the tree look doubly indented. Header alignment for treeMode is handled by the 20px spacer on the first-data-col header cell.
+Depth uses `dt-indent` (`depth * 24`). **Expandable** rows render the chevron button plus `dt-expand-gap` before the label. **Non-expandable** rows must still reserve the same horizontal space (`dt-expand-placeholder` matching the toggle’s box + the same `dt-expand-gap`); otherwise a deeper leaf’s text starts **left** of its expanded parent’s text.
 
-If a consumer needs a placeholder for mixed expandable/leaf siblings, they should add it in the cell renderer of `buildColumnsFromReport` / custom columns, not inside `DataTable`.
+Do not add a *second* depth-like spacer in the cell renderer for leaves — that duplicates the visual indent step. The chevron-lane placeholder belongs in `DataTable`, not in `buildColumnsFromReport`. Header alignment uses `dt-tree-header-spacer` on the tree column.
 
 ## 9. Never assume expand order guarantees
 

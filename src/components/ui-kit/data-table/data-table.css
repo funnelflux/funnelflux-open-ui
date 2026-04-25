@@ -325,6 +325,20 @@
   flex-shrink: 0;
 }
 
+/* Same box as .dt-expand-toggle so leaf rows align with expandable siblings */
+.dt-expand-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* ---- Expand toggle ---- */
 .dt-expand-toggle {
   display: inline-flex;

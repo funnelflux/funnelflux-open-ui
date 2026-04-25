@@ -307,7 +307,7 @@ function DataTableInner<TData>({
                 {isTreeTarget && (
                   <>
                     <span className="dt-indent" style={{ width: depth * 24 }} />
-                    {row.getCanExpand() && (
+                    {row.getCanExpand() ? (
                       <button
                         type="button"
                         className={`dt-expand-toggle${row.getIsExpanded() ? ' dt-expand-toggle--expanded' : ''}`}
@@ -320,8 +320,10 @@ function DataTableInner<TData>({
                           <ChevronRight size={14} />
                         )}
                       </button>
+                    ) : (
+                      <span className="dt-expand-placeholder" aria-hidden />
                     )}
-                    {row.getCanExpand() ? <span className="dt-expand-gap" aria-hidden /> : null}
+                    <span className="dt-expand-gap" aria-hidden />
                   </>
                 )}
                 {isActionBtn ? content : <span className="dt-cell-text">{content}</span>}

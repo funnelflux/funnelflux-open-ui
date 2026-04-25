@@ -1,4 +1,4 @@
-import { AntdSelect, Input } from '@/components/ui-kit'
+import { Input, Select } from '@/components/ui-kit'
 import type { ConditionField, ConditionOperator } from '@/types/funnel'
 
 interface ConditionFieldValueInputProps {
@@ -108,12 +108,13 @@ export function ConditionFieldValueInput({
   // Field-specific select inputs
   if (field === 'dayOfWeek') {
     return (
-      <AntdSelect
+      <Select
         value={stringValue(value) || undefined}
         onChange={(val) => onChange(val)}
         placeholder="Day"
         className="w-32"
         size="small"
+        alphabetical={false}
         options={DAY_OF_WEEK_OPTIONS}
       />
     )
@@ -121,12 +122,13 @@ export function ConditionFieldValueInput({
 
   if (field === 'hourOfDay') {
     return (
-      <AntdSelect
+      <Select
         value={stringValue(value) || undefined}
         onChange={(val) => onChange(val)}
         placeholder="Hour"
         className="w-28"
         size="small"
+        alphabetical={false}
         options={HOUR_OPTIONS}
       />
     )
@@ -134,12 +136,13 @@ export function ConditionFieldValueInput({
 
   if (field === 'deviceType') {
     return (
-      <AntdSelect
+      <Select
         value={stringValue(value) || undefined}
         onChange={(val) => onChange(val)}
         placeholder="Type"
         className="w-32"
         size="small"
+        alphabetical={false}
         options={DEVICE_TYPE_OPTIONS}
       />
     )
@@ -147,12 +150,13 @@ export function ConditionFieldValueInput({
 
   if (field === 'connectionType') {
     return (
-      <AntdSelect
+      <Select
         value={stringValue(value) || undefined}
         onChange={(val) => onChange(val)}
         placeholder="Type"
         className="w-32"
         size="small"
+        alphabetical={false}
         options={CONNECTION_TYPE_OPTIONS}
       />
     )

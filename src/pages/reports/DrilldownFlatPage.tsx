@@ -2,7 +2,15 @@ import { useState, useMemo, useCallback, useRef } from "react"
 import type { ColumnDef, SortingState, Table } from "@tanstack/react-table"
 import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
 import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
-import { DrilldownToolbar } from "@/components/drilldown/DrilldownToolbar"
+import { ColumnChooser } from "@/components/shared/ColumnChooser"
+import { defaultColIds } from "@/lib/entityPageDefaultColIds"
+import { useEntityGridColumnVisibility } from "@/lib/entityGridColumnVisibility"
+import {
+  DrilldownToolbarProvider,
+  DrilldownToolbarHeaderFilters,
+  DrilldownToolbarReportActions,
+  DrilldownToolbarGroupings,
+} from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReport } from "@/api/hooks"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
@@ -38,6 +46,7 @@ export function DrilldownFlatPage() {
     return saved.length > 0 ? saved : DEFAULT_TABLE_SORTING
   })
   const tableRef = useRef<Table<FlatRowData> | null>(null)
+  const [tableForChooser, setTableForChooser] = useState<Table<FlatRowData> | null>(null)
 
   const handleApply = useCallback(
     (request: DrilldownRequest) => {
@@ -87,7 +96,7 @@ export function DrilldownFlatPage() {
     if (!report) return []
     const groupingCol: ColumnDef<FlatRowData, unknown> = {
       id: 'name',
-      header: report.columns[0]?.name ?? 'Name',
+      header: 'Name',
       accessorFn: (row: FlatRowData) => row.cells[0]?.formatted ?? '',
       enableSorting: true,
       size: 250,
@@ -96,6 +105,12 @@ export function DrilldownFlatPage() {
     }
     return [groupingCol, ...buildColumnsFromReport<FlatRowData>(report.columns)]
   }, [report])
+
+  const gridColumnVisibility = useEntityGridColumnVisibility(
+    columnDefs as ColumnDef<unknown, unknown>[],
+    DRILLDOWN_FLAT_TABLE_KEY,
+    { defaultVisibleColumnIds: defaultColIds },
+  )
 
   const pinnedBottomRows = useMemo(() => {
     if (!report?.totals?.cells) return undefined
@@ -106,31 +121,53 @@ export function DrilldownFlatPage() {
   }, [report])
 
   return (
-    <PageShell title="Drilldown Report (Flat)" fillHeight>
-      <DrilldownToolbar
-        onApply={handleApply}
-        isLoading={drilldownMutation.isPending}
-        viewType="flat"
-        paging={{ start: page * pageSize, length: pageSize }}
-      />
-
-      {report ? (
-        <DataTable
-          data={flatData}
-          columns={columnDefs}
-          loading={drilldownMutation.isPending}
-          getRowId={(row) => row._id}
-          sorting={sorting}
-          onSortingChange={handleSortingChange}
-          manualSorting
-          pinnedBottomRows={pinnedBottomRows}
-          tableRef={tableRef}
-        />
-      ) : (
-        !drilldownMutation.isPending && (
-          <EmptyState message="Select your groupings and date range, then click Apply to generate a report." />
-        )
-      )}
-    </PageShell>
+    <DrilldownToolbarProvider
+      onApply={handleApply}
+      isLoading={drilldownMutation.isPending}
+      viewType="flat"
+      paging={{ start: page * pageSize, length: pageSize }}
+    >
+      <PageShell
+        title="Drilldown Report (Flat)"
+        fillHeight
+        className="gap-3"
+        actions={<DrilldownToolbarHeaderFilters />}
+      >
+        <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-2 w-full shrink-0">
+          <DrilldownToolbarReportActions />
+          {tableForChooser && report ? (
+            <ColumnChooser
+              columns={columnDefs}
+              table={tableForChooser}
+              storageKey={DRILLDOWN_FLAT_TABLE_KEY}
+              defaultVisibleColumnIds={defaultColIds}
+              selectedCols={gridColumnVisibility.selectedCols}
+              onColumnsChange={gridColumnVisibility.onColumnsChange}
+            />
+          ) : null}
+          <DrilldownToolbarGroupings />
+        </div>
+        {report ? (
+          <DataTable
+            data={flatData}
+            columns={columnDefs}
+            loading={drilldownMutation.isPending}
+            getRowId={(row) => row._id}
+            sorting={sorting}
+            onSortingChange={handleSortingChange}
+            manualSorting
+            pinnedBottomRows={pinnedBottomRows}
+            tableRef={tableRef}
+            onTableInstance={setTableForChooser}
+            columnVisibility={gridColumnVisibility.columnVisibility}
+            onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
+          />
+        ) : (
+          !drilldownMutation.isPending && (
+            <EmptyState message="Select your groupings and date range, then click Apply to generate a report." />
+          )
+        )}
+      </PageShell>
+    </DrilldownToolbarProvider>
   )
 }

@@ -8,6 +8,11 @@ interface DrilldownState {
   dateRange: { start: string; end: string } | null
   viewType: 'tree' | 'flat'
   setGroupings: (g: string[]) => void
+  /** Replace groupings and filters together (e.g. after removing a middle level and reindexing filters). */
+  replaceGroupingsStack: (
+    groupings: string[],
+    groupingFilters: Record<number, { whitelist: string[]; blacklist: string[] }>,
+  ) => void
   setGroupingFilter: (
     level: number,
     type: 'whitelist' | 'blacklist',
@@ -27,13 +32,8 @@ export const useDrilldownStore = create<DrilldownState>()(
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       dateRange: null,
       viewType: 'tree',
-      setGroupings: (groupings) =>
-        set((state) => ({
-          groupings,
-          groupingFilters: Object.fromEntries(
-            Object.entries(state.groupingFilters).filter(([level]) => Number(level) < groupings.length),
-          ) as DrilldownState['groupingFilters'],
-        })),
+      setGroupings: (groupings) => set({ groupings }),
+      replaceGroupingsStack: (groupings, groupingFilters) => set({ groupings, groupingFilters }),
       setGroupingFilter: (level, type, values) =>
         set((state) => ({
           groupingFilters: {

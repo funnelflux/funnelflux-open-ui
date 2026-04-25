@@ -21,14 +21,18 @@ export function PageShell({
 }: PageShellProps) {
   return (
     <div className={cn('flex flex-col gap-6', fillHeight && 'flex-1 min-h-0 overflow-hidden', className)}>
-      <div className="flex items-center justify-between shrink-0">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 shrink-0">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
           {subtitle && (
             <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
           )}
         </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        {actions && (
+          <div className="flex flex-wrap items-center justify-end gap-2 min-w-0">
+            {actions}
+          </div>
+        )}
       </div>
       {children}
     </div>
