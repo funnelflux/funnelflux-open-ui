@@ -25,10 +25,10 @@ function useFilteredOptions(
 ) {
   return useMemo(() => {
     let list = options.filter(
-      (o): o is SelectOption =>
-        o != null &&
-        typeof o.label === 'string' &&
-        typeof o.value === 'string',
+      (option): option is SelectOption =>
+        option != null &&
+        typeof option.label === 'string' &&
+        typeof option.value === 'string',
     )
 
     if (alphabetical) {
@@ -42,10 +42,10 @@ function useFilteredOptions(
     const query = searchValue.toLowerCase().trim()
     if (query) {
       list = list.filter(
-        (o) =>
-          String(o.label).toLowerCase().includes(query) ||
-          String(o.value).toLowerCase().includes(query) ||
-          (o.searchId && String(o.searchId).toLowerCase().includes(query)),
+        (option) =>
+          String(option.label).toLowerCase().includes(query) ||
+          String(option.value).toLowerCase().includes(query) ||
+          (option.searchId && String(option.searchId).toLowerCase().includes(query)),
       )
     }
 
@@ -78,7 +78,7 @@ export function Select({
 
   const selectOptions = useMemo(() => {
     const mapped: { label: string; value: string; disabled?: boolean }[] =
-      items.map((o) => ({ label: o.label, value: o.value }))
+      items.map((option) => ({ label: option.label, value: option.value }))
     if (overflow > 0) {
       mapped.push({
         label: `Type to search ${overflow} more...`,
@@ -132,7 +132,7 @@ export function SmartMultiSelect({
 
   const selectOptions = useMemo(() => {
     const mapped: { label: string; value: string; disabled?: boolean }[] =
-      items.map((o) => ({ label: o.label, value: o.value }))
+      items.map((option) => ({ label: option.label, value: option.value }))
     if (overflow > 0) {
       mapped.push({
         label: `Type to search ${overflow} more...`,
@@ -178,10 +178,10 @@ function filterFullOptions(
   alphabetical: boolean,
 ): SelectOption[] {
   let list = options.filter(
-    (o): o is SelectOption =>
-      o != null &&
-      typeof o.label === 'string' &&
-      typeof o.value === 'string',
+    (option): option is SelectOption =>
+      option != null &&
+      typeof option.label === 'string' &&
+      typeof option.value === 'string',
   )
 
   if (alphabetical) {
@@ -195,10 +195,10 @@ function filterFullOptions(
   const query = searchValue.toLowerCase().trim()
   if (query) {
     list = list.filter(
-      (o) =>
-        String(o.label).toLowerCase().includes(query) ||
-        String(o.value).toLowerCase().includes(query) ||
-        (o.searchId && String(o.searchId).toLowerCase().includes(query)),
+      (option) =>
+        String(option.label).toLowerCase().includes(query) ||
+        String(option.value).toLowerCase().includes(query) ||
+        (option.searchId && String(option.searchId).toLowerCase().includes(query)),
     )
   }
 
@@ -210,16 +210,18 @@ function mergeSelectedIntoDropdownOptions(
   filtered: SelectOption[],
   selectedValues: string[],
 ): { label: string; value: string }[] {
-  const byVal = new Map(allOptions.map((o) => [o.value, o]))
-  const inFiltered = new Set(filtered.map((o) => o.value))
+  const optionsByValue = new Map(allOptions.map((option) => [option.value, option]))
+  const inFiltered = new Set(filtered.map((option) => option.value))
   const extras: SelectOption[] = []
-  for (const v of selectedValues) {
-    if (!inFiltered.has(v)) {
-      const o = byVal.get(v)
-      extras.push(o ?? { label: v, value: v, searchId: v })
+  for (const selectedValue of selectedValues) {
+    if (!inFiltered.has(selectedValue)) {
+      const knownOption = optionsByValue.get(selectedValue)
+      extras.push(
+        knownOption ?? { label: selectedValue, value: selectedValue, searchId: selectedValue },
+      )
     }
   }
-  return [...extras, ...filtered].map((o) => ({ label: o.label, value: o.value }))
+  return [...extras, ...filtered].map((option) => ({ label: option.label, value: option.value }))
 }
 
 export interface VirtualizedMultiSelectProps
@@ -237,6 +239,90 @@ export interface VirtualizedMultiSelectProps
  * Multi-select with client-side search over the **full** `options` array and a virtualized dropdown
  * (antd/rc-select). Selected values stay visible as tags even when filtered out of the current search.
  */
+function mergeSelectedSingleIntoDropdownOptions(
+  allOptions: SelectOption[],
+  filtered: SelectOption[],
+  selected: string | null | undefined,
+): { label: string; value: string }[] {
+  const mapped = filtered.map((option) => ({ label: option.label, value: option.value }))
+  if (selected == null || selected === '') return mapped
+  const inFiltered = filtered.some((option) => option.value === selected)
+  if (inFiltered) return mapped
+  const selectedOption = allOptions.find((option) => option.value === selected)
+  const extra = selectedOption ?? { label: selected, value: selected, searchId: selected }
+  return [{ label: extra.label, value: extra.value }, ...mapped]
+}
+
+export interface VirtualizedSelectProps
+  extends Omit<AntdSelectProps, 'options' | 'filterOption' | 'mode'> {
+  options: SelectOption[]
+  alphabetical?: boolean
+  controlSize?: ControlSize
+  listHeight?: number
+  /** When true, the dropdown stays empty until the user types (search-first UX for huge lists). */
+  blockOptionsUntilSearch?: boolean
+}
+
+/**
+ * Single-select with client-side search over the full `options` array and a virtualized dropdown.
+ */
+export function VirtualizedSelect({
+  options,
+  alphabetical = true,
+  controlSize = 'md',
+  size,
+  listHeight = 280,
+  blockOptionsUntilSearch = false,
+  value,
+  onOpenChange,
+  onSearch: onSearchProp,
+  className,
+  ...rest
+}: VirtualizedSelectProps) {
+  const [search, setSearch] = useState('')
+  const filtered = useMemo(() => {
+    if (blockOptionsUntilSearch && !search.trim()) return []
+    return filterFullOptions(options, search, alphabetical)
+  }, [alphabetical, blockOptionsUntilSearch, options, search])
+
+  const selectOptions = useMemo(
+    () => mergeSelectedSingleIntoDropdownOptions(options, filtered, value as string | undefined),
+    [filtered, options, value],
+  )
+
+  const handleSearch = useCallback(
+    (q: string) => {
+      setSearch(q)
+      onSearchProp?.(q)
+    },
+    [onSearchProp],
+  )
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) setSearch('')
+      onOpenChange?.(open)
+    },
+    [onOpenChange],
+  )
+
+  return (
+    <SelectPrimitive
+      virtual
+      listHeight={listHeight}
+      showSearch
+      filterOption={false}
+      onSearch={handleSearch}
+      onOpenChange={handleOpenChange}
+      size={size ?? controlSizeToAntdSize(controlSize)}
+      className={cn('w-full min-w-0', className)}
+      options={selectOptions}
+      value={value}
+      {...rest}
+    />
+  )
+}
+
 export function VirtualizedMultiSelect({
   options,
   alphabetical = true,

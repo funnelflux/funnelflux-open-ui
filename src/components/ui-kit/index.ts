@@ -11,10 +11,11 @@ export { Checkbox } from './Checkbox'
 export type { CheckboxProps } from './Checkbox'
 export { InputNumber } from './InputNumber'
 export type { InputNumberProps } from './InputNumber'
-export { Select, SmartMultiSelect, VirtualizedMultiSelect, GroupedSelect } from './Select'
+export { Select, SmartMultiSelect, VirtualizedSelect, VirtualizedMultiSelect, GroupedSelect } from './Select'
 export type {
   SelectProps,
   SelectOption,
+  VirtualizedSelectProps,
   VirtualizedMultiSelectProps,
   GroupedSelectProps,
   SelectOptionGroup,

@@ -18,6 +18,7 @@ export const queryKeys = {
     all: ['trafficSources'] as const,
     list: (params?: Record<string, string>) => [...queryKeys.trafficSources.all, 'list', params] as const,
     detail: (id: string) => [...queryKeys.trafficSources.all, 'detail', id] as const,
+    categories: ['trafficSources', 'categories'] as const,
     templates: ['trafficSources', 'templates'] as const,
   },
   offerSources: {

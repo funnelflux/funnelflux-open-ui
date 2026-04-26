@@ -2,7 +2,13 @@ import { useMemo } from 'react'
 import { GroupingsLevelsEditor } from '@/components/drilldown/GroupingsLevelsEditor'
 import { Drawer, Tag } from '@/components/ui-kit'
 import { drilldownGroupingShortLabel } from '@/lib/drilldownGroupings'
+import {
+  formatUrlTrackingFieldLabel,
+  isUrlTrackingFieldGroupingToken,
+  type UrlTrackingFieldLevelMeta,
+} from '@/lib/urlTrackingFieldGrouping'
 import { cn } from '@/lib/utils'
+import { useDrilldownStore } from '@/store/drilldown'
 
 interface DrilldownGroupingsBarProps {
   groupings: string[]
@@ -12,6 +18,7 @@ interface DrilldownGroupingsBarProps {
   onReplaceStack: (
     nextGroupings: string[],
     nextFilters: Record<number, { whitelist: string[]; blacklist: string[] }>,
+    nextUrlTracking?: Record<number, UrlTrackingFieldLevelMeta>,
   ) => void
   onFilterChange: (level: number, next: { whitelist: string[]; blacklist: string[] }) => void
   drawerOpen: boolean
@@ -35,15 +42,25 @@ export function DrilldownGroupingsBar({
   drawerOpen,
   onCloseDrawer,
 }: DrilldownGroupingsBarProps) {
+  const urlTrackingFieldByLevel = useDrilldownStore((s) => s.urlTrackingFieldByLevel)
+
   const tagItems = useMemo(
     () =>
       groupings.map((g, i) => {
         const filled = Boolean(g.trim())
-        const short = filled ? drilldownGroupingShortLabel(g) : `Level ${i + 1}`
+        const urlMeta = urlTrackingFieldByLevel[i]
+        let short: string
+        if (filled && isUrlTrackingFieldGroupingToken(g)) {
+          short = urlMeta ? formatUrlTrackingFieldLabel(urlMeta) : 'URL tracking field'
+        } else if (filled) {
+          short = drilldownGroupingShortLabel(g)
+        } else {
+          short = `Level ${i + 1}`
+        }
         const filterOn = levelHasActiveFilters(groupingFilters[i])
         return { key: i, filled, label: short, filterOn }
       }),
-    [groupingFilters, groupings],
+    [groupingFilters, groupings, urlTrackingFieldByLevel],
   )
 
   return (

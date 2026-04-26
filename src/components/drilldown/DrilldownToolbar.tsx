@@ -35,6 +35,7 @@ import {
 import { getErrorMessage } from '@/lib/utils'
 import { DATE_PRESETS, getPresetRange, type DateRange } from '@/lib/date-presets'
 import { validateGroupingStackForRequest } from '@/lib/drilldownGroupings'
+import { buildTrackingFieldMappingsForRequest } from '@/lib/urlTrackingFieldGrouping'
 import { toApiDateTime, type DrilldownRequest } from '@/types/stats'
 
 export interface DrilldownToolbarProps {
@@ -118,11 +119,11 @@ interface DrilldownToolbarContextValue {
 const DrilldownToolbarContext = createContext<DrilldownToolbarContextValue | null>(null)
 
 function useDrilldownToolbarContext(): DrilldownToolbarContextValue {
-  const v = useContext(DrilldownToolbarContext)
-  if (!v) {
+  const contextValue = useContext(DrilldownToolbarContext)
+  if (!contextValue) {
     throw new Error('Drilldown toolbar pieces must be used within DrilldownToolbarProvider')
   }
-  return v
+  return contextValue
 }
 
 function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolbarContextValue {
@@ -139,6 +140,7 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
     replaceGroupingsStack,
     setTimezone,
     setDateRange,
+    urlTrackingFieldByLevel,
   } = useDrilldownStore()
 
   const { data: availableGroupings } = useGroupings()
@@ -185,41 +187,64 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
         whitelistFilters: string[]
         blacklistFilters: string[]
       }>,
-    ): DrilldownRequest => ({
-      timeRange: {
-        start: toApiDateTime(datePickerValue.from),
-        end: toApiDateTime(datePickerValue.to),
-      },
-      timeZone: { name: timezone },
-      groupings: levels.map((L) => ({
-        groupBy: L.groupBy,
-        whitelistFilters: L.whitelistFilters,
-        blacklistFilters: L.blacklistFilters,
-      })),
-      options: { viewType },
-      paging: paging ?? { start: 0, length: 100 },
-    }),
-    [datePickerValue.from, datePickerValue.to, timezone, viewType, paging],
+    ): DrilldownRequest => {
+      const mappings = buildTrackingFieldMappingsForRequest(groupings, urlTrackingFieldByLevel)
+      const base: DrilldownRequest = {
+        timeRange: {
+          start: toApiDateTime(datePickerValue.from),
+          end: toApiDateTime(datePickerValue.to),
+        },
+        timeZone: { name: timezone },
+        groupings: levels.map((level) => ({
+          groupBy: level.groupBy,
+          whitelistFilters: level.whitelistFilters,
+          blacklistFilters: level.blacklistFilters,
+        })),
+        options: { viewType },
+        paging: paging ?? { start: 0, length: 100 },
+      }
+      if (Object.keys(mappings).length > 0) {
+        base.trackingFieldMappings = mappings
+      }
+      return base
+    },
+    [
+      datePickerValue.from,
+      datePickerValue.to,
+      groupings,
+      paging,
+      timezone,
+      urlTrackingFieldByLevel,
+      viewType,
+    ],
   )
 
   const handleApply = useCallback(() => {
-    const v = validateGroupingStackForRequest(groupings, groupingFilters)
-    if (!v.ok) {
-      toast.error(v.message)
+    const groupingValidation = validateGroupingStackForRequest(
+      groupings,
+      groupingFilters,
+      urlTrackingFieldByLevel,
+    )
+    if (!groupingValidation.ok) {
+      toast.error(groupingValidation.message)
       return
     }
-    onApply(toDrilldownRequest(v.levels))
-  }, [groupingFilters, groupings, onApply, toast, toDrilldownRequest])
+    onApply(toDrilldownRequest(groupingValidation.levels))
+  }, [groupingFilters, groupings, onApply, toast, toDrilldownRequest, urlTrackingFieldByLevel])
 
   const handleExport = useCallback(async () => {
     setIsExporting(true)
     try {
-      const v = validateGroupingStackForRequest(groupings, groupingFilters)
-      if (!v.ok) {
-        toast.error(v.message)
+      const groupingValidation = validateGroupingStackForRequest(
+        groupings,
+        groupingFilters,
+        urlTrackingFieldByLevel,
+      )
+      if (!groupingValidation.ok) {
+        toast.error(groupingValidation.message)
         return
       }
-      const request = toDrilldownRequest(v.levels)
+      const request = toDrilldownRequest(groupingValidation.levels)
       const blob = await api.postBlob('/stats/reporting/export/csv/', request)
 
       const url = URL.createObjectURL(blob)
@@ -237,7 +262,7 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
     } finally {
       setIsExporting(false)
     }
-  }, [groupingFilters, groupings, toast, toDrilldownRequest])
+  }, [groupingFilters, groupings, toast, toDrilldownRequest, urlTrackingFieldByLevel])
 
   const handleSelectView = useCallback(
     (idView: string) => {
@@ -248,9 +273,10 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
       }
 
       if (view.groupings.length > 0) {
-        replaceGroupingsStack(view.groupings, view.groupingFilters ?? {})
+        replaceGroupingsStack(view.groupings, view.groupingFilters ?? {}, {})
       } else {
         setGroupingFilters(view.groupingFilters ?? {})
+        useDrilldownStore.getState().setUrlTrackingFieldByLevel({})
       }
       if (view.timezone) {
         setTimezone(view.timezone)

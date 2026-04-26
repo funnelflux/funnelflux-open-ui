@@ -715,8 +715,22 @@ definitions:
     properties:
       groupBy:
         type: string
+        description: >
+          Canonical grouping names as listed below. The server also accepts wire-only aliases
+          `__TRACKING_FIELD_1__` … `__TRACKING_FIELD_10__` (normalized to `URL Tracking Field`);
+          pair those with `trackingFieldMappings` on the drilldown request.
         enum:
           - "URL Tracking Field"
+          - "__TRACKING_FIELD_1__"
+          - "__TRACKING_FIELD_2__"
+          - "__TRACKING_FIELD_3__"
+          - "__TRACKING_FIELD_4__"
+          - "__TRACKING_FIELD_5__"
+          - "__TRACKING_FIELD_6__"
+          - "__TRACKING_FIELD_7__"
+          - "__TRACKING_FIELD_8__"
+          - "__TRACKING_FIELD_9__"
+          - "__TRACKING_FIELD_10__"
           - "Element: Campaign"
           - "Element: Funnel"
           - "Element: Lander"
@@ -775,7 +789,13 @@ definitions:
           - "Hash: User Agent Hash"
           - "Hash: Network Hash"
       whitelistFilters:
-        description: "If not empty, then only rows where at least one of the specified filters is true will be returned. For asset-related groupings like 'traffic source', 'campaign', 'lander' etc, a filter must be the asset's id. Otherwise, for groupings like 'country', 'device type' etc, a filter is a case-insensitive string representing the data, like 'Malaysia', 'Smartphone' etc... Filters can contain wildcards *"
+        description: >
+          If not empty, then only rows where at least one of the specified filters is true will be returned.
+          For asset-related groupings like 'traffic source', 'campaign', 'lander' etc, a filter must be the asset's id.
+          For `URL Tracking Field` / `__TRACKING_FIELD_N__`, a filter is typically the URL parameter name
+          (e.g. `adgroup`) matching `trackingFieldMappings`, or `field$@$value` to restrict to a specific token/value
+          (server uses the `$@$` concatenator). Otherwise, for groupings like 'country', 'device type' etc, a filter is
+          a case-insensitive string. Filters can contain wildcards *.
         type: array
         items: { type: string }
       blacklistFilters:
@@ -958,6 +978,20 @@ definitions:
         $ref: "#/definitions/RequestSorting"
       options:
         $ref: "#/definitions/RequestOptions"
+      trackingFieldMappings:
+        description: >
+          Maps each `__TRACKING_FIELD_N__` slot to the traffic-source URL parameter name (`id`) used for that
+          grouping level. Sent with JSON body to `POST /stats/reporting/drilldown/`. The PHP handler normalizes
+          `groupBy` to `URL Tracking Field` and uses this object to resolve which parameter each level targets.
+        type: object
+        additionalProperties:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: string
+              description: URL tracking parameter key (e.g. adgroup, querystring, c1)
   ConfidenceRate:
     type: object
     properties:

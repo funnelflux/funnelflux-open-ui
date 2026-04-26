@@ -2,6 +2,7 @@
 import type {
   ReportRow as GeneratedReportRow,
   Report as GeneratedReport,
+  DrilldownRequest as GeneratedDrilldownRequest,
 } from './generated/stats';
 
 export type {
@@ -11,7 +12,6 @@ export type {
   RequestColumnFilters,
   RequestOptions,
   SortingColumn,
-  DrilldownRequest,
   ConfidenceRate,
   ReportColumn,
   ApiDateTimeRange,
@@ -29,6 +29,11 @@ export type {
   CsvExportResponse,
   BackgroundJobResponse,
 } from './generated/stats';
+
+/** Backend accepts `trackingFieldMappings` on drilldown POST bodies even when omitted from OpenAPI. */
+export type DrilldownRequest = GeneratedDrilldownRequest & {
+  trackingFieldMappings?: Record<string, { id: string }>
+}
 
 export type { ApiDate, ApiTime } from './generated/data';
 

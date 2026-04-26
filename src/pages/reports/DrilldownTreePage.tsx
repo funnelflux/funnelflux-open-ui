@@ -46,12 +46,54 @@ interface TreeRowData {
   }
 }
 
+/** Stable string form of a cell raw for matching parent/child in nested drilldown trees. */
+function groupingRawForMatch(raw: ReportCell["raw"] | undefined): string {
+  if (raw === undefined || raw === null) return ""
+  return typeof raw === "string" ? raw.trim() : String(raw)
+}
+
 /** Extract a non-empty, non-rollup grouping id from a row's first cell. */
 function groupingKeyFromRaw(raw: ReportCell["raw"] | undefined): string | undefined {
-  if (raw === undefined || raw === null) return undefined
-  const s = typeof raw === "string" ? raw.trim() : String(raw)
+  const s = groupingRawForMatch(raw)
   if (s === "" || s === "0") return undefined
   return s
+}
+
+function groupingMatchValues(value: ReportCell["raw"] | undefined): string[] {
+  const normalized = groupingRawForMatch(value)
+  if (normalized === "") return []
+  const values = [normalized]
+  const [, trackingValue] = normalized.split("$@$")
+  if (trackingValue) {
+    values.push(trackingValue)
+    values.push(trackingValue.startsWith("$") ? trackingValue.slice(1) : trackingValue)
+  }
+  return values
+}
+
+function trackingFieldNameFromRaw(raw: ReportCell["raw"] | undefined): string | undefined {
+  const normalized = groupingRawForMatch(raw)
+  const separatorIndex = normalized.indexOf("$@$")
+  if (separatorIndex <= 0) return undefined
+  return normalized.slice(0, separatorIndex)
+}
+
+function trackingFieldIdForGrouping(
+  request: DrilldownRequest | null,
+  grouping: Grouping | undefined,
+): string | undefined {
+  if (!request || !grouping) return undefined
+  return request.trackingFieldMappings?.[grouping.groupBy]?.id
+}
+
+function isFinalTrackingFieldRow(
+  row: TreeRowData,
+  request: DrilldownRequest | null,
+  plan: Grouping[],
+): boolean {
+  const finalTrackingFieldId = trackingFieldIdForGrouping(request, plan[plan.length - 1])
+  if (!finalTrackingFieldId) return false
+  return trackingFieldNameFromRaw(row.cells[0]?.raw) === finalTrackingFieldId
 }
 
 function reportRowsToTreeRows(
@@ -65,54 +107,120 @@ function reportRowsToTreeRows(
     const cells = reportRowToCells(row, columnCount)
     const treePath = parentTreePath === "" ? String(index) : `${parentTreePath}-${index}`
     const key = groupingKeyFromRaw(cells[0]?.raw)
+    const childAncestorKeys = key ? [...ancestorKeys, key] : ancestorKeys
+    const children = row.children?.length
+      ? reportRowsToTreeRows(row.children, columnCount, depth + 1, treePath, childAncestorKeys)
+      : undefined
     return {
       _id: `tr-${treePath}`,
       treePath,
       cells,
       depth,
-      loaded: false,
+      loaded: Boolean(children?.length),
       ancestorKeys,
+      ...(children ? { children } : {}),
       ...(key ? { groupIds: [key] } : {}),
     }
   })
 }
 
-/**
- * Lazy expand returns a nested tree reflecting all ancestor groupings. Walk the tree and return
- * the children of the row whose first-cell id matches `parentGroupId` (the expanded row).
- */
-function leafRowsForLazyExpand(
-  report: Report,
-  parentGroupId: string | undefined,
-): ReportRow[] {
-  const colCount = report.columns.length
-  const cell0 = (r: ReportRow) => {
-    const raw = reportRowToCells(r, colCount)[0]?.raw
-    return raw === undefined || raw === null ? "" : String(raw)
-  }
+/** `cells[0]` identifies the node; tracking-field raws may differ before `$@$`. */
+function firstGroupingCellMatchesKey(
+  row: ReportRow,
+  key: string,
+  colCount: number,
+): boolean {
+  const keyValues = groupingMatchValues(key)
+  if (keyValues.length === 0) return false
+  const c = reportRowToCells(row, colCount)[0]
+  if (!c) return false
+  const cellValues = [
+    ...groupingMatchValues(c.raw),
+    ...(typeof c.formatted === "string" ? groupingMatchValues(c.formatted) : []),
+  ]
+  return keyValues.some((value) => cellValues.includes(value))
+}
 
-  if (parentGroupId) {
-    const stack: ReportRow[] = [...report.rows]
-    while (stack.length) {
-      const r = stack.shift()!
-      if (cell0(r) === parentGroupId && r.children?.length) {
-        return r.children
-      }
-      if (r.children?.length) stack.push(...r.children)
+function nodeAtPath(
+  roots: ReportRow[],
+  path: string[],
+  colCount: number,
+): ReportRow | null {
+  if (path.length === 0) return null
+
+  let level = roots
+  let matched: ReportRow | undefined
+  for (let i = 0; i < path.length; i++) {
+    const key = path[i]
+    matched = level.find((r) => firstGroupingCellMatchesKey(r, key, colCount))
+    if (!matched) return null
+    if (i < path.length - 1) {
+      level = matched.children ?? []
+      if (level.length === 0) return null
     }
   }
 
-  const firstNonRollupWithKids = report.rows.find(
-    (r) => r.children?.length && cell0(r) !== "" && cell0(r) !== "0",
-  )
-  if (firstNonRollupWithKids?.children?.length) return firstNonRollupWithKids.children
+  return matched ?? null
+}
 
-  if (report.rows.length === 1 && report.rows[0].children?.length) {
-    return report.rows[0].children
+function nodeByKey(
+  roots: ReportRow[],
+  key: string,
+  colCount: number,
+): ReportRow | null {
+  if (key === "") return null
+  const queue: ReportRow[] = [...roots]
+  for (let i = 0; i < queue.length; i++) {
+    const r = queue[i]
+    if (firstGroupingCellMatchesKey(r, key, colCount)) {
+      return r
+    }
+    if (r.children?.length) queue.push(...r.children)
+  }
+  return null
+}
+
+/**
+ * Rows to render under an expanded node. The API may return either:
+ * - a nested tree containing the expanded node, or
+ * - flat leaf rows for the next level.
+ * Never return a nested response root as the child rows; that duplicates the parent label.
+ */
+function leafRowsForLazyExpand(report: Report, pathKeys: string[]): ReportRow[] {
+  const colCount = report.columns.length
+  const path = pathKeys.map((k) => groupingRawForMatch(k)).filter((k) => k !== "")
+  if (path.length === 0) {
+    return report.rows
   }
 
-  /** No nested tree — assume the API returned flat leaves at the requested level. */
-  return report.rows
+  for (let skip = 0; skip < path.length; skip++) {
+    const suffix = path.slice(skip)
+    const node = nodeAtPath(report.rows, suffix, colCount)
+    if (node) {
+      return node.children ?? []
+    }
+  }
+
+  const lastKey = path[path.length - 1]
+  const node = nodeByKey(report.rows, lastKey, colCount)
+  if (node) {
+    return node.children ?? []
+  }
+
+  const isFlatLeafResponse = report.rows.every((row) => !row.children?.length)
+  return isFlatLeafResponse ? report.rows : []
+}
+
+function deepestRows(rows: ReportRow[]): ReportRow[] {
+  const result: ReportRow[] = []
+  rows.forEach((row) => {
+    if (row.children?.length) {
+      result.push(...deepestRows(row.children))
+      return
+    }
+    result.push(row)
+  })
+  return result
 }
 
 export function DrilldownTreePage() {
@@ -198,7 +306,7 @@ export function DrilldownTreePage() {
           paging: { start: nextOffset, length: CHILD_PAGE_SIZE },
         })
 
-        const leafRows = leafRowsForLazyExpand(childReport, parentKey)
+        const leafRows = leafRowsForLazyExpand(childReport, ancestorKeys)
         const childTreeRows = reportRowsToTreeRows(
           leafRows,
           childReport.columns.length,
@@ -236,11 +344,21 @@ export function DrilldownTreePage() {
         return
       }
 
-      if (row.loaded || row.children?.length) return
+      if (row.children?.length) {
+        setExpanded((prev) => {
+          const base: Record<string, boolean> =
+            prev === true || !prev ? {} : { ...(prev as Record<string, boolean>) }
+          base[row._id] = true
+          return base
+        })
+        return
+      }
+      if (row.loaded) return
       const plan = planGroupings
       if (plan.length === 0) return
+      if (isFinalTrackingFieldRow(row, lastRequest, plan)) return
       const nextDepth = row.depth + 1
-      if (nextDepth >= plan.length) return
+      if (row.depth >= plan.length) return
       const parentKey = row.groupIds?.[0]
       if (!parentKey) return
 
@@ -263,7 +381,10 @@ export function DrilldownTreePage() {
         paging: { start: 0, length: CHILD_PAGE_SIZE },
       })
 
-      const leafRows = leafRowsForLazyExpand(childReport, parentKey)
+      let leafRows = leafRowsForLazyExpand(childReport, [...row.ancestorKeys, parentKey])
+      if (leafRows.length === 0 && nextDepth >= plan.length) {
+        leafRows = deepestRows(childReport.rows)
+      }
       const newAncestorKeys = [...row.ancestorKeys, parentKey]
       const childTreeRows = reportRowsToTreeRows(
         leafRows,
@@ -312,12 +433,13 @@ export function DrilldownTreePage() {
     (row: TreeRowData) => {
       if (row._loadMore) return true
       if (planGroupings.length === 0) return false
-      if (row.depth + 1 >= planGroupings.length) return false
+      if (isFinalTrackingFieldRow(row, lastRequest, planGroupings)) return false
+      if (row.depth >= planGroupings.length) return false
       if (row.loaded) return false
       if (row.children?.length) return false
       return Boolean(row.groupIds?.[0])
     },
-    [planGroupings],
+    [lastRequest, planGroupings],
   )
 
   const columnDefs: ColumnDef<TreeRowData, unknown>[] = useMemo(() => {
