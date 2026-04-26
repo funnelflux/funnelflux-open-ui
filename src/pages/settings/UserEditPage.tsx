@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { Button, Input, Switch, Select, PageShell, useToastApi } from '@/components/ui-kit'
 import { PermissionsGrid } from '@/components/settings/PermissionsGrid'
 import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
+import { queryKeys } from '@/api/queryKeys'
 import type { Permissions } from '@/types/api'
 import type { ManagedUser, UserManagementData, UserProfile } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
@@ -46,6 +48,7 @@ function normalizePermissions(value: unknown): Permissions {
 export function UserEditPage() {
   const navigate = useNavigate()
   const toast = useToastApi()
+  const queryClient = useQueryClient()
   const { userId } = useParams()
   const isNew = !userId || userId === 'new'
   const { data: users } = useUsers()
@@ -115,6 +118,17 @@ export function UserEditPage() {
     return name || user.email
   }
 
+  async function loadUserRows(): Promise<ManagedUser[]> {
+    return queryClient.fetchQuery({
+      queryKey: queryKeys.userManagement.list(),
+      queryFn: async () => {
+        const data = await api.get<UserManagementData>('/ui/usermanagement/load/')
+        return data.rows ?? []
+      },
+      staleTime: 0,
+    })
+  }
+
   const handleCopyRights = async (sourceUserId: string) => {
     try {
       const permissions = await api.post('/ui/usermanagement/copyRights/', {
@@ -134,6 +148,10 @@ export function UserEditPage() {
   const handleSave = async () => {
     setIsSaving(true)
     try {
+      const baselineRows = !form.id && form.password
+        ? (users ?? await loadUserRows())
+        : (users ?? [])
+
       await api.put('/ui/userprofile/save/', {
         id: form.id,
         login: form.login,
@@ -146,14 +164,26 @@ export function UserEditPage() {
         permissions: form.permissions,
       })
 
+      await queryClient.invalidateQueries({ queryKey: queryKeys.userManagement.all })
+
       let savedUserId = form.id
-      if (!savedUserId) {
-        const refreshed = await api.get<UserManagementData>('/ui/usermanagement/load/')
-        const rows = refreshed.rows ?? []
-        const match =
-          rows.find((userRow) => form.email && userRow.email === form.email) ??
-          rows.find((userRow) => form.login && userRow.email === form.login)
-        savedUserId = match ? String(match.id) : ''
+      if (form.password && !savedUserId) {
+        const rows = await loadUserRows()
+        const previousIds = new Set(baselineRows.map((row) => String(row.id)))
+        const newRows = rows.filter((row) => !previousIds.has(String(row.id)))
+        const emailMatches = form.email
+          ? rows.filter((row) => row.email === form.email)
+          : []
+
+        savedUserId =
+          (newRows.length === 1 ? String(newRows[0]!.id) : '') ||
+          (emailMatches.length === 1 ? String(emailMatches[0]!.id) : '')
+
+        if (!savedUserId) {
+          throw new Error(
+            'User profile was saved, but the new user id could not be resolved for password setup.',
+          )
+        }
       }
 
       if (form.password && savedUserId) {

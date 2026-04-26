@@ -1,16 +1,17 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '@/api/client'
 import { toApiDateTimeRange } from '@/types/stats'
-import type { Report, ReportCell } from '@/types/stats'
+import type { DrilldownRequest, ReportCell } from '@/types/stats'
 import { buildMergedRows, buildTotalsRow } from '@/lib/entityGridUtils'
 import type { ListEntity, EntityGridRow } from '@/lib/entityGridUtils'
+import { api } from '@/api/client'
+import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
 
 export type { ListEntity, EntityGridRow }
 export { buildTotalsRow }
 
 interface UseEntityGridOptions {
-  entityKey: string
+  queryKeyPrefix: readonly unknown[]
   listEndpoint: string
   listParams?: Record<string, string>
   groupBy: string
@@ -23,14 +24,14 @@ interface UseEntityGridOptions {
 
 export function useEntityGrid(options: UseEntityGridOptions) {
   const {
-    entityKey, listEndpoint, listParams, groupBy,
+    queryKeyPrefix, listEndpoint, listParams, groupBy,
     dateFrom, dateTo, timezone, mapListToEntities, enabled = true,
   } = options
 
   const queryClient = useQueryClient()
 
   const listQuery = useQuery({
-    queryKey: [entityKey, 'list', listParams],
+    queryKey: [...queryKeyPrefix, 'entityGridList', listEndpoint, listParams],
     queryFn: async () => {
       const raw = await api.get<unknown>(listEndpoint, listParams)
       const arr = Array.isArray(raw) ? raw : []
@@ -40,15 +41,23 @@ export function useEntityGrid(options: UseEntityGridOptions) {
   })
 
   const statsQuery = useQuery({
-    queryKey: [entityKey, 'stats', groupBy, dateFrom.toISOString(), dateTo.toISOString(), timezone],
-    queryFn: () =>
-      api.post<Report>('/stats/reporting/drilldown/', {
+    queryKey: [
+      ...queryKeyPrefix,
+      'entityGridStats',
+      groupBy,
+      dateFrom.toISOString(),
+      dateTo.toISOString(),
+      timezone,
+    ],
+    queryFn: () => {
+      const request: DrilldownRequest = {
         timeRange: toApiDateTimeRange(dateFrom, dateTo),
         timeZone: { name: timezone },
         groupings: [{ groupBy, whitelistFilters: [], blacklistFilters: [] }],
-        paging: { start: 0, length: 5000 },
         options: { viewType: 'flat' },
-      }),
+      }
+      return fetchAllFlatDrilldownRows(request)
+    },
     enabled,
   })
 
@@ -87,8 +96,8 @@ export function useEntityGrid(options: UseEntityGridOptions) {
   )
 
   const refetch = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: [entityKey] })
-  }, [queryClient, entityKey])
+    queryClient.invalidateQueries({ queryKey: queryKeyPrefix })
+  }, [queryClient, queryKeyPrefix])
 
   return {
     entities,

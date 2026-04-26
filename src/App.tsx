@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { lazy, Suspense, useState, type ComponentType, type ReactNode } from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ConfigProvider, AntdApp } from "@/components/ui-kit"
@@ -10,13 +10,17 @@ import { useAuthStore } from "@/store/auth"
 import { AppLayout } from "@/components/layout/AppLayout"
 import { LoginPage } from "@/pages/LoginPage"
 import { useToastApi } from "@/components/ui-kit"
-import type { Permissions } from "@/types/api"
-import { lazy, Suspense } from "react"
+import type { UserProfile } from "@/types/api"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
+import {
+  canViewDashboard,
+  getDefaultAuthorizedPath,
+  isAdminUser,
+} from "@/lib/routeAccess"
 
 const lazyPage = (loader: () => Promise<Record<string, unknown>>, name: string) =>
   lazy(() => loader().then((m) => {
-    const component = m[name] as React.ComponentType
+    const component = m[name] as ComponentType
     if (!component) throw new Error(`Module does not export "${name}"`)
     return { default: component }
   }))
@@ -62,18 +66,35 @@ function PermissionGuard({
   check,
   children,
 }: {
-  check: (p: Permissions) => boolean
-  children: React.ReactNode
+  check: (user: UserProfile) => boolean
+  children: ReactNode
 }) {
-  const permissions = useAuthStore((s) => s.user?.permissions)
-  if (!permissions || !check(permissions)) {
-    return <Navigate to="/" replace />
+  const user = useAuthStore((s) => s.user)
+  if (!user || !check(user)) {
+    return <Navigate to={getDefaultAuthorizedPath(user)} replace />
   }
   return <>{children}</>
 }
 
-function guarded(check: (p: Permissions) => boolean, element: React.ReactNode) {
+function guarded(
+  check: (user: UserProfile) => boolean,
+  element: ReactNode,
+) {
   return <PermissionGuard check={check}>{element}</PermissionGuard>
+}
+
+function IndexRoute() {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return null
+  if (canViewDashboard(user.permissions)) {
+    return <DashboardPage />
+  }
+  return <Navigate to={getDefaultAuthorizedPath(user)} replace />
+}
+
+function FallbackRoute() {
+  const user = useAuthStore((s) => s.user)
+  return <Navigate to={getDefaultAuthorizedPath(user)} replace />
 }
 
 function NotificationPoller() {
@@ -82,7 +103,7 @@ function NotificationPoller() {
   return null
 }
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AuthGate({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading, error } = useAuth()
 
   if (isLoading) {
@@ -121,102 +142,117 @@ function AppRoutes() {
     <Routes>
       <Route element={<AppLayout />}>
         {/* Dashboard */}
-        <Route index element={<DashboardPage />} />
+        <Route index element={<IndexRoute />} />
 
         {/* Campaigns */}
         <Route
           path="campaigns"
-          element={guarded((p) => p.campaigns.canView, <CampaignsPage />)}
+          element={guarded((u) => u.permissions.campaigns.canView, <CampaignsPage />)}
         />
 
         {/* Funnel Editor */}
         <Route
           path="campaigns/:campaignId/funnels/:funnelId"
-          element={guarded((p) => p.campaigns.canEdit, <FunnelEditorPage />)}
+          element={guarded((u) => u.permissions.campaigns.canEdit, <FunnelEditorPage />)}
         />
 
         <Route
           path="funnel-builder/:id"
-          element={guarded((p) => p.campaigns.canEdit, <FunnelBuilderLegacyRedirect />)}
+          element={guarded((u) => u.permissions.campaigns.canEdit, <FunnelBuilderLegacyRedirect />)}
         />
 
         {/* Reports */}
         <Route
           path="reports/tree"
-          element={guarded((p) => p.stats.canView, <DrilldownTreePage />)}
+          element={guarded((u) => u.permissions.stats.canView, <DrilldownTreePage />)}
         />
         <Route
           path="reports/flat"
-          element={guarded((p) => p.stats.canView, <DrilldownFlatPage />)}
+          element={guarded((u) => u.permissions.stats.canView, <DrilldownFlatPage />)}
         />
         <Route
           path="quickview"
-          element={guarded((p) => p.stats.canView, <QuickViewPage />)}
+          element={guarded((u) => u.permissions.stats.canView, <QuickViewPage />)}
         />
 
         {/* Entity pages */}
         <Route
           path="traffic-sources"
-          element={guarded((p) => p.trafficSources.canView, <TrafficSourcesPage />)}
+          element={guarded((u) => u.permissions.trafficSources.canView, <TrafficSourcesPage />)}
         />
         <Route
           path="offer-sources"
-          element={guarded((p) => p.offerSources.canView, <OfferSourcesPage />)}
+          element={guarded((u) => u.permissions.offerSources.canView, <OfferSourcesPage />)}
         />
         <Route
           path="offers"
-          element={guarded((p) => p.offers.canView, <OffersPage />)}
+          element={guarded((u) => u.permissions.offers.canView, <OffersPage />)}
         />
         <Route
           path="landers"
-          element={guarded((p) => p.landers.canView, <LandersPage />)}
+          element={guarded((u) => u.permissions.landers.canView, <LandersPage />)}
         />
 
         {/* Links */}
         <Route
           path="links/generate"
-          element={guarded((p) => p.systemLinks.canView, <SystemLinksPage />)}
+          element={guarded((u) => u.permissions.systemLinks.canView, <SystemLinksPage />)}
         />
         <Route
           path="links/stored"
-          element={guarded((p) => p.storedLinks.canView, <StoredLinksPage />)}
+          element={guarded((u) => u.permissions.storedLinks.canView, <StoredLinksPage />)}
         />
 
         {/* Settings */}
-        <Route path="settings/system" element={<SystemSettingsPage />} />
+        <Route
+          path="settings/system"
+          element={guarded((u) => isAdminUser(u), <SystemSettingsPage />)}
+        />
         <Route
           path="settings/traffic-filters"
           element={guarded(
-            (p) => p.trafficFilters.canView,
+            (u) => u.permissions.trafficFilters.canView,
             <TrafficFiltersPage />,
           )}
         />
         <Route path="settings/tags" element={<TagsPage />} />
         <Route path="settings/conditions" element={<GlobalConditionsPage />} />
-        <Route path="settings/access-log" element={<AccessLogPage />} />
-        <Route path="settings/users" element={<UserManagementPage />} />
-        <Route path="settings/users/new" element={<UserEditPage />} />
-        <Route path="settings/users/:userId/edit" element={<UserEditPage />} />
+        <Route
+          path="settings/access-log"
+          element={guarded((u) => isAdminUser(u), <AccessLogPage />)}
+        />
+        <Route
+          path="settings/users"
+          element={guarded((u) => isAdminUser(u), <UserManagementPage />)}
+        />
+        <Route
+          path="settings/users/new"
+          element={guarded((u) => isAdminUser(u), <UserEditPage />)}
+        />
+        <Route
+          path="settings/users/:userId/edit"
+          element={guarded((u) => isAdminUser(u), <UserEditPage />)}
+        />
 
         {/* Data Updates */}
         <Route
           path="data-updates/conversions"
           element={guarded(
-            (p) => p.dataUpdates.canUpdateConversions,
+            (u) => u.permissions.dataUpdates.canUpdateConversions,
             <ConversionsPage />,
           )}
         />
         <Route
           path="data-updates/costs"
           element={guarded(
-            (p) => p.dataUpdates.canUpdateTrafficCost,
+            (u) => u.permissions.dataUpdates.canUpdateTrafficCost,
             <CostUpdatePage />,
           )}
         />
         <Route
           path="data-updates/reset"
           element={guarded(
-            (p) => p.dataUpdates.canResetStats,
+            (u) => u.permissions.dataUpdates.canResetStats,
             <ResetStatsPage />,
           )}
         />
@@ -225,7 +261,7 @@ function AppRoutes() {
         <Route path="inbox" element={<InboxPage />} />
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<FallbackRoute />} />
       </Route>
     </Routes>
   )

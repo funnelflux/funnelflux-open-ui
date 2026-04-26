@@ -42,7 +42,6 @@ export function useSaveOfferSource() {
         : api.put<OfferSource>('/data/offersource/save/', offerSource),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
-      queryClient.invalidateQueries({ queryKey: ['offer-sources'] })
     },
   })
 }
@@ -53,7 +52,6 @@ export function useDeleteOfferSource() {
     mutationFn: (id: string) => api.delete('/data/offersource/delete/', { idOfferSource: id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
-      queryClient.invalidateQueries({ queryKey: ['offer-sources'] })
     },
   })
 }
@@ -65,7 +63,6 @@ export function useArchiveOfferSource() {
       api.put('/data/offersource/archive/', { ids, archive }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
-      queryClient.invalidateQueries({ queryKey: ['offer-sources'] })
     },
   })
 }
@@ -77,7 +74,6 @@ export function useCloneOfferSource() {
       api.post('/data/offersource/clone/', undefined, { idOfferSource: id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
-      queryClient.invalidateQueries({ queryKey: ['offer-sources'] })
     },
   })
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { subDays } from "date-fns"
 import { RefreshCw, Timer } from "lucide-react"
-import { api } from "@/api/client"
+import { fetchAllFlatDrilldownRows } from "@/api/drilldown"
 import { useDashboardStore } from "@/store/dashboard"
 import { StatsCards, type DashboardSummaryStats } from "@/components/dashboard/StatsCards"
 import { DashboardChart } from "@/components/dashboard/DashboardChart"
@@ -166,12 +166,10 @@ export function DashboardPage() {
 
     let cancelled = false
 
-    api
-      .post<Report>("/stats/reporting/drilldown/", {
+    fetchAllFlatDrilldownRows({
         timeRange: tr,
         timeZone,
         groupings: [{ groupBy: "Time: Date", whitelistFilters: [], blacklistFilters: [] }],
-        paging: { start: 0, length: 9999 },
         options: { viewType: "flat" },
       })
       .then((report) => {

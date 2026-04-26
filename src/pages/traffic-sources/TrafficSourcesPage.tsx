@@ -38,6 +38,7 @@ import {
 import { buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
 import { trafficSourceListToListEntities } from '@/lib/entityGridUtils'
 import { useEntityPage } from '@/hooks/useEntityPage'
+import { queryKeys } from '@/api/queryKeys'
 import { TrafficSourceForm } from '@/components/forms/TrafficSourceForm'
 import { api } from '@/api/client'
 import type { TrafficSource } from '@/types/entities'
@@ -89,7 +90,7 @@ export function TrafficSourcesPage() {
     deleteId, setDeleteId, dateRange, setDateRange,
     tz, setTz, handleCreate, handleEdit,
   } = useEntityPage({
-    entityKey: 'traffic-sources',
+    queryKeyPrefix: queryKeys.trafficSources.all,
     listEndpoint: '/data/trafficsource/list/',
     groupBy: 'Third Parties: Traffic Source',
     archiveListFilter: 'trafficsource',

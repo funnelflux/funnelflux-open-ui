@@ -7,7 +7,7 @@ import type { ListEntity, EntityGridRow } from '@/lib/entityGridUtils'
 import type { ArchiveStatus } from '@/components/shared/ArchiveToggle'
 
 interface UseEntityPageOptions {
-  entityKey: string
+  queryKeyPrefix: readonly unknown[]
   listEndpoint: string
   /** Base query params (always sent, e.g. pageType for pages). */
   listParams?: Record<string, string>
@@ -25,7 +25,7 @@ export function useEntityPage(options: UseEntityPageOptions) {
   const {
     archiveListFilter,
     listParams: staticListParams,
-    entityKey,
+    queryKeyPrefix,
     listEndpoint,
     groupBy,
     mapListToEntities,
@@ -59,7 +59,7 @@ export function useEntityPage(options: UseEntityPageOptions) {
   }, [staticListParams, archiveListFilter, archiveStatus])
 
   const grid = useEntityGrid({
-    entityKey,
+    queryKeyPrefix,
     listEndpoint,
     groupBy,
     mapListToEntities,

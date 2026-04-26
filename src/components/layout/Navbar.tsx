@@ -19,6 +19,7 @@ import {
   Inbox,
 } from "lucide-react"
 import { useThemeStore } from "@/store/theme"
+import { canViewDashboard, isAdminUser } from "@/lib/routeAccess"
 
 /** Menu `<Link>` labels inherit Ant menu item text color (avoids default blue anchors). */
 const menuLinkClass = "cursor-pointer no-underline text-inherit"
@@ -31,7 +32,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: "Dashboard", to: "/", check: (p) => p.stats.canView },
+  { label: "Dashboard", to: "/", check: canViewDashboard },
   { label: "Campaigns", to: "/campaigns", check: (p) => p.campaigns.canView },
   {
     label: "Sources",
@@ -172,7 +173,7 @@ function DesktopNav({ permissions, pathname }: { permissions: Permissions; pathn
 }
 
 function SettingsDropdown({ permissions }: { permissions: Permissions }) {
-  const isAdmin = useAuthStore((s) => s.user?.isAdmin)
+  const isAdmin = useAuthStore((s) => isAdminUser(s.user))
 
   const items: MenuProps["items"] = [
     ...(isAdmin

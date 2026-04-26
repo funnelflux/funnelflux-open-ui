@@ -34,6 +34,7 @@ import {
 import { buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
 import { offerSourcesToListEntities } from '@/lib/entityGridUtils'
 import { useEntityPage } from '@/hooks/useEntityPage'
+import { queryKeys } from '@/api/queryKeys'
 import { OfferSourceForm } from '@/components/forms/OfferSourceForm'
 import type { OfferSource } from '@/types/entities'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
@@ -58,7 +59,7 @@ export function OfferSourcesPage() {
     deleteId, setDeleteId, dateRange, setDateRange,
     tz, setTz, handleCreate, handleEdit,
   } = useEntityPage({
-    entityKey: 'offer-sources',
+    queryKeyPrefix: queryKeys.offerSources.all,
     listEndpoint: '/data/offersource/find/byStatus/',
     groupBy: 'Third Parties: Offer Source',
     archiveListFilter: 'status',

@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, ExpandedState, Table, VisibilityState } from '@tanstack/react-table'
-import { Button } from '@/components/ui-kit'
+import { Alert, Button } from '@/components/ui-kit'
 import {
   PageShell,
   SearchToolbar,
@@ -46,8 +47,10 @@ import {
   type CampaignTreeRow,
 } from './campaignTreeUtils'
 import { api } from '@/api/client'
+import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
+import { queryKeys } from '@/api/queryKeys'
 import { toApiDateTimeRange } from '@/types/stats'
-import type { Report, ReportCell } from '@/types/stats'
+import type { DrilldownRequest, ReportCell } from '@/types/stats'
 import type { CampaignFormData } from '@/schemas/campaign'
 import { getErrorMessage, selectedRowIds } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
@@ -109,10 +112,6 @@ export function CampaignsPage() {
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [expanded, setExpanded] = useState<ExpandedState>({})
-  const [treeData, setTreeData] = useState<CampaignTreeRow[]>([])
-  const [columns, setColumns] = useState<{ name: string; type: string }[]>([])
-  const [totalsCells, setTotalsCells] = useState<ReportCell[] | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
 
   const tableConfig = useTableConfigStore(selectTableConfig(TABLE_KEY))
   const setColumnSizing = useTableConfigStore((s) => s.setColumnSizing)
@@ -126,37 +125,52 @@ export function CampaignsPage() {
   const deleteFunnel = useDeleteFunnel()
   const cloneFunnel = useCloneFunnel()
 
-  const fetchData = useCallback(() => {
-    setIsLoading(true)
-    const drilldownBody = {
+  const loadCampaignData = useCallback(async () => {
+    const drilldownBody: DrilldownRequest = {
       timeRange: toApiDateTimeRange(dateRange.from, dateRange.to),
       timeZone: { name: tz },
       groupings: [
         { groupBy: 'Element: Funnel', whitelistFilters: [], blacklistFilters: [] },
       ],
-      paging: { start: 0, length: 5000 },
       options: { viewType: 'flat' as const },
     }
-    Promise.all([
+
+    const [hierarchy, report] = await Promise.all([
       api.get<CampaignHierarchyResponse>('/ui/campaigns/hierarchy/'),
-      api.post<Report>('/stats/reporting/drilldown/', drilldownBody),
+      fetchAllFlatDrilldownRows(drilldownBody),
     ])
-      .then(([hierarchy, report]) => {
-        setColumns(report.columns ?? [])
-        setTreeData(buildCampaignTreeFromMysqlAndFlatFunnelReport(hierarchy.campaigns ?? [], report))
-        setTotalsCells(report.totals?.cells ?? null)
-        setIsLoading(false)
-      })
-      .catch(() => {
-        setTreeData([])
-        setTotalsCells(null)
-        setIsLoading(false)
-      })
+
+    return {
+      columns: report.columns ?? [],
+      treeData: buildCampaignTreeFromMysqlAndFlatFunnelReport(
+        hierarchy.campaigns ?? [],
+        report,
+      ),
+      totalsCells: report.totals?.cells ?? null,
+    }
   }, [dateRange, tz])
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const {
+    data: campaignData,
+    isLoading,
+    isFetching,
+    error,
+    refetch: reload,
+  } = useQuery({
+    queryKey: [
+      ...queryKeys.campaigns.all,
+      'hierarchy-report',
+      dateRange.from.toISOString(),
+      dateRange.to.toISOString(),
+      tz,
+    ],
+    queryFn: loadCampaignData,
+  })
+
+  const treeData = campaignData?.treeData ?? []
+  const columns = campaignData?.columns ?? []
+  const totalsCells = campaignData?.totalsCells ?? null
+  const campaignLoadError = error ? getErrorMessage(error) : null
 
   const filtered = useMemo(() => {
     if (!search) return treeData
@@ -201,7 +215,7 @@ export function CampaignsPage() {
         toast.success(isNew ? 'Campaign created' : 'Campaign updated')
         setSheetOpen(false)
         setEditId(null)
-        fetchData()
+        void reload()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
@@ -209,22 +223,22 @@ export function CampaignsPage() {
 
   const handleCloneCampaign = useCallback((id: string) => {
     cloneMutation.mutate(id, {
-      onSuccess: () => { toast.success('Campaign cloned'); fetchData() },
+      onSuccess: () => { toast.success('Campaign cloned'); void reload() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }, [cloneMutation, fetchData, toast])
+  }, [cloneMutation, reload, toast])
 
   const handleDelete = () => {
     if (!deleteTarget) return
     if (deleteTarget.kind === 'campaign') {
       deleteMutation.mutate(deleteTarget.id, {
-        onSuccess: () => { toast.success('Deleted'); setDeleteTarget(null); fetchData() },
+        onSuccess: () => { toast.success('Deleted'); setDeleteTarget(null); void reload() },
         onError: (err) => toast.error(getErrorMessage(err)),
       })
       return
     }
     deleteFunnel.mutate(deleteTarget.id, {
-      onSuccess: () => { toast.success('Deleted'); setDeleteTarget(null); fetchData() },
+      onSuccess: () => { toast.success('Deleted'); setDeleteTarget(null); void reload() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
@@ -241,7 +255,7 @@ export function CampaignsPage() {
         isArchived: false,
       })
       toast.success('Campaign created')
-      fetchData()
+      void reload()
       return idCampaign
     } catch (err) {
       toast.error(getErrorMessage(err))
@@ -275,7 +289,7 @@ export function CampaignsPage() {
         onSuccess: () => {
           toast.success('Funnel created')
           setAddCombinedOpen(false)
-          fetchData()
+          void reload()
           if (openEditor) {
             navigate(`/campaigns/${campaignId}/funnels/${idFunnel}`)
           }
@@ -287,10 +301,10 @@ export function CampaignsPage() {
 
   const handleCloneFunnel = useCallback((funnelId: string) => {
     cloneFunnel.mutate(funnelId, {
-      onSuccess: () => { toast.success('Funnel cloned'); fetchData() },
+      onSuccess: () => { toast.success('Funnel cloned'); void reload() },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }, [cloneFunnel, fetchData, toast])
+  }, [cloneFunnel, reload, toast])
 
   const openMoveFunnelModal = useCallback((row: CampaignTreeRow) => {
     if (row.kind !== 'funnel' || !row.funnelId) return
@@ -343,8 +357,8 @@ export function CampaignsPage() {
     }
     toast.success(archived === 1 ? 'Funnel archived' : `${archived} funnels archived`)
     setRowSelection({})
-    fetchData()
-  }, [selectedIds, treeData, toast, fetchData])
+    void reload()
+  }, [selectedIds, treeData, toast, reload])
 
   const handleBulkDeleteSelection = useCallback(async () => {
     for (const id of selectedIds) {
@@ -357,8 +371,8 @@ export function CampaignsPage() {
     }
     toast.success('Selected items deleted')
     setRowSelection({})
-    fetchData()
-  }, [selectedIds, treeData, deleteMutation, deleteFunnel, toast, fetchData])
+    void reload()
+  }, [selectedIds, treeData, deleteMutation, deleteFunnel, toast, reload])
 
   const handleCampaignDateRangeChange = useCallback((v: DateRange & { preset: string | null }) => {
     if (v.from && v.to) setDateRange({ from: v.from, to: v.to })
@@ -439,12 +453,22 @@ export function CampaignsPage() {
       }
       fillHeight
     >
+      {campaignLoadError ? (
+        <Alert
+          type="error"
+          showIcon
+          message="Campaign data failed to load"
+          description={campaignLoadError}
+          className="mb-3"
+        />
+      ) : null}
+
       <SearchToolbar
         value={search}
         onChange={setSearch}
         placeholder="Search campaigns..."
-        onRefresh={fetchData}
-        refreshLoading={isLoading}
+        onRefresh={() => void reload()}
+        refreshLoading={isFetching}
         trailing={
           <>
             <DateRangePicker
@@ -506,7 +530,7 @@ export function CampaignsPage() {
         open={!!moveFunnelTarget}
         target={moveFunnelTarget}
         onClose={handleCloseMoveFunnelModal}
-        onMoved={fetchData}
+        onMoved={() => void reload()}
       />
 
       <CampaignEditForm

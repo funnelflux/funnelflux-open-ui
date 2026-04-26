@@ -56,6 +56,7 @@ import {
 } from '@/lib/categoryStripSelection'
 import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
+import { queryKeys } from '@/api/queryKeys'
 
 const PAGE_CATEGORY_ENTITY = 'page' as const
 
@@ -112,7 +113,7 @@ export function LandersPage() {
     isFetching,
     refetch: reload,
   } = useEntityGrid({
-    entityKey: 'landers',
+    queryKeyPrefix: queryKeys.pages.all,
     listEndpoint: '/data/page/find/byStatus/',
     listParams: landerListParams,
     groupBy: 'Element: Lander',
