@@ -1,5 +1,6 @@
 import type { ReportCell, ReportColumn } from '@/types/stats'
 import type { OfferSource, Page } from '@/types/entities'
+import { getColumnMeta, resolveApiColumnId } from '@/components/ui-kit/data-table'
 
 export interface ListEntity {
   id: string
@@ -14,12 +15,56 @@ export interface EntityGridRow {
   [key: string]: unknown
 }
 
+function zeroFormattedLike(sample: string): string | null {
+  const trimmed = sample.trim()
+  if (!trimmed || trimmed === '—') return null
+
+  const numericMatch = trimmed.match(/^([^0-9+\-.,]*)([+\-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)([^0-9.,]*)$/)
+  if (!numericMatch) return null
+
+  const [, prefix = '', numericPart = '', suffix = ''] = numericMatch
+  const fractionDigits = numericPart.includes('.') ? numericPart.split('.')[1]?.length ?? 0 : 0
+  return `${prefix}${(0).toFixed(fractionDigits)}${suffix}`
+}
+
+function zeroFormattedFromColumn(column: ReportColumn): string {
+  const sampleColumnId = resolveApiColumnId(column.name)
+  const meta = sampleColumnId ? getColumnMeta(sampleColumnId) : undefined
+  if (meta?.fractionDigits !== undefined) {
+    const value = (0).toFixed(meta.fractionDigits)
+    if (meta.symbol === '$') return `$${value}`
+    if (meta.symbol === '%') return `${value}%`
+    return value
+  }
+  return '0'
+}
+
+function buildZeroFormats(
+  statsById: Record<string, ReportCell[]>,
+  reportColumns: ReportColumn[],
+): string[] {
+  const statsRows = Object.values(statsById)
+  return reportColumns.map((column, index) => {
+    if (index === 0 || column.type === 'grouping') return ''
+
+    for (const cells of statsRows) {
+      const formatted = cells[index]?.formatted
+      if (!formatted) continue
+      const zero = zeroFormattedLike(formatted)
+      if (zero != null) return zero
+    }
+
+    return zeroFormattedFromColumn(column)
+  })
+}
+
 export function buildMergedRows(
   entities: ListEntity[],
   statsById: Record<string, ReportCell[]>,
   reportColumns: ReportColumn[],
 ): EntityGridRow[] {
   const colCount = reportColumns.length
+  const zeroFormats = buildZeroFormats(statsById, reportColumns)
   return entities.map((entity) => {
     const stats = statsById[entity.id]
     if (stats) {
@@ -27,7 +72,7 @@ export function buildMergedRows(
     }
     const cells: ReportCell[] = [{ raw: entity.id, formatted: entity.name }]
     for (let i = 1; i < colCount; i++) {
-      cells.push({ raw: 0, formatted: '0' })
+      cells.push({ raw: 0, formatted: zeroFormats[i] ?? '0' })
     }
     return { ...entity, cells }
   })

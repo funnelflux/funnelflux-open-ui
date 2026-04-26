@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useRef, useState, useEffect } from 'react'
-import { type ColumnDef, type Table, type PaginationState, type Updater, type RowSelectionState } from '@tanstack/react-table'
+import { type ColumnDef, type Table, type PaginationState, type Updater, type RowSelectionState, type SortingState } from '@tanstack/react-table'
 import { Button, Modal, Input } from '@/components/ui-kit'
 import {
   ConfirmModal,
@@ -55,6 +55,8 @@ import {
 } from '@/lib/categoryStripSelection'
 import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
+import { sortEntityGridRows } from '@/lib/entityGridSorting'
+import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
 
 type TrafficSourceGridRow = EntityGridRow & {
   _isCategoryHeader?: boolean
@@ -76,6 +78,8 @@ export function TrafficSourcesPage() {
   const tableRef = useRef<Table<TrafficSourceGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<TrafficSourceGridRow> | null>(null)
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
+  const tableConfig = useTableConfigStore(selectTableConfig('traffic-sources'))
+  const setSorting = useTableConfigStore((s) => s.setSorting)
   const [categoryRename, setCategoryRename] = useState<{ idCategory: string; name: string } | null>(null)
   const [categoryRenameDraft, setCategoryRenameDraft] = useState('')
   const [categoryDeleteId, setCategoryDeleteId] = useState<string | null>(null)
@@ -105,9 +109,15 @@ export function TrafficSourcesPage() {
     return map
   }, [categories])
 
+  const effectiveSorting = tableConfig.sorting.length > 0 ? tableConfig.sorting : DEFAULT_TABLE_SORTING
+  const sortedListFiltered = useMemo(
+    () => sortEntityGridRows(listFiltered as TrafficSourceGridRow[], reportColumns, effectiveSorting),
+    [listFiltered, reportColumns, effectiveSorting],
+  )
+
   const segments = useMemo(
-    () => buildCategorySegmentsFromRows(listFiltered as TrafficSourceGridRow[], categoryMap),
-    [listFiltered, categoryMap],
+    () => buildCategorySegmentsFromRows(sortedListFiltered, categoryMap),
+    [sortedListFiltered, categoryMap],
   )
 
   const totalDataCount = useMemo(
@@ -144,6 +154,11 @@ export function TrafficSourcesPage() {
     },
     [listFiltered, setRowSelection],
   )
+
+  const handleSortingChange = useCallback((sorting: SortingState) => {
+    setSorting('traffic-sources', sorting)
+    setPagination((p) => ({ ...p, pageIndex: 0 }))
+  }, [setSorting])
 
   const entityIdsForBulk = useMemo(() => entityRowIdsFromSelection(selectedIds), [selectedIds])
 
@@ -465,6 +480,9 @@ export function TrafficSourcesPage() {
         onTableInstance={setTableForChooser}
         emptyMessage={search || selectedCategoryId ? 'No traffic sources match your filters.' : 'No traffic sources found.'}
         manualPagination
+        manualSorting
+        sorting={effectiveSorting}
+        onSortingChange={handleSortingChange}
         pageCount={pageSlice.pageCount}
         manualPaginationTotalRows={totalDataCount}
         pagination={pagination}

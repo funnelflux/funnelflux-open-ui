@@ -21,6 +21,42 @@ describe('buildMergedRows', () => {
     expect(rows[0].cells[0]).toEqual({ raw: '2', formatted: 'No Stats' })
     expect(rows[0].cells[1]).toEqual({ raw: 0, formatted: '0' })
   })
+
+  it('formats empty metric cells using existing report formatting samples', () => {
+    const entities = [
+      { id: '1', name: 'With Stats' },
+      { id: '2', name: 'No Stats' },
+    ]
+    const statsById = {
+      '1': [
+        { raw: '1', formatted: 'With Stats' },
+        { raw: 4.2, formatted: '4.20%' },
+        { raw: 12.3, formatted: '12.30' },
+      ],
+    }
+    const columns: ReportColumn[] = [
+      { name: 'Name', type: 'grouping' },
+      { name: 'ROI', type: 'metric' },
+      { name: 'Revenue', type: 'metric' },
+    ]
+
+    const rows = buildMergedRows(entities, statsById, columns)
+
+    expect(rows[1].cells[1]).toEqual({ raw: 0, formatted: '0.00%' })
+    expect(rows[1].cells[2]).toEqual({ raw: 0, formatted: '0.00' })
+  })
+
+  it('falls back to column metadata when no stats rows have samples', () => {
+    const entities = [{ id: '2', name: 'No Stats' }]
+    const columns: ReportColumn[] = [
+      { name: 'Name', type: 'grouping' },
+      { name: 'ROI', type: 'metric' },
+    ]
+
+    const rows = buildMergedRows(entities, {}, columns)
+
+    expect(rows[0].cells[1]).toEqual({ raw: 0, formatted: '0.00%' })
+  })
 })
 
 describe('buildTotalsRow', () => {

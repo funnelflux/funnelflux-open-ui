@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { subDays } from 'date-fns'
-import type { ColumnDef, RowSelectionState, Table, PaginationState, Updater } from '@tanstack/react-table'
+import type { ColumnDef, RowSelectionState, Table, PaginationState, Updater, SortingState } from '@tanstack/react-table'
 import { Upload } from 'lucide-react'
 import { Button, Modal, Input } from '@/components/ui-kit'
 import {
@@ -56,7 +56,9 @@ import {
 } from '@/lib/categoryStripSelection'
 import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
+import { sortEntityGridRows } from '@/lib/entityGridSorting'
 import { queryKeys } from '@/api/queryKeys'
+import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
 
 const PAGE_CATEGORY_ENTITY = 'page' as const
 
@@ -74,6 +76,8 @@ export function OffersPage() {
   const tableRef = useRef<Table<OfferGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<OfferGridRow> | null>(null)
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
+  const tableConfig = useTableConfigStore(selectTableConfig('offers'))
+  const setSorting = useTableConfigStore((s) => s.setSorting)
   const [categoryRename, setCategoryRename] = useState<{ idCategory: string; name: string } | null>(null)
   const [categoryRenameDraft, setCategoryRenameDraft] = useState('')
   const [categoryDeleteId, setCategoryDeleteId] = useState<string | null>(null)
@@ -138,9 +142,15 @@ export function OffersPage() {
     })
   }, [mergedRows, search, selectedCategoryId])
 
+  const effectiveSorting = tableConfig.sorting.length > 0 ? tableConfig.sorting : DEFAULT_TABLE_SORTING
+  const sortedListFiltered = useMemo(
+    () => sortEntityGridRows(listFiltered as OfferGridRow[], reportColumns, effectiveSorting),
+    [listFiltered, reportColumns, effectiveSorting],
+  )
+
   const segments = useMemo(
-    () => buildCategorySegmentsFromRows(listFiltered as OfferGridRow[], categoryMap),
-    [listFiltered, categoryMap],
+    () => buildCategorySegmentsFromRows(sortedListFiltered, categoryMap),
+    [sortedListFiltered, categoryMap],
   )
 
   const totalDataCount = useMemo(
@@ -190,6 +200,11 @@ export function OffersPage() {
     },
     [listFiltered],
   )
+
+  const handleSortingChange = useCallback((sorting: SortingState) => {
+    setSorting('offers', sorting)
+    setPagination((p) => ({ ...p, pageIndex: 0 }))
+  }, [setSorting])
 
   const entityIdsForBulk = useMemo(() => entityRowIdsFromSelection(selectedIds), [selectedIds])
 
@@ -517,6 +532,9 @@ export function OffersPage() {
         onTableInstance={setTableForChooser}
         emptyMessage={search || selectedCategoryId ? 'No offers match your filters.' : 'No offers found.'}
         manualPagination
+        manualSorting
+        sorting={effectiveSorting}
+        onSortingChange={handleSortingChange}
         pageCount={pageSlice.pageCount}
         manualPaginationTotalRows={totalDataCount}
         pagination={pagination}

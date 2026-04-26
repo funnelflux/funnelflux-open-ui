@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { subDays } from 'date-fns'
-import type { ColumnDef, RowSelectionState, Table, PaginationState, Updater } from '@tanstack/react-table'
+import type { ColumnDef, RowSelectionState, Table, PaginationState, Updater, SortingState } from '@tanstack/react-table'
 import { Upload } from 'lucide-react'
 import { Button, Modal, Input } from '@/components/ui-kit'
 import {
@@ -56,7 +56,9 @@ import {
 } from '@/lib/categoryStripSelection'
 import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
+import { sortEntityGridRows } from '@/lib/entityGridSorting'
 import { queryKeys } from '@/api/queryKeys'
+import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
 
 const PAGE_CATEGORY_ENTITY = 'page' as const
 
@@ -74,6 +76,8 @@ export function LandersPage() {
   const tableRef = useRef<Table<LanderGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<LanderGridRow> | null>(null)
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
+  const tableConfig = useTableConfigStore(selectTableConfig('landers'))
+  const setSorting = useTableConfigStore((s) => s.setSorting)
   const [categoryRename, setCategoryRename] = useState<{ idCategory: string; name: string } | null>(null)
   const [categoryRenameDraft, setCategoryRenameDraft] = useState('')
   const [categoryDeleteId, setCategoryDeleteId] = useState<string | null>(null)
@@ -138,9 +142,15 @@ export function LandersPage() {
     })
   }, [mergedRows, search, selectedCategoryId])
 
+  const effectiveSorting = tableConfig.sorting.length > 0 ? tableConfig.sorting : DEFAULT_TABLE_SORTING
+  const sortedListFiltered = useMemo(
+    () => sortEntityGridRows(listFiltered as LanderGridRow[], reportColumns, effectiveSorting),
+    [listFiltered, reportColumns, effectiveSorting],
+  )
+
   const segments = useMemo(
-    () => buildCategorySegmentsFromRows(listFiltered as LanderGridRow[], categoryMap),
-    [listFiltered, categoryMap],
+    () => buildCategorySegmentsFromRows(sortedListFiltered, categoryMap),
+    [sortedListFiltered, categoryMap],
   )
 
   const totalDataCount = useMemo(
@@ -190,6 +200,11 @@ export function LandersPage() {
     },
     [listFiltered],
   )
+
+  const handleSortingChange = useCallback((sorting: SortingState) => {
+    setSorting('landers', sorting)
+    setPagination((p) => ({ ...p, pageIndex: 0 }))
+  }, [setSorting])
 
   const entityIdsForBulk = useMemo(() => entityRowIdsFromSelection(selectedIds), [selectedIds])
 
@@ -513,6 +528,9 @@ export function LandersPage() {
         onTableInstance={setTableForChooser}
         emptyMessage={search || selectedCategoryId ? 'No landers match your filters.' : 'No landers found.'}
         manualPagination
+        manualSorting
+        sorting={effectiveSorting}
+        onSortingChange={handleSortingChange}
         pageCount={pageSlice.pageCount}
         manualPaginationTotalRows={totalDataCount}
         pagination={pagination}
