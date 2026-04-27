@@ -26,6 +26,7 @@ export interface ResetHits {
   restrictToFunnelId?: string | null;
   restrictToTrafficSourceId?: string | null;
   restrictToVisitorId?: string | null;
+  restrictToTrackingFields?: Record<string, unknown>;
 }
 
 export interface ConvertedHit {
@@ -87,6 +88,7 @@ export interface RequestOptions {
   computeCVRConfidenceRate?: boolean;
   computeEPVConfidenceRate?: boolean;
   confidenceRateIncludeAll?: boolean;
+  timeAttribution?: 'entrance' | 'event';
   idCampaignFilter?: string | null;
   idFunnelFilter?: string | null;
   idTrafficSourceFilter?: string | null;

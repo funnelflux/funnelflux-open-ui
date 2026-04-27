@@ -942,6 +942,13 @@ definitions:
         description: If true, then the calculated confidence rates also take rows with 0 successes into account.
         type: boolean
         default: false
+      timeAttribution:
+        description: Selects whether the report time range is applied to entrance time or event time.
+        type: string
+        enum:
+          - entrance
+          - event
+        default: entrance
       idCampaignFilter:
         type: string
         default: null

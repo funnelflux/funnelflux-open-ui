@@ -54,7 +54,7 @@ export function DrilldownFlatPage() {
       const sortParam = drilldownSortParamFromReport(sorting, report?.columns)
       const paginatedRequest: DrilldownRequest = {
         ...request,
-        options: { viewType: "flat" },
+        options: { ...(request.options ?? {}), viewType: "flat" },
         paging: { start: 0, length: pageSize },
         sorting: sortParam,
       }

@@ -407,6 +407,21 @@ export interface CampaignsData {
   report: Report;
 }
 
+export interface CampaignHierarchyItem {
+  id: string;
+  name: string;
+}
+
+export interface CampaignHierarchyCampaign {
+  id: string;
+  name: string;
+  funnels: CampaignHierarchyItem[];
+}
+
+export interface CampaignHierarchyResponse {
+  campaigns: CampaignHierarchyCampaign[];
+}
+
 export interface DashboardElements {
   elements: ('currentPeriod' | 'availableTimezones' | 'liveStats' | 'chart' | 'tableStats')[];
 }

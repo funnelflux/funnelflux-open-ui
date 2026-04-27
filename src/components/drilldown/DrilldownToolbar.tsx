@@ -9,13 +9,16 @@ import {
   type ReactNode,
 } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { Check, Download, Layers, Loader2, Pencil, Play, Plus, Settings2, Trash2, X } from 'lucide-react'
+import { Check, Download, Layers, Loader2, Pencil, Play, Plus, Settings2, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import {
   Button,
+  Drawer,
   FormField,
   Modal,
   Select,
+  Segmented,
   Space,
+  Switch,
   TimezoneSelect,
   Input,
   useToastApi,
@@ -37,6 +40,12 @@ import { DATE_PRESETS, getPresetRange, type DateRange } from '@/lib/date-presets
 import { validateGroupingStackForRequest } from '@/lib/drilldownGroupings'
 import { buildTrackingFieldMappingsForRequest } from '@/lib/urlTrackingFieldGrouping'
 import { toApiDateTime, type DrilldownRequest } from '@/types/stats'
+import type { DrilldownTimeAttribution } from '@/store/drilldown'
+
+const TIME_ATTRIBUTION_OPTIONS = [
+  { label: 'Entrance time', value: 'entrance' },
+  { label: 'Event time', value: 'event' },
+]
 
 export interface DrilldownToolbarProps {
   onApply: (request: DrilldownRequest) => void
@@ -114,6 +123,15 @@ interface DrilldownToolbarContextValue {
   groupingsDrawerOpen: boolean
   openGroupingsDrawer: () => void
   closeGroupingsDrawer: () => void
+  settingsDrawerOpen: boolean
+  openSettingsDrawer: () => void
+  closeSettingsDrawer: () => void
+  timeAttribution: DrilldownTimeAttribution
+  setTimeAttribution: (timeAttribution: DrilldownTimeAttribution) => void
+  showFilteredTraffic: boolean
+  setShowFilteredTraffic: (showFilteredTraffic: boolean) => void
+  showWinners: boolean
+  setShowWinners: (showWinners: boolean) => void
 }
 
 const DrilldownToolbarContext = createContext<DrilldownToolbarContextValue | null>(null)
@@ -141,6 +159,12 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
     setTimezone,
     setDateRange,
     urlTrackingFieldByLevel,
+    timeAttribution,
+    showFilteredTraffic,
+    showWinners,
+    setTimeAttribution,
+    setShowFilteredTraffic,
+    setShowWinners,
   } = useDrilldownStore()
 
   const { data: availableGroupings } = useGroupings()
@@ -152,6 +176,7 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
   const [saveModalOpen, setSaveModalOpen] = useState(false)
   const [saveViewName, setSaveViewName] = useState('')
   const [groupingsDrawerOpen, setGroupingsDrawerOpen] = useState(false)
+  const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false)
   const saveViewFormId = useId()
 
   const openGroupingsDrawer = useCallback(() => {
@@ -160,6 +185,14 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
 
   const closeGroupingsDrawer = useCallback(() => {
     setGroupingsDrawerOpen(false)
+  }, [])
+
+  const openSettingsDrawer = useCallback(() => {
+    setSettingsDrawerOpen(true)
+  }, [])
+
+  const closeSettingsDrawer = useCallback(() => {
+    setSettingsDrawerOpen(false)
   }, [])
 
   const dateTimeRangeValue = useMemo(
@@ -189,6 +222,14 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
       }>,
     ): DrilldownRequest => {
       const mappings = buildTrackingFieldMappingsForRequest(groupings, urlTrackingFieldByLevel)
+      const requestOptions = {
+        viewType,
+        showFilteredTraffic,
+        computeCTRConfidenceRate: showWinners,
+        computeCVRConfidenceRate: showWinners,
+        computeEPVConfidenceRate: showWinners,
+        timeAttribution,
+      }
       const base: DrilldownRequest = {
         timeRange: {
           start: toApiDateTime(datePickerValue.from),
@@ -200,7 +241,7 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
           whitelistFilters: level.whitelistFilters,
           blacklistFilters: level.blacklistFilters,
         })),
-        options: { viewType },
+        options: requestOptions,
         paging: paging ?? { start: 0, length: 100 },
       }
       if (Object.keys(mappings).length > 0) {
@@ -213,6 +254,9 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
       datePickerValue.to,
       groupings,
       paging,
+      showFilteredTraffic,
+      showWinners,
+      timeAttribution,
       timezone,
       urlTrackingFieldByLevel,
       viewType,
@@ -346,6 +390,15 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
     groupingsDrawerOpen,
     openGroupingsDrawer,
     closeGroupingsDrawer,
+    settingsDrawerOpen,
+    openSettingsDrawer,
+    closeSettingsDrawer,
+    timeAttribution,
+    setTimeAttribution,
+    showFilteredTraffic,
+    setShowFilteredTraffic,
+    showWinners,
+    setShowWinners,
   }
 }
 
@@ -390,6 +443,86 @@ export function DrilldownToolbarHeaderFilters() {
   )
 }
 
+function DrilldownSettingsDrawer() {
+  const {
+    settingsDrawerOpen,
+    closeSettingsDrawer,
+    timeAttribution,
+    setTimeAttribution,
+    showFilteredTraffic,
+    setShowFilteredTraffic,
+    showWinners,
+    setShowWinners,
+  } = useDrilldownToolbarContext()
+
+  const handleTimeAttributionChange = useCallback(
+    (value: string | number) => {
+      setTimeAttribution(value === 'event' ? 'event' : 'entrance')
+    },
+    [setTimeAttribution],
+  )
+
+  const handleShowFilteredTrafficChange = useCallback(
+    (checked: boolean) => {
+      setShowFilteredTraffic(checked)
+    },
+    [setShowFilteredTraffic],
+  )
+
+  const handleShowWinnersChange = useCallback(
+    (checked: boolean) => {
+      setShowWinners(checked)
+    },
+    [setShowWinners],
+  )
+
+  return (
+    <Drawer
+      title="Report settings"
+      placement="right"
+      width={420}
+      open={settingsDrawerOpen}
+      onClose={closeSettingsDrawer}
+      destroyOnClose={false}
+    >
+      <div className="flex flex-col gap-5">
+        <div className="space-y-2">
+          <div className="text-sm font-medium">Attribution</div>
+          <p className="text-xs text-muted-foreground">
+            Choose whether the selected date range is matched against the entrance timestamp or the event timestamp.
+          </p>
+          <Segmented
+            block
+            value={timeAttribution}
+            options={TIME_ATTRIBUTION_OPTIONS}
+            onChange={handleTimeAttributionChange}
+          />
+        </div>
+
+        <div className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Show filtered traffic</div>
+            <p className="text-xs text-muted-foreground">
+              Include traffic that was filtered out by rules or bot filtering in the report query.
+            </p>
+          </div>
+          <Switch checked={showFilteredTraffic} onChange={handleShowFilteredTrafficChange} />
+        </div>
+
+        <div className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Show winners</div>
+            <p className="text-xs text-muted-foreground">
+              Request CTR, CVR, and EPV winner confidence data. Table highlighting can be added on top of this data later.
+            </p>
+          </div>
+          <Switch checked={showWinners} onChange={handleShowWinnersChange} />
+        </div>
+      </div>
+    </Drawer>
+  )
+}
+
 /** Saved views dropdown (+ / manage) plus apply/export — second row with groupings (left-aligned). */
 export function DrilldownToolbarReportActions() {
   const toast = useToastApi()
@@ -417,6 +550,7 @@ export function DrilldownToolbarReportActions() {
     isLoading,
     isExporting,
     openGroupingsDrawer,
+    openSettingsDrawer,
   } = useDrilldownToolbarContext()
 
   const handleOpenManage = useCallback(() => {
@@ -537,6 +671,16 @@ export function DrilldownToolbarReportActions() {
       >
         Edit levels
       </Button>
+      <Button
+        htmlType="button"
+        className="text-xs shrink-0"
+        icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+        onClick={openSettingsDrawer}
+      >
+        Settings
+      </Button>
+
+      <DrilldownSettingsDrawer />
 
       <Modal
         title="Save report view"

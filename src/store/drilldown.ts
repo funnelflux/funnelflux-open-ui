@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { UrlTrackingFieldLevelMeta } from '@/lib/urlTrackingFieldGrouping'
 
+export type DrilldownTimeAttribution = 'entrance' | 'event'
+
 interface DrilldownState {
   groupings: string[]
   groupingFilters: Record<number, { whitelist: string[]; blacklist: string[] }>
@@ -10,6 +12,9 @@ interface DrilldownState {
   timezone: string
   dateRange: { start: string; end: string } | null
   viewType: 'tree' | 'flat'
+  timeAttribution: DrilldownTimeAttribution
+  showFilteredTraffic: boolean
+  showWinners: boolean
   setGroupings: (g: string[]) => void
   /** Replace groupings and filters together (e.g. after removing a middle level and reindexing filters). */
   replaceGroupingsStack: (
@@ -28,6 +33,9 @@ interface DrilldownState {
   setTimezone: (tz: string) => void
   setDateRange: (range: { start: string; end: string }) => void
   setViewType: (vt: 'tree' | 'flat') => void
+  setTimeAttribution: (timeAttribution: DrilldownTimeAttribution) => void
+  setShowFilteredTraffic: (showFilteredTraffic: boolean) => void
+  setShowWinners: (showWinners: boolean) => void
 }
 
 export const useDrilldownStore = create<DrilldownState>()(
@@ -39,6 +47,9 @@ export const useDrilldownStore = create<DrilldownState>()(
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       dateRange: null,
       viewType: 'tree',
+      timeAttribution: 'entrance',
+      showFilteredTraffic: false,
+      showWinners: false,
       setGroupings: (groupings) => set({ groupings }),
       replaceGroupingsStack: (groupings, groupingFilters, urlTrackingFieldByLevel) =>
         set((state) => ({
@@ -73,6 +84,9 @@ export const useDrilldownStore = create<DrilldownState>()(
       setTimezone: (timezone) => set({ timezone }),
       setDateRange: (dateRange) => set({ dateRange }),
       setViewType: (viewType) => set({ viewType }),
+      setTimeAttribution: (timeAttribution) => set({ timeAttribution }),
+      setShowFilteredTraffic: (showFilteredTraffic) => set({ showFilteredTraffic }),
+      setShowWinners: (showWinners) => set({ showWinners }),
     }),
     {
       name: 'ff-drilldown',
@@ -82,6 +96,9 @@ export const useDrilldownStore = create<DrilldownState>()(
           ...current,
           ...p,
           urlTrackingFieldByLevel: p?.urlTrackingFieldByLevel ?? current.urlTrackingFieldByLevel,
+          timeAttribution: p?.timeAttribution === 'event' ? 'event' : current.timeAttribution,
+          showFilteredTraffic: p?.showFilteredTraffic ?? current.showFilteredTraffic,
+          showWinners: p?.showWinners ?? current.showWinners,
         }
       },
     },
