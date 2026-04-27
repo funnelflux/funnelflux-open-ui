@@ -2,7 +2,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import { filterDrilldownGroupingOptions } from '@/lib/drilldownGroupings'
-import type { DrilldownRequest, Report } from '@/types/stats'
+import type { CsvExportRequest, CsvExportResponse, DrilldownRequest, Report } from '@/types/stats'
 
 export function useGroupings() {
   return useQuery({
@@ -24,7 +24,7 @@ export function useDrilldownReport() {
 
 export function useExportCsv() {
   return useMutation({
-    mutationFn: (request: DrilldownRequest) =>
-      api.postBlob('/stats/reporting/export/csv/', request),
+    mutationFn: (request: CsvExportRequest) =>
+      api.post<CsvExportResponse>('/stats/reporting/export/csv/', request),
   })
 }

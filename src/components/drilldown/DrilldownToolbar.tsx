@@ -39,13 +39,22 @@ import { getErrorMessage } from '@/lib/utils'
 import { DATE_PRESETS, getPresetRange, type DateRange } from '@/lib/date-presets'
 import { validateGroupingStackForRequest } from '@/lib/drilldownGroupings'
 import { buildTrackingFieldMappingsForRequest } from '@/lib/urlTrackingFieldGrouping'
-import { toApiDateTime, type DrilldownRequest } from '@/types/stats'
+import {
+  toApiDateTime,
+  type CsvExportResponse,
+  type DrilldownRequest,
+} from '@/types/stats'
 import type { DrilldownTimeAttribution } from '@/store/drilldown'
 
 const TIME_ATTRIBUTION_OPTIONS = [
   { label: 'Entrance time', value: 'entrance' },
   { label: 'Event time', value: 'event' },
 ]
+
+type DrilldownExportRequest = DrilldownRequest & {
+  timeStart: number
+  timeEnd: number
+}
 
 export interface DrilldownToolbarProps {
   onApply: (request: DrilldownRequest) => void
@@ -289,24 +298,43 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
         return
       }
       const request = toDrilldownRequest(groupingValidation.levels)
-      const blob = await api.postBlob('/stats/reporting/export/csv/', request)
-
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      link.href = url
-      link.download = `drilldown-export-${timestamp}.csv`
+      const filename = `drilldown-export-${timestamp}.csv`
+      const exportDrilldownRequest: DrilldownExportRequest = {
+        ...request,
+        timeStart: Math.floor(datePickerValue.from.getTime() / 1000),
+        timeEnd: Math.floor(datePickerValue.to.getTime() / 1000),
+      }
+      const response = await api.post<CsvExportResponse>('/stats/reporting/export/csv/', {
+        drilldownRequest: exportDrilldownRequest,
+        filename,
+        addHeader: true,
+      })
+
+      if (!response.url) {
+        throw new Error('CSV export did not return a download URL')
+      }
+
+      const link = document.createElement('a')
+      link.href = response.url
+      link.download = filename
       document.body.appendChild(link)
       link.click()
       link.remove()
-      URL.revokeObjectURL(url)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'CSV export failed'
-      toast.error(message)
+      toast.error(getErrorMessage(error))
     } finally {
       setIsExporting(false)
     }
-  }, [groupingFilters, groupings, toast, toDrilldownRequest, urlTrackingFieldByLevel])
+  }, [
+    datePickerValue.from,
+    datePickerValue.to,
+    groupingFilters,
+    groupings,
+    toast,
+    toDrilldownRequest,
+    urlTrackingFieldByLevel,
+  ])
 
   const handleSelectView = useCallback(
     (idView: string) => {
