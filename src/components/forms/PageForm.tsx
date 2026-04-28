@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Plus } from 'lucide-react'
 import {
   Button,
   Input,
@@ -257,7 +256,8 @@ export function PageForm({
               <Button
                 type="text"
                 size="small"
-                icon={<Plus className="h-3.5 w-3.5" />}
+                iconName="plus"
+                iconSize="sm"
                 title="New category"
                 onClick={() => setNewCategoryOpen(true)}
               />
@@ -491,8 +491,15 @@ export function PageForm({
 
         </div>
         <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex gap-2">
-          <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button
+            type="primary"
+            htmlType="submit"
+            disabled={isSubmitting}
+            className="flex-1"
+            iconName={isSubmitting ? 'loader-2' : undefined}
+            iconAnimation={isSubmitting ? 'spin' : 'none'}
+            iconSize="sm"
+          >
             {initialData ? 'Save' : 'Create'}
           </Button>
           <Button htmlType="button" onClick={() => onOpenChange(false)} className="flex-1">
@@ -517,7 +524,6 @@ export function PageForm({
             value={newCategoryName}
             onChange={(e) => setNewCategoryName(e.target.value)}
             onPressEnter={() => void handleCreateCategory()}
-            autoFocus
           />
         </div>
       </Modal>

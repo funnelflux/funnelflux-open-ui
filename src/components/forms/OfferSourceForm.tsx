@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Resolver } from 'react-hook-form'
-import { Loader2 } from 'lucide-react'
 import { FormField, Modal, Button, Input, Select } from '@/components/ui-kit'
 import { useOfferSourceTemplates, useLoadOfferSourceTemplate } from '@/api/hooks'
 import { mapOfferSourceTemplateLoadToFormPatch } from '@/api/offerSourceTemplateLoad'
@@ -256,8 +255,15 @@ export function OfferSourceForm({
 
         </div>
         <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex gap-2">
-          <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button
+            type="primary"
+            htmlType="submit"
+            disabled={isSubmitting}
+            className="flex-1"
+            iconName={isSubmitting ? 'loader-2' : undefined}
+            iconAnimation={isSubmitting ? 'spin' : 'none'}
+            iconSize="sm"
+          >
             {isEditing ? 'Save Changes' : 'Create'}
           </Button>
           <Button htmlType="button" onClick={handleClose} className="flex-1">

@@ -1,15 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  FileText,
-  Gift,
-  Shuffle,
-  GitBranch,
-  ExternalLink,
-  ChevronRight,
-  Code,
-  FileCode,
-  Tag,
-} from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import { NODE_TYPES, type NodeTypeValue } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
@@ -118,27 +108,27 @@ export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: Can
         style={{ left: screenPosition.x, top: screenPosition.y }}
       >
         <MenuItem
-          icon={<FileText className="h-4 w-4" />}
+          icon={<Icon name="file-text" size="md" />}
           label="Add Lander"
           onClick={() => openPicker('lander')}
         />
         <MenuItem
-          icon={<Gift className="h-4 w-4" />}
+          icon={<Icon name="gift" size="md" />}
           label="Add Offer"
           onClick={() => openPicker('offer')}
         />
         <MenuItem
-          icon={<Shuffle className="h-4 w-4" />}
+          icon={<Icon name="shuffle" size="md" />}
           label="Add Rotator"
           onClick={() => addNodeDirect(NODE_TYPES.rotator, 'Rotator')}
         />
         <MenuItem
-          icon={<GitBranch className="h-4 w-4" />}
+          icon={<Icon name="git-branch" size="md" />}
           label="Add Condition"
           onClick={() => openPicker('condition')}
         />
         <MenuItem
-          icon={<ExternalLink className="h-4 w-4" />}
+          icon={<Icon name="external-link" size="md" />}
           label="Add External URL"
           onClick={() => addNodeDirect(NODE_TYPES.externalUrl, 'External URL')}
         />
@@ -152,25 +142,27 @@ export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: Can
           onMouseLeave={() => setShowAdvanced(false)}
         >
           <div className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent">
-            <ChevronRight className="h-4 w-4" />
+            <Icon name="chevron-right" size="md" />
             <span>Advanced</span>
-            <ChevronRight className="h-4 w-4 ml-auto" />
+            <span className="ml-auto">
+              <Icon name="chevron-right" size="md" />
+            </span>
           </div>
 
           {showAdvanced && (
             <div className="absolute left-full top-0 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[160px] text-sm">
               <MenuItem
-                icon={<Code className="h-4 w-4" />}
+                icon={<Icon name="code" size="md" />}
                 label="Add JS Code"
                 onClick={() => openPicker('jsCode')}
               />
               <MenuItem
-                icon={<FileCode className="h-4 w-4" />}
+                icon={<Icon name="file-code" size="md" />}
                 label="Add PHP Code"
                 onClick={() => openPicker('phpCode')}
               />
               <MenuItem
-                icon={<Tag className="h-4 w-4" />}
+                icon={<Icon name="tag" size="md" />}
                 label="Add Visitor Tag"
                 onClick={() =>
                   addNodeDirect(NODE_TYPES.visitorTag, 'Visitor Tag')
@@ -203,15 +195,18 @@ function MenuItem({
   className?: string
 }) {
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        'flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent',
+        'flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-sm text-inherit',
+        'cursor-pointer rounded-sm transition-colors',
+        'hover:bg-muted dark:hover:bg-zinc-800',
         className,
       )}
       onClick={onClick}
     >
       {icon}
       <span>{label}</span>
-    </div>
+    </button>
   )
 }

@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { Shuffle } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import type { FunnelNodeData } from '@/types/funnel'
 import { BaseNode } from './BaseNode'
 
@@ -19,7 +19,7 @@ function RotatorNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>
         kind: 'Rotator',
         title: data.label || 'Rotator',
         subtitle: sub,
-        icon: <Shuffle className="h-5 w-5" />,
+        icon: <Icon name="shuffle" className="h-5 w-5" />,
       }}
     />
   )

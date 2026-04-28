@@ -167,14 +167,14 @@ export function OfferSourcesPage() {
     { defaultVisibleColumnIds: defaultColIds },
   )
 
-  const handleBulkDeselectAllOfferSources = useCallback(() => setRowSelection({}), [])
+  const handleBulkDeselectAllOfferSources = useCallback(() => setRowSelection({}), [setRowSelection])
 
   const handleBulkArchiveOfferSources = useCallback(async () => {
     await api.put('/data/offersource/archive/', { ids: selectedIds, archive: true })
     toast.success('Selected offer sources archived')
     setRowSelection({})
     reload()
-  }, [selectedIds, toast, reload])
+  }, [selectedIds, toast, reload, setRowSelection])
 
   const handleBulkDeleteOfferSources = useCallback(async () => {
     for (const id of selectedIds) {
@@ -183,18 +183,18 @@ export function OfferSourcesPage() {
     toast.success('Selected offer sources deleted')
     setRowSelection({})
     reload()
-  }, [selectedIds, deleteMutation, toast, reload])
+  }, [selectedIds, deleteMutation, toast, reload, setRowSelection])
 
   const handleOfferSourcesDateRangeChange = useCallback((v: DateRange & { preset: string | null }) => {
     if (v.from && v.to) setDateRange({ from: v.from, to: v.to })
-  }, [])
+  }, [setDateRange])
 
   const handleOfferSourceFormOpenChange = useCallback((open: boolean) => {
     setSheetOpen(open)
     if (!open) setEditId(null)
-  }, [])
+  }, [setSheetOpen, setEditId])
 
-  const handleDismissOfferSourceDelete = useCallback(() => setDeleteId(null), [])
+  const handleDismissOfferSourceDelete = useCallback(() => setDeleteId(null), [setDeleteId])
 
   return (
     <PageShell

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Plus } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import {
   useConditions,
   useSaveCondition,
@@ -140,7 +140,7 @@ export function GlobalConditionsPage() {
             setEditorOpen(true)
           }}
         >
-          <Plus className="h-4 w-4 mr-1" />
+          <Icon name="plus" className="h-4 w-4 mr-1" />
           Add Condition
         </Button>
       }

@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Select as SelectPrimitive, Tag } from 'antd'
 import type { SelectProps as AntdSelectProps } from 'antd'
-import type { ControlSize } from '@/lib/controlSize'
-import { controlSizeToAntdSize } from '@/lib/controlSize'
+import type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
+import { controlTierToAntdSize } from '@/lib/controlSize'
 import { cn } from '@/lib/utils'
 
 /**
@@ -57,20 +57,22 @@ function useFilteredOptions(
   }, [options, searchValue, alphabetical])
 }
 
-export interface SelectProps extends Omit<AntdSelectProps, 'options' | 'filterOption'> {
+/** sm | md | lg (aligns with Button / Input); Ant Design small|middle|large map to the same tiers */
+export type UiSelectSize = ControlSize | LegacyAntdControlSize
+
+export interface SelectProps extends Omit<AntdSelectProps, 'options' | 'filterOption' | 'size'> {
   options: SelectOption[]
   /** Sort options alphabetically (default: true). Set false for ordered lists like timezone. */
   alphabetical?: boolean
-  /** Default **md** (35px); pair with `controlSize` for toolbar alignment */
-  controlSize?: ControlSize
+  /** Default **md** */
+  size?: UiSelectSize
 }
 
 /** Searchable single select with capped idle list; use everywhere in the app for consistent UX. */
 export function Select({
   options,
   alphabetical = true,
-  controlSize = 'md',
-  size,
+  size = 'md',
   ...rest
 }: SelectProps) {
   const [search, setSearch] = useState('')
@@ -95,7 +97,7 @@ export function Select({
       filterOption={false}
       onSearch={setSearch}
       onOpenChange={(open) => { if (!open) setSearch('') }}
-      size={size ?? controlSizeToAntdSize(controlSize)}
+      size={controlTierToAntdSize(size)}
       options={selectOptions}
       optionRender={(option) => {
         if (option.value === '__overflow__') {
@@ -112,19 +114,18 @@ export function Select({
   )
 }
 
-interface SmartMultiSelectProps extends Omit<AntdSelectProps<string[]>, 'options' | 'filterOption' | 'mode'> {
+interface SmartMultiSelectProps extends Omit<AntdSelectProps<string[]>, 'options' | 'filterOption' | 'mode' | 'size'> {
   options: SelectOption[]
   alphabetical?: boolean
   maxTagCount?: number
-  controlSize?: ControlSize
+  size?: UiSelectSize
 }
 
 export function SmartMultiSelect({
   options,
   alphabetical = true,
   maxTagCount = 3,
-  controlSize = 'md',
-  size,
+  size = 'md',
   ...rest
 }: SmartMultiSelectProps) {
   const [search, setSearch] = useState('')
@@ -150,7 +151,7 @@ export function SmartMultiSelect({
       filterOption={false}
       onSearch={setSearch}
       onOpenChange={(open) => { if (!open) setSearch('') }}
-      size={size ?? controlSizeToAntdSize(controlSize)}
+      size={controlTierToAntdSize(size)}
       options={selectOptions}
       maxTagCount={maxTagCount}
       maxTagPlaceholder={(omitted) => (
@@ -225,12 +226,12 @@ function mergeSelectedIntoDropdownOptions(
 }
 
 export interface VirtualizedMultiSelectProps
-  extends Omit<AntdSelectProps<string[]>, 'options' | 'filterOption' | 'mode'> {
+  extends Omit<AntdSelectProps<string[]>, 'options' | 'filterOption' | 'mode' | 'size'> {
   options: SelectOption[]
   /** Sort options alphabetically (default: true). */
   alphabetical?: boolean
   maxTagCount?: number
-  controlSize?: ControlSize
+  size?: UiSelectSize
   /** Viewport height of the dropdown list in px (virtualized). */
   listHeight?: number
 }
@@ -254,10 +255,10 @@ function mergeSelectedSingleIntoDropdownOptions(
 }
 
 export interface VirtualizedSelectProps
-  extends Omit<AntdSelectProps, 'options' | 'filterOption' | 'mode'> {
+  extends Omit<AntdSelectProps, 'options' | 'filterOption' | 'mode' | 'size'> {
   options: SelectOption[]
   alphabetical?: boolean
-  controlSize?: ControlSize
+  size?: UiSelectSize
   listHeight?: number
   /** When true, the dropdown stays empty until the user types (search-first UX for huge lists). */
   blockOptionsUntilSearch?: boolean
@@ -269,8 +270,7 @@ export interface VirtualizedSelectProps
 export function VirtualizedSelect({
   options,
   alphabetical = true,
-  controlSize = 'md',
-  size,
+  size = 'md',
   listHeight = 280,
   blockOptionsUntilSearch = false,
   value,
@@ -314,7 +314,7 @@ export function VirtualizedSelect({
       filterOption={false}
       onSearch={handleSearch}
       onOpenChange={handleOpenChange}
-      size={size ?? controlSizeToAntdSize(controlSize)}
+      size={controlTierToAntdSize(size)}
       className={cn('w-full min-w-0', className)}
       options={selectOptions}
       value={value}
@@ -327,8 +327,7 @@ export function VirtualizedMultiSelect({
   options,
   alphabetical = true,
   maxTagCount = 3,
-  controlSize = 'md',
-  size,
+  size = 'md',
   listHeight = 280,
   value,
   onOpenChange,
@@ -368,7 +367,7 @@ export function VirtualizedMultiSelect({
       filterOption={false}
       onSearch={setSearch}
       onOpenChange={handleOpenChange}
-      size={size ?? controlSizeToAntdSize(controlSize)}
+      size={controlTierToAntdSize(size)}
       className={cn('w-full min-w-0', className)}
       options={selectOptions}
       maxTagCount={maxTagCount}
@@ -387,9 +386,9 @@ export interface SelectOptionGroup {
   options: SelectOption[]
 }
 
-export interface GroupedSelectProps extends Omit<AntdSelectProps, 'options' | 'filterOption' | 'mode'> {
+export interface GroupedSelectProps extends Omit<AntdSelectProps, 'options' | 'filterOption' | 'mode' | 'size'> {
   optionGroups: SelectOptionGroup[]
-  controlSize?: ControlSize
+  size?: UiSelectSize
 }
 
 function defaultGroupedFilterOption(
@@ -420,8 +419,7 @@ function defaultGroupedFilterOption(
 
 export function GroupedSelect({
   optionGroups,
-  controlSize = 'md',
-  size,
+  size = 'md',
   showSearch = true,
   ...rest
 }: GroupedSelectProps) {
@@ -429,7 +427,7 @@ export function GroupedSelect({
     <SelectPrimitive
       showSearch={showSearch}
       filterOption={showSearch ? defaultGroupedFilterOption : false}
-      size={size ?? controlSizeToAntdSize(controlSize)}
+      size={controlTierToAntdSize(size)}
       options={optionGroups}
       {...rest}
     />

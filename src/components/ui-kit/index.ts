@@ -3,8 +3,14 @@ export { Modal } from './Modal'
 export type { ModalProps } from './Modal'
 export { Button } from './Button'
 export type { ButtonProps } from './Button'
-export type { ControlSize } from '@/lib/controlSize'
-export { CONTROL_SIZE_HEIGHT_PX, controlSizeToAntdSize } from '@/lib/controlSize'
+export type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
+export {
+  CONTROL_SIZE_HEIGHT_PX,
+  controlSizeToAntdSize,
+  normalizeControlTier,
+  controlTierToAntdSize,
+} from '@/lib/controlSize'
+export * from './icons'
 export { Input } from './Input'
 export type { InputProps, InputRef } from './Input'
 export { Checkbox } from './Checkbox'

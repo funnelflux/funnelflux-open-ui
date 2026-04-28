@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Copy, Loader2, Link } from 'lucide-react'
-import { Button, Card, Input, PageShell, Select, useToastApi } from '@/components/ui-kit'
+import { Button, Card, Input, PageShell, Select, useToastApi, Icon } from '@/components/ui-kit'
 import type { SelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
@@ -22,6 +21,8 @@ function CopyButton({ value }: { value: string }) {
       htmlType="button"
       type="text"
       aria-label="Copy to clipboard"
+      iconName="copy"
+      iconSize="sm"
       onClick={() =>
         navigator.clipboard.writeText(value).then(
           () => toast.success('Copied to clipboard'),
@@ -29,7 +30,6 @@ function CopyButton({ value }: { value: string }) {
         )
       }
     >
-      <Copy className="h-4 w-4" />
     </Button>
   )
 }
@@ -197,7 +197,7 @@ export function SystemLinksPage() {
           </div>
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link className="h-4 w-4" />}
+            {isGenerating ? <Icon name="loader-2" /> : <Icon name="hyperlink" />}
             Outputs update automatically when the cascade changes.
           </div>
 

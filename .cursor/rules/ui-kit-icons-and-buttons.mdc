@@ -1,0 +1,27 @@
+---
+description: Enforce Icon sizing + Button iconName usage (no ad-hoc icon classes)
+globs: funnelflux-open-ui/src/**/*.tsx
+alwaysApply: false
+---
+
+# UI Kit icons & buttons
+
+- Use the shared `Icon` component: `import { Icon } from '@/components/ui-kit/icons'`.
+- **Do not pass `className` to `Icon`** (no `h-*`, `w-*`, `mr-*`, colors, etc).
+- Icons must use **static sizes only**:
+  - ✅ `<Icon name="plus" size="sm" />`
+  - ✅ `<Icon name="loader-2" size="sm" animation="spin" />`
+  - ❌ `<Icon name="plus" className="h-4 w-4 mr-1" />`
+
+## Buttons
+
+- **Never** put `<Icon />` inside `<Button>…</Button>` just to render a leading icon.
+- Use `Button`’s built-in icon props instead:
+  - ✅ `<Button iconName="plus">Add</Button>`
+  - ✅ `<Button iconName="loader-2" iconAnimation="spin" disabled>Saving</Button>`
+  - ❌ `<Button><Icon name="plus" … /> Add</Button>`
+  - ❌ `<Button icon={<Icon … />} … />`
+
+## Styling / color
+
+- If an icon needs a different color, apply the text color to the **parent** element (or wrap in a `<span className="...">`) and keep the `Icon` itself classless.

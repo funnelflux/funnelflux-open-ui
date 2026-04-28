@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { Input } from 'antd'
-import { RefreshCw, Search } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import { Button } from './Button'
 import { Tooltip } from './Tooltip'
@@ -52,7 +52,7 @@ export function SearchToolbar({
   return (
     <div className={cn('flex min-w-0 items-center gap-3', className)}>
       <Input
-        prefix={<Search className="h-4 w-4 text-muted-foreground" />}
+        prefix={<Icon name="search" className="h-4 w-4 text-muted-foreground" />}
         placeholder={placeholder}
         value={internal}
         onChange={(e) => setInternal(e.target.value)}
@@ -68,7 +68,7 @@ export function SearchToolbar({
               <Button
                 type="default"
                 htmlType="button"
-                icon={<RefreshCw className="h-4 w-4" />}
+                icon={<Icon name="refresh-cw" className="h-4 w-4" />}
                 loading={refreshLoading}
                 onClick={handleRefreshClick}
                 aria-label="Refresh"

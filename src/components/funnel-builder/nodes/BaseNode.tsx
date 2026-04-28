@@ -22,9 +22,14 @@ const ACCENT_STYLES = {
 
 export type NodeAccent = keyof typeof ACCENT_STYLES
 
-/** Small connectors on each side (geometry picks active handle via edge sync). */
+/**
+ * Side connectors (geometry picks active handle via edge sync).
+ * Larger dots at rest; expand to ~25px radius (~50px box) on hover for connection drawing.
+ */
 const HANDLE_CLS =
-  '!z-10 !size-2 !min-h-2 !min-w-2 !rounded-full !border-2 !border-background !bg-muted-foreground/55 hover:!bg-primary/70 hover:!border-primary/50 shadow-sm transition-colors'
+  '!z-10 !h-4 !w-4 !min-h-4 !min-w-4 !rounded-full !border-2 !border-background !bg-muted-foreground/55 shadow-sm ' +
+  'transition-[width,height,min-width,min-height,background-color,border-color] duration-150 ease-out ' +
+  'hover:!z-20 hover:!h-[50px] hover:!w-[50px] hover:!min-h-[50px] hover:!min-w-[50px] hover:!bg-primary/70 hover:!border-primary/50'
 
 const TARGET_HANDLES: { id: string; position: Position }[] = [
   { id: TARGET_HANDLE.top, position: Position.Top },

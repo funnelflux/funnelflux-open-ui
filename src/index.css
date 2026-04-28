@@ -54,6 +54,43 @@
   --color-blue-700: var(--ff-blue-700);
 }
 
+@layer utilities {
+  /* Match ui-kit `size="sm|md|lg"` (Button, Select, Input) without inline styles */
+  .h-control-sm {
+    height: var(--control-height-sm);
+    min-height: var(--control-height-sm);
+    box-sizing: border-box;
+  }
+  .h-control-md {
+    height: var(--control-height-md);
+    min-height: var(--control-height-md);
+    box-sizing: border-box;
+  }
+  .h-control-lg {
+    height: var(--control-height-lg);
+    min-height: var(--control-height-lg);
+    box-sizing: border-box;
+  }
+  .w-control-sm {
+    width: var(--control-height-sm);
+    min-width: var(--control-height-sm);
+    box-sizing: border-box;
+  }
+  .w-control-md {
+    width: var(--control-height-md);
+    min-width: var(--control-height-md);
+    box-sizing: border-box;
+  }
+  .w-control-lg {
+    width: var(--control-height-lg);
+    min-width: var(--control-height-lg);
+    box-sizing: border-box;
+  }
+  .min-h-control-md {
+    min-height: var(--control-height-md);
+  }
+}
+
 @layer base {
   * {
     border-color: var(--border);
@@ -149,4 +186,56 @@ html.dark .ant-message .ant-message-notice-content {
 .ant-app nav.ff-navbar button.ff-navbar-util-btn:hover {
   color: var(--ff-gray-50);
   background-color: var(--ff-gray-700);
+}
+
+.ff-funnel-controls.react-flow__controls {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  background-color: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button:hover {
+  background-color: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button:active {
+  transform: translateY(1px);
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  max-width: none;
+}
+
+html.dark .ff-funnel-controls.react-flow__controls button.react-flow__controls-button {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
 }

@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { FileText } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import type { FunnelNodeData, LanderNodeParams } from '@/types/funnel'
 import { BaseNode } from './BaseNode'
 
@@ -16,7 +16,7 @@ function LanderNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>
         kind: 'Lander',
         title: data.label || 'Lander',
         subtitle: params.pageName || (params.pageId ? `Page ${params.pageId}` : undefined),
-        icon: <FileText className="h-5 w-5" />,
+        icon: <Icon name="file-text" className="h-5 w-5" />,
       }}
     />
   )

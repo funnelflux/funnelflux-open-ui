@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react"
 import { useCombobox, useMultipleSelection } from "downshift"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { X, ChevronsUpDown, Check } from "lucide-react"
+import { Icon } from '@/components/ui-kit/icons'
 import { cn } from "@/lib/utils"
 import { Tag } from "@/components/ui-kit"
 
@@ -208,7 +208,7 @@ export function MultiSelect({
                 removeSelectedItem(item.value)
               }}
             >
-              <X className="h-3 w-3" />
+              <Icon name="x" className="h-3 w-3" />
             </button>
           </span>
         ))}
@@ -230,7 +230,7 @@ export function MultiSelect({
           {...getToggleButtonProps()}
           aria-label="toggle menu"
         >
-          <ChevronsUpDown className="h-4 w-4" />
+          <Icon name="chevrons-up-down" className="h-4 w-4" />
         </button>
       </div>
 
@@ -329,7 +329,7 @@ export function MultiSelect({
                           : "border-input",
                       )}
                     >
-                      {isSelected && <Check className="h-3 w-3" />}
+                      {isSelected && <Icon name="check" className="h-3 w-3" />}
                     </div>
                     <span className="truncate">{row.option.label}</span>
                   </div>

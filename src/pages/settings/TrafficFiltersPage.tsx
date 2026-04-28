@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Plus } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Switch, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import {
@@ -149,7 +149,7 @@ export function TrafficFiltersPage() {
       title="Traffic Filters"
       actions={
         <Button type="primary" onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-1" />
+          <Icon name="plus" className="h-4 w-4 mr-1" />
           Add Filter
         </Button>
       }

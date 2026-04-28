@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input } from '@/components/ui-kit'
 import { PageShell, Select, TimezoneSelect, useToastApi } from '@/components/ui-kit'
 import type { SelectOption } from '@/components/ui-kit'
@@ -214,7 +214,7 @@ export function CostUpdatePage() {
         </div>
 
         <Button type="primary" htmlType="submit" disabled={isSubmitting || !idTrafficSource}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isSubmitting && <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />}
           Update Cost
         </Button>
       </form>

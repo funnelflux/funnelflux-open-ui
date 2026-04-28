@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Tags, Plus } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import {
   Button,
   EmptyState,
@@ -104,7 +104,7 @@ export function TagsPage() {
           onClick={handleAddTags}
           disabled={!inputValue.trim() || saveTag.isPending}
         >
-          <Plus className="h-4 w-4 mr-1" />
+          <Icon name="plus" className="h-4 w-4 mr-1" />
           Add
         </Button>
       </div>
@@ -115,7 +115,7 @@ export function TagsPage() {
 
       {!isLoading && (!tags || tags.length === 0) && (
         <EmptyState
-          icon={<Tags className="h-10 w-10" />}
+          icon={<Icon name="tags" className="h-10 w-10" />}
           message="No tags yet. Add some above."
         />
       )}

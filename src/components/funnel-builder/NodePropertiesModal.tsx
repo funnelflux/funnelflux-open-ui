@@ -82,6 +82,7 @@ function GenericNodePropertiesModal({
     <Modal
       title={title}
       open={open}
+      width={640}
       onOk={handleOk}
       onCancel={onClose}
       okText="Apply"

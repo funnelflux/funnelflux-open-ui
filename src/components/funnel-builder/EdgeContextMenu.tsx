@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { Checkbox } from '@/components/ui-kit'
@@ -147,15 +147,18 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
 
       <div className="-mx-0 my-1 h-px bg-muted" />
 
-      <div
+      <button
+        type="button"
         className={cn(
-          'flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent text-destructive',
+          'flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-sm',
+          'cursor-pointer rounded-sm transition-colors text-destructive',
+          'hover:bg-muted dark:hover:bg-zinc-800',
         )}
         onClick={handleDelete}
       >
-        <Trash2 className="h-4 w-4" />
+        <Icon name="trash-2" size="md" />
         <span>Delete Connection</span>
-      </div>
+      </button>
     </div>
   )
 }

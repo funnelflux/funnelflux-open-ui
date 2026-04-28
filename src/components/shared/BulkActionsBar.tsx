@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Archive, FolderInput, Trash2, Workflow } from 'lucide-react'
 import { Button, ConfirmModal, Modal, Select } from '@/components/ui-kit'
 import { cn } from '@/lib/utils'
 
@@ -133,26 +132,22 @@ export function BulkActionsBar({
             Clear
           </Button>
           {onMove ? (
-            <Button htmlType="button" type="default" size="small" onClick={onMove}>
-              <Workflow className="mr-1.5 h-3.5 w-3.5" />
+            <Button htmlType="button" type="default" size="small" onClick={onMove} iconName="workflow" iconSize="sm">
               {moveLabel}
             </Button>
           ) : null}
           {onMoveToCategory ? (
-            <Button htmlType="button" type="default" size="small" onClick={handleOpenMoveCategoryModal}>
-              <FolderInput className="mr-1.5 h-3.5 w-3.5" />
+            <Button htmlType="button" type="default" size="small" onClick={handleOpenMoveCategoryModal} iconName="folder-input" iconSize="sm">
               Move to category
             </Button>
           ) : null}
           {onArchive ? (
-            <Button htmlType="button" type="default" size="small" onClick={handleRequestArchive}>
-              <Archive className="mr-1.5 h-3.5 w-3.5" />
+            <Button htmlType="button" type="default" size="small" onClick={handleRequestArchive} iconName="archive" iconSize="sm">
               {archiveLabel}
             </Button>
           ) : null}
           {onDelete ? (
-            <Button htmlType="button" danger type="primary" size="small" onClick={handleRequestDelete}>
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            <Button htmlType="button" danger type="primary" size="small" onClick={handleRequestDelete} iconName="trash-2" iconSize="sm">
               Delete
             </Button>
           ) : null}

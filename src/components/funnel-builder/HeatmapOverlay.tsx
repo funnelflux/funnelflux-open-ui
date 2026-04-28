@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BarChart3, Loader2, X } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Tag } from '@/components/ui-kit'
 import { Button, Select } from '@/components/ui-kit'
 import { useDrilldownReport } from '@/api/hooks'
@@ -118,8 +118,7 @@ export function HeatmapOverlay({ funnelId, active, onToggle }: HeatmapOverlayPro
     return (
       <HeatmapContext.Provider value={contextValue}>
         <div className="bg-background border-b px-4 py-2 flex items-center gap-3">
-          <Button size="small" onClick={onToggle}>
-            <BarChart3 className="h-4 w-4 mr-1" />
+          <Button size="small" onClick={onToggle} iconName="bar-chart-3" iconSize="sm">
             Show Heatmap
           </Button>
         </div>
@@ -131,7 +130,7 @@ export function HeatmapOverlay({ funnelId, active, onToggle }: HeatmapOverlayPro
     <HeatmapContext.Provider value={contextValue}>
       <div className="bg-background border-b px-4 py-2 flex items-center gap-3">
         <Tag color="blue" className="gap-1">
-          <BarChart3 className="h-3 w-3" />
+          <Icon name="bar-chart-3" size="sm" aria-hidden />
           Heatmap Active
         </Tag>
 
@@ -140,11 +139,12 @@ export function HeatmapOverlay({ funnelId, active, onToggle }: HeatmapOverlayPro
         />
 
         {drilldown.isPending && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-muted-foreground">
+            <Icon name="loader-2" size="md" animation="spin" aria-label="Loading" />
+          </span>
         )}
 
-        <Button type="text" size="small" onClick={onToggle} className="ml-auto">
-          <X className="h-4 w-4" />
+        <Button type="text" size="small" onClick={onToggle} className="ml-auto" iconName="x" iconSize="sm" aria-label="Close heatmap">
         </Button>
       </div>
     </HeatmapContext.Provider>

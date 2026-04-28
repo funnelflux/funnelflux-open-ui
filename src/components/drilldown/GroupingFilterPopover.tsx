@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react"
-import { Filter } from "lucide-react"
 import { useGroupingFilterAssetOptions } from "@/api/hooks"
 import { Button, Input, Popover, Tabs, VirtualizedMultiSelect } from "@/components/ui-kit"
 import { drilldownGroupingShortLabel } from "@/lib/drilldownGroupings"
@@ -261,7 +260,8 @@ export function GroupingFilterPopover({
         type="text"
         disabled={filterDisabled}
         className={cn("relative h-[35px] w-8 min-w-8 px-0", isActive && "text-foreground")}
-        icon={<Filter className="h-3.5 w-3.5" />}
+        iconName="filter"
+        iconSize="sm"
       >
         {isActive ? (
           <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />

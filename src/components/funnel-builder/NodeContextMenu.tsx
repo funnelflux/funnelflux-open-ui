@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Trash2, Pencil, Send, Copy } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import { NODE_TYPES, NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
@@ -90,22 +90,22 @@ export function NodeContextMenu({
       style={{ left: position.x, top: position.y }}
     >
       {onSendTrafficHere && (
-        <MenuItem icon={<Send className="h-4 w-4" />} label="Send Traffic Here" onClick={handleSendTrafficHere} />
+        <MenuItem icon={<Icon name="send" size="md" />} label="Send Traffic Here" onClick={handleSendTrafficHere} />
       )}
 
       {!isRoot && editLabel && (
-        <MenuItem icon={<Pencil className="h-4 w-4" />} label={editLabel} onClick={handleEdit} />
+        <MenuItem icon={<Icon name="pencil" size="md" />} label={editLabel} onClick={handleEdit} />
       )}
 
       {!isRoot && (
-        <MenuItem icon={<Copy className="h-4 w-4" />} label="Duplicate" onClick={handleDuplicate} />
+        <MenuItem icon={<Icon name="copy" size="md" />} label="Duplicate" onClick={handleDuplicate} />
       )}
 
       {!isRoot && (
         <>
           <div className="-mx-0 my-1 h-px bg-muted" />
           <MenuItem
-            icon={<Trash2 className="h-4 w-4" />}
+            icon={<Icon name="trash-2" size="md" />}
             label="Delete Node"
             onClick={handleDelete}
             className="text-destructive"
@@ -149,15 +149,18 @@ function MenuItem({
   className?: string
 }) {
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        'flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent',
+        'flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-sm text-inherit',
+        'cursor-pointer rounded-sm transition-colors',
+        'hover:bg-muted dark:hover:bg-zinc-800',
         className,
       )}
       onClick={onClick}
     >
       {icon}
       <span>{label}</span>
-    </div>
+    </button>
   )
 }

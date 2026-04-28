@@ -1,4 +1,4 @@
-import { Sun, Moon } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button } from '@/components/ui-kit'
 import { useThemeStore } from '@/store/theme'
 import { ColorsSection } from './sections/ColorsSection'
@@ -71,7 +71,7 @@ export function DesignSystemPage() {
           </span>
           <Button
             type="text"
-            icon={mode === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            icon={mode === 'light' ? <Icon name="moon" className="h-4 w-4" /> : <Icon name="sun" className="h-4 w-4" />}
             onClick={toggle}
           >
             Toggle {mode === 'light' ? 'Dark' : 'Light'}

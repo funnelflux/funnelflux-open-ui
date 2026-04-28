@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { subDays } from "date-fns"
-import { RefreshCw, Timer } from "lucide-react"
+import { Icon } from '@/components/ui-kit/icons'
 import { fetchAllFlatDrilldownRows } from "@/api/drilldown"
 import { useDashboardStore } from "@/store/dashboard"
 import { StatsCards, type DashboardSummaryStats } from "@/components/dashboard/StatsCards"
@@ -221,12 +221,13 @@ export function DashboardPage() {
             htmlType="button"
             type={isAutoRefresh ? "primary" : "default"}
             onClick={() => setIsAutoRefresh((current) => !current)}
+            iconName="timer"
+            iconSize="sm"
+            iconAnimation={isAutoRefresh ? 'pulse' : 'none'}
           >
-            <Timer className={`mr-1.5 h-3.5 w-3.5 ${isAutoRefresh ? "animate-pulse" : ""}`} />
             Auto-refresh
           </Button>
-          <Button htmlType="button" type="default" onClick={bumpRefresh}>
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+          <Button htmlType="button" type="default" onClick={bumpRefresh} iconName="refresh-cw" iconSize="sm">
             Refresh
           </Button>
           <DateRangePicker

@@ -1,5 +1,5 @@
 import { Navigate, useParams } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { useFunnel } from '@/api/hooks'
 
 /** Old path `/funnel-builder/:id` → canonical `/campaigns/:campaignId/funnels/:funnelId`. */
@@ -12,7 +12,7 @@ export function FunnelBuilderLegacyRedirect() {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Icon name="loader-2" className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }

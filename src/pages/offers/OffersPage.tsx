@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { subDays } from 'date-fns'
 import type { ColumnDef, RowSelectionState, Table, PaginationState, Updater, SortingState } from '@tanstack/react-table'
-import { Upload } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Modal, Input } from '@/components/ui-kit'
 import {
   ConfirmModal,
@@ -471,7 +471,7 @@ export function OffersPage() {
       actions={
         <>
           <Button onClick={handleOpenImportOffers}>
-            <Upload className="mr-1.5 h-3.5 w-3.5" />
+            <Icon name="upload" className="mr-1.5 h-3.5 w-3.5" />
             Import CSV
           </Button>
           <Button type="primary" onClick={handleCreate}>Add Offer</Button>

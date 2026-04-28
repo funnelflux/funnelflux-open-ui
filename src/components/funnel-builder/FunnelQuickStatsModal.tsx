@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
-import { Tabs } from '@/components/ui-kit'
-
 import { api } from '@/api/client'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
@@ -25,7 +23,7 @@ import {
 } from '@/lib/funnelQuickStats'
 import { useDrilldownStore } from '@/store/drilldown'
 import type { Report } from '@/types/stats'
-import { Loader2, Printer, RefreshCw, BarChart3, Globe2, LayoutGrid, Network } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { DataTable } from '@/components/ui-kit/data-table'
 
 interface QuickStatsApiResponse {
@@ -135,8 +133,6 @@ export function FunnelQuickStatsModal({
   const [loading, setLoading] = useState(false)
   const [metaLoaded, setMetaLoaded] = useState(false)
 
-  const printRef = useRef<HTMLDivElement>(null)
-
   const loadMeta = useCallback(async () => {
     if (!campaignId || !funnelId) return
     try {
@@ -237,6 +233,10 @@ export function FunnelQuickStatsModal({
     }
   }, [campaignId, funnelId, trafficSourceId, countryCode, trackingField, tab, datePickerValue.from, datePickerValue.to, timezone, toast])
 
+  const handleRefreshReport = useCallback(() => {
+    void loadReport()
+  }, [loadReport])
+
   const trafficSelectOptions = useMemo<SelectOption[]>(
     () => [
       { value: '__all__', label: 'All Traffic Sources' },
@@ -290,10 +290,6 @@ export function FunnelQuickStatsModal({
     return [{ id: 'c1', desc: true }]
   }, [report])
 
-  const handlePrint = useCallback(() => {
-    window.print()
-  }, [])
-
   const handleOpenDrilldown = useCallback(() => {
     setGroupings(['Element: Funnel'])
     setGroupingFilters({
@@ -339,23 +335,37 @@ export function FunnelQuickStatsModal({
   )
 
   const breakdownRow = (row: { id: FunnelQuickStatsTab; label: string }[]) => (
-    <div className="flex flex-wrap gap-1 border-t border-border/50 bg-background/80 px-0.5 py-1.5 sm:px-1">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 bg-background/80 px-0.5 py-0.5 sm:px-1">
       {row.map((r) => tabButton(r.id, r.label))}
     </div>
   )
 
-  const handleCategoryTabChange = useCallback((key: string) => {
+  const activateCategory = useCallback((key: string) => {
     const cat = key as QuickStatsCategory
     const rows = cat === 'conversion' ? ROW1 : cat === 'device' ? ROW2 : ROW3
     if (!rows.some((r) => r.id === tab)) setTab(rows[0].id)
   }, [tab])
+
+  const handleActivateConversionCategory = useCallback(() => {
+    activateCategory('conversion')
+  }, [activateCategory])
+
+  const handleActivateDeviceCategory = useCallback(() => {
+    activateCategory('device')
+  }, [activateCategory])
+
+  const handleActivateGeoCategory = useCallback(() => {
+    activateCategory('geo')
+  }, [activateCategory])
+
+  const activeCategory = categoryForTab(tab)
 
   return (
     <Modal
       open={open}
       onCancel={onClose}
       footer={null}
-      closable
+      closable={false}
       destroyOnClose
       centered={false}
       width="100%"
@@ -391,39 +401,43 @@ export function FunnelQuickStatsModal({
       zIndex={1200}
     >
       <div className="flex min-h-0 flex-1 flex-col bg-background text-foreground">
-        <header className="shrink-0 border-b border-border/80 bg-gradient-to-b from-muted/50 to-background px-4 py-2.5 sm:px-5">
-          <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
-              <BarChart3 className="h-4 w-4" aria-hidden />
+        <header className="shrink-0 border-b border-border/80 bg-gradient-to-b from-muted/50 to-background">
+          {/* Primary strip: title left; controls right in one row (Refresh → date → TZ → traffic → category icons → Close) */}
+          <div className="flex min-w-0 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
+            <div className="flex min-w-0 flex-1 items-center gap-3 sm:min-w-[200px]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
+                <Icon name="bar-chart-3" className="h-4 w-4" aria-hidden />
+              </div>
+              <div className="min-w-0 flex flex-col justify-center gap-0.5">
+                <p className="text-[10px] font-medium uppercase leading-none tracking-wider text-muted-foreground">
+                  Funnel quick stats
+                </p>
+                <h2
+                  className="truncate text-base font-semibold leading-tight tracking-tight text-foreground sm:text-lg"
+                  title={funnelName}
+                >
+                  {funnelName}
+                </h2>
+              </div>
             </div>
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Funnel quick stats</p>
-              <h2 className="text-balance text-base font-semibold tracking-tight sm:text-lg" title={funnelName}>
-                <span className="text-foreground">{funnelName}</span>
-              </h2>
-            </div>
-          </div>
 
-          <div className="mt-2 sm:mt-3">
             <div
-              className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="flex min-w-0 w-full shrink-0 flex-nowrap items-center gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] sm:ml-auto sm:w-auto sm:max-w-[min(100%,calc(100vw-12rem))] sm:justify-end [&::-webkit-scrollbar]:hidden"
               role="toolbar"
               aria-label="Report filters"
             >
-              <div className="flex shrink-0 items-center gap-1.5">
-                <label htmlFor="funnel-qs-traffic" className="sr-only">
-                  Traffic source
-                </label>
-                <Select
-                  id="funnel-qs-traffic"
-                  value={trafficSourceId || '__all__'}
-                  onChange={(v) => setTrafficSourceId(v === '__all__' ? '' : v)}
-                  options={trafficSelectOptions}
-                  placeholder="All Traffic Sources"
-                  className="w-[min(200px,42vw)]"
-                />
-              </div>
-              <div className="min-w-[220px] shrink-0 sm:min-w-[260px]">
+              <Button
+                htmlType="button"
+                type="primary"
+                size="small"
+                className="h-8 shrink-0 gap-1.5 self-center shadow-sm"
+                icon={<Icon name="refresh-cw" className="h-4 w-4" />}
+                loading={loading}
+                onClick={handleRefreshReport}
+              >
+                Refresh
+              </Button>
+              <div className="flex min-w-[200px] shrink-0 items-center self-center sm:min-w-[240px]">
                 <DateRangePicker
                   aria-label="Date range"
                   value={{
@@ -440,7 +454,7 @@ export function FunnelQuickStatsModal({
                   className="w-full min-w-0"
                 />
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex shrink-0 items-center self-center">
                 <label htmlFor="funnel-qs-tz" className="sr-only">
                   Timezone
                 </label>
@@ -451,115 +465,121 @@ export function FunnelQuickStatsModal({
                   className="w-[min(180px,28vw)]"
                 />
               </div>
-              <Button
-                htmlType="button"
-                type="primary"
-                className="gap-1.5 shadow-sm"
-                icon={<RefreshCw className="h-4 w-4" />}
-                loading={loading}
-                onClick={() => void loadReport()}
-              >
-                Refresh
-              </Button>
-            </div>
-
-            {(tab === 'region' || tab === 'city') && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border/50 pt-2">
-                <label htmlFor="funnel-qs-country" className="shrink-0 text-xs text-muted-foreground">
-                  Country
-                </label>
-                <Input
-                  id="funnel-qs-country"
-                  className="w-32 uppercase shadow-sm"
-                  size="middle"
-                  maxLength={2}
-                  placeholder="US"
-                  value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
-                  aria-label="ISO-3166 alpha-2 country code"
-                />
-              </div>
-            )}
-
-            {tab === 'tracking-fields' && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border/50 pt-2">
-                <label htmlFor="funnel-qs-tf" className="shrink-0 text-xs text-muted-foreground">
-                  Field
+              <div className="flex shrink-0 items-center self-center">
+                <label htmlFor="funnel-qs-traffic" className="sr-only">
+                  Traffic source
                 </label>
                 <Select
-                  id="funnel-qs-tf"
-                  value={trackingField || '__none__'}
-                  onChange={(v) => setTrackingField(v === '__none__' ? '' : v)}
-                  options={trackingFieldSelectOptions}
-                  placeholder={metaLoaded ? 'Select field' : 'Loading…'}
-                  className="w-[min(320px,85vw)]"
+                  id="funnel-qs-traffic"
+                  value={trafficSourceId || '__all__'}
+                  onChange={(v) => setTrafficSourceId(v === '__all__' ? '' : v)}
+                  options={trafficSelectOptions}
+                  placeholder="All Traffic Sources"
+                  className="w-[min(200px,36vw)]"
                 />
               </div>
-            )}
+
+              <div className="flex shrink-0 items-center gap-1 self-center" role="group" aria-label="Breakdown category">
+                <Button
+                  htmlType="button"
+                  type={activeCategory === 'conversion' ? 'primary' : 'default'}
+                  size="small"
+                  className="h-8 shrink-0 px-2"
+                  icon={<Icon name="layout-grid" className="h-4 w-4" aria-hidden />}
+                  onClick={handleActivateConversionCategory}
+                  aria-label="Conversion and traffic breakdowns"
+                  title="Conversion & traffic"
+                />
+                <Button
+                  htmlType="button"
+                  type={activeCategory === 'device' ? 'primary' : 'default'}
+                  size="small"
+                  className="h-8 shrink-0 px-2"
+                  icon={<Icon name="network" className="h-4 w-4" aria-hidden />}
+                  onClick={handleActivateDeviceCategory}
+                  aria-label="Device and network breakdowns"
+                  title="Device & network"
+                />
+                <Button
+                  htmlType="button"
+                  type={activeCategory === 'geo' ? 'primary' : 'default'}
+                  size="small"
+                  className="h-8 shrink-0 px-2"
+                  icon={<Icon name="globe-2" className="h-4 w-4" aria-hidden />}
+                  onClick={handleActivateGeoCategory}
+                  aria-label="Geography and drilldown breakdowns"
+                  title="Geography & drilldown"
+                />
+              </div>
+
+              <Button
+                htmlType="button"
+                type="default"
+                className="ml-1 flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center self-center rounded-lg border border-border/70 bg-background px-0 text-foreground shadow-sm hover:border-border hover:bg-muted"
+                aria-label="Close funnel quick stats"
+                title="Close"
+                onClick={onClose}
+              >
+                <Icon name="x" className="h-7 w-7" strokeWidth={2.5} aria-hidden />
+              </Button>
+            </div>
+          </div>
+
+          {(tab === 'region' || tab === 'city') && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/50 px-4 py-2.5 sm:px-5">
+              <label htmlFor="funnel-qs-country" className="shrink-0 text-xs text-muted-foreground">
+                Country
+              </label>
+              <Input
+                id="funnel-qs-country"
+                className="w-32 uppercase shadow-sm"
+                size="middle"
+                maxLength={2}
+                placeholder="US"
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
+                aria-label="ISO-3166 alpha-2 country code"
+              />
+            </div>
+          )}
+
+          {tab === 'tracking-fields' && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/50 px-4 py-2.5 sm:px-5">
+              <label htmlFor="funnel-qs-tf" className="shrink-0 text-xs text-muted-foreground">
+                Field
+              </label>
+              <Select
+                id="funnel-qs-tf"
+                value={trackingField || '__none__'}
+                onChange={(v) => setTrackingField(v === '__none__' ? '' : v)}
+                options={trackingFieldSelectOptions}
+                placeholder={metaLoaded ? 'Select field' : 'Loading…'}
+                className="w-[min(320px,85vw)]"
+              />
+            </div>
+          )}
+
+          <div className="border-t border-border/80 bg-muted/15 px-3 py-2 sm:px-5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="min-w-0 flex-1">
+                {activeCategory === 'conversion' && breakdownRow(ROW1)}
+                {activeCategory === 'device' && breakdownRow(ROW2)}
+                {activeCategory === 'geo' && breakdownRow(ROW3)}
+              </div>
+              {metaLoaded && tab !== 'drilldown' && (
+                <p className="shrink-0 self-center text-xs leading-relaxed text-muted-foreground">
+                  Scroll horizontally if columns exceed the viewport.
+                </p>
+              )}
+            </div>
           </div>
         </header>
 
-        <div className="shrink-0 border-b border-border/80 bg-muted/15 px-3 pb-2 pt-1.5 sm:px-5">
-          <Tabs
-            activeKey={categoryForTab(tab)}
-            onChange={handleCategoryTabChange}
-            className="quick-stats-category-tabs [&_.ant-tabs-content]:mt-0 [&_.ant-tabs-nav]:mb-0 [&_.ant-tabs-nav]:before:border-border/50 [&_.ant-tabs-tab]:px-3 [&_.ant-tabs-tab]:py-1.5 [&_.ant-tabs-tab-active]:bg-background [&_.ant-tabs-tab-active]:shadow-sm [&_.ant-tabs-tab-btn]:text-xs [&_.ant-tabs-tab-btn]:font-medium [&_.ant-tabs-tab-btn]:text-muted-foreground [&_.ant-tabs-tab-active_.ant-tabs-tab-btn]:text-foreground"
-            items={[
-              {
-                key: 'conversion',
-                label: (
-                  <span className="inline-flex items-center gap-1.5">
-                    <LayoutGrid className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-                    Conversion & traffic
-                  </span>
-                ),
-                children: breakdownRow(ROW1),
-              },
-              {
-                key: 'device',
-                label: (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Network className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-                    Device & network
-                  </span>
-                ),
-                children: breakdownRow(ROW2),
-              },
-              {
-                key: 'geo',
-                label: (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Globe2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-                    Geography & drilldown
-                  </span>
-                ),
-                children: breakdownRow(ROW3),
-              },
-            ]}
-          />
-        </div>
-
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/80 bg-background px-4 py-2 sm:px-5">
-          <div className="flex flex-wrap gap-2">
-            <Button htmlType="button" size="small" className="gap-1.5 shadow-sm" icon={<Printer className="h-4 w-4" />} onClick={handlePrint}>
-              Print
-            </Button>
-            <Button htmlType="button" size="small" className="shadow-sm" disabled title="CSV export is not available for this table view.">
-              Export CSV
-            </Button>
-          </div>
-          <p className="max-w-xl text-right text-xs leading-relaxed text-muted-foreground">
-            {!metaLoaded && 'Loading filters…'}
-            {metaLoaded && tab === 'drilldown' && 'Opens the full drilldown report for this funnel.'}
-            {metaLoaded && tab !== 'drilldown' && 'Scroll horizontally if columns exceed the viewport.'}
-          </p>
-        </div>
-
-        <div ref={printRef} className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-2 sm:px-5">
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-2 sm:px-5">
           {tab === 'drilldown' ? (
             <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-border/80 bg-muted/20 p-10 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
-                <Globe2 className="h-7 w-7" aria-hidden />
+                <Icon name="globe-2" className="h-7 w-7" aria-hidden />
               </div>
               <div className="max-w-md space-y-2">
                 <p className="text-base font-medium text-foreground">Full drilldown</p>
@@ -573,7 +593,7 @@ export function FunnelQuickStatsModal({
             </div>
           ) : loading ? (
             <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-muted/10">
-              <Loader2 className="h-9 w-9 animate-spin text-primary" />
+              <Icon name="loader-2" className="h-9 w-9 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground">Loading report…</p>
             </div>
           ) : (

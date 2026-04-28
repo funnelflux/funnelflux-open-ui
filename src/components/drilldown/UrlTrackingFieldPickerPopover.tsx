@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ListTree } from 'lucide-react'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import { useTrafficSource } from '@/api/hooks/useTrafficSources'
@@ -264,7 +263,8 @@ export function UrlTrackingFieldPickerPopover({
         type="text"
         disabled={disabled}
         className={cn('relative h-[35px] w-8 min-w-8 px-0', isActive && 'text-foreground')}
-        icon={<ListTree className="h-3.5 w-3.5" />}
+        iconName="list-tree"
+        iconSize="sm"
         title="URL tracking field"
         aria-label={`URL tracking field, level ${levelIndex + 1}${grouping ? `, ${grouping}` : ''}`}
       >

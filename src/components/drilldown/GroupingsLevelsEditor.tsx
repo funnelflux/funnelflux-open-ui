@@ -1,5 +1,4 @@
 import { memo, useCallback, useMemo } from 'react'
-import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react'
 import { GroupingFilterPopover } from '@/components/drilldown/GroupingFilterPopover'
 import { UrlTrackingFieldPickerPopover } from '@/components/drilldown/UrlTrackingFieldPickerPopover'
 import { Button, GroupedSelect } from '@/components/ui-kit'
@@ -119,7 +118,8 @@ const GroupingLevelEditorRow = memo(function GroupingLevelEditorRow({
             type="text"
             size="small"
             className="h-8 w-8 min-w-8 px-0"
-            icon={<ChevronUp className="h-4 w-4" />}
+            iconName="chevron-up"
+            iconSize="md"
             onClick={handleMoveUp}
             disabled={!canMoveUp}
             aria-label="Move level up"
@@ -129,7 +129,8 @@ const GroupingLevelEditorRow = memo(function GroupingLevelEditorRow({
             type="text"
             size="small"
             className="h-8 w-8 min-w-8 px-0"
-            icon={<ChevronDown className="h-4 w-4" />}
+            iconName="chevron-down"
+            iconSize="md"
             onClick={handleMoveDown}
             disabled={!canMoveDown}
             aria-label="Move level down"
@@ -157,7 +158,8 @@ const GroupingLevelEditorRow = memo(function GroupingLevelEditorRow({
               type="text"
               size="small"
               className="h-8 w-8 min-w-8 px-0"
-              icon={<X className="h-3.5 w-3.5" />}
+              iconName="x"
+              iconSize="sm"
               onClick={handleRemoveClick}
               aria-label="Remove level"
             />
@@ -307,7 +309,7 @@ export function GroupingsLevelsEditor({
         ))}
       </div>
       {canAddLevel ? (
-        <Button className="text-xs w-fit" onClick={handleAdd} icon={<Plus className="h-3.5 w-3.5" />}>
+        <Button className="text-xs w-fit" onClick={handleAdd} iconName="plus" iconSize="sm">
           Add level
         </Button>
       ) : null}

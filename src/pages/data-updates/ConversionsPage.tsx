@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, PageShell, useToastApi } from '@/components/ui-kit'
 import { api } from '@/api/client'
 import type { BackgroundJobResponse, ConvertedHit, ConversionsUpload } from '@/types/stats'
@@ -102,7 +102,7 @@ export function ConversionsPage() {
         </div>
 
         <Button type="primary" onClick={handleSubmit} disabled={isSubmitting || !csvData.trim()}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isSubmitting && <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />}
           Submit Conversions
         </Button>
       </div>

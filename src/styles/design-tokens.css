@@ -72,6 +72,10 @@
   --page-padding: 24px;
   --toolbar-height: 48px;
   --control-height: 32px;
+  /* Aligned with `controlSize` / Ant Design middle (35px) — use `h-control-md` etc. in UI */
+  --control-height-sm: 28px;
+  --control-height-md: 35px;
+  --control-height-lg: 42px;
 
   /* Responsive breakpoints (reference — applied via Tailwind lg:/md:) */
   /* sm: 640px  md: 768px  lg: 1024px  xl: 1280px  2xl: 1536px */

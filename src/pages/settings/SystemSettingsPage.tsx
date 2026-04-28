@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Save } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Divider } from '@/components/ui-kit'
 import { PageShell, useToastApi, Button, Input, Switch, Select } from '@/components/ui-kit'
 import { useSystemSettings, useSaveSystemSettings } from '@/api/hooks/useSystemSettings'
@@ -265,9 +265,9 @@ export function SystemSettingsPage() {
         <div className="pt-2">
           <Button type="primary" htmlType="submit" disabled={saveSettings.isPending}>
             {saveSettings.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <Icon name="save" className="mr-2 h-4 w-4" />
             )}
             Save Settings
           </Button>

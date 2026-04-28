@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Globe, Plus, Star, Trash2, Loader2 } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Tag } from '@/components/ui-kit'
 import { ConfirmModal, useToastApi } from '@/components/ui-kit'
 import {
@@ -86,9 +86,9 @@ export function DomainsManager() {
           disabled={!newDomain.trim() || saveDomain.isPending}
         >
           {saveDomain.isPending ? (
-            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            <Icon name="loader-2" className="h-4 w-4 mr-1 animate-spin" />
           ) : (
-            <Plus className="h-4 w-4 mr-1" />
+            <Icon name="plus" className="h-4 w-4 mr-1" />
           )}
           Add
         </Button>
@@ -100,7 +100,7 @@ export function DomainsManager() {
 
       {!isLoading && (!domains || domains.length === 0) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-          <Globe className="h-5 w-5" />
+          <Icon name="globe" className="h-5 w-5" />
           <span>No domains configured.</span>
         </div>
       )}
@@ -130,7 +130,7 @@ export function DomainsManager() {
                     title="Set as default"
                     aria-label="Set as default"
                   >
-                    <Star className="h-4 w-4" />
+                    <Icon name="star" className="h-4 w-4" />
                   </Button>
                 )}
                 <Button
@@ -141,7 +141,7 @@ export function DomainsManager() {
                   title="Delete domain"
                   aria-label="Delete domain"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Icon name="trash-2" className="h-4 w-4" />
                 </Button>
               </div>
             </div>

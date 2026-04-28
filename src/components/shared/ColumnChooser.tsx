@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { Columns3, ChevronDown, ChevronRight, Search } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Drawer } from '@/components/ui-kit'
 import { Button, Input, Switch } from '@/components/ui-kit'
 import type { Table, ColumnDef } from '@tanstack/react-table'
@@ -95,11 +95,12 @@ export function ColumnChooser<TData>({
     }
   }, [isControlled, internalHiddenCols, tableColumns, table])
 
-  /** First visit (uncontrolled only): hide metrics from registry or `defaultVisibleColumnIds` */
+  /** First visit (uncontrolled only): apply default hidden columns (no setState inside effect body). */
   useEffect(() => {
     if (isControlled) return
     if (defaultsAppliedRef.current) return
     if (tableColumns.length === 0) return
+
     try {
       if (localStorage.getItem(lsKey)) {
         defaultsAppliedRef.current = true
@@ -118,7 +119,8 @@ export function ColumnChooser<TData>({
     } else {
       for (const col of tableColumns) {
         const meta = getColumnMeta(col.id)
-        const visibleDefault = meta?.defaultVisible ?? (col.id.startsWith('col-') ? false : true)
+        const visibleDefault =
+          meta?.defaultVisible ?? (col.id.startsWith('col-') ? false : true)
         if (!visibleDefault) hidden.add(col.id)
       }
     }
@@ -126,13 +128,18 @@ export function ColumnChooser<TData>({
     defaultsAppliedRef.current = true
     if (hidden.size === 0) return
 
-    setInternalHiddenCols(hidden)
+    // Defer the React state update; apply external table visibility immediately.
+    // This avoids synchronous setState in the effect body (React Compiler/ESLint warning).
     table.setColumnVisibility(
       Object.fromEntries(tableColumns.map((c) => [c.id, !hidden.has(c.id)])),
     )
+    queueMicrotask(() => setInternalHiddenCols(hidden))
+
     try {
       localStorage.setItem(lsKey, JSON.stringify([...hidden]))
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [isControlled, defaultVisibleSet, lsKey, table, tableColumns])
 
   const applyVisibilityToTable = useCallback(
@@ -230,7 +237,7 @@ export function ColumnChooser<TData>({
 
   return (
     <>
-      <Button type="default" icon={<Columns3 className="h-4 w-4" />} onClick={() => setOpen(true)}>
+      <Button type="default" iconName="columns-3" iconSize="md" onClick={() => setOpen(true)}>
         Columns
       </Button>
 
@@ -244,7 +251,7 @@ export function ColumnChooser<TData>({
         <div className="flex flex-col h-full bg-[var(--surface)]">
           <div className="px-3 pt-3 pb-2 border-b border-[var(--border)] flex flex-col gap-2">
             <Input
-              prefix={<Search className="h-3.5 w-3.5 text-[var(--muted-fg)]" />}
+              prefix={<span className="text-[var(--muted-fg)]"><Icon name="search" size="sm" aria-hidden /></span>}
               placeholder="Search columns..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -288,8 +295,8 @@ export function ColumnChooser<TData>({
                     onClick={() => toggleGroup(group.groupId)}
                   >
                     {isCollapsed
-                      ? <ChevronRight className="h-3.5 w-3.5 text-[var(--muted-fg)] shrink-0" />
-                      : <ChevronDown className="h-3.5 w-3.5 text-[var(--muted-fg)] shrink-0" />
+                      ? <span className="text-[var(--muted-fg)] shrink-0"><Icon name="chevron-right" size="sm" aria-hidden /></span>
+                      : <span className="text-[var(--muted-fg)] shrink-0"><Icon name="chevron-down" size="sm" aria-hidden /></span>
                     }
                     <span className="text-sm font-medium">{group.groupLabel}</span>
                     <span className="text-xs text-[var(--muted-fg)]">

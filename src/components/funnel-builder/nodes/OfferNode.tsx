@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { Sparkles } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import type { FunnelNodeData, OfferNodeParams } from '@/types/funnel'
 import { BaseNode } from './BaseNode'
 
@@ -16,7 +16,7 @@ function OfferNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>)
         kind: 'Offer',
         title: data.label || 'Offer',
         subtitle: params.pageName || (params.pageId ? `Page ${params.pageId}` : undefined),
-        icon: <Sparkles className="h-5 w-5" />,
+        icon: <Icon name="sparkles" className="h-5 w-5" />,
       }}
     />
   )

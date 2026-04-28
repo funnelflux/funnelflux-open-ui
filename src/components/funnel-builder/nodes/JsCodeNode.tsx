@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { Braces } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import type { FunnelNodeData, JsCodeNodeParams } from '@/types/funnel'
 import { BaseNode } from './BaseNode'
 
@@ -16,7 +16,7 @@ function JsCodeNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>
         kind: 'JavaScript',
         title: data.label || 'JS',
         subtitle: params.snippetName,
-        icon: <Braces className="h-5 w-5" />,
+        icon: <Icon name="braces" className="h-5 w-5" />,
       }}
     />
   )

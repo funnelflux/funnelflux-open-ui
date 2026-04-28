@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Input, Select } from '@/components/ui-kit'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { useCampaignsList } from '@/api/hooks'
@@ -109,9 +109,9 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
           className="flex w-full items-center gap-2 rounded-md py-2 text-left text-sm font-medium text-foreground hover:bg-muted/50"
         >
           {advancedOpen ? (
-            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="shrink-0 text-muted-foreground"><Icon name="chevron-down" size="md" aria-hidden /></span>
           ) : (
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="shrink-0 text-muted-foreground"><Icon name="chevron-right" size="md" aria-hidden /></span>
           )}
           <span>Advanced settings</span>
         </button>

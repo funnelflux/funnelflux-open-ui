@@ -1,4 +1,3 @@
-import { Plus, X } from 'lucide-react'
 import { Button, Tag } from '@/components/ui-kit'
 import type { ConditionBlock as ConditionBlockType, ConditionRule } from '@/types/funnel'
 import { ConditionRuleRow } from './ConditionRuleRow'
@@ -71,8 +70,9 @@ export function ConditionBlock({
             className="h-7 w-7"
             onClick={onRemove}
             aria-label="Remove condition block"
+            iconName="x"
+            iconSize="sm"
           >
-            <X className="h-3.5 w-3.5" />
           </Button>
         )}
       </div>
@@ -96,8 +96,9 @@ export function ConditionBlock({
         size="small"
         className="h-7 text-xs"
         onClick={handleAddRule}
+        iconName="plus"
+        iconSize="sm"
       >
-        <Plus className="h-3 w-3 mr-1" />
         Add Rule
       </Button>
     </div>

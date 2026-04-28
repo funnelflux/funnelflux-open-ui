@@ -10,7 +10,7 @@ import {
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRef, useCallback, useEffect, useMemo, useState, memo } from 'react'
-import { ChevronRight, ChevronLeft } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import type { ColumnAlign } from './columnDefs'
 import type { DataTableProps, SortingState, VisibilityState, RowSelectionState, PaginationState, ExpandedState, Row } from './types'
@@ -317,7 +317,7 @@ function DataTableInner<TData>({
                         {expandingRowId === row.id ? (
                           <span className="dt-spinner" style={{ width: 14, height: 14, borderWidth: 1.5 }} />
                         ) : (
-                          <ChevronRight size={14} />
+                          <Icon name="chevron-right" size="sm" />
                         )}
                       </button>
                     ) : (
@@ -518,7 +518,7 @@ function DataTableInner<TData>({
               onClick={() => table.previousPage()}
               aria-label="Previous page"
             >
-              <ChevronLeft size={14} />
+              <Icon name="chevron-left" size="sm" />
             </button>
             {pageNumbers.map((p, i) =>
               p === 'ellipsis' ? (
@@ -539,7 +539,7 @@ function DataTableInner<TData>({
               onClick={() => table.nextPage()}
               aria-label="Next page"
             >
-              <ChevronRight size={14} />
+              <Icon name="chevron-right" size="sm" />
             </button>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { Select } from './Select'
 import type { SelectOption } from './Select'
 import { getStoredTimezone, storeTimezonePreference } from './timezoneStorage'
-import type { ControlSize } from '@/lib/controlSize'
+import type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
 
 const UTC_OFFSETS: { value: string; offset: number; label: string; city?: string }[] = [
   { value: 'Etc/GMT+12', offset: -12, label: 'UTC-12', city: 'Baker Island (US)' },
@@ -46,7 +46,9 @@ function normalizeTimezone(tz: string): string {
     const now = new Date()
     const offset = -new Date(now.toLocaleString('en-US', { timeZone: tz })).getTimezoneOffset() / 60
     return UTC_OFFSETS.find((o) => o.offset === offset)?.value ?? tz
-  } catch { return tz }
+  } catch {
+    return tz
+  }
 }
 
 interface TimezoneSelectProps {
@@ -54,11 +56,11 @@ interface TimezoneSelectProps {
   value?: string
   onChange?: (timezone: string) => void
   className?: string
-  /** Default **md** (35px) */
-  controlSize?: ControlSize
+  /** Default **md** — aligns with other toolbar selects */
+  size?: ControlSize | LegacyAntdControlSize
 }
 
-export function TimezoneSelect({ id, value, onChange, className, controlSize = 'md' }: TimezoneSelectProps) {
+export function TimezoneSelect({ id, value, onChange, className, size = 'md' }: TimezoneSelectProps) {
   const currentTz = value || getStoredTimezone()
   const normalized = normalizeTimezone(currentTz)
 
@@ -73,7 +75,7 @@ export function TimezoneSelect({ id, value, onChange, className, controlSize = '
       options={TZ_OPTIONS}
       alphabetical={false}
       placeholder="Select timezone"
-      controlSize={controlSize}
+      size={size}
       className={className}
       style={{ minWidth: 180 }}
     />

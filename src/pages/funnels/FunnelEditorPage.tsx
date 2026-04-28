@@ -12,7 +12,7 @@ import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
 import { useToastApi } from '@/components/ui-kit'
 import { Button } from '@/components/ui-kit'
 import { useAuthStore } from '@/store/auth'
-import { ArrowLeft, BarChart3, Loader2, RotateCcw, Save, Settings } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { buildV2SavePayload, extractPersistExtras, type FunnelPersistExtras } from '@/lib/funnelApiV2'
 import { generateId } from '@/lib/id-generator'
 
@@ -120,7 +120,7 @@ export function FunnelEditorPage() {
   if (isLoading && !isNew) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Icon name="loader-2" className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -133,7 +133,7 @@ export function FunnelEditorPage() {
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
           <header className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
             <Button type="text" size="small" className="shrink-0 gap-1" onClick={handleBack}>
-              <ArrowLeft className="h-4 w-4" />
+              <Icon name="arrow-left" className="h-4 w-4" />
               <span className="hidden sm:inline">Campaigns</span>
             </Button>
 
@@ -157,7 +157,7 @@ export function FunnelEditorPage() {
               aria-label="Funnel settings"
               onClick={() => setSettingsOpen(true)}
             >
-              <Settings className="h-4 w-4" />
+              <Icon name="settings" className="h-4 w-4" />
             </Button>
 
             {!isNew && canViewStats && campaignId && funnelId && (
@@ -169,7 +169,7 @@ export function FunnelEditorPage() {
                 aria-label="Quick Stats"
                 onClick={() => setQuickStatsOpen(true)}
               >
-                <BarChart3 className="h-4 w-4" />
+                <Icon name="bar-chart-3" className="h-4 w-4" />
               </Button>
             )}
 
@@ -180,7 +180,7 @@ export function FunnelEditorPage() {
               disabled={!isDirty || isSaving}
               title={isDirty ? 'Revert to last saved version' : 'No unsaved changes'}
             >
-              <RotateCcw className="mr-1.5 h-4 w-4" />
+              <Icon name="rotate-ccw" className="mr-1.5 h-4 w-4" />
               Discard
             </Button>
 
@@ -191,7 +191,7 @@ export function FunnelEditorPage() {
               onClick={() => void handleSave()}
               disabled={isSaving}
             >
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+              {isSaving ? <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" /> : <Icon name="save" className="mr-1.5 h-4 w-4" />}
               Save
             </Button>
           </header>

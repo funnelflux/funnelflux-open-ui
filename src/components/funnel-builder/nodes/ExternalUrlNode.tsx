@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { Link2 } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import type { FunnelNodeData, ExternalUrlNodeParams } from '@/types/funnel'
 import { BaseNode } from './BaseNode'
 
@@ -22,7 +22,7 @@ function ExternalUrlNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeD
         kind: 'External URL',
         title: data.label || 'External URL',
         subtitle: url ? truncateUrl(url) : undefined,
-        icon: <Link2 className="h-5 w-5" />,
+        icon: <Icon name="link-2" className="h-5 w-5" />,
       }}
     />
   )

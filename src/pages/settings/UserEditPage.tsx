@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Switch, Select, PageShell, useToastApi } from '@/components/ui-kit'
 import { PermissionsGrid } from '@/components/settings/PermissionsGrid'
 import { useUsers } from '@/api/hooks'
@@ -262,7 +262,7 @@ export function UserEditPage() {
               Cancel
             </Button>
             <Button type="primary" htmlType="button" onClick={() => void handleSave()} disabled={isSaving}>
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isSaving ? <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save
             </Button>
           </div>

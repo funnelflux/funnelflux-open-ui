@@ -40,13 +40,18 @@ export {
   enableBtnColumn,
   disableBtnColumn,
   registryStatColumn,
-  getColumnMeta,
-  getDefaultVisibleIds,
   buildColumnsFromReport,
   resolveApiColumnId,
-  ALL_COLUMN_GROUPS,
-  buildChooserGroupsForPage,
-  COLUMN_CHOOSER_OTHER_GROUP,
-  filterColumnGroupsByScope,
 } from './columnDefs'
-export type { ColumnAlign, ColumnGroupDef, ColumnMeta, MetricScope } from './columnDefs'
+
+export {
+  ALL_COLUMN_GROUPS,
+  getColumnMeta,
+  getDefaultVisibleIds,
+  COLUMN_CHOOSER_OTHER_GROUP,
+  buildChooserGroupsForPage,
+  filterColumnGroupsByScope,
+} from './columnRegistry'
+
+export type { ColumnAlign } from './columnDefs'
+export type { ColumnGroupDef, ColumnMeta, MetricScope } from './columnRegistry'

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Segmented, Space } from '@/components/ui-kit'
-import { Plus } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Select, FormField, Modal, useToastApi } from '@/components/ui-kit'
 import { useCampaignsList } from '@/api/hooks'
 
@@ -125,7 +125,7 @@ export function AddCampaignOrFunnelModal({
                 />
                 <Button
                   type="primary"
-                  icon={<Plus className="h-4 w-4" />}
+                  icon={<Icon name="plus" className="h-4 w-4" />}
                   title="New campaign"
                   aria-label="Create campaign and select it"
                   loading={campaignQuickCreatePending}

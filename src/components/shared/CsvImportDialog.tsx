@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Loader2, Upload } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Modal, Select } from '@/components/ui-kit'
 
 interface CsvImportDialogProps {
@@ -95,9 +95,9 @@ export function CsvImportDialog({
       </Button>
       <Button type="primary" htmlType="button" disabled={rows.length === 0 || isImporting} onClick={() => void handleImport()}>
         {isImporting ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />
         ) : (
-          <Upload className="mr-2 h-4 w-4" />
+          <Icon name="upload" className="mr-2 h-4 w-4" />
         )}
         Import
       </Button>

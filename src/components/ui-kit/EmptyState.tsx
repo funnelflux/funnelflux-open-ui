@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Button } from 'antd'
-import { Inbox } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 
 interface EmptyStateProps {
   icon?: ReactNode
@@ -20,7 +20,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="text-muted-foreground mb-3">
-        {icon || <Inbox className="h-10 w-10" />}
+        {icon || <Icon name="inbox" className="h-10 w-10" />}
       </div>
       {title && (
         <h3 className="text-base font-medium text-foreground mb-1">{title}</h3>

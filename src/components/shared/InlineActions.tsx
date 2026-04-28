@@ -1,5 +1,5 @@
 import { Button, Tooltip } from '@/components/ui-kit'
-import type { LucideIcon } from 'lucide-react'
+import type { LucideIcon } from '@/components/ui-kit/icons'
 
 export interface InlineAction {
   label: string

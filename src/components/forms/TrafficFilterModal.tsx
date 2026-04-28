@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
 import { Button, Input, Switch, Select, Modal, FormField } from '@/components/ui-kit'
 import { trafficFilterSchema, type TrafficFilterFormData } from '@/schemas/trafficFilter'
 import { FILTER_TYPES, FILTER_TYPE_LABELS } from '@/lib/trafficFilterConstants'
@@ -170,8 +169,15 @@ export function TrafficFilterModal({
         </div>
 
         <div className="flex gap-2 pt-4">
-          <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button
+            type="primary"
+            htmlType="submit"
+            disabled={isSubmitting}
+            className="flex-1"
+            iconName={isSubmitting ? 'loader-2' : undefined}
+            iconAnimation={isSubmitting ? 'spin' : 'none'}
+            iconSize="sm"
+          >
             {initialData ? 'Save' : 'Create'}
           </Button>
           <Button

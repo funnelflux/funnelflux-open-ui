@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { Tags } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import type { FunnelNodeData, VisitorTagNodeParams } from '@/types/funnel'
 import { BaseNode } from './BaseNode'
 
@@ -18,7 +18,7 @@ function VisitorTagNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeDa
         kind: 'Visitor tag',
         title: data.label || 'Tag',
         subtitle: pair,
-        icon: <Tags className="h-5 w-5" />,
+        icon: <Icon name="tags" className="h-5 w-5" />,
       }}
     />
   )

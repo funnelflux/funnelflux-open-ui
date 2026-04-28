@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Loader2, AlertTriangle } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, PageShell, ConfirmModal, Select, useToastApi } from '@/components/ui-kit'
 import type { SelectOption } from '@/components/ui-kit'
 import { useCampaignsList, useTrafficSources } from '@/api/hooks'
@@ -126,7 +126,7 @@ export function ResetStatsPage() {
             onClick={handleCalculate}
             disabled={isCalculating}
           >
-            {isCalculating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isCalculating && <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />}
             Calculate
           </Button>
 
@@ -142,7 +142,7 @@ export function ResetStatsPage() {
         {/* Preview Count */}
         {previewCount !== null && (
           <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 px-4 py-3 text-sm">
-            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <Icon name="alert-triangle" className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
             <span>
               <strong>{previewCount.toLocaleString()}</strong> record{previewCount !== 1 ? 's' : ''} will be deleted.
             </span>

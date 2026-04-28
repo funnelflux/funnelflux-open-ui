@@ -1,7 +1,7 @@
+import { Icon } from '@/components/ui-kit/icons'
 import { useEffect, useMemo, useState } from 'react'
-import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ExternalLink, Loader2, Plus, Trash2 } from 'lucide-react'
 import {
   Button,
   Input,
@@ -125,9 +125,19 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
     })
   }, [open, node, page, pageId, form, isFetching])
 
-  const redirectType = form.watch('redirectType')
-  const urlValue = form.watch('url')
-  const tags = form.watch('tags')
+  const redirectType = useWatch({
+    control: form.control,
+    name: 'redirectType',
+    defaultValue: '307' as LanderNodeEditFormData['redirectType'],
+  })
+  const urlValue = useWatch({ control: form.control, name: 'url', defaultValue: '' })
+  const tags = useWatch({ control: form.control, name: 'tags', defaultValue: [] as string[] })
+  const idPageWatch = useWatch({ control: form.control, name: 'idPage' })
+  const accumulateUrlParamsWatch = useWatch({
+    control: form.control,
+    name: 'accumulateUrlParams',
+    defaultValue: false,
+  })
 
   const categoryNamesFromApi = new Set((categories ?? []).map((c) => c.name).filter(Boolean))
   const rawTag = tags?.[0]
@@ -235,42 +245,31 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
     <>
       <Modal
         open={open}
+        title="Edit lander"
         onCancel={onClose}
-        destroyOnClose
+        destroyOnHidden
         maskClosable={false}
-        width="min(1200px, 96vw)"
-        zIndex={1050}
-        title={
-          <div className="space-y-1 pr-8">
-            <div className="text-lg font-semibold text-foreground">Lander identification</div>
-            <p className="text-sm font-normal text-muted-foreground">
-              Edit the landing page record and how this funnel node passes traffic to it.
-            </p>
-          </div>
-        }
-        styles={{
-          body: { maxHeight: 'calc(90vh - 200px)', overflowY: 'auto', padding: '16px 24px' },
-          header: { marginBottom: 0 },
-          footer: { marginTop: 0 },
-        }}
+        width={640}
+        scrollBody
         footer={
-          <div className="flex w-full flex-wrap justify-between gap-2">
-            <Button htmlType="button" onClick={onClose} disabled={busy}>
-              Cancel
-            </Button>
+          <div className="flex w-full gap-2">
             <Button
               type="primary"
               htmlType="submit"
               form="lander-node-edit-form"
               disabled={busy || noPage || pageLoading || isError}
               loading={busy}
-              className="min-w-[100px] !bg-orange-600 hover:!bg-orange-500"
+              className="min-w-0 flex-1"
             >
-              OK
+              Save
+            </Button>
+            <Button htmlType="button" disabled={busy} onClick={onClose} className="min-w-0 flex-1">
+              Cancel
             </Button>
           </div>
         }
       >
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-4">
           {noPage ? (
             <p className="text-sm text-muted-foreground">
               This node has no lander page assigned. Set a page ID from the funnel context or pick a
@@ -278,7 +277,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
             </p>
           ) : pageLoading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Icon name="loader-2" size="lg" animation="spin" aria-label="Loading" />
               Loading lander…
             </div>
           ) : isError ? (
@@ -286,12 +285,11 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
               {error ? getErrorMessage(error) : 'Could not load lander.'}
             </p>
           ) : (
-            <form id="lander-node-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form id="lander-node-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="min-w-0 space-y-8">
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold text-foreground">Page</h3>
-                {/* Name, category, ID on one row on large screens */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-end">
-                  <div className="space-y-2 lg:col-span-5">
+                <div className="flex flex-col gap-4">
+                  <div className="space-y-2">
                     <label htmlFor="lander-name" className="block text-sm font-medium text-foreground">
                       Name
                     </label>
@@ -302,8 +300,8 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                         <>
                           <Input
                             id="lander-name"
-                            size="middle"
-                            className="h-10"
+                            size="md"
+                            className="min-w-0 max-w-full"
                             value={field.value}
                             onChange={(e) => field.onChange(e.target.value)}
                             onBlur={field.onBlur}
@@ -316,11 +314,12 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                       )}
                     />
                   </div>
-                  <div className="space-y-2 lg:col-span-4">
+                  <div className="space-y-2">
                     <span className="block text-sm font-medium text-foreground">Category</span>
-                    <div className="flex gap-2">
+                    <div className="flex max-w-full min-w-0 items-center gap-2">
                       <Select
-                        className="min-h-10 flex-1"
+                        className="min-w-0 flex-1"
+                        size="md"
                         value={categorySelectValue}
                         onChange={(v) => {
                           if (v === '__none__' || v === UNCATEGORIZED) {
@@ -335,17 +334,18 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                       <Button
                         htmlType="button"
                         type="default"
-                        className="h-10 w-10 shrink-0 p-0"
+                        size="md"
+                        className="shrink-0"
                         title="Add category"
-                        icon={<Plus className="h-4 w-4" />}
+                        icon={<Icon name="plus" />}
                         onClick={openAddCategoryModal}
                       />
                     </div>
                   </div>
-                  <div className="space-y-2 lg:col-span-3">
+                  <div className="space-y-2">
                     <span className="block text-sm font-medium text-foreground">ID</span>
-                    <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 font-mono text-xs text-muted-foreground">
-                      {form.watch('idPage') || page?.idPage || '—'}
+                    <div className="flex max-w-full min-h-control-md min-w-0 items-center rounded-md border border-input bg-muted/50 px-3 font-mono text-xs text-muted-foreground">
+                      <span className="min-w-0 truncate">{idPageWatch || page?.idPage || '—'}</span>
                     </div>
                   </div>
                 </div>
@@ -354,15 +354,15 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                   <label htmlFor="lander-url" className="block text-sm font-medium text-foreground">
                     Lander URL
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex max-w-full min-w-0 items-center gap-2">
                     <Controller
                       control={form.control}
                       name="url"
                       render={({ field }) => (
                         <Input
                           id="lander-url"
-                          size="middle"
-                          className="h-10 flex-1"
+                          size="md"
+                          className="h-control-md min-h-0 min-w-0 flex-1 max-w-full"
                           value={field.value}
                           onChange={(e) => field.onChange(e.target.value)}
                           onBlur={field.onBlur}
@@ -373,9 +373,10 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                     <Button
                       htmlType="button"
                       type="default"
-                      className="h-10 w-10 shrink-0 p-0"
+                      size="md"
+                      className="shrink-0"
                       title="Open URL"
-                      icon={<ExternalLink className="h-4 w-4" />}
+                      icon={<Icon name="external-link" />}
                       onClick={openLanderUrl}
                     />
                   </div>
@@ -384,12 +385,12 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 border-t pt-4 lg:grid-cols-2 lg:items-start">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2 sm:items-start">
+                  <div className="flex min-w-0 flex-col space-y-2 sm:h-full">
                     <span className="block text-sm font-medium text-foreground">Redirect type</span>
                     <Select
-                      className="w-full"
-                      size="middle"
+                      className="w-full min-w-0"
+                      size="md"
                       value={redirectType}
                       onChange={(v) =>
                         form.setValue('redirectType', v as LanderNodeEditFormData['redirectType'], {
@@ -402,7 +403,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                       <p className="text-xs leading-relaxed text-muted-foreground">{REDIRECT_NOTES[redirectType]}</p>
                     )}
                   </div>
-                  <div className="flex min-h-[11rem] flex-col space-y-2">
+                  <div className="flex min-w-0 flex-col space-y-2 sm:h-full">
                     <label htmlFor="lander-notes" className="block text-sm font-medium text-foreground">
                       Notes
                     </label>
@@ -412,7 +413,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                       render={({ field }) => (
                         <Input.TextArea
                           id="lander-notes"
-                          className="min-h-[9.5rem] flex-1 resize-y text-sm"
+                          className="min-h-0 flex-1 resize-y text-sm sm:min-h-[9.5rem]"
                           value={field.value}
                           onChange={(e) => field.onChange(e.target.value)}
                           onBlur={field.onBlur}
@@ -445,7 +446,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                   </div>
                   <Switch
                     id="acc-url"
-                    checked={form.watch('accumulateUrlParams')}
+                    checked={Boolean(accumulateUrlParamsWatch)}
                     onChange={(c) => form.setValue('accumulateUrlParams', c, { shouldDirty: true })}
                   />
                 </div>
@@ -469,8 +470,8 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                               value={field.value}
                               onChange={(e) => field.onChange(e.target.value)}
                               onBlur={field.onBlur}
-                              size="middle"
-                              className="h-10 font-mono text-sm"
+                              size="md"
+                              className="h-control-md font-mono text-sm"
                             />
                           )}
                         />
@@ -484,7 +485,8 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                           name={`additionalTokens.${index}.token`}
                           render={({ field }) => (
                             <Select
-                              className="min-h-10 w-full font-mono text-xs"
+                              className="h-control-md w-full font-mono text-xs"
+                              size="md"
                               value={field.value || '__pick__'}
                               onChange={(v) => {
                                 field.onChange(v === '__pick__' ? '' : v)
@@ -500,10 +502,11 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                         <Button
                           htmlType="button"
                           type="text"
-                          className="h-10 w-10 text-muted-foreground"
+                          size="md"
+                          className="text-muted-foreground"
                           title="Remove row"
                           disabled={fields.length <= 1}
-                          icon={<Trash2 className="h-4 w-4" />}
+                          icon={<Icon name="trash-2" />}
                           onClick={() => remove(index)}
                         />
                       </div>
@@ -511,8 +514,8 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                   ))}
                   <Button
                     htmlType="button"
-                    size="small"
-                    icon={<Plus className="h-3.5 w-3.5" />}
+                    size="sm"
+                    icon={<Icon name="plus" size="sm" />}
                     onClick={() => append({ field: '', token: '' })}
                   >
                     Pass another token
@@ -521,13 +524,13 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
               </section>
             </form>
           )}
+        </div>
       </Modal>
 
     <Modal
-      title="Add category"
+      title="New category"
       open={addCategoryOpen}
-      zIndex={1100}
-      okText="Save"
+      okText="Create"
       cancelText="Cancel"
       confirmLoading={saveCategory.isPending}
       onOk={() => void handleConfirmAddCategory()}
@@ -535,7 +538,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
         setAddCategoryOpen(false)
         setNewCategoryName('')
       }}
-      destroyOnClose
+      destroyOnHidden
     >
       <p className="mb-2 text-sm text-muted-foreground">Letters, numbers, and spaces only.</p>
       <label htmlFor="lander-new-category-name" className="sr-only">
@@ -543,8 +546,8 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
       </label>
       <Input
         id="lander-new-category-name"
-        size="middle"
-        className="h-10"
+        size="md"
+        className="h-control-md"
         value={newCategoryName}
         onChange={(e) => setNewCategoryName(e.target.value)}
         placeholder="Category name"
@@ -554,7 +557,6 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
             void handleConfirmAddCategory()
           }
         }}
-        autoFocus
       />
     </Modal>
     </>

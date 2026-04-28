@@ -1,7 +1,6 @@
 import type { ColumnDef, CellContext } from '@tanstack/react-table'
 import type { ReactNode } from 'react'
-import type { LucideIcon } from 'lucide-react'
-import { Pencil, Copy, Trash2, Archive, ArchiveRestore, Plus, Workflow, RotateCcw, UserCheck, UserX } from 'lucide-react'
+import { Icon, type IconName } from '@/components/ui-kit/icons'
 import { Tooltip } from '../Tooltip'
 import { Button } from '../Button'
 import type { ReportCell } from '@/types/stats'
@@ -12,15 +11,6 @@ import {
 } from './columnRegistry'
 
 export type { ColumnGroupDef, ColumnMeta, MetricScope } from './columnRegistry'
-export {
-  ALL_COLUMN_GROUPS,
-  getColumnMeta,
-  getDefaultVisibleIds,
-  ENTITY_ID_COLUMN_META,
-  COLUMN_CHOOSER_OTHER_GROUP,
-  buildChooserGroupsForPage,
-  filterColumnGroupsByScope,
-} from './columnRegistry'
 
 // ---------- Cell helpers ----------
 
@@ -388,12 +378,11 @@ const ACTION_COL_SIZE = 36
 
 function actionBtnColumn<T>(
   id: string,
-  icon: LucideIcon,
+  iconName: IconName,
   tooltip: string,
   onClick: (row: T) => void,
   opts?: { destructive?: boolean; hidden?: (row: T) => boolean },
 ): ColumnDef<T, unknown> {
-  const Icon = icon
   return {
     id,
     header: '',
@@ -412,8 +401,11 @@ function actionBtnColumn<T>(
             type="text"
             size="small"
             className={`dt-action-btn${opts?.destructive ? ' dt-action-btn--destructive' : ''}`}
-            onClick={(e) => { e.stopPropagation(); onClick(row) }}
-            icon={<Icon className="h-3.5 w-3.5" />}
+            onClick={(e) => {
+              e.stopPropagation()
+              onClick(row)
+            }}
+            icon={<Icon name={iconName} size="sm" />}
           />
         </Tooltip>
       )
@@ -422,15 +414,15 @@ function actionBtnColumn<T>(
 }
 
 export function editBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_edit', Pencil, 'Edit', onClick, opts)
+  return actionBtnColumn('btn_edit', 'pencil', 'Edit', onClick, opts)
 }
 
 export function cloneBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_clone', Copy, 'Clone', onClick, opts)
+  return actionBtnColumn('btn_clone', 'copy', 'Clone', onClick, opts)
 }
 
 export function deleteBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_delete', Trash2, 'Delete', onClick, { destructive: true, ...opts })
+  return actionBtnColumn('btn_delete', 'trash-2', 'Delete', onClick, { destructive: true, ...opts })
 }
 
 /**
@@ -457,8 +449,8 @@ export function archiveBtnColumn<T>(
       const row = info.row.original
       if (opts?.hidden?.(row)) return null
       const archived = opts?.isArchived?.(row) ?? false
-      const Icon = archived ? ArchiveRestore : Archive
       const tooltip = archived ? 'Restore' : 'Archive'
+      const iconName = archived ? 'archive-restore' : 'archive'
       return (
         <Tooltip title={tooltip}>
           <Button
@@ -469,7 +461,7 @@ export function archiveBtnColumn<T>(
               e.stopPropagation()
               onToggle(row, !archived)
             }}
-            icon={<Icon className="h-3.5 w-3.5" />}
+            icon={<Icon name={iconName} size="sm" />}
           />
         </Tooltip>
       )
@@ -478,11 +470,11 @@ export function archiveBtnColumn<T>(
 }
 
 export function addFunnelBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_add_funnel', Plus, 'Add Funnel', onClick, opts)
+  return actionBtnColumn('btn_add_funnel', 'plus', 'Add Funnel', onClick, opts)
 }
 
 export function moveBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_move', Workflow, 'Move funnel to another campaign', onClick, opts)
+  return actionBtnColumn('btn_move', 'workflow', 'Move funnel to another campaign', onClick, opts)
 }
 
 /** One column: Add Funnel (campaign rows) and Move (funnel rows). */
@@ -512,7 +504,7 @@ export function addFunnelOrMoveColumn<T>(
                 size="small"
                 className="dt-action-btn"
                 onClick={(e) => { e.stopPropagation(); onAddFunnel(row) }}
-                icon={<Plus className="h-3.5 w-3.5" />}
+                icon={<Icon name="plus" size="sm" />}
               />
             </Tooltip>
           ) : null}
@@ -523,7 +515,7 @@ export function addFunnelOrMoveColumn<T>(
                 size="small"
                 className="dt-action-btn"
                 onClick={(e) => { e.stopPropagation(); onMove(row) }}
-                icon={<Workflow className="h-3.5 w-3.5" />}
+                icon={<Icon name="workflow" size="sm" />}
               />
             </Tooltip>
           ) : null}
@@ -534,15 +526,15 @@ export function addFunnelOrMoveColumn<T>(
 }
 
 export function resetStatsBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_reset', RotateCcw, 'Reset Stats', onClick, opts)
+  return actionBtnColumn('btn_reset', 'rotate-ccw', 'Reset Stats', onClick, opts)
 }
 
 export function enableBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_enable', UserCheck, 'Enable', onClick, opts)
+  return actionBtnColumn('btn_enable', 'user-check', 'Enable', onClick, opts)
 }
 
 export function disableBtnColumn<T>(onClick: (row: T) => void, opts?: { hidden?: (row: T) => boolean }): ColumnDef<T, unknown> {
-  return actionBtnColumn('btn_disable', UserX, 'Disable', onClick, opts)
+  return actionBtnColumn('btn_disable', 'user-x', 'Disable', onClick, opts)
 }
 
 // ---------- Selection checkbox column ----------

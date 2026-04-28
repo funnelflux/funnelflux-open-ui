@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { Button, Input, Select } from '@/components/ui-kit'
 import type { FunnelKeyValuePair, FunnelPostbackOverrideRow } from '@/types/funnel'
@@ -127,7 +127,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-foreground">Incoming traffic cost overrides</span>
-            <Button htmlType="button" type="default" size="small" icon={<Plus className="h-3.5 w-3.5" />} onClick={addCostRow}>
+            <Button htmlType="button" type="default" size="small" icon={<Icon name="plus" className="h-3.5 w-3.5" />} onClick={addCostRow}>
               Add override
             </Button>
           </div>
@@ -155,7 +155,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                   danger
                   size="small"
                   className="shrink-0"
-                  icon={<Trash2 className="h-4 w-4" />}
+                  icon={<Icon name="trash-2" className="h-4 w-4" />}
                   onClick={() => removeCostRow(i)}
                 />
               </div>
@@ -166,7 +166,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-foreground">Traffic source postback overrides</span>
-            <Button htmlType="button" type="default" size="small" icon={<Plus className="h-3.5 w-3.5" />} onClick={addPbRow}>
+            <Button htmlType="button" type="default" size="small" icon={<Icon name="plus" className="h-3.5 w-3.5" />} onClick={addPbRow}>
               Add postback
             </Button>
           </div>
@@ -200,7 +200,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                     type="text"
                     danger
                     size="small"
-                    icon={<Trash2 className="h-4 w-4" />}
+                    icon={<Icon name="trash-2" className="h-4 w-4" />}
                     onClick={() => removePbRow(i)}
                   />
                 </div>

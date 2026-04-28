@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import type { ColumnDef } from "@tanstack/react-table"
-import { ArrowRight } from "lucide-react"
+import { Icon } from '@/components/ui-kit/icons'
 import { api } from "@/api/client"
 import { PageShell, DataTable, TimezoneSelect } from "@/components/ui-kit"
 import { entityRowId } from "@/components/ui-kit/data-table"
@@ -194,7 +194,7 @@ export function QuickViewPage() {
       title={`${entityName} Quick View`}
       subtitle={`${entityGroupBy} · ${entityId}`}
       actions={
-        <Button type="primary" size="small" onClick={handleOpenInDrilldown} icon={<ArrowRight className="h-3.5 w-3.5" />}>
+        <Button type="primary" size="small" onClick={handleOpenInDrilldown} icon={<Icon name="arrow-right" className="h-3.5 w-3.5" />}>
           Open in Drilldown
         </Button>
       }

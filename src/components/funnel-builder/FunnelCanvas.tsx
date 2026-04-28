@@ -3,7 +3,6 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   MarkerType,
   useReactFlow,
   type OnNodesChange,
@@ -267,6 +266,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
+        proOptions={{ hideAttribution: true }}
         snapToGrid
         snapGrid={[15, 15]}
         deleteKeyCode={['Backspace', 'Delete']}
@@ -290,12 +290,10 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
           size={1}
           className={variant === 'builder' ? '[&>*]:stroke-border/60' : undefined}
         />
-        <Controls position="bottom-left" />
-        <MiniMap
-          position="bottom-right"
-          zoomable
-          pannable
-          className="!bg-background !border"
+        <Controls
+          position="bottom-left"
+          showInteractive={false}
+          className="ff-funnel-controls"
         />
       </ReactFlow>
 

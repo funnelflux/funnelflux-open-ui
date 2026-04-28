@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Copy, Loader2, Plus } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Modal, Select, useToastApi, type SelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
@@ -29,7 +29,8 @@ function CopyIconButton({ value, disabled }: { value: string; disabled?: boolean
       type="default"
       disabled={disabled || !value}
       title="Copy"
-      icon={<Copy className="h-4 w-4" />}
+      iconName="copy"
+      iconSize="sm"
       onClick={() =>
         navigator.clipboard.writeText(value).then(
           () => toast.success('Copied'),
@@ -214,7 +215,8 @@ function FunnelUrlWizardBody({
             title="Add traffic source"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted"
           >
-            <Plus className="h-4 w-4" />
+            <span className="sr-only">Add traffic source</span>
+            <Icon name="plus" size="sm" aria-hidden />
           </Link>
         </div>
       </div>
@@ -251,7 +253,9 @@ function FunnelUrlWizardBody({
             className="font-mono text-xs"
           />
           {generateEntrance.isPending ? (
-            <Loader2 className="h-4 w-4 shrink-0 animate-spin self-center text-muted-foreground" />
+            <span className="self-center text-muted-foreground">
+              <Icon name="loader-2" size="sm" animation="spin" aria-label="Generating" />
+            </span>
           ) : (
             <CopyIconButton value={displayedEntranceLink} />
           )}
@@ -375,7 +379,7 @@ export function FunnelUrlModal({
         </p>
       ) : loadingData ? (
         <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Icon name="loader-2" size="sm" animation="spin" aria-label="Loading" />
           Loading…
         </div>
       ) : funnelDetail ? (
@@ -394,7 +398,7 @@ export function FunnelUrlModal({
         />
       ) : (
         <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Icon name="loader-2" size="sm" animation="spin" aria-label="Loading" />
           Loading funnel…
         </div>
       )}

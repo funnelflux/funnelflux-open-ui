@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { sanitizeHtml } from '@/lib/sanitize'
-import { Mail, MailOpen, Trash2, Inbox } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Collapse, Tag } from '@/components/ui-kit'
 import { PageShell, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
 import {
@@ -82,7 +82,7 @@ export function InboxPage() {
 
       {!isLoading && (!messages || messages.length === 0) && (
         <EmptyState
-          icon={<Inbox className="h-10 w-10" />}
+          icon={<Icon name="inbox" className="h-10 w-10" />}
           message="No messages in your inbox."
         />
       )}
@@ -121,14 +121,14 @@ export function InboxPage() {
                   <Button
                     type="text"
                     className="h-7 w-7"
-                    icon={message.alreadyRead ? <Mail className="h-3.5 w-3.5" /> : <MailOpen className="h-3.5 w-3.5" />}
+                    icon={message.alreadyRead ? <Icon name="mail" className="h-3.5 w-3.5" /> : <Icon name="mail-open" className="h-3.5 w-3.5" />}
                     onClick={() => toggleReadStatus(message)}
                     title={message.alreadyRead ? 'Mark as unread' : 'Mark as read'}
                   />
                   <Button
                     type="text"
                     className="h-7 w-7 text-destructive hover:text-destructive"
-                    icon={<Trash2 className="h-3.5 w-3.5" />}
+                    icon={<Icon name="trash-2" className="h-3.5 w-3.5" />}
                     onClick={() => setDeleteTarget(message)}
                     title="Delete"
                   />

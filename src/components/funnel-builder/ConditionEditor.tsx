@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react'
-import { Plus } from 'lucide-react'
 import { Drawer, Tag } from '@/components/ui-kit'
 import { Button, Input } from '@/components/ui-kit'
 import type { ConditionBlock as ConditionBlockType } from '@/types/funnel'
@@ -192,8 +191,9 @@ function ConditionEditorForm({
           size="small"
           className="h-8 text-sm"
           onClick={handleAddBlock}
+          iconName="plus"
+          iconSize="sm"
         >
-          <Plus className="h-3.5 w-3.5 mr-1" />
           Add Block
         </Button>
 

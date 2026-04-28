@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Select } from '@/components/ui-kit'
 import type { ConditionRule, ConditionField, ConditionOperator } from '@/types/funnel'
 import { CONDITION_FIELDS, CONDITION_OPERATORS } from '@/types/funnel'
@@ -111,7 +111,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         onClick={onRemove}
         aria-label="Remove rule"
       >
-        <X className="h-3.5 w-3.5" />
+        <Icon name="x" size="sm" />
       </Button>
     </div>
   )

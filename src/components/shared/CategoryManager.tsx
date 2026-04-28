@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Plus, Settings2, Pencil, Trash2, Check, X } from 'lucide-react'
 import { Popconfirm } from '@/components/ui-kit'
 import { Button, Input, Select, Modal, useToastApi } from '@/components/ui-kit'
 import { useCategories, useSaveCategory, useDeleteCategory } from '@/api/hooks'
@@ -99,7 +98,8 @@ export function CategoryManager({
         <Button
           type="text"
           size="small"
-          icon={<Plus className="h-3.5 w-3.5" />}
+          iconName="plus"
+          iconSize="sm"
           onClick={() => setCreateOpen(true)}
           title="Add category"
         />
@@ -107,7 +107,8 @@ export function CategoryManager({
           <Button
             type="text"
             size="small"
-            icon={<Settings2 className="h-3.5 w-3.5" />}
+            iconName="settings-2"
+            iconSize="sm"
             onClick={() => setManageOpen(true)}
             title="Manage categories"
           />
@@ -172,7 +173,8 @@ export function CategoryManager({
                       <Button
                         type="text"
                         size="small"
-                        icon={<Check className="h-3.5 w-3.5 text-green-600" />}
+                        iconName="check"
+                        iconSize="sm"
                         onClick={() => void handleRename(cat.idCategory)}
                         disabled={!editingName.trim() || editingName.trim() === cat.name}
                         loading={saveCategory.isPending}
@@ -180,7 +182,8 @@ export function CategoryManager({
                       <Button
                         type="text"
                         size="small"
-                        icon={<X className="h-3.5 w-3.5" />}
+                        iconName="x"
+                        iconSize="sm"
                         onClick={cancelEditing}
                       />
                     </>
@@ -190,7 +193,8 @@ export function CategoryManager({
                       <Button
                         type="text"
                         size="small"
-                        icon={<Pencil className="h-3 w-3" />}
+                        iconName="pencil"
+                        iconSize="sm"
                         onClick={() => startEditing(cat.idCategory, cat.name)}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
                       />
@@ -205,7 +209,8 @@ export function CategoryManager({
                           type="text"
                           size="small"
                           danger
-                          icon={<Trash2 className="h-3 w-3" />}
+                          iconName="trash-2"
+                          iconSize="sm"
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
                         />
                       </Popconfirm>
@@ -220,7 +225,8 @@ export function CategoryManager({
             <Button
               type="dashed"
               block
-              icon={<Plus className="h-3.5 w-3.5" />}
+              iconName="plus"
+              iconSize="sm"
               onClick={() => { setManageOpen(false); setCreateOpen(true) }}
             >
               Add New Category

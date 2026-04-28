@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { Check, Download, Layers, Loader2, Pencil, Play, Plus, Settings2, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import {
   Button,
   Drawer,
@@ -25,7 +24,6 @@ import {
   DateTimeRangePicker,
   Popconfirm,
 } from '@/components/ui-kit'
-import { CONTROL_SIZE_HEIGHT_PX } from '@/lib/controlSize'
 import { api } from '@/api/client'
 import { DrilldownGroupingsBar } from '@/components/drilldown/DrilldownGroupingsBar'
 import { useDrilldownStore } from '@/store/drilldown'
@@ -447,8 +445,6 @@ export function DrilldownToolbarHeaderFilters() {
   const { dateTimeRangeValue, onDateTimeRangeChange, timezone, setTimezone } =
     useDrilldownToolbarContext()
 
-  const pickerHeight = CONTROL_SIZE_HEIGHT_PX.md
-
   return (
     <div className="flex flex-wrap items-center gap-2">
       <DateTimeRangePicker
@@ -463,8 +459,7 @@ export function DrilldownToolbarHeaderFilters() {
         }}
         presets={presetRangesDayjs(timezone)}
         allowClear={false}
-        style={{ height: pickerHeight, minHeight: pickerHeight }}
-        className="ff-drilldown-datetime-range [&_.ant-picker]:h-full [&_.ant-picker-input>input]:text-xs"
+        className="ff-drilldown-datetime-range h-control-md [&_.ant-picker]:h-full [&_.ant-picker-input>input]:text-xs"
       />
       <TimezoneSelect value={timezone} onChange={setTimezone} />
     </div>
@@ -661,7 +656,8 @@ export function DrilldownToolbarReportActions() {
         <Button
           type="text"
           size="small"
-          icon={<Plus className="h-3.5 w-3.5" />}
+          iconName="plus"
+          iconSize="sm"
           onClick={openSaveNewViewModal}
           title="Save current view"
         />
@@ -669,7 +665,8 @@ export function DrilldownToolbarReportActions() {
           <Button
             type="text"
             size="small"
-            icon={<Settings2 className="h-3.5 w-3.5" />}
+            iconName="settings-2"
+            iconSize="sm"
             onClick={handleOpenManage}
             title="Manage saved views"
           />
@@ -679,7 +676,9 @@ export function DrilldownToolbarReportActions() {
         type="primary"
         onClick={handleApply}
         disabled={isLoading}
-        icon={isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+        iconName={isLoading ? 'loader-2' : 'play'}
+        iconSize="sm"
+        iconAnimation={isLoading ? 'spin' : 'none'}
       >
         Apply
       </Button>
@@ -687,14 +686,17 @@ export function DrilldownToolbarReportActions() {
         htmlType="button"
         onClick={() => void handleExport()}
         disabled={isExporting}
-        icon={isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+        iconName={isExporting ? 'loader-2' : 'download'}
+        iconSize="sm"
+        iconAnimation={isExporting ? 'spin' : 'none'}
       >
         Export CSV
       </Button>
       <Button
         htmlType="button"
         className="text-xs shrink-0"
-        icon={<Layers className="h-3.5 w-3.5" />}
+        iconName="layers"
+        iconSize="sm"
         onClick={openGroupingsDrawer}
       >
         Edit levels
@@ -702,7 +704,8 @@ export function DrilldownToolbarReportActions() {
       <Button
         htmlType="button"
         className="text-xs shrink-0"
-        icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+        iconName="sliders-horizontal"
+        iconSize="sm"
         onClick={openSettingsDrawer}
       >
         Settings
@@ -784,7 +787,8 @@ export function DrilldownToolbarReportActions() {
                       <Button
                         type="text"
                         size="small"
-                        icon={<Check className="h-3.5 w-3.5 text-green-600" />}
+                        iconName="check"
+                        iconSize="sm"
                         onClick={() => void handleRenameView(view.idView)}
                         disabled={!editingName.trim() || editingName.trim() === view.name}
                         loading={saveView.isPending}
@@ -792,7 +796,8 @@ export function DrilldownToolbarReportActions() {
                       <Button
                         type="text"
                         size="small"
-                        icon={<X className="h-3.5 w-3.5" />}
+                        iconName="x"
+                        iconSize="sm"
                         onClick={cancelEditing}
                       />
                     </>
@@ -802,7 +807,8 @@ export function DrilldownToolbarReportActions() {
                       <Button
                         type="text"
                         size="small"
-                        icon={<Pencil className="h-3 w-3" />}
+                        iconName="pencil"
+                        iconSize="sm"
                         onClick={() => startEditing(view.idView, view.name)}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Rename"
@@ -818,7 +824,8 @@ export function DrilldownToolbarReportActions() {
                           type="text"
                           size="small"
                           danger
-                          icon={<Trash2 className="h-3 w-3" />}
+                          iconName="trash-2"
+                          iconSize="sm"
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
                         />
                       </Popconfirm>
@@ -833,7 +840,8 @@ export function DrilldownToolbarReportActions() {
             <Button
               type="dashed"
               block
-              icon={<Plus className="h-3.5 w-3.5" />}
+              iconName="plus"
+              iconSize="sm"
               onClick={handleOpenSaveNewFromManage}
             >
               Save current as new view

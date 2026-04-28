@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
-import { UserPlus } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Tag } from '@/components/ui-kit'
 import { Button, Switch, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, deleteBtnColumn, enableBtnColumn, disableBtnColumn } from '@/components/ui-kit/data-table'
@@ -118,7 +118,7 @@ export function UserManagementPage() {
       title="User Management"
       actions={
         <Button type="primary" onClick={() => navigate('/settings/users/new')}>
-          <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+          <Icon name="user-plus" className="mr-1.5 h-3.5 w-3.5" />
           Add User
         </Button>
       }

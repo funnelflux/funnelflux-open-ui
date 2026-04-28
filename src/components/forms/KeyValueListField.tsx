@@ -1,4 +1,3 @@
-import { Plus, Trash2 } from 'lucide-react'
 import { Button, Input } from '@/components/ui-kit'
 import type { KeyValuePair } from '@/types/entities'
 
@@ -62,12 +61,12 @@ export function KeyValueListField({
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
             onClick={() => removeRow(i)}
             aria-label="Remove row"
-            icon={<Trash2 className="h-3.5 w-3.5" />}
+            iconName="trash-2"
+            iconSize="sm"
           />
         </div>
       ))}
-      <Button htmlType="button" size="small" className="h-8 text-xs" onClick={addRow}>
-        <Plus className="mr-1 h-3.5 w-3.5" />
+      <Button htmlType="button" size="small" className="h-8 text-xs" onClick={addRow} iconName="plus" iconSize="sm">
         Add Row
       </Button>
     </div>

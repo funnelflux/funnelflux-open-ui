@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Checkbox, FormField, Modal } from '@/components/ui-kit'
 import { KeyValueListField } from '@/components/forms/KeyValueListField'
 import { campaignSchema, type CampaignFormData } from '@/schemas/campaign'
@@ -134,7 +134,7 @@ export function CampaignEditForm({
         </div>
         <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex gap-2">
           <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting && <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />}
             {initialData ? 'Save' : 'Create'}
           </Button>
           <Button
