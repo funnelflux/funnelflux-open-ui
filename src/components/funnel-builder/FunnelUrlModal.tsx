@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Modal, Select, useToastApi, type SelectOption } from '@/components/ui-kit'
@@ -113,12 +113,19 @@ function FunnelUrlWizardBody({
   funnelDetail,
 }: WizardBodyProps) {
   const toast = useToastApi()
-  const generateEntrance = useGenerateEntranceLink()
+  // Destructure stable `mutate` — the mutation result *object* identity changes on every status
+  // transition (isPending false→true→false), which would re-fire the request effect and loop.
+  // `mutate` itself is referentially stable across renders, so it's safe in deps.
+  const { mutate: requestEntranceLink, isPending: generatingEntrance } =
+    useGenerateEntranceLink()
 
   const [selectedTrafficSource, setSelectedTrafficSource] = useState('')
   const [selectedDomain, setSelectedDomain] = useState('')
   const [debouncedCostCpc, setDebouncedCostCpc] = useState('')
   const [entranceLink, setEntranceLink] = useState('')
+  // Bumped per request; in-flight callbacks that don't match the latest token are ignored,
+  // so a slow response from an earlier traffic source can't clobber the current selection.
+  const requestTokenRef = useRef(0)
 
   const handleDebouncedCost = useCallback((debounced: string) => {
     setDebouncedCostCpc(debounced)
@@ -171,9 +178,17 @@ function FunnelUrlWizardBody({
       ...(cost !== undefined ? { cost } : {}),
     }
 
-    generateEntrance.mutate(request, {
-      onSuccess: (data) => setEntranceLink(data || ''),
-      onError: (error) => toast.error(getErrorMessage(error)),
+    const token = ++requestTokenRef.current
+
+    requestEntranceLink(request, {
+      onSuccess: (data) => {
+        if (requestTokenRef.current !== token) return
+        setEntranceLink(data || '')
+      },
+      onError: (error) => {
+        if (requestTokenRef.current !== token) return
+        toast.error(getErrorMessage(error))
+      },
     })
   }, [
     canRequestEntrance,
@@ -183,7 +198,7 @@ function FunnelUrlWizardBody({
     selectedDomain,
     selectedTrafficSource,
     effectiveCostString,
-    generateEntrance,
+    requestEntranceLink,
     toast,
   ])
 
@@ -252,7 +267,7 @@ function FunnelUrlWizardBody({
             }
             className="font-mono text-xs"
           />
-          {generateEntrance.isPending ? (
+          {generatingEntrance ? (
             <span className="self-center text-muted-foreground">
               <Icon name="loader-2" size="sm" animation="spin" aria-label="Generating" />
             </span>
