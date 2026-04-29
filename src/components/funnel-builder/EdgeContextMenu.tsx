@@ -1,8 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { Checkbox } from '@/components/ui-kit'
+import {
+  computeDisplayedWeights,
+  formatWeight,
+  getSiblingWeightedEdges,
+  maxAllowedWeight,
+  WEIGHT_EPSILON,
+} from '@/lib/rotatorWeights'
 
 interface EdgeContextMenuProps {
   edgeId: string | null
@@ -16,6 +23,7 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
   const edge = useFunnelEditorStore((s) =>
     edgeId ? s.edges.find((e) => e.id === edgeId) : undefined,
   )
+  const allEdges = useFunnelEditorStore((s) => s.edges)
 
   useEffect(() => {
     if (!position) return
@@ -37,13 +45,30 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [position, onClose])
 
+  // Weighted-edge derived state — siblings, displayed weight, allowed range.
+  // Must be declared before any early return to satisfy rules of hooks.
+  const weightInfo = useMemo(() => {
+    if (!edge || !edgeId || edge.data?.edgeType !== 'weighted') return null
+    const siblings = getSiblingWeightedEdges(allEdges, edge.source)
+    const dist = computeDisplayedWeights(siblings)
+    const entry = dist.byEdgeId.get(edgeId)
+    return {
+      displayed: entry?.weight ?? edge.data.weight ?? 0,
+      isLocked: Boolean(edge.data.locked),
+      max: maxAllowedWeight(siblings, edgeId),
+      total: dist.total,
+      allLocked: dist.allLocked,
+      hasError: dist.allLocked && dist.errorDrift > WEIGHT_EPSILON,
+      siblingCount: siblings.length,
+    }
+  }, [edge, edgeId, allEdges])
+
   if (!position || !edgeId || !edge) return null
 
   const data = edge.data
   const isWeighted = data?.edgeType === 'weighted'
   const isAction = data?.edgeType === 'action'
   const isCode = data?.edgeType === 'code'
-  const currentWeight = isWeighted ? data.weight : 100
   const currentActionNumber = isAction ? data.actionNumber : 1
   const currentIsConversion = isAction ? data.isConversion ?? false : false
   const currentOnDoneNumber = isCode ? data.onDoneNumber ?? 1 : 1
@@ -54,9 +79,14 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
   }
 
   function handleWeightChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = parseInt(e.target.value, 10)
-    const weight = Number.isNaN(raw) ? 0 : Math.min(100, Math.max(0, raw))
-    useFunnelEditorStore.getState().updateEdgeData(edgeId!, { weight })
+    if (!weightInfo) return
+    const raw = parseFloat(e.target.value)
+    const clamped = Number.isNaN(raw) ? 0 : Math.min(weightInfo.max, Math.max(0, raw))
+    useFunnelEditorStore.getState().updateEdgeData(edgeId!, { weight: clamped, locked: true })
+  }
+
+  function handleResetAuto() {
+    useFunnelEditorStore.getState().updateEdgeData(edgeId!, { weight: 0, locked: false })
   }
 
   function handleActionNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -81,23 +111,56 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
       className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[200px] text-sm"
       style={{ left: position.x, top: position.y }}
     >
-      {isWeighted && (
-        <div className="flex items-center gap-2 px-3 py-1.5">
-          <label htmlFor="edge-weight" className="text-muted-foreground whitespace-nowrap">
-            Weight
-          </label>
-          <input
-            id="edge-weight"
-            type="number"
-            min={0}
-            max={100}
-            value={currentWeight}
-            onChange={handleWeightChange}
-            className="w-16 rounded border bg-background px-2 py-0.5 text-sm text-right"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <span className="text-muted-foreground">%</span>
-        </div>
+      {isWeighted && weightInfo && (
+        <>
+          <div className="flex items-center gap-2 px-3 py-1.5">
+            <label htmlFor="edge-weight" className="text-muted-foreground whitespace-nowrap">
+              Weight
+            </label>
+            <input
+              id="edge-weight"
+              type="number"
+              min={0}
+              max={weightInfo.max}
+              step={1}
+              value={formatWeight(weightInfo.displayed)}
+              onChange={handleWeightChange}
+              className="w-16 rounded border bg-background px-2 py-0.5 text-sm text-right"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span className="text-muted-foreground">%</span>
+            {weightInfo.isLocked ? (
+              <span className="text-muted-foreground text-[10px] uppercase tracking-wide">Locked</span>
+            ) : (
+              <span className="text-muted-foreground text-[10px] uppercase tracking-wide">Auto</span>
+            )}
+          </div>
+          {weightInfo.siblingCount > 1 && (
+            <div
+              className={cn(
+                'px-3 pb-1.5 text-[11px]',
+                weightInfo.hasError ? 'text-destructive' : 'text-muted-foreground',
+              )}
+            >
+              Total: {formatWeight(weightInfo.total)}%
+              {weightInfo.hasError && ' — must equal 100%'}
+            </div>
+          )}
+          {weightInfo.isLocked && (
+            <button
+              type="button"
+              className={cn(
+                'flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-sm',
+                'cursor-pointer rounded-sm transition-colors',
+                'hover:bg-muted dark:hover:bg-zinc-800',
+              )}
+              onClick={handleResetAuto}
+            >
+              <Icon name="rotate-ccw" size="md" />
+              <span>Reset to auto</span>
+            </button>
+          )}
+        </>
       )}
 
       {isAction && (

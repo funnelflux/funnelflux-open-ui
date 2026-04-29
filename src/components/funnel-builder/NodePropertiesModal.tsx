@@ -14,6 +14,7 @@ import {
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { LanderNodeEditModal } from './LanderNodeEditModal'
 import { OfferNodeEditModal } from './OfferNodeEditModal'
+import { RotatorNodeEditModal } from './RotatorNodeEditModal'
 
 interface NodePropertiesModalProps {
   nodeId: string | null
@@ -141,6 +142,17 @@ export function NodePropertiesModal({ nodeId, open, onClose }: NodePropertiesMod
 
   if (nt === NODE_TYPES.offer) {
     return <OfferNodeEditModal nodeId={nodeId} open={open} onClose={onClose} />
+  }
+
+  if (nt === NODE_TYPES.rotator) {
+    return (
+      <RotatorNodeEditModal
+        key={nodeId ?? node.id}
+        nodeId={nodeId}
+        open={open}
+        onClose={onClose}
+      />
+    )
   }
 
   return (

@@ -15,6 +15,7 @@ import type {
   FunnelPostbackOverrideRow,
 } from '@/types/funnel'
 import { pixelToPercent } from '@/lib/funnelCoords'
+import { materializeRotatorWeights } from '@/lib/rotatorWeights'
 
 export type FunnelMetaForSave = FunnelEditorMeta
 
@@ -399,7 +400,10 @@ export function buildV2SavePayload(
   const nodeById = new Map(nodes.map((n) => [n.id, n]))
 
   const v2Nodes = nodes.map((n) => flowNodeToV2(n, idFunnel))
-  const v2Connections = edges.map((e) => {
+  // Auto-distributed weights are computed in the editor; serialize the displayed values
+  // so the backend always sees a sane sum across rotator/root siblings.
+  const materializedEdges = materializeRotatorWeights(edges)
+  const v2Connections = materializedEdges.map((e) => {
     const src = nodeById.get(e.source)
     const st = src?.data.nodeType ?? NODE_TYPES.root
     const c = flowEdgeToV2(e, st)

@@ -12,6 +12,7 @@ import type {
 import { generateId } from '@/lib/id-generator'
 import { extractMetaFromRawFunnel, normalizeFunnelApiResponse } from '@/lib/funnelApiV2'
 import { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
+import { materializeRotatorWeights, reclassifyLoadedRotatorEdges } from '@/lib/rotatorWeights'
 import type { FunnelEditorMeta } from '@/types/funnel'
 
 export { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
@@ -67,7 +68,9 @@ function parseEdgeData(conn: ApiFunnelConnection): FunnelEdgeData {
       labelLocation: ll,
     }
   }
-  return { edgeType: 'weighted', weight: conn.weight ?? 100, labelLocation: ll }
+  // Persisted weights are treated as user-set (locked). New edges added in the
+  // editor start unlocked so they auto-split with their siblings.
+  return { edgeType: 'weighted', weight: conn.weight ?? 100, locked: true, labelLocation: ll }
 }
 
 // ── Helpers: React Flow → API ───────────────────────────────────────────────
@@ -193,7 +196,10 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
     const raw = funnelInput as Record<string, unknown>
     set({
       nodes: funnel.nodes.map(apiNodeToFlowNode),
-      edges: funnel.connections.map(apiConnectionToFlowEdge),
+      // Hydrate marks every weighted edge as locked (server has no dirty bit). Re-classify
+      // groups whose stored weights are already an even split as unlocked so adding a new
+      // sibling rebalances automatically (e.g. 1×100 → add → 50/50; 50/50 → add → 33/33/33).
+      edges: reclassifyLoadedRotatorEdges(funnel.connections.map(apiConnectionToFlowEdge)),
       meta: {
         idFunnel: funnel.idFunnel,
         idCampaign: funnel.idCampaign,
@@ -222,6 +228,7 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
 
   serialize: () => {
     const { nodes, edges, meta } = get()
+    const materialized = materializeRotatorWeights(edges)
     return {
       idFunnel: meta.idFunnel,
       idCampaign: meta.idCampaign,
@@ -229,7 +236,7 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
       defaultCostPerEntrance: meta.defaultCostPerEntrance,
       isArchived: meta.isArchived,
       nodes: nodes.map((n) => flowNodeToApiNode(n, meta.idFunnel)),
-      connections: edges.map((e) => flowEdgeToApiConnection(e, meta.idFunnel)),
+      connections: materialized.map((e) => flowEdgeToApiConnection(e, meta.idFunnel)),
     }
   },
 

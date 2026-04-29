@@ -185,7 +185,9 @@ export type EdgeType = (typeof EDGE_TYPES)[keyof typeof EDGE_TYPES]
 
 export interface WeightedEdgeData {
   edgeType: 'weighted'
-  weight: number // 0–100
+  weight: number // 0–100; only meaningful when locked=true, otherwise auto-split among siblings
+  /** When true, user explicitly set this weight. Unlocked edges split the remainder evenly. */
+  locked?: boolean
   labelLocation?: number // 0–1, position along bezier path (default 0.5)
   [key: string]: unknown
 }

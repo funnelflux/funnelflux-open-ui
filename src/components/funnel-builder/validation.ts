@@ -73,7 +73,8 @@ export function getDefaultEdgeData(
   switch (nodeType) {
     case NODE_TYPES.root:
     case NODE_TYPES.rotator: {
-      return { edgeType: 'weighted', weight: 100 } satisfies WeightedEdgeData
+      // New rotator edges default to unlocked so they auto-share with siblings (e.g. 50/50, 33/33/33).
+      return { edgeType: 'weighted', weight: 0, locked: false } satisfies WeightedEdgeData
     }
 
     case NODE_TYPES.lander:
@@ -103,7 +104,8 @@ export function getDefaultEdgeData(
     }
 
     default: {
-      return { edgeType: 'weighted', weight: 100 } satisfies WeightedEdgeData
+      // New rotator edges default to unlocked so they auto-share with siblings (e.g. 50/50, 33/33/33).
+      return { edgeType: 'weighted', weight: 0, locked: false } satisfies WeightedEdgeData
     }
   }
 }

@@ -1,6 +1,13 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { BaseEdge, getBezierPath, type EdgeProps, type Edge } from '@xyflow/react'
 import type { WeightedEdgeData } from '@/types/funnel'
+import { useFunnelEditorStore } from '@/store/funnelEditor'
+import {
+  computeDisplayedWeights,
+  formatWeight,
+  getSiblingWeightedEdges,
+  WEIGHT_EPSILON,
+} from '@/lib/rotatorWeights'
 import { cn } from '@/lib/utils'
 import { DraggableEdgeLabel } from './DraggableEdgeLabel'
 
@@ -8,6 +15,7 @@ type WeightedEdge = Edge<WeightedEdgeData, 'weighted'>
 
 function WeightedEdgeComponent({
   id,
+  source,
   sourceX,
   sourceY,
   targetX,
@@ -28,7 +36,18 @@ function WeightedEdgeComponent({
     targetPosition,
   })
 
-  const weight = data?.weight ?? 100
+  const allEdges = useFunnelEditorStore((s) => s.edges)
+
+  const { displayed, locked, hasError } = useMemo(() => {
+    const siblings = getSiblingWeightedEdges(allEdges, source)
+    const dist = computeDisplayedWeights(siblings)
+    const entry = dist.byEdgeId.get(id)
+    return {
+      displayed: entry?.weight ?? data?.weight ?? 0,
+      locked: entry?.locked ?? Boolean(data?.locked),
+      hasError: dist.allLocked && dist.errorDrift > WEIGHT_EPSILON,
+    }
+  }, [allEdges, source, id, data?.weight, data?.locked])
 
   return (
     <>
@@ -51,9 +70,11 @@ function WeightedEdgeComponent({
           'nodrag nopan absolute bg-background border rounded-full px-2 text-xs',
           'pointer-events-auto',
           selected && 'border-primary',
+          hasError && 'border-destructive text-destructive',
+          locked && 'font-semibold',
         )}
       >
-        {weight}%
+        {formatWeight(displayed)}%{locked && !hasError ? '*' : ''}
       </DraggableEdgeLabel>
     </>
   )
