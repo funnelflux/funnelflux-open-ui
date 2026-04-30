@@ -1,13 +1,17 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
 import { Icon } from '@/components/ui-kit/icons'
-import type { FunnelNodeData, VisitorTagNodeParams } from '@/types/funnel'
+import { normalizeVisitorTagParams, type FunnelNodeData, type VisitorTagNodeParams } from '@/types/funnel'
 import { BaseNode } from './BaseNode'
 
 function VisitorTagNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>) {
-  const params = data.params as VisitorTagNodeParams
-  const pair =
-    params.tagKey || params.tagValue ? `${params.tagKey ?? ''}=${params.tagValue ?? ''}` : undefined
+  const { tagId, tagName } = normalizeVisitorTagParams(data.params as VisitorTagNodeParams)
+  const subtitle =
+    tagId.trim() !== ''
+      ? tagName.trim() !== ''
+        ? tagName
+        : `#${tagId}`
+      : undefined
 
   return (
     <BaseNode
@@ -17,7 +21,7 @@ function VisitorTagNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeDa
         accent: 'slate',
         kind: 'Visitor tag',
         title: data.label || 'Tag',
-        subtitle: pair,
+        subtitle,
         icon: <Icon name="tags" size="lg" />,
       }}
     />

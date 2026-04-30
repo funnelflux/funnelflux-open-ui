@@ -13,6 +13,7 @@ import {
   type Connection,
   applyNodeChanges,
   applyEdgeChanges,
+  type FinalConnectionState,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { nodeTypes } from './nodes'
@@ -22,6 +23,8 @@ import {
   isValidConnection,
   pickConditionBranchForNewConnection,
   sourceHandleForConditionBranch,
+  VISITOR_TAG_MAX_EXIT_CONNECTION_MESSAGE,
+  visitorTagRejectedExtraExit,
 } from './validation'
 import { CanvasContextMenu } from './CanvasContextMenu'
 import { NodeContextMenu } from './NodeContextMenu'
@@ -33,6 +36,7 @@ import { useToastApi } from '@/components/ui-kit'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { cn } from '@/lib/utils'
 import { NODE_TYPES, type FunnelFlowEdge, type FunnelFlowNode } from '@/types/funnel'
+import { CODE_NODE_UNIFIED_TARGET_HANDLE } from '@/lib/codeNodeExits'
 import { generateId } from '@/lib/id-generator'
 
 interface MenuState {
@@ -132,6 +136,13 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
       const sourceNode = s.nodes.find((n) => n.id === connection.source)
       if (!sourceNode) return {}
 
+      // Lander/Offer/etc. stack `s-*` and `t-*` on the same side; dragging into the wrong pickup
+      // can complete with the target node's *source* handle id → inverted edge + wrong edge type.
+      const th = connection.targetHandle
+      if (typeof th === 'string' && th.startsWith('s-')) {
+        return {}
+      }
+
       const isCondition = sourceNode.data.nodeType === NODE_TYPES.condition
       const conditionBranch = isCondition ? pickConditionBranchForNewConnection(connection.source, s.edges) : null
       if (isCondition && !conditionBranch) return {}
@@ -143,12 +154,20 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
       const sourceHandle =
         isCondition && conditionBranch ? sourceHandleForConditionBranch(conditionBranch) : connection.sourceHandle
 
+      const targetNodeSnap = s.nodes.find((n) => n.id === connection.target)
+      const targetHandleJsPhp =
+        targetNodeSnap !== undefined &&
+        (targetNodeSnap.data.nodeType === NODE_TYPES.jsCode ||
+          targetNodeSnap.data.nodeType === NODE_TYPES.phpCode)
+      const resolvedTargetHandle =
+        targetHandleJsPhp ? CODE_NODE_UNIFIED_TARGET_HANDLE : connection.targetHandle
+
       const newEdge: FunnelFlowEdge = {
         id: generateId(),
         source: connection.source,
         target: connection.target,
         sourceHandle,
-        targetHandle: connection.targetHandle,
+        targetHandle: resolvedTargetHandle,
         type: edgeData.edgeType,
         data: edgeData,
       }
@@ -169,6 +188,29 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
     }
     return isValidConnection(conn, nds, eds)
   }, [])
+
+  const handleConnectEnd = useCallback(
+    (_event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => {
+      if (connectionState.isValid !== false) return
+
+      const releasedOnHandle = Boolean(connectionState.toNode)
+      if (!releasedOnHandle) return
+
+      const fromNodeId = connectionState.fromNode?.id
+      if (typeof fromNodeId !== 'string' || !fromNodeId.length) return
+
+      const snapshot = useFunnelEditorStore.getState()
+      const draggingSourceSnapshot = snapshot.nodes.find((candidate) => candidate.id === fromNodeId)
+      if (!draggingSourceSnapshot) return
+
+      if (
+        visitorTagRejectedExtraExit(draggingSourceSnapshot.data.nodeType, fromNodeId, snapshot.edges)
+      ) {
+        toast.warning(VISITOR_TAG_MAX_EXIT_CONNECTION_MESSAGE)
+      }
+    },
+    [toast],
+  )
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: FunnelFlowNode) => {
@@ -269,6 +311,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         isValidConnection={handleIsValidConnection}
+        onConnectEnd={handleConnectEnd}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onEdgeClick={onEdgeClick}
@@ -318,7 +361,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
         screenPosition={canvasMenu.screen}
         flowPosition={canvasMenu.flow}
         onClose={closeAllMenus}
-        onAddConditionNode={setEditNodeId}
+        onPlacedNodeOpenEditor={setEditNodeId}
       />
       <NodeContextMenu
         nodeId={nodeMenu.nodeId}

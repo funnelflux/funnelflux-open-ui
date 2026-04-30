@@ -167,9 +167,9 @@ function buildNodeParamsFromV2(nodeType: NodeTypeValue, node: Record<string, unk
       const rawTok = page.additionalTokens
       if (Array.isArray(rawTok) && rawTok.length > 0) {
         base.additionalTokens = rawTok
-          .map((t) => ({
-            field: String(t.key ?? ''),
-            token: String(t.value ?? ''),
+          .map((tokenPair) => ({
+            field: String(tokenPair.key ?? ''),
+            token: String(tokenPair.value ?? ''),
           }))
           .filter((row) => row.field !== '')
       }
@@ -192,18 +192,26 @@ function buildNodeParamsFromV2(nodeType: NodeTypeValue, node: Record<string, unk
     return code?.idCode ? { snippetId: String(code.idCode), snippetName: String(node.nodeName ?? '') } : {}
   }
   if (nodeType === NODE_TYPES.visitorTag) {
-    const vt = node.nodeVisitorTagParams as { tags?: Record<string, string> | Array<{ key: string; value: string }> } | null | undefined
-    if (vt?.tags) {
-      if (Array.isArray(vt.tags)) {
-        const first = vt.tags[0]
-        return first ? { tagKey: String(first.key ?? ''), tagValue: String(first.value ?? '') } : {}
+    const apiVisitorTagParams = node.nodeVisitorTagParams as {
+      tags?: Record<string, string> | string[] | Array<{ key?: string; value?: string }>
+    } | null | undefined
+    if (!apiVisitorTagParams?.tags) return {}
+    if (Array.isArray(apiVisitorTagParams.tags)) {
+      const firstWireTag = apiVisitorTagParams.tags[0]
+      if (typeof firstWireTag === 'string') {
+        return { tagId: firstWireTag, tagName: '' }
       }
-      const entries = Object.entries(vt.tags)
-      if (entries.length > 0) {
-        return { tagKey: entries[0][0], tagValue: String(entries[0][1]) }
+      if (firstWireTag && typeof firstWireTag === 'object' && 'key' in firstWireTag) {
+        return {
+          tagId: String(firstWireTag.key ?? ''),
+          tagName: String((firstWireTag as { value?: string }).value ?? ''),
+        }
       }
+      return {}
     }
-    return {}
+    const idNameEntries = Object.entries(apiVisitorTagParams.tags)
+    if (idNameEntries.length === 0) return {}
+    return { tagId: idNameEntries[0][0], tagName: String(idNameEntries[0][1]) }
   }
   return {}
 }
@@ -227,25 +235,26 @@ function normalizeConnection(conn: Record<string, unknown>): ApiFunnelConnection
     return { ...base, weight: w <= 1 ? w * 100 : w }
   }
   if (conn.connectionPageParams != null) {
-    const p = conn.connectionPageParams as { onActionNumber?: number; isConversion?: boolean }
+    const pageParams = conn.connectionPageParams as { onActionNumber?: number; isConversion?: boolean }
     return {
       ...base,
       elementData: {
-        actionNumber: p.onActionNumber ?? 1,
-        isConversion: p.isConversion ?? false,
+        actionNumber: pageParams.onActionNumber ?? 1,
+        isConversion: pageParams.isConversion ?? false,
       },
     }
   }
   if (conn.connectionCodeParams != null) {
-    const p = conn.connectionCodeParams as { onDoneNumber?: number }
+    const codeParams = conn.connectionCodeParams as { onDoneNumber?: number }
     return {
       ...base,
-      elementData: { onDoneNumber: p.onDoneNumber ?? 1, edgeType: 'code' },
+      elementData: { onDoneNumber: codeParams.onDoneNumber ?? 1, edgeType: 'code' },
     }
   }
   if (conn.connectionConditionParams != null) {
-    const p = conn.connectionConditionParams as { condition?: string }
-    const branch = p.condition === 'ifYes' || p.condition === 'IF_YES' ? 'yes' : 'no'
+    const conditionParams = conn.connectionConditionParams as { condition?: string }
+    const conditionToken = conditionParams.condition
+    const branch = conditionToken === 'ifYes' || conditionToken === 'IF_YES' ? 'yes' : 'no'
     return { ...base, elementData: { branch } }
   }
 
@@ -287,9 +296,9 @@ function flowNodeToV2(node: FunnelFlowNode, idFunnel: string): Record<string, un
   const pct = pixelToPercent(node.position.x, node.position.y)
   const posX = percentToV2Pos(pct.percentPosX)
   const posY = percentToV2Pos(pct.percentPosY)
-  const nt = node.data.nodeType
-  const typeStr = TYPE_TO_STRING[nt] ?? 'root'
-  const params = node.data.params as Record<string, unknown>
+  const editorNodeType = node.data.nodeType
+  const typeStr = TYPE_TO_STRING[editorNodeType] ?? 'root'
+  const editorParams = node.data.params as Record<string, unknown>
 
   const base: Record<string, unknown> = {
     idNode: node.id,
@@ -307,19 +316,19 @@ function flowNodeToV2(node: FunnelFlowNode, idFunnel: string): Record<string, un
     nodeVisitorTagParams: null,
   }
 
-  if (nt === NODE_TYPES.root || nt === NODE_TYPES.rotator) {
+  if (editorNodeType === NODE_TYPES.root || editorNodeType === NODE_TYPES.rotator) {
     base.nodeRotatorParams = { rotatorType: 'random' }
-  } else if (nt === NODE_TYPES.lander || nt === NODE_TYPES.offer) {
-    const pageId = (params.pageId as string) ?? '0'
-    const accumulateUrlParams = Boolean(params.accumulateUrlParams)
-    const rows = (params.additionalTokens as Array<{ field?: string; token?: string }> | undefined)?.filter(
-      (r) => r && String(r.field ?? '').trim() !== '',
+  } else if (editorNodeType === NODE_TYPES.lander || editorNodeType === NODE_TYPES.offer) {
+    const pageId = (editorParams.pageId as string) ?? '0'
+    const accumulateUrlParams = Boolean(editorParams.accumulateUrlParams)
+    const rows = (editorParams.additionalTokens as Array<{ field?: string; token?: string }> | undefined)?.filter(
+      (tokenRow) => tokenRow && String(tokenRow.field ?? '').trim() !== '',
     )
     const additionalTokens =
       rows && rows.length > 0
-        ? rows.map((r) => ({
-            key: String(r.field ?? '').trim(),
-            value: String(r.token ?? ''),
+        ? rows.map((tokenRow) => ({
+            key: String(tokenRow.field ?? '').trim(),
+            value: String(tokenRow.token ?? ''),
           }))
         : null
     base.nodePageParams = {
@@ -327,16 +336,22 @@ function flowNodeToV2(node: FunnelFlowNode, idFunnel: string): Record<string, un
       accumulateUrlParams,
       additionalTokens,
     }
-  } else if (nt === NODE_TYPES.externalUrl) {
-    base.nodeExternalUrlParams = { url: String(params.url ?? '') }
-  } else if (nt === NODE_TYPES.condition) {
-    base.nodeConditionParams = { idCondition: String(params.conditionId ?? '') }
-  } else if (nt === NODE_TYPES.jsCode || nt === NODE_TYPES.phpCode) {
-    base.nodeCodeParams = { idCode: String(params.snippetId ?? '') }
-  } else if (nt === NODE_TYPES.visitorTag) {
-    const tagKey = String(params.tagKey ?? '')
-    const tagValue = String(params.tagValue ?? '')
-    base.nodeVisitorTagParams = tagKey ? { tags: { [tagKey]: tagValue } } : { tags: {} }
+  } else if (editorNodeType === NODE_TYPES.externalUrl) {
+    base.nodeExternalUrlParams = { url: String(editorParams.url ?? '') }
+  } else if (editorNodeType === NODE_TYPES.condition) {
+    base.nodeConditionParams = { idCondition: String(editorParams.conditionId ?? '') }
+  } else if (editorNodeType === NODE_TYPES.jsCode || editorNodeType === NODE_TYPES.phpCode) {
+    base.nodeCodeParams = { idCode: String(editorParams.snippetId ?? '') }
+  } else if (editorNodeType === NODE_TYPES.visitorTag) {
+    const visitorTagFields = editorParams as {
+      tagId?: string
+      tagName?: string
+      tagKey?: string
+      tagValue?: string
+    }
+    const tagId = String(visitorTagFields.tagId ?? visitorTagFields.tagKey ?? '').trim()
+    const tagName = String(visitorTagFields.tagName ?? visitorTagFields.tagValue ?? '').trim()
+    base.nodeVisitorTagParams = tagId !== '' ? { tags: { [tagId]: tagName } } : { tags: {} }
   }
 
   return base
@@ -403,12 +418,12 @@ export function buildV2SavePayload(
   // Auto-distributed weights are computed in the editor; serialize the displayed values
   // so the backend always sees a sane sum across rotator/root siblings.
   const materializedEdges = materializeRotatorWeights(edges)
-  const v2Connections = materializedEdges.map((e) => {
-    const src = nodeById.get(e.source)
-    const st = src?.data.nodeType ?? NODE_TYPES.root
-    const c = flowEdgeToV2(e, st)
-    c.idFunnel = idFunnel
-    return c
+  const v2Connections = materializedEdges.map((edge) => {
+    const sourceCanvasNode = nodeById.get(edge.source)
+    const sourceNodeType = sourceCanvasNode?.data.nodeType ?? NODE_TYPES.root
+    const serializedConnection = flowEdgeToV2(edge, sourceNodeType)
+    serializedConnection.idFunnel = idFunnel
+    return serializedConnection
   })
 
   const canvasWidth = meta.canvasWidth ?? extras.canvasWidth ?? 2000

@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react'
 import { List } from '@/components/ui-kit'
 import { Input, Modal } from '@/components/ui-kit'
-import { usePages, useConditions, useCodeSnippets, type ConditionListItem } from '@/api/hooks'
-import type { CodeSnippetListRow } from '@/api/hooks/useCodeSnippets'
+import { usePages, useConditions, type ConditionListItem } from '@/api/hooks'
 import { asArray } from '@/lib/utils'
 
 export interface EntityPickerDialogProps {
   open: boolean
   onClose: () => void
-  entityType: 'lander' | 'offer' | 'condition' | 'jsCode' | 'phpCode'
+  entityType: 'lander' | 'offer' | 'condition'
   onSelect: (entity: { id: string; name: string }) => void
 }
 
@@ -16,8 +15,6 @@ const ENTITY_LABELS: Record<EntityPickerDialogProps['entityType'], string> = {
   lander: 'Lander',
   offer: 'Offer',
   condition: 'Condition',
-  jsCode: 'JavaScript Snippet',
-  phpCode: 'PHP Snippet',
 }
 
 export function EntityPickerDialog({
@@ -27,12 +24,9 @@ export function EntityPickerDialog({
   onSelect,
 }: EntityPickerDialogProps) {
   const pageType = entityType === 'lander' || entityType === 'offer' ? entityType : undefined
-  const snippetType =
-    entityType === 'jsCode' ? 'javascript' : entityType === 'phpCode' ? 'php' : undefined
 
   const pagesQuery = usePages(pageType)
   const conditionsQuery = useConditions()
-  const snippetsQuery = useCodeSnippets(snippetType)
 
   const items = useMemo(() => {
     if (entityType === 'lander' || entityType === 'offer') {
@@ -42,18 +36,11 @@ export function EntityPickerDialog({
         name: String(p.pageName ?? p.name ?? ''),
       }))
     }
-    if (entityType === 'condition') {
-      return asArray<ConditionListItem>(conditionsQuery.data).map((c) => ({
-        id: c.idCondition,
-        name: c.conditionName,
-      }))
-    }
-    // jsCode or phpCode — list API returns `{ id, name, codeType? }`
-    return asArray<CodeSnippetListRow>(snippetsQuery.data).map((s) => ({
-      id: s.id,
-      name: s.name,
+    return asArray<ConditionListItem>(conditionsQuery.data).map((c) => ({
+      id: c.idCondition,
+      name: c.conditionName,
     }))
-  }, [entityType, pagesQuery.data, conditionsQuery.data, snippetsQuery.data])
+  }, [entityType, pagesQuery.data, conditionsQuery.data])
 
   const label = ENTITY_LABELS[entityType]
 

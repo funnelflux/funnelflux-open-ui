@@ -11,10 +11,11 @@ export function parseTagNamesInput(input: string): string[] {
     .filter((name) => name.length > 0)
 }
 
-export function useTags() {
+export function useTags(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.tags.list(),
     queryFn: () => api.get<Tag[]>('/data/tag/list/'),
+    enabled: options?.enabled ?? true,
   })
 }
 

@@ -85,12 +85,32 @@ export interface JsCodeNodeParams {
 }
 
 export interface PhpCodeNodeParams {
+  snippetId?: string
+  snippetName?: string
   code?: string
 }
 
+/** Visitor tag node references system tags by id (`/data/tag/list/`). Names are cached for canvas display / API round-trip. */
 export interface VisitorTagNodeParams {
-  tagKey: string
-  tagValue: string
+  tagId?: string
+  tagName?: string
+  /** @deprecated Legacy canvas state — migrated on load via {@link normalizeVisitorTagParams} */
+  tagKey?: string
+  /** @deprecated Legacy canvas state — migrated on load via {@link normalizeVisitorTagParams} */
+  tagValue?: string
+}
+
+export function normalizeVisitorTagParams(raw: unknown): { tagId: string; tagName: string } {
+  const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const fromNew = typeof obj.tagId === 'string' ? obj.tagId.trim() : ''
+  if (fromNew !== '') {
+    return { tagId: fromNew, tagName: typeof obj.tagName === 'string' ? obj.tagName : '' }
+  }
+  const legacyKey = typeof obj.tagKey === 'string' ? obj.tagKey.trim() : ''
+  if (legacyKey !== '') {
+    return { tagId: legacyKey, tagName: typeof obj.tagValue === 'string' ? obj.tagValue : '' }
+  }
+  return { tagId: '', tagName: '' }
 }
 
 export type NodeParams =
@@ -292,11 +312,3 @@ export interface FunnelEditorMeta {
   postbackOverrides: FunnelPostbackOverrideRow[]
 }
 
-// ── Code Snippet ────────────────────────────────────────────────────────────
-
-export interface CodeSnippet {
-  idSnippet: string
-  snippetName: string
-  snippetType: 'javascript' | 'php'
-  code: string
-}

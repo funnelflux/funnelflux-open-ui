@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { BaseEdge, getBezierPath, type EdgeProps, type Edge } from '@xyflow/react'
 import type { CodeEdgeData } from '@/types/funnel'
+import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
 import { cn } from '@/lib/utils'
 import { DraggableEdgeLabel } from './DraggableEdgeLabel'
 
@@ -19,6 +20,12 @@ function CodeEdgeComponent({
   selected,
   data,
 }: EdgeProps<CodeEdge>) {
+  const rawN = Number(data?.onDoneNumber ?? 1)
+  const onDoneSlot = Math.min(
+    CODE_NODE_MAX_ON_DONE_EXITS,
+    Math.max(1, Math.floor(Number.isFinite(rawN) ? rawN : 1)),
+  )
+
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -51,7 +58,7 @@ function CodeEdgeComponent({
           selected && 'ring-1 ring-yellow-400',
         )}
       >
-        ON DONE
+        ON DONE {onDoneSlot}
       </DraggableEdgeLabel>
     </>
   )

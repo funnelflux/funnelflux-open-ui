@@ -1,5 +1,9 @@
 import { NODE_TYPES } from '@/types/funnel'
 import type { ConditionEdgeData, FunnelFlowEdge, FunnelFlowNode } from '@/types/funnel'
+import {
+  CODE_NODE_UNIFIED_SOURCE_HANDLE,
+  CODE_NODE_UNIFIED_TARGET_HANDLE,
+} from '@/lib/codeNodeExits'
 
 /** Must match Handle `id` values on `BaseNode` */
 export const SOURCE_HANDLE = {
@@ -54,9 +58,14 @@ export function computeOptimalHandles(
   const dx = t.x - s.x
   const dy = t.y - s.y
 
-  // Source: exit toward target (condition nodes keep YES/NO logical branches on the standard 4 handles)
   let sourceHandle: string | null
-  if (sourceNode.data.nodeType === NODE_TYPES.condition) {
+
+  if (
+    edge.data?.edgeType === 'code' &&
+    (sourceNode.data.nodeType === NODE_TYPES.jsCode || sourceNode.data.nodeType === NODE_TYPES.phpCode)
+  ) {
+    sourceHandle = CODE_NODE_UNIFIED_SOURCE_HANDLE
+  } else if (sourceNode.data.nodeType === NODE_TYPES.condition) {
     const data = edge.data
     const inferBranchFromHandle = (h: string | null | undefined): 'yes' | 'no' => {
       switch (h) {
@@ -99,11 +108,13 @@ export function computeOptimalHandles(
     }
   }
 
-  // Target: enter from the side that faces the source
+  // Target: enter from the side that faces the source (except JS/PHP use a single `code-in`).
   const vx = s.x - t.x
   const vy = s.y - t.y
   let targetHandle: string | null
-  if (Math.abs(vx) >= Math.abs(vy)) {
+  if (targetNode.data.nodeType === NODE_TYPES.jsCode || targetNode.data.nodeType === NODE_TYPES.phpCode) {
+    targetHandle = CODE_NODE_UNIFIED_TARGET_HANDLE
+  } else if (Math.abs(vx) >= Math.abs(vy)) {
     targetHandle = vx >= 0 ? TARGET_HANDLE.right : TARGET_HANDLE.left
   } else {
     targetHandle = vy >= 0 ? TARGET_HANDLE.bottom : TARGET_HANDLE.top

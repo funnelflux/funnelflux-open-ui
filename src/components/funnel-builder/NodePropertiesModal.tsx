@@ -6,8 +6,6 @@ import {
   NODE_TYPE_LABELS,
   type FunnelFlowNode,
   type ExternalUrlNodeParams,
-  type VisitorTagNodeParams,
-  type JsCodeNodeParams,
   type NodeTypeValue,
 } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
@@ -15,6 +13,8 @@ import { LanderNodeEditModal } from './LanderNodeEditModal'
 import { OfferNodeEditModal } from './OfferNodeEditModal'
 import { RotatorNodeEditModal } from './RotatorNodeEditModal'
 import { ConditionNodeEditDrawer } from './ConditionNodeEditDrawer'
+import { VisitorTagNodeEditModal } from './VisitorTagNodeEditModal'
+import { CodeNodeEditModal } from './CodeNodeEditModal'
 
 interface NodePropertiesModalProps {
   nodeId: string | null
@@ -41,26 +41,12 @@ function GenericNodePropertiesModal({
   // External URL
   const [url, setUrl] = useState(() => (node.data.params as ExternalUrlNodeParams).url ?? '')
 
-  // Visitor Tag
-  const [tagKey, setTagKey] = useState(() => (node.data.params as VisitorTagNodeParams).tagKey ?? '')
-  const [tagValue, setTagValue] = useState(() => (node.data.params as VisitorTagNodeParams).tagValue ?? '')
-
-  // Code snippet
-  const [snippetId, setSnippetId] = useState(() => (node.data.params as JsCodeNodeParams).snippetId ?? '')
-
   const handleOk = () => {
     const baseData: Record<string, unknown> = { label }
 
     switch (nt) {
       case NODE_TYPES.externalUrl:
         baseData.params = { ...((node.data.params as object) ?? {}), url }
-        break
-      case NODE_TYPES.visitorTag:
-        baseData.params = { ...((node.data.params as object) ?? {}), tagKey, tagValue }
-        break
-      case NODE_TYPES.jsCode:
-      case NODE_TYPES.phpCode:
-        baseData.params = { ...((node.data.params as object) ?? {}), snippetId, snippetName: label }
         break
       default:
         baseData.params = node.data.params
@@ -94,22 +80,6 @@ function GenericNodePropertiesModal({
           </Form.Item>
         )}
 
-        {nt === NODE_TYPES.visitorTag && (
-          <>
-            <Form.Item label="Tag Key">
-              <Input value={tagKey} onChange={(e) => setTagKey(e.target.value)} placeholder="tag_name" />
-            </Form.Item>
-            <Form.Item label="Tag Value">
-              <Input value={tagValue} onChange={(e) => setTagValue(e.target.value)} placeholder="tag_value" />
-            </Form.Item>
-          </>
-        )}
-
-        {(nt === NODE_TYPES.jsCode || nt === NODE_TYPES.phpCode) && (
-          <Form.Item label="Code Snippet ID" extra="ID of the code snippet to execute">
-            <Input value={snippetId} onChange={(e) => setSnippetId(e.target.value)} className="font-mono text-sm" />
-          </Form.Item>
-        )}
       </Form>
     </Modal>
   )
@@ -136,6 +106,17 @@ export function NodePropertiesModal({ nodeId, open, onClose }: NodePropertiesMod
     return <OfferNodeEditModal nodeId={nodeId} open={open} onClose={onClose} />
   }
 
+  if (nt === NODE_TYPES.visitorTag) {
+    return (
+      <VisitorTagNodeEditModal
+        key={nodeId ?? node.id}
+        nodeId={nodeId ?? node.id}
+        open={open}
+        onClose={onClose}
+      />
+    )
+  }
+
   if (nt === NODE_TYPES.rotator) {
     return (
       <RotatorNodeEditModal
@@ -144,6 +125,18 @@ export function NodePropertiesModal({ nodeId, open, onClose }: NodePropertiesMod
         open={open}
         onClose={onClose}
       />
+    )
+  }
+
+  if (nt === NODE_TYPES.jsCode) {
+    return (
+      <CodeNodeEditModal nodeId={nodeId ?? node.id} codeType="javascript" open={open} onClose={onClose} />
+    )
+  }
+
+  if (nt === NODE_TYPES.phpCode) {
+    return (
+      <CodeNodeEditModal nodeId={nodeId ?? node.id} codeType="php" open={open} onClose={onClose} />
     )
   }
 

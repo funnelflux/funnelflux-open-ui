@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
-import { NODE_TYPES, type NodeTypeValue } from '@/types/funnel'
+import { NODE_TYPES, NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { EntityPickerDialog, type EntityPickerDialogProps } from './EntityPickerDialog'
 
@@ -9,14 +9,15 @@ interface CanvasContextMenuProps {
   screenPosition: { x: number; y: number } | null
   flowPosition: { x: number; y: number } | null
   onClose: () => void
-  onAddConditionNode?: (nodeId: string) => void
+  /** After placing a node from the menu, open the funnel node editor (condition, JS/PHP code). */
+  onPlacedNodeOpenEditor?: (nodeId: string) => void
 }
 
 export function CanvasContextMenu({
   screenPosition,
   flowPosition,
   onClose,
-  onAddConditionNode,
+  onPlacedNodeOpenEditor,
 }: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -74,8 +75,28 @@ export function CanvasContextMenu({
       params: { conditionName: 'Condition' },
     })
     onClose()
-    onAddConditionNode?.(nodeId)
-  }, [flowPosition, onAddConditionNode, onClose])
+    onPlacedNodeOpenEditor?.(nodeId)
+  }, [flowPosition, onPlacedNodeOpenEditor, onClose])
+
+  const handleAddJsCodeNode = useCallback(() => {
+    if (!flowPosition) return
+    const nodeId = useFunnelEditorStore.getState().addNode(NODE_TYPES.jsCode, flowPosition, {
+      label: NODE_TYPE_LABELS[NODE_TYPES.jsCode],
+      params: {},
+    })
+    onClose()
+    onPlacedNodeOpenEditor?.(nodeId)
+  }, [flowPosition, onClose, onPlacedNodeOpenEditor])
+
+  const handleAddPhpCodeNode = useCallback(() => {
+    if (!flowPosition) return
+    const nodeId = useFunnelEditorStore.getState().addNode(NODE_TYPES.phpCode, flowPosition, {
+      label: NODE_TYPE_LABELS[NODE_TYPES.phpCode],
+      params: {},
+    })
+    onClose()
+    onPlacedNodeOpenEditor?.(nodeId)
+  }, [flowPosition, onClose, onPlacedNodeOpenEditor])
 
   const handlePickerSelect = useCallback(
     (entity: { id: string; name: string }) => {
@@ -97,16 +118,6 @@ export function CanvasContextMenu({
         store.addNode(NODE_TYPES.condition, flowPosition, {
           label: entity.name,
           params: { conditionId: entity.id, conditionName: entity.name },
-        })
-      } else if (entityType === 'jsCode') {
-        store.addNode(NODE_TYPES.jsCode, flowPosition, {
-          label: entity.name,
-          params: { snippetId: entity.id, snippetName: entity.name },
-        })
-      } else if (entityType === 'phpCode') {
-        store.addNode(NODE_TYPES.phpCode, flowPosition, {
-          label: entity.name,
-          params: { snippetId: entity.id, snippetName: entity.name },
         })
       }
 
@@ -171,12 +182,12 @@ export function CanvasContextMenu({
               <MenuItem
                 icon={<Icon name="code" size="md" />}
                 label="Add JS Code"
-                onClick={() => openPicker('jsCode')}
+                onClick={handleAddJsCodeNode}
               />
               <MenuItem
                 icon={<Icon name="file-code" size="md" />}
                 label="Add PHP Code"
-                onClick={() => openPicker('phpCode')}
+                onClick={handleAddPhpCodeNode}
               />
               <MenuItem
                 icon={<Icon name="tag" size="md" />}

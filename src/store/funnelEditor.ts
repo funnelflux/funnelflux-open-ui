@@ -13,6 +13,12 @@ import { generateId } from '@/lib/id-generator'
 import { extractMetaFromRawFunnel, normalizeFunnelApiResponse } from '@/lib/funnelApiV2'
 import { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
 import { materializeRotatorWeights, reclassifyLoadedRotatorEdges } from '@/lib/rotatorWeights'
+import {
+  coerceJsPhpCodeOutboundHandles,
+  coerceJsPhpInboundTargetHandles,
+  coerceVisitorTagOutboundEdges,
+} from '@/components/funnel-builder/validation'
+import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
 import type { FunnelEditorMeta } from '@/types/funnel'
 
 export { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
@@ -62,9 +68,14 @@ function parseEdgeData(conn: ApiFunnelConnection): FunnelEdgeData {
     }
   }
   if (el.edgeType === 'code') {
+    const raw = typeof el.onDoneNumber === 'number' ? el.onDoneNumber : 1
+    const onDoneNumber = Math.min(
+      CODE_NODE_MAX_ON_DONE_EXITS,
+      Math.max(1, Math.floor(Number.isFinite(raw) ? raw : 1)),
+    )
     return {
       edgeType: 'code',
-      onDoneNumber: typeof el.onDoneNumber === 'number' ? el.onDoneNumber : 1,
+      onDoneNumber,
       labelLocation: ll,
     }
   }
@@ -194,12 +205,25 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
     const funnel = normalizeFunnelApiResponse(funnelInput)
     const v2Meta = extractMetaFromRawFunnel(funnelInput)
     const raw = funnelInput as Record<string, unknown>
+
+    const flowNodes = funnel.nodes.map(apiNodeToFlowNode)
+    const flowEdges = coerceJsPhpInboundTargetHandles(
+      flowNodes,
+      coerceJsPhpCodeOutboundHandles(
+        flowNodes,
+        coerceVisitorTagOutboundEdges(
+          flowNodes,
+          reclassifyLoadedRotatorEdges(funnel.connections.map(apiConnectionToFlowEdge)),
+        ),
+      ),
+    )
+
     set({
-      nodes: funnel.nodes.map(apiNodeToFlowNode),
+      nodes: flowNodes,
       // Hydrate marks every weighted edge as locked (server has no dirty bit). Re-classify
       // groups whose stored weights are already an even split as unlocked so adding a new
       // sibling rebalances automatically (e.g. 1×100 → add → 50/50; 50/50 → add → 33/33/33).
-      edges: reclassifyLoadedRotatorEdges(funnel.connections.map(apiConnectionToFlowEdge)),
+      edges: flowEdges,
       meta: {
         idFunnel: funnel.idFunnel,
         idCampaign: funnel.idCampaign,
