@@ -16,7 +16,7 @@ function JsCodeNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>
         kind: 'JavaScript',
         title: data.label || 'JS',
         subtitle: params.snippetName,
-        icon: <Icon name="braces" className="h-5 w-5" />,
+        icon: <Icon name="braces" size="lg" />,
       }}
     />
   )

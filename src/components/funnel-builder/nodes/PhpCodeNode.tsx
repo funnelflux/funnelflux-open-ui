@@ -15,7 +15,7 @@ function PhpCodeNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>
         accent: 'orange',
         kind: 'PHP',
         title: data.label || 'PHP code',
-        icon: <Icon name="terminal" className="h-5 w-5" />,
+        icon: <Icon name="terminal" size="lg" />,
       }}
     >
       <Handle

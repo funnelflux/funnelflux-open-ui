@@ -19,7 +19,7 @@ function RotatorNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>
         kind: 'Rotator',
         title: data.label || 'Rotator',
         subtitle: sub,
-        icon: <Icon name="shuffle" className="h-5 w-5" />,
+        icon: <Icon name="shuffle" size="lg" />,
       }}
     />
   )

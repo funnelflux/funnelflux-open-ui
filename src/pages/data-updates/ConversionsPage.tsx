@@ -102,7 +102,11 @@ export function ConversionsPage() {
         </div>
 
         <Button type="primary" onClick={handleSubmit} disabled={isSubmitting || !csvData.trim()}>
-          {isSubmitting && <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />}
+          {isSubmitting && (
+            <span className="mr-2 inline-flex">
+              <Icon name="loader-2" size="md" animation="spin" />
+            </span>
+          )}
           Submit Conversions
         </Button>
       </div>

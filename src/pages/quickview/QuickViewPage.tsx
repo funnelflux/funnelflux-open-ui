@@ -194,7 +194,7 @@ export function QuickViewPage() {
       title={`${entityName} Quick View`}
       subtitle={`${entityGroupBy} · ${entityId}`}
       actions={
-        <Button type="primary" size="small" onClick={handleOpenInDrilldown} icon={<Icon name="arrow-right" className="h-3.5 w-3.5" />}>
+        <Button type="primary" size="small" onClick={handleOpenInDrilldown} icon={<Icon name="arrow-right" size="sm" />}>
           Open in Drilldown
         </Button>
       }

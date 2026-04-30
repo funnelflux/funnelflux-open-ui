@@ -22,7 +22,7 @@ function ExternalUrlNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeD
         kind: 'External URL',
         title: data.label || 'External URL',
         subtitle: url ? truncateUrl(url) : undefined,
-        icon: <Icon name="link-2" className="h-5 w-5" />,
+        icon: <Icon name="link-2" size="lg" />,
       }}
     />
   )

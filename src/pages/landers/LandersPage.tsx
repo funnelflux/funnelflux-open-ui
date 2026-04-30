@@ -169,12 +169,16 @@ export function LandersPage() {
   )
 
   useEffect(() => {
-    setPagination((p) => ({ ...p, pageIndex: 0 }))
+    queueMicrotask(() => {
+      setPagination((p) => ({ ...p, pageIndex: 0 }))
+    })
   }, [filterResetKey])
 
   useEffect(() => {
     if (pagination.pageIndex > pageSlice.pageCount - 1 && pageSlice.pageCount > 0) {
-      setPagination((p) => ({ ...p, pageIndex: Math.max(0, pageSlice.pageCount - 1) }))
+      queueMicrotask(() => {
+        setPagination((p) => ({ ...p, pageIndex: Math.max(0, pageSlice.pageCount - 1) }))
+      })
     }
   }, [pagination.pageIndex, pageSlice.pageCount])
 
@@ -272,24 +276,24 @@ export function LandersPage() {
     reload()
   }
 
-  const hideCategoryStripEditDelete = (row: LanderGridRow) => {
+  const hideCategoryStripEditDelete = useCallback((row: LanderGridRow) => {
     if (!row._isCategoryHeader) return false
     const cid = row._categoryId ?? ''
     return cid === ''
-  }
+  }, [])
 
-  const hideEditButton = (row: LanderGridRow) => {
+  const hideEditButton = useCallback((row: LanderGridRow) => {
     if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
     return row.id === '__totals__'
-  }
+  }, [hideCategoryStripEditDelete])
 
   const hideCloneArchive = (row: LanderGridRow) =>
     !!row._isCategoryHeader || row.id === '__totals__'
 
-  const hideDeleteButton = (row: LanderGridRow) => {
+  const hideDeleteButton = useCallback((row: LanderGridRow) => {
     if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
     return row.id === '__totals__'
-  }
+  }, [hideCategoryStripEditDelete])
 
   const statCols = useMemo(
     () =>
@@ -394,7 +398,7 @@ export function LandersPage() {
     deleteBtnColumn<LanderGridRow>((row) => handleDeleteOrCategory(row), { hidden: hideDeleteButton }),
     idColumn<LanderGridRow>({ hideIdForRow: (row) => !!row._isCategoryHeader }),
     ...statCols,
-  ], [statCols, handleEditOrCategory, handleClone, handleArchive, handleDeleteOrCategory])
+  ], [statCols, handleEditOrCategory, handleClone, handleArchive, handleDeleteOrCategory, hideEditButton, hideDeleteButton])
 
   const gridColumnVisibility = useEntityGridColumnVisibility(
     columnDefs as ColumnDef<unknown, unknown>[],
@@ -467,7 +471,9 @@ export function LandersPage() {
       actions={
         <div className="flex items-center gap-2">
           <Button onClick={handleOpenImportLanders}>
-            <Icon name="upload" className="mr-1.5 h-3.5 w-3.5" />
+            <span className="mr-1.5 inline-flex">
+              <Icon name="upload" size="sm" />
+            </span>
             Import CSV
           </Button>
           <Button type="primary" onClick={handleCreate}>Add Lander</Button>

@@ -125,7 +125,7 @@ export function AddCampaignOrFunnelModal({
                 />
                 <Button
                   type="primary"
-                  icon={<Icon name="plus" className="h-4 w-4" />}
+                  icon={<Icon name="plus" size="md" />}
                   title="New campaign"
                   aria-label="Create campaign and select it"
                   loading={campaignQuickCreatePending}

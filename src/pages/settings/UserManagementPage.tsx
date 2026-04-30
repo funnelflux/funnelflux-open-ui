@@ -118,7 +118,9 @@ export function UserManagementPage() {
       title="User Management"
       actions={
         <Button type="primary" onClick={() => navigate('/settings/users/new')}>
-          <Icon name="user-plus" className="mr-1.5 h-3.5 w-3.5" />
+          <span className="mr-1.5 inline-flex">
+            <Icon name="user-plus" size="sm" />
+          </span>
           Add User
         </Button>
       }

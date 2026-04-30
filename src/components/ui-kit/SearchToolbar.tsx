@@ -52,7 +52,11 @@ export function SearchToolbar({
   return (
     <div className={cn('flex min-w-0 items-center gap-3', className)}>
       <Input
-        prefix={<Icon name="search" className="h-4 w-4 text-muted-foreground" />}
+        prefix={
+          <span className="text-muted-foreground inline-flex">
+            <Icon name="search" size="md" />
+          </span>
+        }
         placeholder={placeholder}
         value={internal}
         onChange={(e) => setInternal(e.target.value)}
@@ -68,7 +72,7 @@ export function SearchToolbar({
               <Button
                 type="default"
                 htmlType="button"
-                icon={<Icon name="refresh-cw" className="h-4 w-4" />}
+                icon={<Icon name="refresh-cw" size="md" />}
                 loading={refreshLoading}
                 onClick={handleRefreshClick}
                 aria-label="Refresh"

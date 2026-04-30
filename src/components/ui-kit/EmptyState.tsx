@@ -20,7 +20,11 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="text-muted-foreground mb-3">
-        {icon || <Icon name="inbox" className="h-10 w-10" />}
+        {icon || (
+          <span className="inline-flex [&>svg]:h-10 [&>svg]:w-10">
+            <Icon name="inbox" size="lg" />
+          </span>
+        )}
       </div>
       {title && (
         <h3 className="text-base font-medium text-foreground mb-1">{title}</h3>

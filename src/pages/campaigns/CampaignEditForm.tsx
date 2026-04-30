@@ -134,7 +134,11 @@ export function CampaignEditForm({
         </div>
         <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex gap-2">
           <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
-            {isSubmitting && <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting && (
+              <span className="mr-2 inline-flex">
+                <Icon name="loader-2" size="md" animation="spin" />
+              </span>
+            )}
             {initialData ? 'Save' : 'Create'}
           </Button>
           <Button

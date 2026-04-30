@@ -406,7 +406,7 @@ export function FunnelQuickStatsModal({
           <div className="flex min-w-0 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
             <div className="flex min-w-0 flex-1 items-center gap-3 sm:min-w-[200px]">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
-                <Icon name="bar-chart-3" className="h-4 w-4" aria-hidden />
+                <Icon name="bar-chart-3" size="md" aria-hidden />
               </div>
               <div className="min-w-0 flex flex-col justify-center gap-0.5">
                 <p className="text-[10px] font-medium uppercase leading-none tracking-wider text-muted-foreground">
@@ -431,7 +431,7 @@ export function FunnelQuickStatsModal({
                 type="primary"
                 size="small"
                 className="h-8 shrink-0 gap-1.5 self-center shadow-sm"
-                icon={<Icon name="refresh-cw" className="h-4 w-4" />}
+                icon={<Icon name="refresh-cw" size="md" />}
                 loading={loading}
                 onClick={handleRefreshReport}
               >
@@ -485,7 +485,7 @@ export function FunnelQuickStatsModal({
                   type={activeCategory === 'conversion' ? 'primary' : 'default'}
                   size="small"
                   className="h-8 shrink-0 px-2"
-                  icon={<Icon name="layout-grid" className="h-4 w-4" aria-hidden />}
+                  icon={<Icon name="layout-grid" size="md" aria-hidden />}
                   onClick={handleActivateConversionCategory}
                   aria-label="Conversion and traffic breakdowns"
                   title="Conversion & traffic"
@@ -495,7 +495,7 @@ export function FunnelQuickStatsModal({
                   type={activeCategory === 'device' ? 'primary' : 'default'}
                   size="small"
                   className="h-8 shrink-0 px-2"
-                  icon={<Icon name="network" className="h-4 w-4" aria-hidden />}
+                  icon={<Icon name="network" size="md" aria-hidden />}
                   onClick={handleActivateDeviceCategory}
                   aria-label="Device and network breakdowns"
                   title="Device & network"
@@ -505,7 +505,7 @@ export function FunnelQuickStatsModal({
                   type={activeCategory === 'geo' ? 'primary' : 'default'}
                   size="small"
                   className="h-8 shrink-0 px-2"
-                  icon={<Icon name="globe-2" className="h-4 w-4" aria-hidden />}
+                  icon={<Icon name="globe-2" size="md" aria-hidden />}
                   onClick={handleActivateGeoCategory}
                   aria-label="Geography and drilldown breakdowns"
                   title="Geography & drilldown"
@@ -520,7 +520,9 @@ export function FunnelQuickStatsModal({
                 title="Close"
                 onClick={onClose}
               >
-                <Icon name="x" className="h-7 w-7" strokeWidth={2.5} aria-hidden />
+                <span className="inline-flex [&>svg]:h-7 [&>svg]:w-7">
+                  <Icon name="x" size="lg" strokeWidth={2.5} aria-hidden />
+                </span>
               </Button>
             </div>
           </div>
@@ -579,7 +581,9 @@ export function FunnelQuickStatsModal({
           {tab === 'drilldown' ? (
             <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-border/80 bg-muted/20 p-10 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
-                <Icon name="globe-2" className="h-7 w-7" aria-hidden />
+                <span className="inline-flex [&>svg]:h-7 [&>svg]:w-7">
+                  <Icon name="globe-2" size="lg" aria-hidden />
+                </span>
               </div>
               <div className="max-w-md space-y-2">
                 <p className="text-base font-medium text-foreground">Full drilldown</p>
@@ -593,7 +597,9 @@ export function FunnelQuickStatsModal({
             </div>
           ) : loading ? (
             <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-muted/10">
-              <Icon name="loader-2" className="h-9 w-9 animate-spin text-primary" />
+              <span className="text-primary inline-flex [&>svg]:h-9 [&>svg]:w-9">
+                <Icon name="loader-2" size="lg" animation="spin" />
+              </span>
               <p className="text-sm text-muted-foreground">Loading report…</p>
             </div>
           ) : (

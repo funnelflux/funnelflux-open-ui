@@ -16,7 +16,7 @@ function LanderNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>
         kind: 'Lander',
         title: data.label || 'Lander',
         subtitle: params.pageName || (params.pageId ? `Page ${params.pageId}` : undefined),
-        icon: <Icon name="file-text" className="h-5 w-5" />,
+        icon: <Icon name="file-text" size="lg" />,
       }}
     />
   )

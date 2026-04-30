@@ -18,7 +18,7 @@ function VisitorTagNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeDa
         kind: 'Visitor tag',
         title: data.label || 'Tag',
         subtitle: pair,
-        icon: <Icon name="tags" className="h-5 w-5" />,
+        icon: <Icon name="tags" size="lg" />,
       }}
     />
   )

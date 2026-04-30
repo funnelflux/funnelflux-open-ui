@@ -1,5 +1,5 @@
 import { NODE_TYPES } from '@/types/funnel'
-import type { FunnelFlowEdge, FunnelFlowNode } from '@/types/funnel'
+import type { ConditionEdgeData, FunnelFlowEdge, FunnelFlowNode } from '@/types/funnel'
 
 /** Must match Handle `id` values on `BaseNode` */
 export const SOURCE_HANDLE = {
@@ -32,7 +32,9 @@ function center(n: FunnelFlowNode): { x: number; y: number } {
 
 /**
  * Pick source/target handle ids so edges leave/enter on the side facing the other node.
- * Condition nodes keep `yes` / `no` as source handles (fixed on the right in ConditionNode).
+ *
+ * Condition nodes still render the standard 4 source handles, but each outgoing condition edge
+ * is classified into YES/NO via `edge.data.branch`. YES uses `s-right`/`s-top`, NO uses `s-left`/`s-bottom`.
  */
 export function computeOptimalHandles(
   nodes: FunnelFlowNode[],
@@ -52,11 +54,43 @@ export function computeOptimalHandles(
   const dx = t.x - s.x
   const dy = t.y - s.y
 
-  // Source: exit toward target (except condition — yes/no only)
+  // Source: exit toward target (condition nodes keep YES/NO logical branches on the standard 4 handles)
   let sourceHandle: string | null
   if (sourceNode.data.nodeType === NODE_TYPES.condition) {
+    const data = edge.data
+    const inferBranchFromHandle = (h: string | null | undefined): 'yes' | 'no' => {
+      switch (h) {
+        case SOURCE_HANDLE.left:
+        case SOURCE_HANDLE.bottom:
+          return 'no'
+        case SOURCE_HANDLE.top:
+        case SOURCE_HANDLE.right:
+        default:
+          return 'yes'
+      }
+    }
+
+    const branch: 'yes' | 'no' =
+      data?.edgeType === 'condition'
+        ? ((data as ConditionEdgeData).branch ?? inferBranchFromHandle(edge.sourceHandle))
+        : inferBranchFromHandle(edge.sourceHandle)
+
+    const yesPreferred = Math.abs(dx) >= Math.abs(dy) ? SOURCE_HANDLE.right : SOURCE_HANDLE.top
+    const noPreferred = Math.abs(dx) >= Math.abs(dy) ? SOURCE_HANDLE.left : SOURCE_HANDLE.bottom
+
+    const desired = branch === 'yes' ? yesPreferred : noPreferred
+    const alt =
+      branch === 'yes'
+        ? yesPreferred === SOURCE_HANDLE.right
+          ? SOURCE_HANDLE.top
+          : SOURCE_HANDLE.right
+        : noPreferred === SOURCE_HANDLE.left
+          ? SOURCE_HANDLE.bottom
+          : SOURCE_HANDLE.left
+
     const sh = edge.sourceHandle
-    sourceHandle = sh === 'yes' || sh === 'no' ? sh : 'yes'
+    const isValid = sh === desired || sh === alt
+    sourceHandle = isValid ? sh : desired
   } else {
     if (Math.abs(dx) >= Math.abs(dy)) {
       sourceHandle = dx >= 0 ? SOURCE_HANDLE.right : SOURCE_HANDLE.left

@@ -71,7 +71,7 @@ export function DesignSystemPage() {
           </span>
           <Button
             type="text"
-            icon={mode === 'light' ? <Icon name="moon" className="h-4 w-4" /> : <Icon name="sun" className="h-4 w-4" />}
+            icon={mode === 'light' ? <Icon name="moon" size="md" /> : <Icon name="sun" size="md" />}
             onClick={toggle}
           >
             Toggle {mode === 'light' ? 'Dark' : 'Light'}

@@ -16,7 +16,7 @@ function OfferNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>)
         kind: 'Offer',
         title: data.label || 'Offer',
         subtitle: params.pageName || (params.pageId ? `Page ${params.pageId}` : undefined),
-        icon: <Icon name="sparkles" className="h-5 w-5" />,
+        icon: <Icon name="sparkles" size="lg" />,
       }}
     />
   )

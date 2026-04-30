@@ -265,9 +265,13 @@ export function SystemSettingsPage() {
         <div className="pt-2">
           <Button type="primary" htmlType="submit" disabled={saveSettings.isPending}>
             {saveSettings.isPending ? (
-              <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />
+              <span className="mr-2 inline-flex">
+                <Icon name="loader-2" size="md" animation="spin" />
+              </span>
             ) : (
-              <Icon name="save" className="mr-2 h-4 w-4" />
+              <span className="mr-2 inline-flex">
+                <Icon name="save" size="md" />
+              </span>
             )}
             Save Settings
           </Button>

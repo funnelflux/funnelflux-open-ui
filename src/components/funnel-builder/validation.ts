@@ -9,6 +9,59 @@ import {
   type ConditionEdgeData,
   type CodeEdgeData,
 } from '@/types/funnel'
+import { SOURCE_HANDLE } from '@/lib/funnelEdgeGeometry'
+
+export function conditionBranchFromSourceHandle(sourceHandle: string | null | undefined): 'yes' | 'no' {
+  // Condition nodes have exactly two logical routes. With standard 4 handles:
+  // - top/right => YES
+  // - left/bottom => NO
+  switch (sourceHandle) {
+    case SOURCE_HANDLE.left:
+    case SOURCE_HANDLE.bottom:
+      return 'no'
+    case SOURCE_HANDLE.top:
+    case SOURCE_HANDLE.right:
+    default:
+      return 'yes'
+  }
+}
+
+export function sourceHandleForConditionBranch(branch: 'yes' | 'no'): string {
+  return branch === 'yes' ? SOURCE_HANDLE.right : SOURCE_HANDLE.left
+}
+
+function conditionOutgoingBranches(source: string, edges: FunnelFlowEdge[]): { yes: boolean; no: boolean } {
+  let yes = false
+  let no = false
+  for (const e of edges) {
+    if (e.source !== source) continue
+    if (e.data?.edgeType !== 'condition') continue
+    const b = (e.data as ConditionEdgeData).branch
+    if (b === 'yes') yes = true
+    if (b === 'no') no = true
+  }
+  return { yes, no }
+}
+
+/**
+ * When drawing a new edge from a condition node, the logical branch is chosen from existing outgoing
+ * condition edges (not from which physical handle was grabbed):
+ * - If NO outgoing condition branch exists yet, use YES.
+ * - Else if YES exists but NO does not, use NO.
+ * - Else if NO exists but YES does not, use YES.
+ * - Else both exist: disallow a third outgoing condition edge (swap branches via edge label clicks).
+ */
+export function pickConditionBranchForNewConnection(
+  source: string,
+  edges: FunnelFlowEdge[],
+): 'yes' | 'no' | null {
+  const { yes, no } = conditionOutgoingBranches(source, edges)
+
+  if (!yes && !no) return 'yes'
+  if (yes && !no) return 'no'
+  if (!yes && no) return 'yes'
+  return null
+}
 
 export function isValidConnection(
   connection: Connection,
@@ -34,19 +87,31 @@ export function isValidConnection(
     return false
   }
 
-  // Condition nodes: source handle must be "yes" or "no"
+  // Condition nodes: branch is chosen automatically (see `pickConditionBranchForNewConnection`)
   if (sourceNode.data.nodeType === NODE_TYPES.condition) {
-    if (sourceHandle !== 'yes' && sourceHandle !== 'no') {
-      return false
-    }
+    const allowed = new Set<string>([
+      SOURCE_HANDLE.top,
+      SOURCE_HANDLE.right,
+      SOURCE_HANDLE.bottom,
+      SOURCE_HANDLE.left,
+    ])
+    if (!sourceHandle || !allowed.has(sourceHandle)) return false
 
-    // Each condition handle can only have one outgoing connection
-    const existingFromHandle = edges.some(
-      (e) => e.source === source && e.sourceHandle === sourceHandle,
+    const branch = pickConditionBranchForNewConnection(source, edges)
+    if (!branch) return false
+
+    const canonicalSourceHandle = sourceHandleForConditionBranch(branch)
+    const existingFromBranch = edges.some(
+      (e) => e.source === source && e.data?.edgeType === 'condition' && (e.data as ConditionEdgeData).branch === branch,
     )
-    if (existingFromHandle) {
-      return false
-    }
+    if (existingFromBranch) return false
+
+    // Cannot create duplicate connections (same source + target + canonical source handle)
+    const isDuplicate = edges.some(
+      (e) => e.source === source && e.target === target && e.sourceHandle === canonicalSourceHandle,
+    )
+    if (isDuplicate) return false
+    return true
   }
 
   // Cannot create duplicate connections (same source + target + sourceHandle)
@@ -67,6 +132,7 @@ export function getDefaultEdgeData(
   sourceNode: FunnelFlowNode,
   sourceHandle?: string | null,
   edges?: FunnelFlowEdge[],
+  opts?: { conditionBranch?: 'yes' | 'no' },
 ): FunnelEdgeData {
   const nodeType = sourceNode.data.nodeType
 
@@ -94,7 +160,10 @@ export function getDefaultEdgeData(
     }
 
     case NODE_TYPES.condition: {
-      const branch = sourceHandle === 'no' ? 'no' : 'yes'
+      const branch =
+        opts?.conditionBranch ??
+        (edges ? pickConditionBranchForNewConnection(sourceNode.id, edges) : null) ??
+        conditionBranchFromSourceHandle(sourceHandle)
       return { edgeType: 'condition', branch } satisfies ConditionEdgeData
     }
 

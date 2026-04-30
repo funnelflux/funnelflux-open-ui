@@ -1,4 +1,5 @@
 export { FormField } from './FormField'
+export { Field } from './Field'
 export { Modal } from './Modal'
 export type { ModalProps } from './Modal'
 export { Button } from './Button'

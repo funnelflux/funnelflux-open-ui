@@ -140,7 +140,9 @@ export function GlobalConditionsPage() {
             setEditorOpen(true)
           }}
         >
-          <Icon name="plus" className="h-4 w-4 mr-1" />
+          <span className="mr-1 inline-flex">
+            <Icon name="plus" size="md" />
+          </span>
           Add Condition
         </Button>
       }

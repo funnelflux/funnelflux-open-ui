@@ -149,7 +149,9 @@ export function TrafficFiltersPage() {
       title="Traffic Filters"
       actions={
         <Button type="primary" onClick={openCreate}>
-          <Icon name="plus" className="h-4 w-4 mr-1" />
+          <span className="mr-1 inline-flex">
+            <Icon name="plus" size="md" />
+          </span>
           Add Filter
         </Button>
       }

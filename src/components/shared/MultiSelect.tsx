@@ -208,7 +208,7 @@ export function MultiSelect({
                 removeSelectedItem(item.value)
               }}
             >
-              <Icon name="x" className="h-3 w-3" />
+              <Icon name="x" size="sm" />
             </button>
           </span>
         ))}
@@ -230,7 +230,7 @@ export function MultiSelect({
           {...getToggleButtonProps()}
           aria-label="toggle menu"
         >
-          <Icon name="chevrons-up-down" className="h-4 w-4" />
+          <Icon name="chevrons-up-down" size="md" />
         </button>
       </div>
 
@@ -329,7 +329,7 @@ export function MultiSelect({
                           : "border-input",
                       )}
                     >
-                      {isSelected && <Icon name="check" className="h-3 w-3" />}
+                      {isSelected && <Icon name="check" size="sm" />}
                     </div>
                     <span className="truncate">{row.option.label}</span>
                   </div>

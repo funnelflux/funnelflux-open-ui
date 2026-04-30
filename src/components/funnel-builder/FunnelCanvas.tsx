@@ -17,7 +17,12 @@ import {
 import '@xyflow/react/dist/style.css'
 import { nodeTypes } from './nodes'
 import { edgeTypes } from './edges'
-import { isValidConnection, getDefaultEdgeData } from './validation'
+import {
+  getDefaultEdgeData,
+  isValidConnection,
+  pickConditionBranchForNewConnection,
+  sourceHandleForConditionBranch,
+} from './validation'
 import { CanvasContextMenu } from './CanvasContextMenu'
 import { NodeContextMenu } from './NodeContextMenu'
 import { EdgeContextMenu } from './EdgeContextMenu'
@@ -27,7 +32,7 @@ import { EdgeHandleSync } from './EdgeHandleSync'
 import { useToastApi } from '@/components/ui-kit'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { cn } from '@/lib/utils'
-import type { FunnelFlowNode, FunnelFlowEdge } from '@/types/funnel'
+import { NODE_TYPES, type FunnelFlowEdge, type FunnelFlowNode } from '@/types/funnel'
 import { generateId } from '@/lib/id-generator'
 
 interface MenuState {
@@ -127,12 +132,22 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
       const sourceNode = s.nodes.find((n) => n.id === connection.source)
       if (!sourceNode) return {}
 
-      const edgeData = getDefaultEdgeData(sourceNode, connection.sourceHandle, s.edges)
+      const isCondition = sourceNode.data.nodeType === NODE_TYPES.condition
+      const conditionBranch = isCondition ? pickConditionBranchForNewConnection(connection.source, s.edges) : null
+      if (isCondition && !conditionBranch) return {}
+
+      const edgeData = getDefaultEdgeData(sourceNode, connection.sourceHandle, s.edges, {
+        conditionBranch: conditionBranch ?? undefined,
+      })
+
+      const sourceHandle =
+        isCondition && conditionBranch ? sourceHandleForConditionBranch(conditionBranch) : connection.sourceHandle
+
       const newEdge: FunnelFlowEdge = {
         id: generateId(),
         source: connection.source,
         target: connection.target,
-        sourceHandle: connection.sourceHandle,
+        sourceHandle,
         targetHandle: connection.targetHandle,
         type: edgeData.edgeType,
         data: edgeData,
@@ -303,6 +318,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
         screenPosition={canvasMenu.screen}
         flowPosition={canvasMenu.flow}
         onClose={closeAllMenus}
+        onAddConditionNode={setEditNodeId}
       />
       <NodeContextMenu
         nodeId={nodeMenu.nodeId}

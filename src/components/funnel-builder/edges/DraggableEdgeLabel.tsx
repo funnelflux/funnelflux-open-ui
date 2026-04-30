@@ -54,6 +54,8 @@ interface DraggableEdgeLabelProps {
   fallbackY: number
   className?: string
   children: ReactNode
+  /** Fires on mouseup when the interaction was a click (not a drag-reposition). */
+  onLabelClick?: (event: MouseEvent) => void
 }
 
 export function DraggableEdgeLabel({
@@ -64,9 +66,12 @@ export function DraggableEdgeLabel({
   fallbackY,
   className,
   children,
+  onLabelClick,
 }: DraggableEdgeLabelProps) {
   const { screenToFlowPosition } = useReactFlow()
   const isDragging = useRef(false)
+  const dragArmed = useRef(false)
+  const startClient = useRef<{ x: number; y: number } | null>(null)
 
   const computePos = useCallback(() => {
     if (labelLocation != null && pathString) {
@@ -87,9 +92,18 @@ export function DraggableEdgeLabel({
       e.stopPropagation()
       e.preventDefault()
       isDragging.current = true
+      dragArmed.current = Boolean(onLabelClick)
+      startClient.current = { x: e.clientX, y: e.clientY }
 
       const onMove = (moveEvent: MouseEvent) => {
         if (!isDragging.current) return
+        if (dragArmed.current && startClient.current) {
+          const dx = moveEvent.clientX - startClient.current.x
+          const dy = moveEvent.clientY - startClient.current.y
+          if (dx * dx + dy * dy > 6 * 6) {
+            dragArmed.current = false
+          }
+        }
         const flowPos = screenToFlowPosition({ x: moveEvent.clientX, y: moveEvent.clientY })
         const newT = findClosestT(pathString, flowPos.x, flowPos.y)
         setPosition(getPointOnPath(pathString, newT))
@@ -102,6 +116,17 @@ export function DraggableEdgeLabel({
         const newT = findClosestT(pathString, flowPos.x, flowPos.y)
         setPosition(getPointOnPath(pathString, newT))
         useFunnelEditorStore.getState().updateEdgeData(edgeId, { labelLocation: newT })
+
+        if (dragArmed.current && startClient.current && onLabelClick) {
+          const dx = upEvent.clientX - startClient.current.x
+          const dy = upEvent.clientY - startClient.current.y
+          if (dx * dx + dy * dy <= 6 * 6) {
+            onLabelClick(upEvent)
+          }
+        }
+
+        dragArmed.current = false
+        startClient.current = null
         document.removeEventListener('mousemove', onMove)
         document.removeEventListener('mouseup', onUp)
       }
@@ -109,7 +134,7 @@ export function DraggableEdgeLabel({
       document.addEventListener('mousemove', onMove)
       document.addEventListener('mouseup', onUp)
     },
-    [edgeId, pathString, screenToFlowPosition],
+    [edgeId, onLabelClick, pathString, screenToFlowPosition],
   )
 
   return (

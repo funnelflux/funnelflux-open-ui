@@ -7,7 +7,6 @@ import {
   type FunnelFlowNode,
   type ExternalUrlNodeParams,
   type VisitorTagNodeParams,
-  type ConditionNodeParams,
   type JsCodeNodeParams,
   type NodeTypeValue,
 } from '@/types/funnel'
@@ -15,6 +14,7 @@ import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { LanderNodeEditModal } from './LanderNodeEditModal'
 import { OfferNodeEditModal } from './OfferNodeEditModal'
 import { RotatorNodeEditModal } from './RotatorNodeEditModal'
+import { ConditionNodeEditDrawer } from './ConditionNodeEditDrawer'
 
 interface NodePropertiesModalProps {
   nodeId: string | null
@@ -45,9 +45,6 @@ function GenericNodePropertiesModal({
   const [tagKey, setTagKey] = useState(() => (node.data.params as VisitorTagNodeParams).tagKey ?? '')
   const [tagValue, setTagValue] = useState(() => (node.data.params as VisitorTagNodeParams).tagValue ?? '')
 
-  // Condition
-  const [conditionId, setConditionId] = useState(() => (node.data.params as ConditionNodeParams).conditionId ?? '')
-
   // Code snippet
   const [snippetId, setSnippetId] = useState(() => (node.data.params as JsCodeNodeParams).snippetId ?? '')
 
@@ -60,9 +57,6 @@ function GenericNodePropertiesModal({
         break
       case NODE_TYPES.visitorTag:
         baseData.params = { ...((node.data.params as object) ?? {}), tagKey, tagValue }
-        break
-      case NODE_TYPES.condition:
-        baseData.params = { ...((node.data.params as object) ?? {}), conditionId, conditionName: label }
         break
       case NODE_TYPES.jsCode:
       case NODE_TYPES.phpCode:
@@ -111,12 +105,6 @@ function GenericNodePropertiesModal({
           </>
         )}
 
-        {nt === NODE_TYPES.condition && (
-          <Form.Item label="Condition ID" extra="ID of the condition to evaluate">
-            <Input value={conditionId} onChange={(e) => setConditionId(e.target.value)} className="font-mono text-sm" />
-          </Form.Item>
-        )}
-
         {(nt === NODE_TYPES.jsCode || nt === NODE_TYPES.phpCode) && (
           <Form.Item label="Code Snippet ID" extra="ID of the code snippet to execute">
             <Input value={snippetId} onChange={(e) => setSnippetId(e.target.value)} className="font-mono text-sm" />
@@ -135,6 +123,10 @@ export function NodePropertiesModal({ nodeId, open, onClose }: NodePropertiesMod
   if (!node) return null
 
   const nt = node.data.nodeType
+
+  if (nt === NODE_TYPES.condition) {
+    return <ConditionNodeEditDrawer nodeId={nodeId ?? node.id} open={open} onClose={onClose} />
+  }
 
   if (nt === NODE_TYPES.lander) {
     return <LanderNodeEditModal nodeId={nodeId} open={open} onClose={onClose} />

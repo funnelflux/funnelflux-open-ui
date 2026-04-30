@@ -9,6 +9,7 @@ import type {
   FunnelConditionTest,
   FunnelConditionTestsBlock,
 } from '@/types/entities'
+import { generateEntityId } from '@/lib/id-generator'
 
 /** Labels the PHP API uses that are missing from the generated OpenAPI string union. */
 type WireConditionTestExtra = 'Visitor Tag(s)' | 'Connection: Type'
@@ -272,7 +273,7 @@ export function formDraftToFunnelCondition(
   }
 
   const idCondition =
-    draft.idCondition && draft.idCondition !== '' ? draft.idCondition : '0'
+    draft.idCondition && draft.idCondition !== '' ? draft.idCondition : generateEntityId()
 
   const restrictToFunnelId =
     draft.scope === 'global'

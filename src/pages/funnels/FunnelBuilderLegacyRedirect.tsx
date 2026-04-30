@@ -12,7 +12,9 @@ export function FunnelBuilderLegacyRedirect() {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <Icon name="loader-2" className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="text-muted-foreground inline-flex [&>svg]:h-6 [&>svg]:w-6">
+          <Icon name="loader-2" size="lg" animation="spin" />
+        </span>
       </div>
     )
   }

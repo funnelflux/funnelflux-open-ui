@@ -82,7 +82,11 @@ export function InboxPage() {
 
       {!isLoading && (!messages || messages.length === 0) && (
         <EmptyState
-          icon={<Icon name="inbox" className="h-10 w-10" />}
+          icon={
+            <span className="inline-flex [&>svg]:h-10 [&>svg]:w-10">
+              <Icon name="inbox" size="lg" />
+            </span>
+          }
           message="No messages in your inbox."
         />
       )}
@@ -121,14 +125,14 @@ export function InboxPage() {
                   <Button
                     type="text"
                     className="h-7 w-7"
-                    icon={message.alreadyRead ? <Icon name="mail" className="h-3.5 w-3.5" /> : <Icon name="mail-open" className="h-3.5 w-3.5" />}
+                    icon={message.alreadyRead ? <Icon name="mail" size="sm" /> : <Icon name="mail-open" size="sm" />}
                     onClick={() => toggleReadStatus(message)}
                     title={message.alreadyRead ? 'Mark as unread' : 'Mark as read'}
                   />
                   <Button
                     type="text"
                     className="h-7 w-7 text-destructive hover:text-destructive"
-                    icon={<Icon name="trash-2" className="h-3.5 w-3.5" />}
+                    icon={<Icon name="trash-2" size="sm" />}
                     onClick={() => setDeleteTarget(message)}
                     title="Delete"
                   />

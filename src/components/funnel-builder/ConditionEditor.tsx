@@ -1,17 +1,22 @@
-import { useState, useCallback } from 'react'
-import { Drawer, Tag } from '@/components/ui-kit'
-import { Button, Input } from '@/components/ui-kit'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { Resolver } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Modal, Tag, Select, Switch, Field, Button, Input } from '@/components/ui-kit'
 import type { ConditionBlock as ConditionBlockType } from '@/types/funnel'
 import type { FunnelCondition } from '@/types/entities'
-import { conditionSchema } from '@/schemas/condition'
+import { conditionSchema, type ConditionFormValues } from '@/schemas/condition'
 import { formDraftToFunnelCondition, funnelConditionToFormDraft } from '@/lib/funnelConditionFormBridge'
 import { ConditionBlock } from './ConditionBlock'
+import { useCondition, useConditions } from '@/api/hooks'
 
 interface ConditionEditorProps {
   open: boolean
   onClose: () => void
   condition?: FunnelCondition | null
   onSave: (condition: FunnelCondition) => void
+  /** When creating a funnel-scoped condition from within a funnel, pass its ID so the payload is valid. */
+  localScopeFunnelId?: string
 }
 
 function createEmptyBlock(): ConditionBlockType {
@@ -21,166 +26,235 @@ function createEmptyBlock(): ConditionBlockType {
   }
 }
 
-interface ConditionEditorFormProps {
-  initialCondition: FunnelCondition | null
-  wireSnapshot: FunnelCondition | null
-  onSave: (condition: FunnelCondition) => void
-  onClose: () => void
-}
+export function ConditionEditor({ open, onClose, condition, onSave, localScopeFunnelId }: ConditionEditorProps) {
+  const isNew = !condition
+  const sessionKey = condition?.idCondition ?? 'new'
 
-function ConditionEditorForm({
-  initialCondition,
-  wireSnapshot,
-  onSave,
-  onClose,
-}: ConditionEditorFormProps) {
-  const isNew = !initialCondition
-  const [conditionName, setConditionName] = useState(
-    () => initialCondition?.conditionName ?? '',
-  )
-  const [scope, setScope] = useState<'global' | 'funnel'>(() =>
-    initialCondition?.restrictToFunnelId ? 'funnel' : 'global',
-  )
-  const [blocks, setBlocks] = useState<ConditionBlockType[]>(() => {
-    if (!initialCondition) return [createEmptyBlock()]
-    const draft = funnelConditionToFormDraft(initialCondition)
-    const nextBlocks =
-      draft.blocks.length > 0 ? draft.blocks : [createEmptyBlock()]
-    return nextBlocks as ConditionBlockType[]
+  const wireSnapshot = condition ?? null
+
+  const initialDraft = useMemo<ConditionFormValues>(() => {
+    if (!condition) {
+      return {
+        idCondition: undefined,
+        conditionName: '',
+        scope: 'global',
+        blocks: [createEmptyBlock()],
+        blockLogicOperator: 'AND',
+      }
+    }
+    return funnelConditionToFormDraft(condition) as ConditionFormValues
+  }, [condition])
+
+  const {
+    control,
+    setValue,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ConditionFormValues>({
+    resolver: zodResolver(conditionSchema) as unknown as Resolver<ConditionFormValues>,
+    defaultValues: initialDraft,
+    mode: 'onSubmit',
   })
-  const [blockLogicOperator, setBlockLogicOperator] = useState<'AND' | 'OR'>(() => {
-    if (!initialCondition) return 'AND'
-    return funnelConditionToFormDraft(initialCondition).blockLogicOperator
-  })
-  const [errors, setErrors] = useState<string[]>([])
 
-  const handleBlockChange = useCallback((index: number, updatedBlock: ConditionBlockType) => {
-    setBlocks((prev) => {
-      const next = [...prev]
-      next[index] = updatedBlock
-      return next
+  useEffect(() => {
+    reset(initialDraft)
+  }, [initialDraft, reset, sessionKey])
+
+  const scope = useWatch({ control, name: 'scope' })
+  const blocks = useWatch({ control, name: 'blocks' })
+  const blockLogicOperator = useWatch({ control, name: 'blockLogicOperator' })
+
+  const { data: conditionList } = useConditions()
+  const globalConditionOptions = useMemo(() => {
+    const rows = conditionList ?? []
+    return rows
+      .filter((c) => {
+        const r = c.restrictToFunnelId
+        if (r === undefined) return true
+        return r === '' || r === '0'
+      })
+      .map((c) => ({ value: c.idCondition, label: c.conditionName }))
+  }, [conditionList])
+
+  const [copyFromConditionId, setCopyFromConditionId] = useState<string | null>(null)
+  const copyFromQuery = useCondition(copyFromConditionId ?? '')
+
+  const handleCopyFromSelect = useCallback((value: string | undefined) => {
+    setCopyFromConditionId(value && value !== '' ? value : null)
+  }, [])
+
+  useEffect(() => {
+    if (!isNew) return
+    if (!copyFromConditionId) return
+    const c = copyFromQuery.data
+    if (!c) return
+    const draft = funnelConditionToFormDraft(c) as ConditionFormValues
+    queueMicrotask(() => {
+      reset(
+        {
+          ...initialDraft,
+          conditionName: initialDraft.conditionName ? initialDraft.conditionName : draft.conditionName,
+          blocks: draft.blocks.length > 0 ? (draft.blocks as ConditionBlockType[]) : [createEmptyBlock()],
+          blockLogicOperator: draft.blockLogicOperator,
+        },
+        { keepDirty: true, keepTouched: true },
+      )
     })
-  }, [])
+  }, [copyFromConditionId, copyFromQuery.data, initialDraft, isNew, reset])
 
-  const handleBlockRemove = useCallback((index: number) => {
-    setBlocks((prev) => {
-      if (prev.length <= 1) return prev
-      return prev.filter((_, i) => i !== index)
-    })
-  }, [])
-
-  const handleAddBlock = useCallback(() => {
-    setBlocks((prev) => [...prev, createEmptyBlock()])
-  }, [])
+  const handleScopeToggle = useCallback(
+    (checked: boolean) => {
+      setValue('scope', checked ? 'funnel' : 'global', { shouldDirty: true, shouldTouch: true })
+    },
+    [setValue],
+  )
 
   const toggleBlockLogicOperator = useCallback(() => {
-    setBlockLogicOperator((prev) => (prev === 'AND' ? 'OR' : 'AND'))
-  }, [])
+    setValue('blockLogicOperator', blockLogicOperator === 'AND' ? 'OR' : 'AND', { shouldDirty: true })
+  }, [blockLogicOperator, setValue])
 
-  function handleSave() {
-    setErrors([])
-    const formData = {
-      idCondition: initialCondition?.idCondition,
-      conditionName,
-      scope,
-      blocks,
-      blockLogicOperator,
-    }
+  const handleBlockChange = useCallback(
+    (index: number, updatedBlock: ConditionBlockType) => {
+      setValue(`blocks.${index}`, updatedBlock, { shouldDirty: true })
+    },
+    [setValue],
+  )
 
-    const result = conditionSchema.safeParse(formData)
-    if (!result.success) {
-      const messages = result.error.issues.map((issue) => issue.message)
-      setErrors(messages)
-      return
-    }
+  const handleBlockRemove = useCallback(
+    (index: number) => {
+      if ((blocks?.length ?? 0) <= 1) return
+      const next = (blocks ?? []).filter((_, i) => i !== index)
+      setValue('blocks', next as ConditionBlockType[], { shouldDirty: true })
+    },
+    [blocks, setValue],
+  )
 
-    try {
-      const payload = formDraftToFunnelCondition(result.data, wireSnapshot)
+  const handleAddBlock = useCallback(() => {
+    const next = [...(blocks ?? []), createEmptyBlock()]
+    setValue('blocks', next as ConditionBlockType[], { shouldDirty: true })
+  }, [blocks, setValue])
+
+  const handleCancel = useCallback(() => {
+    onClose()
+  }, [onClose])
+
+  const handleValidSubmit = useCallback(
+    (values: ConditionFormValues) => {
+      const payload = formDraftToFunnelCondition(values, wireSnapshot)
+      if (values.scope === 'funnel' && localScopeFunnelId) {
+        payload.restrictToFunnelId = localScopeFunnelId
+      }
+      if (isNew) {
+        ;(payload as FunnelCondition & { __isNew?: boolean }).__isNew = true
+      }
       onSave(payload)
-    } catch (err) {
-      setErrors([err instanceof Error ? err.message : 'Could not build condition for API.'])
-    }
-  }
+    },
+    [isNew, localScopeFunnelId, onSave, wireSnapshot],
+  )
+
+  const handleSave = useCallback(() => {
+    void handleSubmit(handleValidSubmit)()
+  }, [handleSubmit, handleValidSubmit])
 
   return (
-    <>
+    <Modal
+      open={open}
+      onCancel={handleCancel}
+      title={isNew ? 'New Condition' : 'Edit Condition'}
+      width={720}
+      footer={null}
+      destroyOnHidden
+    >
       <p className="text-sm text-muted-foreground mb-4">
-        {isNew
-          ? 'Define rules to route traffic based on visitor attributes.'
-          : 'Modify the condition rules and logic.'}
+        {isNew ? 'Define rules to route traffic based on visitor attributes.' : 'Modify the condition rules and logic.'}
       </p>
 
-      <div className="flex-1 space-y-6 py-4">
-        <div className="space-y-2">
-          <label htmlFor="conditionName" className="text-sm font-medium">
-            Name
-          </label>
-          <Input
-            id="conditionName"
-            className="h-8 text-sm"
-            value={conditionName}
-            onChange={(e) => setConditionName(e.target.value)}
-            placeholder="e.g. US Desktop Only"
-          />
-        </div>
+      <div className="space-y-6">
+        {isNew && (
+          <Field
+            title="Copy from Global Condition"
+            htmlFor="copyFromGlobalCondition"
+            description="Selecting a condition will copy its blocks and rules into this new condition."
+          >
+            <Select
+              id="copyFromGlobalCondition"
+              value={copyFromConditionId ?? undefined}
+              onChange={handleCopyFromSelect}
+              allowClear
+              showSearch
+              placeholder="Select a global condition to copy"
+              options={globalConditionOptions}
+              className="w-full"
+            />
+          </Field>
+        )}
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Scope</label>
-          <div className="flex gap-2">
-            <Button
-              htmlType="button"
-              type={scope === 'global' ? 'primary' : 'default'}
-              size="small"
-              className="h-8 text-sm"
-              onClick={() => setScope('global')}
+        <Controller
+          control={control}
+          name="conditionName"
+          render={({ field }) => (
+            <Field
+              title="Condition name"
+              htmlFor="conditionName"
+              required
+              errorText={errors.conditionName?.message}
             >
-              Global
-            </Button>
-            <Button
-              htmlType="button"
-              type={scope === 'funnel' ? 'primary' : 'default'}
-              size="small"
-              className="h-8 text-sm"
-              onClick={() => setScope('funnel')}
-            >
-              Funnel
-            </Button>
+              <Input
+                id="conditionName"
+                className="h-8 text-sm"
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                placeholder="e.g. US Desktop Only"
+              />
+            </Field>
+          )}
+        />
+
+        <Field
+          title="Scope"
+          htmlFor="conditionScopeToggle"
+          errorText={errors.scope?.message}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm">
+              <div className="font-medium">{scope === 'funnel' ? 'Local (Funnel)' : 'Global'}</div>
+              <div className="text-xs text-muted-foreground">
+                {scope === 'global' ? 'Available across all funnels.' : 'Restricted to a single funnel.'}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Global</span>
+              <Switch id="conditionScopeToggle" checked={scope === 'funnel'} onChange={handleScopeToggle} />
+              <span className="text-xs text-muted-foreground">Local</span>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {scope === 'global'
-              ? 'Available across all funnels.'
-              : 'Restricted to a single funnel (set when saving from funnel context).'}
-          </p>
-        </div>
+        </Field>
 
-        {blocks.length >= 2 && (
+        {(blocks?.length ?? 0) >= 2 && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Between blocks:</span>
-            <Tag
-              className="cursor-pointer select-none"
-              onClick={toggleBlockLogicOperator}
-            >
+            <Tag className="cursor-pointer select-none" onClick={toggleBlockLogicOperator}>
               {blockLogicOperator}
             </Tag>
           </div>
         )}
 
         <div className="space-y-3">
-          {blocks.map((block, index) => (
+          {(blocks ?? []).map((block, index) => (
             <div key={index}>
               {index > 0 && (
                 <div className="flex items-center justify-center py-1">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {blockLogicOperator}
-                  </span>
+                  <span className="text-xs font-medium text-muted-foreground">{blockLogicOperator}</span>
                 </div>
               )}
               <ConditionBlock
-                block={block}
+                block={block as ConditionBlockType}
                 blockIndex={index}
                 onChange={(updated) => handleBlockChange(index, updated)}
                 onRemove={() => handleBlockRemove(index)}
-                canRemove={blocks.length > 1}
+                canRemove={(blocks?.length ?? 0) > 1}
               />
             </div>
           ))}
@@ -197,50 +271,19 @@ function ConditionEditorForm({
           Add Block
         </Button>
 
-        {errors.length > 0 && (
+        {(errors.blocks?.message || errors.blockLogicOperator?.message) && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            <ul className="list-disc pl-4 space-y-1">
-              {errors.map((err, i) => (
-                <li key={i}>{err}</li>
-              ))}
-            </ul>
+            {errors.blocks?.message ?? errors.blockLogicOperator?.message}
           </div>
         )}
 
         <div className="flex gap-2 justify-end pt-2 border-t border-border">
-          <Button onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="primary" onClick={handleSave}>
+          <Button onClick={handleCancel}>Cancel</Button>
+          <Button type="primary" onClick={handleSave} loading={isSubmitting}>
             {isNew ? 'Create' : 'Save'}
           </Button>
         </div>
       </div>
-    </>
-  )
-}
-
-export function ConditionEditor({ open, onClose, condition, onSave }: ConditionEditorProps) {
-  const isNew = !condition
-  const sessionKey = condition?.idCondition ?? 'new'
-
-  return (
-    <Drawer
-      open={open}
-      onClose={onClose}
-      title={isNew ? 'New Condition' : 'Edit Condition'}
-      size={600}
-      destroyOnHidden
-    >
-      {open ? (
-        <ConditionEditorForm
-          key={sessionKey}
-          initialCondition={condition ?? null}
-          wireSnapshot={condition ?? null}
-          onSave={onSave}
-          onClose={onClose}
-        />
-      ) : null}
-    </Drawer>
+    </Modal>
   )
 }

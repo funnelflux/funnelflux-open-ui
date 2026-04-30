@@ -104,7 +104,9 @@ export function TagsPage() {
           onClick={handleAddTags}
           disabled={!inputValue.trim() || saveTag.isPending}
         >
-          <Icon name="plus" className="h-4 w-4 mr-1" />
+          <span className="mr-1 inline-flex">
+            <Icon name="plus" size="md" />
+          </span>
           Add
         </Button>
       </div>
@@ -115,7 +117,11 @@ export function TagsPage() {
 
       {!isLoading && (!tags || tags.length === 0) && (
         <EmptyState
-          icon={<Icon name="tags" className="h-10 w-10" />}
+          icon={
+            <span className="inline-flex [&>svg]:h-10 [&>svg]:w-10">
+              <Icon name="tags" size="lg" />
+            </span>
+          }
           message="No tags yet. Add some above."
         />
       )}

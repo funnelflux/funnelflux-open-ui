@@ -127,7 +127,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-foreground">Incoming traffic cost overrides</span>
-            <Button htmlType="button" type="default" size="small" icon={<Icon name="plus" className="h-3.5 w-3.5" />} onClick={addCostRow}>
+            <Button htmlType="button" type="default" size="small" icon={<Icon name="plus" size="sm" />} onClick={addCostRow}>
               Add override
             </Button>
           </div>
@@ -155,7 +155,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                   danger
                   size="small"
                   className="shrink-0"
-                  icon={<Icon name="trash-2" className="h-4 w-4" />}
+                  icon={<Icon name="trash-2" size="md" />}
                   onClick={() => removeCostRow(i)}
                 />
               </div>
@@ -166,7 +166,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-foreground">Traffic source postback overrides</span>
-            <Button htmlType="button" type="default" size="small" icon={<Icon name="plus" className="h-3.5 w-3.5" />} onClick={addPbRow}>
+            <Button htmlType="button" type="default" size="small" icon={<Icon name="plus" size="sm" />} onClick={addPbRow}>
               Add postback
             </Button>
           </div>
@@ -200,7 +200,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                     type="text"
                     danger
                     size="small"
-                    icon={<Icon name="trash-2" className="h-4 w-4" />}
+                    icon={<Icon name="trash-2" size="md" />}
                     onClick={() => removePbRow(i)}
                   />
                 </div>

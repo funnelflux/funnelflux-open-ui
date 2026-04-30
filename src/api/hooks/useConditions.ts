@@ -38,8 +38,8 @@ export function useCondition(id: string) {
 export function useSaveCondition() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (condition: FunnelCondition) => {
-      const isNew = !condition.idCondition || condition.idCondition === '0'
+    mutationFn: (condition: FunnelCondition & { __isNew?: boolean }) => {
+      const isNew = condition.__isNew === true || !condition.idCondition || condition.idCondition === '0'
       return isNew
         ? api.post<void>('/data/campaign/funnel/condition/save/', condition)
         : api.put<void>('/data/campaign/funnel/condition/save/', condition)

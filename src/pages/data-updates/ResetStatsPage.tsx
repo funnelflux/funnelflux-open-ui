@@ -126,7 +126,11 @@ export function ResetStatsPage() {
             onClick={handleCalculate}
             disabled={isCalculating}
           >
-            {isCalculating && <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />}
+            {isCalculating && (
+              <span className="mr-2 inline-flex">
+                <Icon name="loader-2" size="md" animation="spin" />
+              </span>
+            )}
             Calculate
           </Button>
 
@@ -142,7 +146,9 @@ export function ResetStatsPage() {
         {/* Preview Count */}
         {previewCount !== null && (
           <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 px-4 py-3 text-sm">
-            <Icon name="alert-triangle" className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="shrink-0 text-amber-600 dark:text-amber-400 inline-flex">
+              <Icon name="alert-triangle" size="md" />
+            </span>
             <span>
               <strong>{previewCount.toLocaleString()}</strong> record{previewCount !== 1 ? 's' : ''} will be deleted.
             </span>

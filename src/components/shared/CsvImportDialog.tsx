@@ -95,9 +95,13 @@ export function CsvImportDialog({
       </Button>
       <Button type="primary" htmlType="button" disabled={rows.length === 0 || isImporting} onClick={() => void handleImport()}>
         {isImporting ? (
-          <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" />
+          <span className="mr-2 inline-flex">
+            <Icon name="loader-2" size="md" animation="spin" />
+          </span>
         ) : (
-          <Icon name="upload" className="mr-2 h-4 w-4" />
+          <span className="mr-2 inline-flex">
+            <Icon name="upload" size="md" />
+          </span>
         )}
         Import
       </Button>

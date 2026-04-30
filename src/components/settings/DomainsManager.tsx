@@ -86,9 +86,13 @@ export function DomainsManager() {
           disabled={!newDomain.trim() || saveDomain.isPending}
         >
           {saveDomain.isPending ? (
-            <Icon name="loader-2" className="h-4 w-4 mr-1 animate-spin" />
+            <span className="mr-1 inline-flex">
+              <Icon name="loader-2" size="md" animation="spin" />
+            </span>
           ) : (
-            <Icon name="plus" className="h-4 w-4 mr-1" />
+            <span className="mr-1 inline-flex">
+              <Icon name="plus" size="md" />
+            </span>
           )}
           Add
         </Button>
@@ -100,7 +104,7 @@ export function DomainsManager() {
 
       {!isLoading && (!domains || domains.length === 0) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-          <Icon name="globe" className="h-5 w-5" />
+          <Icon name="globe" size="lg" />
           <span>No domains configured.</span>
         </div>
       )}
@@ -130,7 +134,7 @@ export function DomainsManager() {
                     title="Set as default"
                     aria-label="Set as default"
                   >
-                    <Icon name="star" className="h-4 w-4" />
+                    <Icon name="star" size="md" />
                   </Button>
                 )}
                 <Button
@@ -141,7 +145,7 @@ export function DomainsManager() {
                   title="Delete domain"
                   aria-label="Delete domain"
                 >
-                  <Icon name="trash-2" className="h-4 w-4" />
+                  <Icon name="trash-2" size="md" />
                 </Button>
               </div>
             </div>

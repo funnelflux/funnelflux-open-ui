@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { subDays } from "date-fns"
-import { Icon } from '@/components/ui-kit/icons'
 import { fetchAllFlatDrilldownRows } from "@/api/drilldown"
 import { useDashboardStore } from "@/store/dashboard"
 import { StatsCards, type DashboardSummaryStats } from "@/components/dashboard/StatsCards"

@@ -17,7 +17,7 @@ function RootNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>) 
         kind: 'Traffic',
         title: data.label || 'Entrance',
         subtitle: params.trafficSourceName,
-        icon: <Icon name="globe" className="h-5 w-5" />,
+        icon: <Icon name="globe" size="lg" />,
       }}
     />
   )

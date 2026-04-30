@@ -9,9 +9,15 @@ interface CanvasContextMenuProps {
   screenPosition: { x: number; y: number } | null
   flowPosition: { x: number; y: number } | null
   onClose: () => void
+  onAddConditionNode?: (nodeId: string) => void
 }
 
-export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: CanvasContextMenuProps) {
+export function CanvasContextMenu({
+  screenPosition,
+  flowPosition,
+  onClose,
+  onAddConditionNode,
+}: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [pickerState, setPickerState] = useState<{
@@ -59,6 +65,17 @@ export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: Can
     },
     [],
   )
+
+  const handleAddConditionNode = useCallback(() => {
+    if (!flowPosition) return
+    const store = useFunnelEditorStore.getState()
+    const nodeId = store.addNode(NODE_TYPES.condition, flowPosition, {
+      label: 'Condition',
+      params: { conditionName: 'Condition' },
+    })
+    onClose()
+    onAddConditionNode?.(nodeId)
+  }, [flowPosition, onAddConditionNode, onClose])
 
   const handlePickerSelect = useCallback(
     (entity: { id: string; name: string }) => {
@@ -125,7 +142,7 @@ export function CanvasContextMenu({ screenPosition, flowPosition, onClose }: Can
         <MenuItem
           icon={<Icon name="git-branch" size="md" />}
           label="Add Condition"
-          onClick={() => openPicker('condition')}
+          onClick={handleAddConditionNode}
         />
         <MenuItem
           icon={<Icon name="external-link" size="md" />}

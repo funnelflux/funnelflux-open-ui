@@ -120,7 +120,9 @@ export function FunnelEditorPage() {
   if (isLoading && !isNew) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <Icon name="loader-2" className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="text-muted-foreground inline-flex [&>svg]:h-6 [&>svg]:w-6">
+          <Icon name="loader-2" size="lg" animation="spin" />
+        </span>
       </div>
     )
   }
@@ -133,7 +135,7 @@ export function FunnelEditorPage() {
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
           <header className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
             <Button type="text" size="small" className="shrink-0 gap-1" onClick={handleBack}>
-              <Icon name="arrow-left" className="h-4 w-4" />
+              <Icon name="arrow-left" size="md" />
               <span className="hidden sm:inline">Campaigns</span>
             </Button>
 
@@ -157,7 +159,7 @@ export function FunnelEditorPage() {
               aria-label="Funnel settings"
               onClick={() => setSettingsOpen(true)}
             >
-              <Icon name="settings" className="h-4 w-4" />
+              <Icon name="settings" size="md" />
             </Button>
 
             {!isNew && canViewStats && campaignId && funnelId && (
@@ -169,7 +171,7 @@ export function FunnelEditorPage() {
                 aria-label="Quick Stats"
                 onClick={() => setQuickStatsOpen(true)}
               >
-                <Icon name="bar-chart-3" className="h-4 w-4" />
+                <Icon name="bar-chart-3" size="md" />
               </Button>
             )}
 
@@ -180,7 +182,9 @@ export function FunnelEditorPage() {
               disabled={!isDirty || isSaving}
               title={isDirty ? 'Revert to last saved version' : 'No unsaved changes'}
             >
-              <Icon name="rotate-ccw" className="mr-1.5 h-4 w-4" />
+              <span className="mr-1.5 inline-flex">
+                <Icon name="rotate-ccw" size="md" />
+              </span>
               Discard
             </Button>
 
@@ -191,7 +195,15 @@ export function FunnelEditorPage() {
               onClick={() => void handleSave()}
               disabled={isSaving}
             >
-              {isSaving ? <Icon name="loader-2" className="mr-2 h-4 w-4 animate-spin" /> : <Icon name="save" className="mr-1.5 h-4 w-4" />}
+              {isSaving ? (
+                <span className="mr-2 inline-flex">
+                  <Icon name="loader-2" size="md" animation="spin" />
+                </span>
+              ) : (
+                <span className="mr-1.5 inline-flex">
+                  <Icon name="save" size="md" />
+                </span>
+              )}
               Save
             </Button>
           </header>
