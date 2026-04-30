@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
+import { cn } from '@/lib/utils'
 import { api } from '@/api/client'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
@@ -33,14 +34,14 @@ interface QuickStatsApiResponse {
 }
 
 const ROW1: { id: FunnelQuickStatsTab; label: string }[] = [
-  { id: 'conversion-paths', label: 'Conversion Paths' },
-  { id: 'conversion-paths-all-nodes', label: 'Conversion Paths (all nodes)' },
-  { id: 'landers', label: 'Landers' },
-  { id: 'offers', label: 'Offers' },
-  { id: 'mvt-combinations', label: 'MVT (Combinations)' },
-  { id: 'mvt-kv-pairs', label: 'MVT (Key-Value Pairs)' },
   { id: 'traffic-sources', label: 'Traffic Sources' },
   { id: 'funnels', label: 'Funnels' },
+  { id: 'landers', label: 'Landers' },
+  { id: 'offers', label: 'Offers' },
+  { id: 'conversion-paths', label: 'Conversion Paths' },
+  { id: 'conversion-paths-all-nodes', label: 'Conversion Paths (All Nodes)' },
+  { id: 'mvt-combinations', label: 'MVT (Combinations)' },
+  { id: 'mvt-kv-pairs', label: 'MVT (Key-Value Pairs)' },
   { id: 'week-parting', label: 'Week Parting' },
   { id: 'day-parting', label: 'Day Parting' },
   { id: 'historical-perf', label: 'Historical Perf.' },
@@ -70,6 +71,19 @@ const ROW3: { id: FunnelQuickStatsTab; label: string }[] = [
 ]
 
 type QuickStatsCategory = 'conversion' | 'device' | 'geo'
+
+/** One visual system for Conversion/Device/Geo toggles + inner grouping tabs — avoids mixing Ant `primary`/`default`. */
+function quickStatsChipClasses(selected: boolean, opts?: { iconOnly?: boolean }): string {
+  return cn(
+    'shadow-none ring-0 rounded-md border text-xs font-medium transition-colors',
+    opts?.iconOnly ?
+      'inline-flex h-control-md w-control-md shrink-0 items-center justify-center px-0'
+    : 'inline-flex h-control-md shrink-0 items-center px-2.5',
+    selected ?
+      '!border-primary !bg-primary !text-primary-foreground [&_.ant-btn-icon]:!text-primary-foreground hover:!border-primary hover:!bg-primary/90 hover:!text-primary-foreground'
+    : 'border-border/70 bg-muted/35 text-muted-foreground hover:border-border hover:bg-muted/60 hover:!text-foreground',
+  )
+}
 
 function categoryForTab(t: FunnelQuickStatsTab): QuickStatsCategory {
   if (ROW1.some((r) => r.id === t)) return 'conversion'
@@ -167,21 +181,20 @@ export function FunnelQuickStatsModal({
       return
     }
 
-    if (tab === 'region' || tab === 'city') {
-      if (!countryCode.trim() || countryCode.trim().length < 2) {
-        toast.error('Enter a 2-letter country code (e.g. US) for this breakdown.')
-        return
-      }
-    }
+    const geoNeedsCountry =
+      (tab === 'region' || tab === 'city') &&
+      (!countryCode.trim() || countryCode.trim().length < 2)
+    const trackingNeedsField = tab === 'tracking-fields' && !trackingField.trim()
 
-    if (tab === 'tracking-fields' && !trackingField.trim()) {
-      toast.error('Select a tracking field.')
+    if (geoNeedsCountry || trackingNeedsField) {
+      setLoading(false)
+      setReport(null)
       return
     }
 
     setLoading(true)
     try {
-      const drill = buildDrilldownRequestForTab(tab, {
+      const drillBody = buildDrilldownRequestForTab(tab, {
         campaignId,
         funnelId,
         trafficSourceId: trafficSourceId || undefined,
@@ -191,8 +204,8 @@ export function FunnelQuickStatsModal({
         timeZone: { name: timezone },
       })
 
-      if (drill) {
-        const r = await api.post<Report>('/stats/reporting/drilldown/', drill)
+      if (drillBody) {
+        const r = await api.post<Report>('/stats/reporting/drilldown/', drillBody)
         setReport(r)
         return
       }
@@ -209,7 +222,6 @@ export function FunnelQuickStatsModal({
         funnelId,
         trafficSourceId: trafficSourceId || undefined,
         trackingFieldName: tab === 'tracking-fields' ? trackingField : undefined,
-        countryCode: tab === 'region' || tab === 'city' ? countryCode : undefined,
         dateFrom: datePickerValue.from,
         dateTo: datePickerValue.to,
         timeZone: { name: timezone },
@@ -260,8 +272,7 @@ export function FunnelQuickStatsModal({
     if (open && tab !== 'drilldown') {
       void loadReport()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only refetch when modal opens or primary tab changes; use Refresh for date/filters
-  }, [open, tab])
+  }, [open, tab, loadReport])
 
   const rowData = useMemo(() => (report ? flattenReportToGridRows(report) : []), [report])
 
@@ -321,13 +332,9 @@ export function FunnelQuickStatsModal({
     <Button
       key={id}
       htmlType="button"
-      type={tab === id ? 'primary' : 'default'}
-      size="small"
-      className={
-        tab === id
-          ? 'h-8 px-2.5 text-xs shadow-sm'
-          : 'h-8 border-border/60 bg-background/80 px-2.5 text-xs text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground'
-      }
+      type="default"
+      size="md"
+      className={quickStatsChipClasses(tab === id)}
       onClick={() => setTab(id)}
     >
       {label}
@@ -335,7 +342,7 @@ export function FunnelQuickStatsModal({
   )
 
   const breakdownRow = (row: { id: FunnelQuickStatsTab; label: string }[]) => (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 bg-background/80 px-0.5 py-0.5 sm:px-1">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
       {row.map((r) => tabButton(r.id, r.label))}
     </div>
   )
@@ -359,6 +366,12 @@ export function FunnelQuickStatsModal({
   }, [activateCategory])
 
   const activeCategory = categoryForTab(tab)
+
+  const awaitingCountryForGeo =
+    (tab === 'region' || tab === 'city') &&
+    (!countryCode.trim() || countryCode.trim().length < 2)
+  const awaitingTrackingFieldPick = tab === 'tracking-fields' && !trackingField.trim()
+  const awaitingUserInput = awaitingCountryForGeo || awaitingTrackingFieldPick
 
   return (
     <Modal
@@ -401,7 +414,7 @@ export function FunnelQuickStatsModal({
       zIndex={1200}
     >
       <div className="flex min-h-0 flex-1 flex-col bg-background text-foreground">
-        <header className="shrink-0 border-b border-border/80 bg-gradient-to-b from-muted/50 to-background">
+        <header className="shrink-0 divide-y divide-border/45 bg-gradient-to-b from-muted/45 to-background">
           {/* Primary strip: title left; controls right in one row (Refresh → date → TZ → traffic → category icons → Close) */}
           <div className="flex min-w-0 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
             <div className="flex min-w-0 flex-1 items-center gap-3 sm:min-w-[200px]">
@@ -429,9 +442,9 @@ export function FunnelQuickStatsModal({
               <Button
                 htmlType="button"
                 type="primary"
-                size="small"
-                className="h-8 shrink-0 gap-1.5 self-center shadow-sm"
-                icon={<Icon name="refresh-cw" size="md" />}
+                size="md"
+                className="h-control-md inline-flex shrink-0 items-center gap-1.5 self-center px-3 text-xs"
+                icon={<Icon name="refresh-cw" size="md" aria-hidden />}
                 loading={loading}
                 onClick={handleRefreshReport}
               >
@@ -479,12 +492,16 @@ export function FunnelQuickStatsModal({
                 />
               </div>
 
-              <div className="flex shrink-0 items-center gap-1 self-center" role="group" aria-label="Breakdown category">
+              <div
+                className="flex shrink-0 items-center gap-0.5 self-center rounded-md bg-muted/25 p-0.5"
+                role="group"
+                aria-label="Breakdown category"
+              >
                 <Button
                   htmlType="button"
-                  type={activeCategory === 'conversion' ? 'primary' : 'default'}
-                  size="small"
-                  className="h-8 shrink-0 px-2"
+                  type="default"
+                  size="md"
+                  className={quickStatsChipClasses(activeCategory === 'conversion', { iconOnly: true })}
                   icon={<Icon name="layout-grid" size="md" aria-hidden />}
                   onClick={handleActivateConversionCategory}
                   aria-label="Conversion and traffic breakdowns"
@@ -492,9 +509,9 @@ export function FunnelQuickStatsModal({
                 />
                 <Button
                   htmlType="button"
-                  type={activeCategory === 'device' ? 'primary' : 'default'}
-                  size="small"
-                  className="h-8 shrink-0 px-2"
+                  type="default"
+                  size="md"
+                  className={quickStatsChipClasses(activeCategory === 'device', { iconOnly: true })}
                   icon={<Icon name="network" size="md" aria-hidden />}
                   onClick={handleActivateDeviceCategory}
                   aria-label="Device and network breakdowns"
@@ -502,9 +519,9 @@ export function FunnelQuickStatsModal({
                 />
                 <Button
                   htmlType="button"
-                  type={activeCategory === 'geo' ? 'primary' : 'default'}
-                  size="small"
-                  className="h-8 shrink-0 px-2"
+                  type="default"
+                  size="md"
+                  className={quickStatsChipClasses(activeCategory === 'geo', { iconOnly: true })}
                   icon={<Icon name="globe-2" size="md" aria-hidden />}
                   onClick={handleActivateGeoCategory}
                   aria-label="Geography and drilldown breakdowns"
@@ -515,20 +532,18 @@ export function FunnelQuickStatsModal({
               <Button
                 htmlType="button"
                 type="default"
-                className="ml-1 flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center self-center rounded-lg border border-border/70 bg-background px-0 text-foreground shadow-sm hover:border-border hover:bg-muted"
+                size="md"
+                className={cn(quickStatsChipClasses(false, { iconOnly: true }), 'ml-0.5')}
                 aria-label="Close funnel quick stats"
                 title="Close"
                 onClick={onClose}
-              >
-                <span className="inline-flex [&>svg]:h-7 [&>svg]:w-7">
-                  <Icon name="x" size="lg" strokeWidth={2.5} aria-hidden />
-                </span>
-              </Button>
+                icon={<Icon name="x" strokeWidth={2} size="md" aria-hidden />}
+              />
             </div>
           </div>
 
           {(tab === 'region' || tab === 'city') && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-border/50 px-4 py-2.5 sm:px-5">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 sm:px-5">
               <label htmlFor="funnel-qs-country" className="shrink-0 text-xs text-muted-foreground">
                 Country
               </label>
@@ -546,7 +561,7 @@ export function FunnelQuickStatsModal({
           )}
 
           {tab === 'tracking-fields' && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-border/50 px-4 py-2.5 sm:px-5">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 sm:px-5">
               <label htmlFor="funnel-qs-tf" className="shrink-0 text-xs text-muted-foreground">
                 Field
               </label>
@@ -561,9 +576,9 @@ export function FunnelQuickStatsModal({
             </div>
           )}
 
-          <div className="border-t border-border/80 bg-muted/15 px-3 py-2 sm:px-5">
+          <div className="bg-muted/10 px-3 py-2 sm:px-5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 rounded-md bg-muted/15 px-1 py-1 sm:px-1.5">
                 {activeCategory === 'conversion' && breakdownRow(ROW1)}
                 {activeCategory === 'device' && breakdownRow(ROW2)}
                 {activeCategory === 'geo' && breakdownRow(ROW3)}
@@ -577,7 +592,7 @@ export function FunnelQuickStatsModal({
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-2 sm:px-5">
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-1 sm:px-5">
           {tab === 'drilldown' ? (
             <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-border/80 bg-muted/20 p-10 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
@@ -602,8 +617,16 @@ export function FunnelQuickStatsModal({
               </span>
               <p className="text-sm text-muted-foreground">Loading report…</p>
             </div>
+          ) : awaitingUserInput ? (
+            <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-muted/15 px-6 text-center">
+              <p className="max-w-md text-sm text-muted-foreground">
+                {awaitingTrackingFieldPick ?
+                  'Choose a tracking field in the toolbar above — the report loads automatically, or tap Refresh.'
+                : 'Enter a two-letter country code above (for example US) — regions and cities scope to that country. Data loads automatically, or tap Refresh.'}
+              </p>
+            </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/55 bg-card">
               <DataTable
                 data={rowData}
                 columns={columnDefs}

@@ -90,9 +90,9 @@ export const QUICKSTATS_TAB_TYPES: Partial<Record<FunnelQuickStatsTab, string>> 
   ip: 'connectivity-ip',
   referrer: 'referrer',
   'tracking-fields': 'tracking-fields',
-  'country': 'country',
-  'region': 'country-region',
-  'city': 'country-city',
+  country: 'country',
+  // region / city — use Stats drilldown in `buildDrilldownRequestForTab` (QuickStats PHP reuses
+  // statsTypeFilter as whitelist on every grouping level, which breaks Region/City breakdowns).
 }
 
 function emptyGrouping(groupBy: string): Grouping {
@@ -125,7 +125,8 @@ function topLevel(
 }
 
 /**
- * Build drilldown body for tabs that are not covered by QuickStats load (MVT, all-nodes path, continent, connection type).
+ * Build drilldown body for tabs that are not covered by QuickStats load (MVT paths, continent,
+ * connection type, region/city geo breakdowns scoped by country filter in `topLevelFilters`).
  */
 export function buildDrilldownRequestForTab(
   tab: FunnelQuickStatsTab,
@@ -212,6 +213,32 @@ export function buildDrilldownRequestForTab(
         sorting,
       }
 
+    /** Country scope via `topLevel` (Country Code whitelist); rollup by Region only. */
+    case 'region':
+      if (!countryCode?.trim() || countryCode.trim().length < 2) return null
+      return {
+        timeRange,
+        timeZone,
+        topLevelFilters: tls,
+        groupings: [emptyGrouping(STATS_GROUP_BY.region)],
+        options: baseOptions,
+        paging,
+        sorting,
+      }
+
+    /** Tree: Region → City under the selected country (top-level Country Code filter). */
+    case 'city':
+      if (!countryCode?.trim() || countryCode.trim().length < 2) return null
+      return {
+        timeRange,
+        timeZone,
+        topLevelFilters: tls,
+        groupings: [emptyGrouping(STATS_GROUP_BY.region), emptyGrouping(STATS_GROUP_BY.city)],
+        options: { ...baseOptions, viewType: 'tree' },
+        paging,
+        sorting,
+      }
+
     default:
       return null
   }
@@ -236,7 +263,6 @@ export function buildQuickStatsLoadBody(
     funnelId: string
     trafficSourceId?: string
     trackingFieldName?: string
-    countryCode?: string
     dateFrom: Date
     dateTo: Date
     timeZone: ApiTimeZone
@@ -245,13 +271,11 @@ export function buildQuickStatsLoadBody(
   const statsType = QUICKSTATS_TAB_TYPES[tab]
   if (!statsType) return null
 
-  const { campaignId, funnelId, trafficSourceId, trackingFieldName, countryCode, dateFrom, dateTo, timeZone } = args
+  const { campaignId, funnelId, trafficSourceId, trackingFieldName, dateFrom, dateTo, timeZone } = args
 
   let statsTypeFilter: string | null = null
   if (tab === 'tracking-fields' && trackingFieldName) {
     statsTypeFilter = trackingFieldName
-  } else if ((tab === 'region' || tab === 'city') && countryCode?.trim()) {
-    statsTypeFilter = countryCode.trim().toUpperCase()
   }
 
   return {
