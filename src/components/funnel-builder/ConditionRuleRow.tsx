@@ -59,7 +59,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
   const needsExtraKey = EXTRA_KEY_FIELDS.includes(rule.field)
 
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {/* Field selector */}
       <Select
         value={rule.field || undefined}
@@ -68,7 +68,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         }
         placeholder="Field"
         className="w-40 shrink-0"
-        size="small"
+        size="sm"
         alphabetical={false}
         options={CONDITION_FIELD_OPTIONS}
       />
@@ -77,7 +77,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
       {needsExtraKey && (
         <Input
           size="sm"
-          className="text-sm w-24 shrink-0"
+          className="w-28 shrink-0"
           value={rule.extraKey ?? ''}
           onChange={(e) => onChange({ ...rule, extraKey: e.target.value })}
           placeholder="Key"
@@ -92,18 +92,20 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         }
         placeholder="Operator"
         className="w-40 shrink-0"
-        size="small"
+        size="sm"
         alphabetical={false}
         options={CONDITION_OPERATOR_OPTIONS}
       />
 
       {/* Value input */}
-      <ConditionFieldValueInput
-        field={rule.field}
-        operator={rule.operator}
-        value={rule.value}
-        onChange={(val) => onChange({ ...rule, value: val })}
-      />
+      <div className="min-w-[8rem] flex-1 basis-0">
+        <ConditionFieldValueInput
+          field={rule.field}
+          operator={rule.operator}
+          value={rule.value}
+          onChange={(val) => onChange({ ...rule, value: val })}
+        />
+      </div>
 
       {/* Remove button */}
       <Button

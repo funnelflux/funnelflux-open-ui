@@ -12,9 +12,7 @@ import {
   Modal,
   useToastApi,
 } from '@/components/ui-kit'
-import { useCategories, useOfferSources, useSavePage } from '@/api/hooks'
-import { useQueryClient } from '@tanstack/react-query'
-import { queryKeys } from '@/api/queryKeys'
+import { useCategories, useOfferSources } from '@/api/hooks'
 import { offerNodeEditSchema, type OfferNodeEditFormData } from '@/schemas/offerNode'
 import type { Page } from '@/types/entities'
 import { NODE_TYPES, type OfferNodeParams } from '@/types/funnel'
@@ -42,11 +40,14 @@ interface OfferNodeEditModalProps {
 
 export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModalProps) {
   const toast = useToastApi()
-  const qc = useQueryClient()
   const node = useFunnelEditorStore((s) =>
     nodeId ? s.nodes.find((n) => n.id === nodeId) : undefined,
   )
   const updateNodeData = useFunnelEditorStore((s) => s.updateNodeData)
+  const setPendingPageDraft = useFunnelEditorStore((s) => s.setPendingPageDraft)
+  const pendingPageDraft = useFunnelEditorStore((s) =>
+    nodeId ? s.pendingPageDrafts[nodeId] : undefined,
+  )
 
   const pageId =
     node?.data.nodeType === NODE_TYPES.offer
@@ -56,7 +57,6 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
   const { data: page, isFetching, isError, error, noPage, pageLoading } = useNodePageDetail(pageId, open)
   const { data: categories } = useCategories('page')
   const { data: offerSources } = useOfferSources()
-  const savePage = useSavePage()
 
   const form = useForm<OfferNodeEditFormData>({
     resolver: zodResolver(offerNodeEditSchema),
@@ -80,28 +80,29 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
 
   useEffect(() => {
     if (!open || !node || node.data.nodeType !== NODE_TYPES.offer) return
-    if (!pageId || !page) return
-    if (isFetching) return
+    if (!pageId || (!page && !pendingPageDraft?.page)) return
+    if (!pendingPageDraft?.page && isFetching) return
     if (form.formState.isDirty) return
 
     const p = node.data.params as OfferNodeParams
+    const draft = pendingPageDraft?.page
     form.reset({
-      idPage: page.idPage,
+      idPage: String(draft?.idPage ?? page?.idPage ?? ''),
       pageType: 'offer',
-      pageName: page.pageName,
-      url: page.url,
-      redirectType: page.redirectType,
-      tags: page.tags ?? [],
-      notes: page.notes ?? '',
-      isArchived: page.isArchived,
-      offerParams: page.offerParams ?? { idOfferSource: '', payout: 0 },
+      pageName: String(draft?.pageName ?? page?.pageName ?? ''),
+      url: String(draft?.url ?? page?.url ?? ''),
+      redirectType: (draft?.redirectType ?? page?.redirectType ?? '307') as OfferNodeEditFormData['redirectType'],
+      tags: draft?.tags ?? page?.tags ?? [],
+      notes: draft?.notes ?? page?.notes ?? '',
+      isArchived: draft?.isArchived ?? page?.isArchived,
+      offerParams: draft?.offerParams ?? page?.offerParams ?? { idOfferSource: '', payout: 0 },
       accumulateUrlParams: p.accumulateUrlParams ?? false,
       additionalTokens:
         p.additionalTokens && p.additionalTokens.length > 0
           ? p.additionalTokens.map((t) => ({ field: t.field, token: t.token }))
           : [{ field: '', token: '' }],
     })
-  }, [open, node, page, pageId, form, isFetching])
+  }, [open, node, page, pageId, form, isFetching, pendingPageDraft?.page])
 
   const urlValue = useWatch({ control: form.control, name: 'url', defaultValue: '' })
   const tags = useWatch({ control: form.control, name: 'tags', defaultValue: [] as string[] })
@@ -142,43 +143,39 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
 
   const onSubmit = async (data: OfferNodeEditFormData) => {
     if (!nodeId || !node) return
-    try {
-      const payload: Partial<Page> = {
-        idPage: data.idPage,
-        pageType: 'offer',
-        pageName: data.pageName,
-        url: data.url,
-        redirectType: data.redirectType,
-        tags: data.tags ?? [],
-        notes: data.notes ?? '',
-        isArchived: data.isArchived,
-        offerParams: data.offerParams,
-      }
-      await savePage.mutateAsync({ page: payload, isCreate: false })
-      await qc.refetchQueries({ queryKey: queryKeys.pages.detail(String(data.idPage)) })
-
-      const tokenRows = data.additionalTokens ?? form.getValues('additionalTokens')
-      const tokens = toNodeAdditionalTokens(tokenRows)
-
-      updateNodeData(nodeId, {
-        label: data.pageName,
-        params: {
-          ...(node.data.params as object),
-          pageId: String(data.idPage),
-          pageName: data.pageName,
-          accumulateUrlParams: data.accumulateUrlParams,
-          additionalTokens: tokens,
-        },
-      })
-
-      toast.success(`${pageNameForToast('offer')} saved.`)
-      onClose()
-    } catch (e) {
-      toast.error(getErrorMessage(e))
+    const payload: Partial<Page> = {
+      idPage: data.idPage,
+      pageType: 'offer',
+      pageName: data.pageName,
+      url: data.url,
+      redirectType: data.redirectType,
+      tags: data.tags ?? [],
+      notes: data.notes ?? '',
+      isArchived: data.isArchived,
+      offerParams: data.offerParams,
     }
+
+    const tokenRows = data.additionalTokens ?? form.getValues('additionalTokens')
+    const tokens = toNodeAdditionalTokens(tokenRows)
+
+    setPendingPageDraft(nodeId, { page: payload, original: page, isCreate: !pageId })
+
+    updateNodeData(nodeId, {
+      label: data.pageName,
+      params: {
+        ...(node.data.params as object),
+        pageId: String(data.idPage),
+        pageName: data.pageName,
+        accumulateUrlParams: data.accumulateUrlParams,
+        additionalTokens: tokens,
+      },
+    })
+
+    toast.success(`${pageNameForToast('offer')} changes staged. Save the funnel to persist them.`)
+    onClose()
   }
 
-  const busy = savePage.isPending
+  const busy = false
 
   return (
     <>
@@ -196,7 +193,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
               type="primary"
               htmlType="submit"
               form="offer-node-edit-form"
-              disabled={busy || noPage || pageLoading || isError}
+              disabled={busy || noPage || (!pendingPageDraft?.page && pageLoading) || isError}
               loading={busy}
               block
             >
@@ -214,7 +211,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                   This node has no offer page assigned. Set a page ID from the funnel context or pick an offer when
                   creating the node.
                 </p>
-              ) : pageLoading ? (
+              ) : !pendingPageDraft?.page && pageLoading ? (
                 <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
                   <Icon name="loader-2" size="lg" animation="spin" aria-label="Loading" />
                   Loading offer…

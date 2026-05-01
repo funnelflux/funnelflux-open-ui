@@ -3,6 +3,10 @@ import type { ApiError } from '@/types/api'
 const API_PATH = import.meta.env.VITE_API_PATH || '/admin/api/v2'
 type ResponseParseMode = 'default' | 'statsRawBigInt'
 
+const JSON_REQUEST_HEADERS = {
+  Accept: 'application/json',
+} as const
+
 function parseStatsJsonPreserveLargeIntRaw(text: string): unknown {
   const fixed = text.replace(/"raw"\s*:\s*(\d{16,})(\s*)([,}]|])/g, '"raw":"$1"$2$3')
   return JSON.parse(fixed)
@@ -26,6 +30,7 @@ export class ApiClient {
   async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
     const res = await fetch(this.buildUrl(endpoint, params), {
       credentials: 'same-origin',
+      headers: JSON_REQUEST_HEADERS,
     })
     return this.handleResponse<T>(res, endpoint)
   }
@@ -47,7 +52,7 @@ export class ApiClient {
     const res = await fetch(this.buildUrl(endpoint, params), {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...JSON_REQUEST_HEADERS, 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
     })
     return this.handleResponse<T>(res, endpoint, parseMode)
@@ -57,7 +62,7 @@ export class ApiClient {
     const res = await fetch(this.buildUrl(endpoint, params), {
       method: 'PUT',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...JSON_REQUEST_HEADERS, 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
     })
     return this.handleResponse<T>(res, endpoint)
@@ -71,7 +76,9 @@ export class ApiClient {
     const res = await fetch(this.buildUrl(endpoint, params), {
       method: 'DELETE',
       credentials: 'same-origin',
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: body
+        ? { ...JSON_REQUEST_HEADERS, 'Content-Type': 'application/json' }
+        : { ...JSON_REQUEST_HEADERS },
       body: body ? JSON.stringify(body) : undefined,
     })
     return this.handleResponse<T>(res, endpoint)
@@ -81,7 +88,7 @@ export class ApiClient {
     const res = await fetch(this.buildUrl(endpoint), {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...JSON_REQUEST_HEADERS, 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
     })
     if (res.status === 401) {

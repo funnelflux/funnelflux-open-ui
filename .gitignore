@@ -29,3 +29,4 @@ dist-ssr
 # Local Claude settings
 .claude/settings.local.json
 .gstack/
+~/cursor-profile-1

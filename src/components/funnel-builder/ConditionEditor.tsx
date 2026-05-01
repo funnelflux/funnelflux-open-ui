@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Resolver } from 'react-hook-form'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Modal, Tag, Select, Switch, Field, Button, Input } from '@/components/ui-kit'
+import { Modal, Tag, Select, Switch, Field, Button, Input, Spin } from '@/components/ui-kit'
 import type { ConditionBlock as ConditionBlockType } from '@/types/funnel'
 import type { FunnelCondition } from '@/types/entities'
 import { conditionSchema, type ConditionFormValues } from '@/schemas/condition'
@@ -14,9 +14,15 @@ interface ConditionEditorProps {
   open: boolean
   onClose: () => void
   condition?: FunnelCondition | null
+  /** When set, fixes create vs edit while `condition` is still null (e.g. detail fetch in flight). */
+  mode?: 'create' | 'edit'
+  /** When mode is `edit`, show a loading state until `condition` is available. */
+  detailLoading?: boolean
   onSave: (condition: FunnelCondition) => void
   /** When creating a funnel-scoped condition from within a funnel, pass its ID so the payload is valid. */
   localScopeFunnelId?: string
+  /** Scope is derived from context; show this only in flows that intentionally let users switch it. */
+  showScopeControl?: boolean
 }
 
 function createEmptyBlock(): ConditionBlockType {
@@ -26,8 +32,17 @@ function createEmptyBlock(): ConditionBlockType {
   }
 }
 
-export function ConditionEditor({ open, onClose, condition, onSave, localScopeFunnelId }: ConditionEditorProps) {
-  const isNew = !condition
+export function ConditionEditor({
+  open,
+  onClose,
+  condition,
+  mode,
+  detailLoading = false,
+  onSave,
+  localScopeFunnelId,
+  showScopeControl = false,
+}: ConditionEditorProps) {
+  const isNew = mode !== undefined ? mode === 'create' : !condition
   const sessionKey = condition?.idCondition ?? 'new'
 
   const wireSnapshot = condition ?? null
@@ -37,13 +52,13 @@ export function ConditionEditor({ open, onClose, condition, onSave, localScopeFu
       return {
         idCondition: undefined,
         conditionName: '',
-        scope: 'global',
+        scope: localScopeFunnelId ? 'funnel' : 'global',
         blocks: [createEmptyBlock()],
         blockLogicOperator: 'AND',
       }
     }
     return funnelConditionToFormDraft(condition) as ConditionFormValues
-  }, [condition])
+  }, [condition, localScopeFunnelId])
 
   const {
     control,
@@ -166,10 +181,19 @@ export function ConditionEditor({ open, onClose, condition, onSave, localScopeFu
       footer={null}
       destroyOnHidden
     >
-      <p className="text-sm text-muted-foreground mb-4">
-        {isNew ? 'Define rules to route traffic based on visitor attributes.' : 'Modify the condition rules and logic.'}
-      </p>
+      {!(isNew === false && detailLoading) ? (
+        <p className="text-sm text-muted-foreground mb-4">
+          {isNew ? 'Define rules to route traffic based on visitor attributes.' : 'Modify the condition rules and logic.'}
+        </p>
+      ) : null}
 
+      {!isNew && detailLoading ? (
+        <div className="flex min-h-[200px] items-center justify-center py-8">
+          <Spin />
+        </div>
+      ) : null}
+
+      {isNew || !detailLoading ? (
       <div className="space-y-6">
         {isNew && (
           <Field
@@ -186,6 +210,7 @@ export function ConditionEditor({ open, onClose, condition, onSave, localScopeFu
               placeholder="Select a global condition to copy"
               options={globalConditionOptions}
               className="w-full"
+              size="sm"
             />
           </Field>
         )}
@@ -202,7 +227,8 @@ export function ConditionEditor({ open, onClose, condition, onSave, localScopeFu
             >
               <Input
                 id="conditionName"
-                className="h-8 text-sm"
+                className="w-full"
+                size="sm"
                 value={field.value ?? ''}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -212,25 +238,27 @@ export function ConditionEditor({ open, onClose, condition, onSave, localScopeFu
           )}
         />
 
-        <Field
-          title="Scope"
-          htmlFor="conditionScopeToggle"
-          errorText={errors.scope?.message}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm">
-              <div className="font-medium">{scope === 'funnel' ? 'Local (Funnel)' : 'Global'}</div>
-              <div className="text-xs text-muted-foreground">
-                {scope === 'global' ? 'Available across all funnels.' : 'Restricted to a single funnel.'}
+        {showScopeControl && (
+          <Field
+            title="Scope"
+            htmlFor="conditionScopeToggle"
+            errorText={errors.scope?.message}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm">
+                <div className="font-medium">{scope === 'funnel' ? 'Local (Funnel)' : 'Global'}</div>
+                <div className="text-xs text-muted-foreground">
+                  {scope === 'global' ? 'Available across all funnels.' : 'Restricted to a single funnel.'}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Global</span>
+                <Switch id="conditionScopeToggle" checked={scope === 'funnel'} onChange={handleScopeToggle} />
+                <span className="text-xs text-muted-foreground">Local</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Global</span>
-              <Switch id="conditionScopeToggle" checked={scope === 'funnel'} onChange={handleScopeToggle} />
-              <span className="text-xs text-muted-foreground">Local</span>
-            </div>
-          </div>
-        </Field>
+          </Field>
+        )}
 
         {(blocks?.length ?? 0) >= 2 && (
           <div className="flex items-center gap-2">
@@ -262,8 +290,7 @@ export function ConditionEditor({ open, onClose, condition, onSave, localScopeFu
 
         <Button
           htmlType="button"
-          size="small"
-          className="h-8 text-sm"
+          size="sm"
           onClick={handleAddBlock}
           iconName="plus"
           iconSize="sm"
@@ -284,6 +311,7 @@ export function ConditionEditor({ open, onClose, condition, onSave, localScopeFu
           </Button>
         </div>
       </div>
+      ) : null}
     </Modal>
   )
 }

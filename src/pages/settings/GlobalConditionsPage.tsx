@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   useConditions,
+  useCondition,
   useSaveCondition,
   useDeleteCondition,
   type ConditionListItem,
@@ -25,7 +26,13 @@ export function GlobalConditionsPage() {
 
   const [search, setSearch] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const editCondition = useCondition(editId ?? '', {
+    enabled: editorOpen && !!editId,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
 
   const filtered = useMemo(() => {
     const list = conditionRows ?? []
@@ -40,6 +47,7 @@ export function GlobalConditionsPage() {
         await saveCondition.mutateAsync(condition)
         toast.success('Condition saved')
         setEditorOpen(false)
+        setEditId(null)
       } catch (err) {
         toast.error(getErrorMessage(err))
       }
@@ -61,11 +69,27 @@ export function GlobalConditionsPage() {
   }, [refetchConditions])
 
   const handleOpenEditor = useCallback(() => {
+    setEditId(null)
+    void refetchConditions()
     setEditorOpen(true)
-  }, [])
+  }, [refetchConditions])
 
   const handleCloseEditor = useCallback(() => {
     setEditorOpen(false)
+    setEditId(null)
+  }, [])
+
+  const handleEditCondition = useCallback((row: ConditionListItem) => {
+    setEditId(row.idCondition)
+    setEditorOpen(true)
+  }, [])
+
+  const handleDeleteClick = useCallback((row: ConditionListItem) => {
+    setDeleteId(row.idCondition)
+  }, [])
+
+  const handleCancelDelete = useCallback(() => {
+    setDeleteId(null)
   }, [])
 
   const columns = useMemo<ColumnDef<ConditionListItem, unknown>[]>(
@@ -78,8 +102,8 @@ export function GlobalConditionsPage() {
           <span className="font-medium">{row.original.conditionName}</span>
         ),
       },
-      editBtnColumn<ConditionListItem>(() => setEditorOpen(true)),
-      deleteBtnColumn<ConditionListItem>((row) => setDeleteId(row.idCondition)),
+      editBtnColumn<ConditionListItem>(handleEditCondition),
+      deleteBtnColumn<ConditionListItem>(handleDeleteClick),
       {
         id: 'scope',
         header: 'Scope',
@@ -138,7 +162,7 @@ export function GlobalConditionsPage() {
         ),
       },
     ],
-    [],
+    [handleDeleteClick, handleEditCondition],
   )
 
   return (
@@ -176,13 +200,16 @@ export function GlobalConditionsPage() {
       <ConditionEditor
         open={editorOpen}
         onClose={handleCloseEditor}
-        condition={null}
+        mode={editId ? 'edit' : 'create'}
+        condition={editId ? (editCondition.data ?? null) : null}
+        detailLoading={Boolean(editId && !editCondition.data && editCondition.isFetching)}
         onSave={handleSave}
+        showScopeControl={false}
       />
 
       <ConfirmModal
         open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
+        onCancel={handleCancelDelete}
         title="Delete Condition"
         description="Are you sure? This condition will be permanently deleted and removed from any funnels using it."
         confirmText="Delete"

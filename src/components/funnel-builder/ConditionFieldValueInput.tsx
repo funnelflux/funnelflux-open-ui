@@ -70,16 +70,18 @@ export function ConditionFieldValueInput({
     const right = parts[1] ?? ''
 
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex w-full min-w-0 items-center gap-1">
         <Input
-          className="h-8 text-sm w-20"
+          size="sm"
+          className="w-20 shrink-0"
           value={left}
           onChange={(e) => onChange(`${e.target.value}, ${right}`)}
           placeholder="min"
         />
         <span className="text-xs text-muted-foreground px-1">&mdash;</span>
         <Input
-          className="h-8 text-sm w-20"
+          size="sm"
+          className="w-20 shrink-0"
           value={right}
           onChange={(e) => onChange(`${left}, ${e.target.value}`)}
           placeholder="max"
@@ -94,7 +96,8 @@ export function ConditionFieldValueInput({
 
     return (
       <Input.TextArea
-        className="h-16 min-h-[4rem] text-sm resize-none"
+        className="min-h-[4rem] w-full resize-none"
+        size="sm"
         value={lines}
         onChange={(e) => {
           const vals = e.target.value.split('\n')
@@ -112,8 +115,8 @@ export function ConditionFieldValueInput({
         value={stringValue(value) || undefined}
         onChange={(val) => onChange(val)}
         placeholder="Day"
-        className="w-32"
-        size="small"
+        className="w-32 shrink-0"
+        size="sm"
         alphabetical={false}
         options={DAY_OF_WEEK_OPTIONS}
       />
@@ -126,8 +129,8 @@ export function ConditionFieldValueInput({
         value={stringValue(value) || undefined}
         onChange={(val) => onChange(val)}
         placeholder="Hour"
-        className="w-28"
-        size="small"
+        className="w-28 shrink-0"
+        size="sm"
         alphabetical={false}
         options={HOUR_OPTIONS}
       />
@@ -140,8 +143,8 @@ export function ConditionFieldValueInput({
         value={stringValue(value) || undefined}
         onChange={(val) => onChange(val)}
         placeholder="Type"
-        className="w-32"
-        size="small"
+        className="w-32 shrink-0"
+        size="sm"
         alphabetical={false}
         options={DEVICE_TYPE_OPTIONS}
       />
@@ -154,8 +157,8 @@ export function ConditionFieldValueInput({
         value={stringValue(value) || undefined}
         onChange={(val) => onChange(val)}
         placeholder="Type"
-        className="w-32"
-        size="small"
+        className="w-32 shrink-0"
+        size="sm"
         alphabetical={false}
         options={CONNECTION_TYPE_OPTIONS}
       />
@@ -165,7 +168,8 @@ export function ConditionFieldValueInput({
   // Default: text input
   return (
     <Input
-      className="h-8 text-sm flex-1"
+      size="sm"
+      className="w-full min-w-0"
       value={stringValue(value)}
       onChange={(e) => onChange(e.target.value)}
       placeholder={FIELD_PLACEHOLDERS[field] ?? 'Value'}

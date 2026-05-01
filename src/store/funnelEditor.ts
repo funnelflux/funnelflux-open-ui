@@ -9,6 +9,7 @@ import type {
   ApiFunnelConnection,
   NodeTypeValue,
 } from '@/types/funnel'
+import type { FunnelCondition, Page } from '@/types/entities'
 import { generateId } from '@/lib/id-generator'
 import { extractMetaFromRawFunnel, normalizeFunnelApiResponse } from '@/lib/funnelApiV2'
 import { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
@@ -170,6 +171,8 @@ interface FunnelEditorState {
   selectedNodeId: string | null
   selectedEdgeId: string | null
   isDirty: boolean
+  pendingPageDrafts: Record<string, { page: Partial<Page>; original?: Partial<Page>; isCreate?: boolean }>
+  pendingConditionDrafts: Record<string, { condition: FunnelCondition; original?: FunnelCondition; isCreate?: boolean }>
 
   // Actions
   hydrate: (funnel: ApiFunnel | unknown) => void
@@ -192,6 +195,12 @@ interface FunnelEditorState {
   addEdge: (source: string, target: string, data: FunnelEdgeData, sourceHandle?: string, targetHandle?: string) => string
   removeEdge: (id: string) => void
   updateEdgeData: (id: string, data: Partial<FunnelEdgeData>) => void
+  setPendingPageDraft: (nodeId: string, draft: { page: Partial<Page>; original?: Partial<Page>; isCreate?: boolean }) => void
+  setPendingConditionDraft: (
+    nodeId: string,
+    draft: { condition: FunnelCondition; original?: FunnelCondition; isCreate?: boolean },
+  ) => void
+  clearPendingAssetDrafts: () => void
 }
 
 export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
@@ -201,6 +210,8 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
   selectedNodeId: null,
   selectedEdgeId: null,
   isDirty: false,
+  pendingPageDrafts: {},
+  pendingConditionDrafts: {},
 
   hydrate: (funnelInput) => {
     const funnel = normalizeFunnelApiResponse(funnelInput)
@@ -240,6 +251,8 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
       selectedNodeId: null,
       selectedEdgeId: null,
       isDirty: false,
+      pendingPageDrafts: {},
+      pendingConditionDrafts: {},
     })
   },
 
@@ -251,6 +264,8 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
       selectedNodeId: null,
       selectedEdgeId: null,
       isDirty: false,
+      pendingPageDrafts: {},
+      pendingConditionDrafts: {},
     })
   },
 
@@ -301,6 +316,12 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
       nodes: s.nodes.filter((n) => n.id !== id),
       edges: s.edges.filter((e) => e.source !== id && e.target !== id),
       selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
+      pendingPageDrafts: Object.fromEntries(
+        Object.entries(s.pendingPageDrafts).filter(([nodeId]) => nodeId !== id),
+      ),
+      pendingConditionDrafts: Object.fromEntries(
+        Object.entries(s.pendingConditionDrafts).filter(([nodeId]) => nodeId !== id),
+      ),
       isDirty: true,
     })),
 
@@ -349,4 +370,19 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
       ),
       isDirty: true,
     })),
+
+  setPendingPageDraft: (nodeId, draft) =>
+    set((s) => ({
+      pendingPageDrafts: { ...s.pendingPageDrafts, [nodeId]: draft },
+      isDirty: true,
+    })),
+
+  setPendingConditionDraft: (nodeId, draft) =>
+    set((s) => ({
+      pendingConditionDrafts: { ...s.pendingConditionDrafts, [nodeId]: draft },
+      isDirty: true,
+    })),
+
+  clearPendingAssetDrafts: () =>
+    set({ pendingPageDrafts: {}, pendingConditionDrafts: {} }),
 }))

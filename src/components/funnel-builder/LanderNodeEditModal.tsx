@@ -10,9 +10,7 @@ import {
   Modal,
   useToastApi,
 } from '@/components/ui-kit'
-import { useCategories, useSavePage } from '@/api/hooks'
-import { useQueryClient } from '@tanstack/react-query'
-import { queryKeys } from '@/api/queryKeys'
+import { useCategories } from '@/api/hooks'
 import { landerNodeEditSchema, type LanderNodeEditFormData } from '@/schemas/landerNode'
 import type { Page } from '@/types/entities'
 import { NODE_TYPES, type LanderNodeParams } from '@/types/funnel'
@@ -40,11 +38,14 @@ interface LanderNodeEditModalProps {
 
 export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditModalProps) {
   const toast = useToastApi()
-  const qc = useQueryClient()
   const node = useFunnelEditorStore((s) =>
     nodeId ? s.nodes.find((n) => n.id === nodeId) : undefined,
   )
   const updateNodeData = useFunnelEditorStore((s) => s.updateNodeData)
+  const setPendingPageDraft = useFunnelEditorStore((s) => s.setPendingPageDraft)
+  const pendingPageDraft = useFunnelEditorStore((s) =>
+    nodeId ? s.pendingPageDrafts[nodeId] : undefined,
+  )
 
   const pageId =
     node?.data.nodeType === NODE_TYPES.lander
@@ -53,7 +54,6 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
 
   const { data: page, isFetching, isError, error, noPage, pageLoading } = useNodePageDetail(pageId, open)
   const { data: categories } = useCategories('page')
-  const savePage = useSavePage()
 
   const form = useForm<LanderNodeEditFormData>({
     resolver: zodResolver(landerNodeEditSchema),
@@ -76,28 +76,29 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
 
   useEffect(() => {
     if (!open || !node || node.data.nodeType !== NODE_TYPES.lander) return
-    if (!pageId || !page) return
-    if (isFetching) return
+    if (!pageId || (!page && !pendingPageDraft?.page)) return
+    if (!pendingPageDraft?.page && isFetching) return
     // Avoid clobbering in-progress edits when page refetches (e.g. after save) while modal is open.
     if (form.formState.isDirty) return
 
     const p = node.data.params as LanderNodeParams
+    const draft = pendingPageDraft?.page
     form.reset({
-      idPage: page.idPage,
+      idPage: String(draft?.idPage ?? page?.idPage ?? ''),
       pageType: 'lander',
-      pageName: page.pageName,
-      url: page.url,
-      redirectType: page.redirectType,
-      tags: page.tags ?? [],
-      notes: page.notes ?? '',
-      isArchived: page.isArchived,
+      pageName: String(draft?.pageName ?? page?.pageName ?? ''),
+      url: String(draft?.url ?? page?.url ?? ''),
+      redirectType: (draft?.redirectType ?? page?.redirectType ?? '307') as LanderNodeEditFormData['redirectType'],
+      tags: draft?.tags ?? page?.tags ?? [],
+      notes: draft?.notes ?? page?.notes ?? '',
+      isArchived: draft?.isArchived ?? page?.isArchived,
       accumulateUrlParams: p.accumulateUrlParams ?? false,
       additionalTokens:
         p.additionalTokens && p.additionalTokens.length > 0
           ? p.additionalTokens.map((t) => ({ field: t.field, token: t.token }))
           : [{ field: '', token: '' }],
     })
-  }, [open, node, page, pageId, form, isFetching])
+  }, [open, node, page, pageId, form, isFetching, pendingPageDraft?.page])
 
   const redirectType = useWatch({
     control: form.control,
@@ -133,42 +134,38 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
 
   const onSubmit = async (data: LanderNodeEditFormData) => {
     if (!nodeId || !node) return
-    try {
-      const payload: Partial<Page> = {
-        idPage: data.idPage,
-        pageType: 'lander',
-        pageName: data.pageName,
-        url: data.url,
-        redirectType: data.redirectType,
-        tags: data.tags ?? [],
-        notes: data.notes ?? '',
-        isArchived: data.isArchived,
-      }
-      await savePage.mutateAsync({ page: payload, isCreate: false })
-      await qc.refetchQueries({ queryKey: queryKeys.pages.detail(String(data.idPage)) })
-
-      const tokenRows = data.additionalTokens ?? form.getValues('additionalTokens')
-      const tokens = toNodeAdditionalTokens(tokenRows)
-
-      updateNodeData(nodeId, {
-        label: data.pageName,
-        params: {
-          ...(node.data.params as object),
-          pageId: String(data.idPage),
-          pageName: data.pageName,
-          accumulateUrlParams: data.accumulateUrlParams,
-          additionalTokens: tokens,
-        },
-      })
-
-      toast.success(`${pageNameForToast('lander')} saved.`)
-      onClose()
-    } catch (e) {
-      toast.error(getErrorMessage(e))
+    const payload: Partial<Page> = {
+      idPage: data.idPage,
+      pageType: 'lander',
+      pageName: data.pageName,
+      url: data.url,
+      redirectType: data.redirectType,
+      tags: data.tags ?? [],
+      notes: data.notes ?? '',
+      isArchived: data.isArchived,
     }
+
+    const tokenRows = data.additionalTokens ?? form.getValues('additionalTokens')
+    const tokens = toNodeAdditionalTokens(tokenRows)
+
+    setPendingPageDraft(nodeId, { page: payload, original: page, isCreate: !pageId })
+
+    updateNodeData(nodeId, {
+      label: data.pageName,
+      params: {
+        ...(node.data.params as object),
+        pageId: String(data.idPage),
+        pageName: data.pageName,
+        accumulateUrlParams: data.accumulateUrlParams,
+        additionalTokens: tokens,
+      },
+    })
+
+    toast.success(`${pageNameForToast('lander')} changes staged. Save the funnel to persist them.`)
+    onClose()
   }
 
-  const busy = savePage.isPending
+  const busy = false
 
   return (
     <>
@@ -186,7 +183,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
               type="primary"
               htmlType="submit"
               form="lander-node-edit-form"
-              disabled={busy || noPage || pageLoading || isError}
+              disabled={busy || noPage || (!pendingPageDraft?.page && pageLoading) || isError}
               loading={busy}
               block
             >
@@ -204,7 +201,7 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
               This node has no lander page assigned. Set a page ID from the funnel context or pick a
               lander when creating the node.
             </p>
-          ) : pageLoading ? (
+          ) : !pendingPageDraft?.page && pageLoading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
               <Icon name="loader-2" size="lg" animation="spin" aria-label="Loading" />
               Loading lander…

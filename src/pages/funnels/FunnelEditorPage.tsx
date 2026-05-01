@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/auth'
 import { Icon } from '@/components/ui-kit/icons'
 import { buildV2SavePayload, extractPersistExtras, type FunnelPersistExtras } from '@/lib/funnelApiV2'
 import { generateId } from '@/lib/id-generator'
+import type { FunnelCondition, Page } from '@/types/entities'
 
 export function FunnelEditorPage() {
   const { campaignId, funnelId } = useParams<{ campaignId: string; funnelId: string }>()
@@ -39,6 +40,9 @@ export function FunnelEditorPage() {
   const isDirty = useFunnelEditorStore((s) => s.isDirty)
   const markClean = useFunnelEditorStore((s) => s.markClean)
   const updateMeta = useFunnelEditorStore((s) => s.updateMeta)
+  const pendingPageDrafts = useFunnelEditorStore((s) => s.pendingPageDrafts)
+  const pendingConditionDrafts = useFunnelEditorStore((s) => s.pendingConditionDrafts)
+  const clearPendingAssetDrafts = useFunnelEditorStore((s) => s.clearPendingAssetDrafts)
 
   const persistExtrasRef = useRef<FunnelPersistExtras>({})
 
@@ -67,18 +71,42 @@ export function FunnelEditorPage() {
   const handleSave = useCallback(async () => {
     const body = buildV2SavePayload(meta, nodes, edges, persistExtrasRef.current)
     setIsSaving(true)
+    const savedPages: Array<{ page: Partial<Page>; original?: Partial<Page>; isCreate?: boolean }> = []
+    const savedConditions: Array<{ condition: FunnelCondition; original?: FunnelCondition; isCreate?: boolean }> = []
     try {
+      for (const draft of Object.values(pendingPageDrafts)) {
+        const isCreate = draft.isCreate ?? !draft.original?.idPage
+        await (isCreate
+          ? api.post<Page>('/data/page/save/', draft.page)
+          : api.put<Page>('/data/page/save/', draft.page))
+        savedPages.push({ ...draft, isCreate })
+      }
+
+      for (const draft of Object.values(pendingConditionDrafts)) {
+        const isCreate = draft.isCreate ?? !draft.original?.idCondition
+        await (isCreate
+          ? api.post<void>('/data/campaign/funnel/condition/save/', draft.condition)
+          : api.put<void>('/data/campaign/funnel/condition/save/', draft.condition))
+        savedConditions.push({ ...draft, isCreate })
+      }
+
       if (isNew) {
         await api.post('/data/campaign/funnel/save/', body)
         markClean()
+        clearPendingAssetDrafts()
         await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.pages.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.conditions.all })
         toast.success('Funnel saved successfully')
         setSettingsOpen(false)
         navigate(`/campaigns/${campaignId}/funnels/${String(body.idFunnel)}`, { replace: true })
       } else {
         await api.put('/data/campaign/funnel/save/', body, { deleteDependencies: 'true' })
         markClean()
+        clearPendingAssetDrafts()
         await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.pages.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.conditions.all })
         if (funnelId) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.detail(funnelId) })
         }
@@ -86,11 +114,51 @@ export function FunnelEditorPage() {
         setSettingsOpen(false)
       }
     } catch {
+      for (const draft of savedConditions.reverse()) {
+        try {
+          const isCreate = draft.isCreate ?? !draft.original?.idCondition
+          if (!isCreate && draft.original?.idCondition) {
+            await api.put<void>('/data/campaign/funnel/condition/save/', draft.original)
+          } else if (isCreate && draft.condition.idCondition) {
+            await api.delete('/data/campaign/funnel/condition/delete/', { idCondition: draft.condition.idCondition })
+          }
+        } catch {
+          // Best-effort rollback; keep the funnel dirty if rollback also fails.
+        }
+      }
+      for (const draft of savedPages.reverse()) {
+        try {
+          const isCreate = draft.isCreate ?? !draft.original?.idPage
+          if (!isCreate && draft.original?.idPage) {
+            await api.put<Page>('/data/page/save/', draft.original)
+          } else if (isCreate && draft.page.idPage) {
+            await api.delete('/data/page/delete/', { idPage: String(draft.page.idPage) })
+          }
+        } catch {
+          // Best-effort rollback; keep the funnel dirty if rollback also fails.
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: queryKeys.pages.all })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.conditions.all })
       toast.error('Failed to save funnel')
     } finally {
       setIsSaving(false)
     }
-  }, [meta, nodes, edges, markClean, toast, isNew, navigate, campaignId, queryClient, funnelId])
+  }, [
+    meta,
+    nodes,
+    edges,
+    markClean,
+    clearPendingAssetDrafts,
+    pendingPageDrafts,
+    pendingConditionDrafts,
+    toast,
+    isNew,
+    navigate,
+    campaignId,
+    queryClient,
+    funnelId,
+  ])
 
   const handleDiscard = useCallback(() => {
     if (!isDirty || isSaving) return
@@ -102,12 +170,14 @@ export function FunnelEditorPage() {
       if (campaignId) {
         updateMeta({ idCampaign: campaignId, idFunnel: generateId() })
       }
+      clearPendingAssetDrafts()
       markClean()
       return
     }
     persistExtrasRef.current = extractPersistExtras(funnel)
     hydrate(funnel)
-  }, [isDirty, isSaving, isNew, campaignId, funnel, hydrate, reset, updateMeta, markClean])
+    clearPendingAssetDrafts()
+  }, [isDirty, isSaving, isNew, campaignId, funnel, hydrate, reset, updateMeta, markClean, clearPendingAssetDrafts])
 
   const handleBack = useCallback(() => {
     if (isDirty) {

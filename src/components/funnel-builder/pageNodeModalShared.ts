@@ -35,8 +35,8 @@ export const TOKEN_SELECT_OPTIONS: SelectOption[] = [
 export function useNodePageDetail(pageId: string, open: boolean) {
   const query = usePage(pageId, {
     enabled: open && !!pageId,
-    staleTime: 0,
-    refetchOnMount: 'always',
+    staleTime: Infinity,
+    refetchOnMount: false,
   })
   return {
     ...query,

@@ -26,12 +26,25 @@ export function useConditions() {
   })
 }
 
-export function useCondition(id: string) {
+export function useCondition(
+  id: string,
+  options?: {
+    /** When false, the query does not run (for example, while an edit modal is closed). */
+    enabled?: boolean
+    /** Override global staleTime; use `0` when the UI must refetch whenever it becomes active. */
+    staleTime?: number
+    refetchOnMount?: boolean | 'always'
+  },
+) {
+  const hasId = !!id
+  const enabled = options?.enabled !== undefined ? options.enabled && hasId : hasId
   return useQuery({
     queryKey: queryKeys.conditions.detail(id),
     queryFn: () =>
       api.get<FunnelCondition>('/data/campaign/funnel/condition/find/byId/', { idCondition: id }),
-    enabled: !!id,
+    enabled,
+    staleTime: options?.staleTime,
+    refetchOnMount: options?.refetchOnMount,
   })
 }
 
