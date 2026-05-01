@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Icon } from '@/components/ui-kit/icons'
 import { Divider } from '@/components/ui-kit'
 import { PageShell, useToastApi, Button, Input, Switch, Select } from '@/components/ui-kit'
 import { useSystemSettings, useSaveSystemSettings } from '@/api/hooks/useSystemSettings'
@@ -22,6 +21,10 @@ const REDIRECT_METHODS: { type: RedirectMethod['method']; name: string }[] = [
 ]
 
 const DEFAULT_FORM_REDIRECT: SystemSettingsFormData['offersDefaultRedirect'] = REDIRECT_METHODS[0]
+const REDIRECT_METHOD_OPTIONS = REDIRECT_METHODS.map((method) => ({
+  value: method.type,
+  label: method.name,
+}))
 
 function redirectApiToForm(
   value: RedirectMethod | undefined,
@@ -171,7 +174,7 @@ export function SystemSettingsPage() {
 
         {/* Offers Default Redirect */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-foreground">Offers Default Redirect</label>
+          <span className="block text-sm font-medium text-foreground">Offers Default Redirect</span>
           <Controller
             control={control}
             name="offersDefaultRedirect"
@@ -183,10 +186,7 @@ export function SystemSettingsPage() {
                 }
                 className="w-full"
                 placeholder="Select redirect method"
-                options={REDIRECT_METHODS.map((method) => ({
-                  value: method.type,
-                  label: method.name,
-                }))}
+                options={REDIRECT_METHOD_OPTIONS}
               />
             )}
           />
@@ -194,7 +194,7 @@ export function SystemSettingsPage() {
 
         {/* Landers Default Redirect */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-foreground">Landers Default Redirect</label>
+          <span className="block text-sm font-medium text-foreground">Landers Default Redirect</span>
           <Controller
             control={control}
             name="landersDefaultRedirect"
@@ -206,10 +206,7 @@ export function SystemSettingsPage() {
                 }
                 className="w-full"
                 placeholder="Select redirect method"
-                options={REDIRECT_METHODS.map((method) => ({
-                  value: method.type,
-                  label: method.name,
-                }))}
+                options={REDIRECT_METHOD_OPTIONS}
               />
             )}
           />
@@ -263,16 +260,13 @@ export function SystemSettingsPage() {
 
         {/* Save Button */}
         <div className="pt-2">
-          <Button type="primary" htmlType="submit" disabled={saveSettings.isPending}>
-            {saveSettings.isPending ? (
-              <span className="mr-2 inline-flex">
-                <Icon name="loader-2" size="md" animation="spin" />
-              </span>
-            ) : (
-              <span className="mr-2 inline-flex">
-                <Icon name="save" size="md" />
-              </span>
-            )}
+          <Button
+            type="primary"
+            htmlType="submit"
+            disabled={saveSettings.isPending}
+            iconName={saveSettings.isPending ? 'loader-2' : 'save'}
+            iconAnimation={saveSettings.isPending ? 'spin' : 'none'}
+          >
             Save Settings
           </Button>
         </div>

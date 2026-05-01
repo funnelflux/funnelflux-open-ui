@@ -89,4 +89,15 @@ export const queryKeys = {
     all: ['categories'] as const,
     list: (entityType?: string) => [...queryKeys.categories.all, 'list', entityType] as const,
   },
+  groupingFilterAssets: {
+    all: ['groupingFilterAssets'] as const,
+    campaignsSimple: () => [...queryKeys.groupingFilterAssets.all, 'campaigns', 'simple'] as const,
+    funnelsPrefixed: () => [...queryKeys.groupingFilterAssets.all, 'funnels', 'prefixed'] as const,
+    pageList: (pageType: 'lander' | 'offer') =>
+      [...queryKeys.groupingFilterAssets.all, 'pages', pageType] as const,
+    pageCategories: () => [...queryKeys.groupingFilterAssets.all, 'pageCategories'] as const,
+    trafficSourcesList: () => [...queryKeys.groupingFilterAssets.all, 'trafficSources', 'list'] as const,
+    offerSourcesAllStatuses: () =>
+      [...queryKeys.groupingFilterAssets.all, 'offerSources', 'allStatuses'] as const,
+  },
 }

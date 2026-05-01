@@ -229,6 +229,8 @@ export interface ConditionEdgeData {
 
 export interface CodeEdgeData {
   edgeType: 'code'
+  /** UI-only discriminator: JS/PHP snippet path vs visitor-tag route (wire format still `connectionCodeParams`). */
+  codeEdgeRole?: 'snippet' | 'visitorTag'
   onDoneNumber?: number
   labelLocation?: number
   [key: string]: unknown

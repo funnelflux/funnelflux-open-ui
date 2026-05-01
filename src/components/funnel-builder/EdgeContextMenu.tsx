@@ -3,6 +3,13 @@ import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { Checkbox } from '@/components/ui-kit'
+import { NODE_TYPES } from '@/types/funnel'
+import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
+import {
+  clampOnDoneNumber,
+  firstFreeOnDoneSlot,
+  usedOnDoneSlotsForJsPhpSource,
+} from '@/lib/funnel-graph/codeEdgeSlots'
 import {
   computeDisplayedWeights,
   formatWeight,
@@ -23,6 +30,7 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
   const edge = useFunnelEditorStore((s) =>
     edgeId ? s.edges.find((e) => e.id === edgeId) : undefined,
   )
+  const allNodes = useFunnelEditorStore((s) => s.nodes)
   const allEdges = useFunnelEditorStore((s) => s.edges)
 
   useEffect(() => {
@@ -69,6 +77,11 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
   const isWeighted = data?.edgeType === 'weighted'
   const isAction = data?.edgeType === 'action'
   const isCode = data?.edgeType === 'code'
+  const sourceNode = allNodes.find((n) => n.id === edge.source)
+  const codeRole =
+    isCode ?
+      (data.codeEdgeRole ?? (sourceNode?.data.nodeType === NODE_TYPES.visitorTag ? 'visitorTag' : 'snippet'))
+    : 'snippet'
   const currentActionNumber = isAction ? data.actionNumber : 1
   const currentIsConversion = isAction ? data.isConversion ?? false : false
   const currentOnDoneNumber = isCode ? data.onDoneNumber ?? 1 : 1
@@ -100,8 +113,25 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
   }
 
   function handleOnDoneNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!edge) return
     const raw = parseInt(e.target.value, 10)
-    const onDoneNumber = Number.isNaN(raw) ? 1 : Math.max(1, raw)
+    const requested = clampOnDoneNumber(Number.isNaN(raw) ? 1 : raw)
+    const edgesWithoutSelf = allEdges.filter((candidate) => candidate.id !== edgeId)
+    const sourceId = edge.source
+    let onDoneNumber = requested
+
+    // JS/PHP nodes must keep unique On Done slots across all outgoing code edges.
+    if (sourceNode && (sourceNode.data.nodeType === NODE_TYPES.jsCode || sourceNode.data.nodeType === NODE_TYPES.phpCode)) {
+      const used = usedOnDoneSlotsForJsPhpSource(sourceId, edgesWithoutSelf)
+      if (used.has(onDoneNumber)) {
+        const free = firstFreeOnDoneSlot(sourceId, edgesWithoutSelf)
+        // No free slot means we cannot satisfy uniqueness for the requested value.
+        // Keep the existing edge value instead of silently writing a duplicate.
+        if (free === null) return
+        onDoneNumber = free
+      }
+    }
+
     useFunnelEditorStore.getState().updateEdgeData(edgeId!, { onDoneNumber })
   }
 
@@ -193,13 +223,13 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
       {isCode && (
         <div className="flex items-center gap-2 px-3 py-1.5">
           <label htmlFor="edge-ondone" className="text-muted-foreground whitespace-nowrap">
-            On Done #
+            {codeRole === 'visitorTag' ? 'Tag route #' : 'On Done #'}
           </label>
           <input
             id="edge-ondone"
             type="number"
             min={1}
-            max={99}
+            max={CODE_NODE_MAX_ON_DONE_EXITS}
             value={currentOnDoneNumber}
             onChange={handleOnDoneNumberChange}
             className="w-14 rounded border bg-background px-2 py-0.5 text-sm text-right"

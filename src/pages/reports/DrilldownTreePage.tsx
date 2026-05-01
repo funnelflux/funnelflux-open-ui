@@ -46,6 +46,10 @@ interface TreeRowData {
   }
 }
 
+function drilldownTreeRowId(row: TreeRowData): string {
+  return row._id
+}
+
 /** Stable string form of a cell raw for matching parent/child in nested drilldown trees. */
 function groupingRawForMatch(raw: ReportCell["raw"] | undefined): string {
   if (raw === undefined || raw === null) return ""
@@ -299,7 +303,7 @@ export function DrilldownTreePage() {
 
       if (row._loadMore) {
         const { parentTreePath, parentKey, nextOffset, groupings, depth, ancestorKeys } = row._loadMore
-        const childReport = await api.post<Report>("/stats/reporting/drilldown/", {
+        const childReport = await api.postDrilldown<Report>({
           ...lastRequest,
           groupings,
           topLevelFilters: [],
@@ -374,7 +378,7 @@ export function DrilldownTreePage() {
         }
       })
 
-      const childReport = await api.post<Report>("/stats/reporting/drilldown/", {
+      const childReport = await api.postDrilldown<Report>({
         ...lastRequest,
         groupings,
         topLevelFilters: [],
@@ -492,7 +496,7 @@ export function DrilldownTreePage() {
       <PageShell
         title="Drilldown Report (Tree)"
         fillHeight
-        className="gap-3"
+        density="dense"
         actions={<DrilldownToolbarHeaderFilters />}
       >
         <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-2 w-full shrink-0">
@@ -514,7 +518,7 @@ export function DrilldownTreePage() {
             data={treeData}
             columns={columnDefs}
             loading={drilldownMutation.isPending}
-            getRowId={(row) => row._id}
+            getRowId={drilldownTreeRowId}
             sorting={sorting}
             onSortingChange={handleSortingChange}
             manualSorting

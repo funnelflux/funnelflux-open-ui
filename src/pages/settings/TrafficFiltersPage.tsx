@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Icon } from '@/components/ui-kit/icons'
 import { Button, Switch, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import {
@@ -13,6 +12,10 @@ import { TrafficFilterModal } from '@/components/forms/TrafficFilterModal'
 import { FILTER_TYPE_LABELS } from '@/lib/trafficFilterConstants'
 import type { TrafficFilterFormData } from '@/schemas/trafficFilter'
 import type { TrafficFilter } from '@/types/entities'
+
+function trafficFilterRowId(row: TrafficFilter): string {
+  return row.idTrafficFilter
+}
 
 export function TrafficFiltersPage() {
   const toast = useToastApi()
@@ -148,10 +151,7 @@ export function TrafficFiltersPage() {
     <PageShell fillHeight
       title="Traffic Filters"
       actions={
-        <Button type="primary" onClick={openCreate}>
-          <span className="mr-1 inline-flex">
-            <Icon name="plus" size="md" />
-          </span>
+        <Button type="primary" iconName="plus" onClick={openCreate}>
           Add Filter
         </Button>
       }
@@ -159,7 +159,7 @@ export function TrafficFiltersPage() {
       <DataTable<TrafficFilter>
         data={filters ?? []}
         columns={columns}
-        getRowId={(row) => row.idTrafficFilter}
+        getRowId={trafficFilterRowId}
         loading={isLoading}
         tableConfigKey="settings-traffic-filters"
         defaultSorting={[{ id: 'trafficFilterName', desc: false }]}

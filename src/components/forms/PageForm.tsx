@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -38,6 +38,7 @@ const REDIRECT_OPTIONS = [
   { value: 'umr', label: 'UMR (Meta Refresh)' },
   { value: 'fluxify', label: 'Fluxify (Reverse Proxy)' },
 ] as const
+const REDIRECT_SELECT_OPTIONS = REDIRECT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))
 
 const defaultFluxifyParams: FluxifyFormParams = {
   enableCache: false,
@@ -98,9 +99,11 @@ export function PageForm({
     },
   })
 
-  const redirectType = form.watch('redirectType')
+  const redirectType = useWatch({ control: form.control, name: 'redirectType' })
   const isFluxify = redirectType === 'fluxify'
-  const fluxifyParams = form.watch('fluxifyParams')
+  const fluxifyParams = useWatch({ control: form.control, name: 'fluxifyParams' })
+  const tagsValue = useWatch({ control: form.control, name: 'tags' })
+  const offerSourceIdValue = useWatch({ control: form.control, name: 'offerParams.idOfferSource' })
 
   useEffect(() => {
     if (open) {
@@ -176,7 +179,7 @@ export function PageForm({
   }
 
   return (
-    <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? `Edit ${entityLabel}` : `New ${entityLabel}`} footer={null} width={640} destroyOnHidden scrollBody>
+    <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? `Edit ${entityLabel}` : `New ${entityLabel}`} footer={null} width={640} destroyOnHidden layoutVariant="form">
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-4 space-y-5">
         {initialData?.idPage && (
@@ -230,7 +233,7 @@ export function PageForm({
                   onChange={field.onChange}
                   placeholder="Select redirect type"
                   className="w-full"
-                  options={REDIRECT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                  options={REDIRECT_SELECT_OPTIONS}
                 />
               )}
             />
@@ -288,7 +291,7 @@ export function PageForm({
         <FormField label="Tags" htmlFor="tags" help="Comma-separated list of tags">
           <Input
             id="tags"
-            value={form.watch('tags').join(', ')}
+            value={(tagsValue ?? []).join(', ')}
             onChange={(e) => handleTagsChange(e.target.value)}
             placeholder="tag1, tag2, tag3"
           />
@@ -299,7 +302,7 @@ export function PageForm({
             <FormField label="Offer Source">
               <Select
                 options={offerSourceOptions}
-                value={form.watch('offerParams.idOfferSource') || undefined}
+                value={offerSourceIdValue || undefined}
                 onChange={(v) =>
                   form.setValue('offerParams.idOfferSource', v, {
                     shouldDirty: true,

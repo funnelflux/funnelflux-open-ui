@@ -18,7 +18,7 @@ export function useGroupings() {
 export function useDrilldownReport() {
   return useMutation({
     mutationFn: (request: DrilldownRequest) =>
-      api.post<Report>('/stats/reporting/drilldown/', request),
+      api.postDrilldown<Report>(request),
   })
 }
 

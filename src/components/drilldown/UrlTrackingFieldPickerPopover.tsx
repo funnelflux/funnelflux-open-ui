@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { memo, useCallback, useMemo, useState, type MouseEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
@@ -120,15 +120,6 @@ export function UrlTrackingFieldPickerPopover({
 
   const { data: selectedTrafficSource, isLoading: tsDetailLoading } = useTrafficSource(selectedTsId)
 
-  useEffect(() => {
-    if (!open) return
-    if (currentMeta?.trafficSourceId) {
-      setSelectedTsId(currentMeta.trafficSourceId)
-    } else {
-      setSelectedTsId('')
-    }
-  }, [open, currentMeta?.trafficSourceId])
-
   const usedFieldKeys = useMemo(() => {
     const s = new Set<string>()
     for (let i = 0; i < levelCount; i++) {
@@ -161,9 +152,12 @@ export function UrlTrackingFieldPickerPopover({
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (disabled) return
+      if (next) {
+        setSelectedTsId(currentMeta?.trafficSourceId ?? '')
+      }
       setOpen(next)
     },
-    [disabled],
+    [currentMeta?.trafficSourceId, disabled],
   )
 
   /** Keeps focus inside the Select when nested in a Popover (antd + rc-select). */
@@ -206,7 +200,7 @@ export function UrlTrackingFieldPickerPopover({
       trigger="click"
       placement="bottomLeft"
       content={
-        <div className="w-[22rem] space-y-3" onMouseDown={handlePopoverContentMouseDown}>
+        <div className="w-[22rem] space-y-3" role="presentation" onMouseDown={handlePopoverContentMouseDown}>
           <div>
             <p className="text-sm font-medium">URL tracking fields</p>
             <p className="text-xs text-muted-foreground">

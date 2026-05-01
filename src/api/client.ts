@@ -1,6 +1,7 @@
 import type { ApiError } from '@/types/api'
 
 const API_PATH = import.meta.env.VITE_API_PATH || '/admin/api/v2'
+type ResponseParseMode = 'default' | 'statsRawBigInt'
 
 function parseStatsJsonPreserveLargeIntRaw(text: string): unknown {
   const fixed = text.replace(/"raw"\s*:\s*(\d{16,})(\s*)([,}]|])/g, '"raw":"$1"$2$3')
@@ -30,13 +31,26 @@ export class ApiClient {
   }
 
   async post<T>(endpoint: string, body?: unknown, params?: Record<string, string>): Promise<T> {
+    return this.postWithParseMode<T>(endpoint, body, params)
+  }
+
+  async postDrilldown<T>(body?: unknown, params?: Record<string, string>): Promise<T> {
+    return this.postWithParseMode<T>('/stats/reporting/drilldown/', body, params, 'statsRawBigInt')
+  }
+
+  private async postWithParseMode<T>(
+    endpoint: string,
+    body?: unknown,
+    params?: Record<string, string>,
+    parseMode: ResponseParseMode = 'default',
+  ): Promise<T> {
     const res = await fetch(this.buildUrl(endpoint, params), {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
     })
-    return this.handleResponse<T>(res, endpoint)
+    return this.handleResponse<T>(res, endpoint, parseMode)
   }
 
   async put<T>(endpoint: string, body?: unknown, params?: Record<string, string>): Promise<T> {
@@ -85,7 +99,11 @@ export class ApiClient {
     return res.blob()
   }
 
-  private async handleResponse<T>(res: Response, endpoint?: string): Promise<T> {
+  private async handleResponse<T>(
+    res: Response,
+    endpoint?: string,
+    parseMode: ResponseParseMode = 'default',
+  ): Promise<T> {
     if (res.status === 401 && !endpoint?.includes('/auth/session')) {
       const basePath = import.meta.env.VITE_BASE_PATH_PREFIX || ''
       window.location.href = `${basePath}/admin/login.php`
@@ -100,9 +118,7 @@ export class ApiClient {
     }
     const text = await res.text()
     if (!text) return {} as T
-    const useBigIntRaw =
-      typeof endpoint === 'string' && endpoint.includes('stats/reporting/drilldown')
-    return (useBigIntRaw ? parseStatsJsonPreserveLargeIntRaw(text) : JSON.parse(text)) as T
+    return (parseMode === 'statsRawBigInt' ? parseStatsJsonPreserveLargeIntRaw(text) : JSON.parse(text)) as T
   }
 }
 

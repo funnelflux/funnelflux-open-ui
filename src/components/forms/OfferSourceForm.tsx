@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Resolver } from 'react-hook-form'
@@ -37,6 +37,10 @@ export function OfferSourceForm({
   const loadTemplate = useLoadOfferSourceTemplate()
   const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>()
   const isEditing = !!initialData?.idOfferSource
+  const templateOptions = useMemo(
+    () => (templates ?? []).map((template) => ({ value: template.id, label: template.name })),
+    [templates],
+  )
 
   const form = useForm<OfferSourceFormData>({
     resolver: zodResolver(offerSourceSchema) as Resolver<OfferSourceFormData>,
@@ -97,7 +101,7 @@ export function OfferSourceForm({
       footer={null}
       width={640}
       destroyOnHidden
-      scrollBody
+      layoutVariant="form"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-4 space-y-6">
@@ -115,10 +119,7 @@ export function OfferSourceForm({
               placeholder="Select a template"
               className="w-full"
               onChange={handlePickTemplate}
-              options={templates.map((template) => ({
-                value: template.id,
-                label: template.name,
-              }))}
+              options={templateOptions}
             />
           </FormField>
         )}

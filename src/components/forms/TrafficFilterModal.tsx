@@ -7,6 +7,11 @@ import { FILTER_TYPES, FILTER_TYPE_LABELS } from '@/lib/trafficFilterConstants'
 import { generateEntityId } from '@/lib/id-generator'
 import type { TrafficFilter } from '@/types/entities'
 
+const FILTER_TYPE_OPTIONS = FILTER_TYPES.map((type) => ({
+  value: type,
+  label: FILTER_TYPE_LABELS[type],
+}))
+
 export function TrafficFilterModal({
   open,
   onOpenChange,
@@ -100,10 +105,7 @@ export function TrafficFilterModal({
                 onBlur={field.onBlur}
                 className="w-full"
                 placeholder="Select type"
-                options={FILTER_TYPES.map((type) => ({
-                  value: type,
-                  label: FILTER_TYPE_LABELS[type],
-                }))}
+                options={FILTER_TYPE_OPTIONS}
               />
             </FormField>
           )}

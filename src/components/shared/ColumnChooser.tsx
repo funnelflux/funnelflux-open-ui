@@ -290,8 +290,9 @@ export function ColumnChooser<TData>({
 
               return (
                 <div key={group.groupId} className="border-b border-[var(--border)] last:border-b-0">
-                  <div
-                    className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none hover:bg-[var(--surface-hover)]"
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-2 cursor-pointer select-none hover:bg-[var(--surface-hover)] text-left"
                     onClick={() => toggleGroup(group.groupId)}
                   >
                     {isCollapsed
@@ -302,7 +303,7 @@ export function ColumnChooser<TData>({
                     <span className="text-xs text-[var(--muted-fg)]">
                       {visibleInGroup}/{totalInGroup}
                     </span>
-                  </div>
+                  </button>
 
                   {!isCollapsed && (
                     <div className="pb-2">

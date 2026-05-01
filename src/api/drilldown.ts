@@ -24,10 +24,7 @@ export async function fetchAllFlatDrilldownRows(
 ): Promise<Report> {
   const pageSize = options?.pageSize ?? DEFAULT_DRILLDOWN_PAGE_SIZE
   const initialStart = request.paging?.start ?? 0
-  const firstPage = await api.post<Report>(
-    '/stats/reporting/drilldown/',
-    withPaging(request, initialStart, pageSize),
-  )
+  const firstPage = await api.postDrilldown<Report>(withPaging(request, initialStart, pageSize))
 
   const rows = [...(firstPage.rows ?? [])]
   let rowsTotal =
@@ -41,10 +38,7 @@ export async function fetchAllFlatDrilldownRows(
     lastPageSize === pageSize &&
     (rowsTotal === undefined || rows.length < rowsTotal)
   ) {
-    const page = await api.post<Report>(
-      '/stats/reporting/drilldown/',
-      withPaging(request, nextStart, pageSize),
-    )
+    const page = await api.postDrilldown<Report>(withPaging(request, nextStart, pageSize))
     const pageRows = page.rows ?? []
     if (pageRows.length === 0) break
 

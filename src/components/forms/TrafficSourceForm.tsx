@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormField, Modal, Button, Input, Select } from '@/components/ui-kit'
 import { KeyValueListField } from '@/components/forms/KeyValueListField'
@@ -64,7 +64,6 @@ export function TrafficSourceForm({
     control,
     reset,
     getValues,
-    watch,
     formState: { errors },
   } = useForm<TrafficSourceFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +72,7 @@ export function TrafficSourceForm({
   })
 
   const formId = useId()
-  const postbackType = watch('postback.postbackType')
+  const postbackType = useWatch({ control, name: 'postback.postbackType' })
   const isEditing = !!initialData?.idTrafficSource
 
   const categorySelectOptions = useMemo(
@@ -83,6 +82,10 @@ export function TrafficSourceForm({
         label: c.name,
       })),
     [categories],
+  )
+  const templateOptions = useMemo(
+    () => (templates ?? []).map((template) => ({ value: template.id, label: template.name })),
+    [templates],
   )
 
   useEffect(() => {
@@ -132,7 +135,7 @@ export function TrafficSourceForm({
       title={isEditing ? 'Edit Traffic Source' : 'Add Traffic Source'}
       width={640}
       destroyOnHidden
-      scrollBody
+      layoutVariant="form"
       footer={
         <div className="flex justify-end gap-2 border-t border-border px-6 py-3">
           <Button htmlType="button" onClick={() => onOpenChange(false)}>
@@ -170,10 +173,7 @@ export function TrafficSourceForm({
                   placeholder="Select a template"
                   className="w-full"
                   onChange={handlePickTemplate}
-                  options={templates.map((template) => ({
-                    value: template.id,
-                    label: template.name,
-                  }))}
+                  options={templateOptions}
                 />
               </FormField>
             )}

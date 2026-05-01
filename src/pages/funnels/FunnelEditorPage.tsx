@@ -191,19 +191,13 @@ export function FunnelEditorPage() {
             <Button
               type="primary"
               size="small"
-              className="shrink-0 bg-orange-600 text-white hover:bg-orange-600/90"
+              uiVariant="default"
+              className="shrink-0"
               onClick={() => void handleSave()}
               disabled={isSaving}
+              iconName={isSaving ? 'loader-2' : 'save'}
+              iconAnimation={isSaving ? 'spin' : 'none'}
             >
-              {isSaving ? (
-                <span className="mr-2 inline-flex">
-                  <Icon name="loader-2" size="md" animation="spin" />
-                </span>
-              ) : (
-                <span className="mr-1.5 inline-flex">
-                  <Icon name="save" size="md" />
-                </span>
-              )}
               Save
             </Button>
           </header>

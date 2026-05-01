@@ -108,7 +108,7 @@ export function MoveFunnelModal({
         <Button
           key="move"
           type="primary"
-          className="bg-orange-600 hover:bg-orange-600/90"
+          uiVariant="default"
           loading={submitting}
           disabled={!resolvedTargetId}
           onClick={() => void handleSubmit()}

@@ -145,7 +145,15 @@ export function DraggableEdgeLabel({
           transform: `translate(-50%, -50%) translate(${position.x}px,${position.y}px)`,
           cursor: 'grab',
         }}
+        role="button"
+        tabIndex={0}
+        aria-label="Drag edge label"
         onMouseDown={handleMouseDown}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+          }
+        }}
       >
         {children}
       </div>

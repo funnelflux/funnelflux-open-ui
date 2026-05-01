@@ -88,13 +88,13 @@ export function ResetStatsPage() {
       <div className="max-w-lg space-y-4">
         {/* Campaign */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Campaign (optional)</label>
+          <span className="text-sm font-medium">Campaign (optional)</span>
           <Select options={campaignOptions} value={idCampaign || undefined} onChange={setIdCampaign} placeholder="All campaigns" className="w-full" />
         </div>
 
         {/* Traffic Source */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Traffic Source (optional)</label>
+          <span className="text-sm font-medium">Traffic Source (optional)</span>
           <Select options={trafficSourceOptions} value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="All traffic sources" className="w-full" />
         </div>
 

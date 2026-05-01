@@ -19,7 +19,7 @@ function zeroFormattedLike(sample: string): string | null {
   const trimmed = sample.trim()
   if (!trimmed || trimmed === '—') return null
 
-  const numericMatch = trimmed.match(/^([^0-9+\-.,]*)([+\-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)([^0-9.,]*)$/)
+  const numericMatch = trimmed.match(/^([^0-9+.,-]*)([+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)([^0-9.,]*)$/)
   if (!numericMatch) return null
 
   const [, prefix = '', numericPart = '', suffix = ''] = numericMatch

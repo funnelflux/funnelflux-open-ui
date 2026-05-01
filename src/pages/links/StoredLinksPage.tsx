@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Modal, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn, entityRowId } from '@/components/ui-kit/data-table'
 import {
@@ -134,8 +133,7 @@ export function StoredLinksPage() {
       fillHeight
       title="Stored Links"
       actions={
-        <Button type="primary" onClick={openCreate}>
-          <Icon name="plus" />
+        <Button type="primary" iconName="plus" onClick={openCreate}>
           Add Link
         </Button>
       }
@@ -173,8 +171,13 @@ export function StoredLinksPage() {
             />
           </div>
 
-          <Button type="primary" htmlType="submit" disabled={saveMutation.isPending} className="w-full">
-            {saveMutation.isPending && <Icon name="loader-2" />}
+          <Button
+            type="primary"
+            htmlType="submit"
+            disabled={saveMutation.isPending}
+            loading={saveMutation.isPending}
+            block
+          >
             {editingLink ? 'Save Changes' : 'Create Link'}
           </Button>
         </form>

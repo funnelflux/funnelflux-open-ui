@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Segmented, Space } from '@/components/ui-kit'
-import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Select, FormField, Modal, useToastApi } from '@/components/ui-kit'
 import { useCampaignsList } from '@/api/hooks'
 
@@ -37,11 +36,14 @@ export function AddCampaignOrFunnelModal({
 
   const { data: campaigns, isLoading: campaignsLoading } = useCampaignsList()
 
-  const options =
-    campaigns?.map((c) => ({
-      value: c.id,
-      label: c.name || c.id,
-    })) ?? []
+  const options = useMemo(
+    () =>
+      campaigns?.map((c) => ({
+        value: c.id,
+        label: c.name || c.id,
+      })) ?? [],
+    [campaigns],
+  )
 
   const submitFunnel = (openEditor: boolean) => {
     const name = funnelName.trim()
@@ -99,7 +101,7 @@ export function AddCampaignOrFunnelModal({
             <Button
               type="primary"
               block
-              className="bg-orange-600 hover:bg-orange-600/90"
+              uiVariant="default"
               onClick={() => {
                 onClose()
                 onOpenCampaignForm()
@@ -125,7 +127,7 @@ export function AddCampaignOrFunnelModal({
                 />
                 <Button
                   type="primary"
-                  icon={<Icon name="plus" size="md" />}
+                  iconName="plus"
                   title="New campaign"
                   aria-label="Create campaign and select it"
                   loading={campaignQuickCreatePending}
@@ -154,7 +156,7 @@ export function AddCampaignOrFunnelModal({
               </Button>
               <Button
                 type="primary"
-                className="bg-orange-600 hover:bg-orange-600/90"
+                uiVariant="default"
                 disabled={!campaignId || !funnelName.trim() || funnelCreatePending}
                 loading={funnelCreatePending}
                 onClick={() => submitFunnel(true)}

@@ -136,12 +136,16 @@ export function TrafficSourcesPage() {
   )
 
   useEffect(() => {
-    setPagination((p) => ({ ...p, pageIndex: 0 }))
+    queueMicrotask(() => {
+      setPagination((p) => ({ ...p, pageIndex: 0 }))
+    })
   }, [filterResetKey])
 
   useEffect(() => {
     if (pagination.pageIndex > pageSlice.pageCount - 1 && pageSlice.pageCount > 0) {
-      setPagination((p) => ({ ...p, pageIndex: Math.max(0, pageSlice.pageCount - 1) }))
+      queueMicrotask(() => {
+        setPagination((p) => ({ ...p, pageIndex: Math.max(0, pageSlice.pageCount - 1) }))
+      })
     }
   }, [pagination.pageIndex, pageSlice.pageCount])
 
@@ -229,25 +233,26 @@ export function TrafficSourcesPage() {
     })
   }
 
-  const isDefaultSource = (row: TrafficSourceGridRow) => row.id === '1'
-  const hideCategoryStripEditDelete = (row: TrafficSourceGridRow) => {
+  const isDefaultSource = useCallback((row: TrafficSourceGridRow) => row.id === '1', [])
+  const hideCategoryStripEditDelete = useCallback((row: TrafficSourceGridRow) => {
     if (!row._isCategoryHeader) return false
     const cid = row._categoryId ?? ''
     return cid === ''
-  }
+  }, [])
 
-  const hideEditButton = (row: TrafficSourceGridRow) => {
+  const hideEditButton = useCallback((row: TrafficSourceGridRow) => {
     if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
     return isDefaultSource(row) || row.id === '__totals__'
-  }
+  }, [hideCategoryStripEditDelete, isDefaultSource])
 
-  const hideCloneArchive = (row: TrafficSourceGridRow) =>
+  const hideCloneArchive = useCallback((row: TrafficSourceGridRow) =>
     !!row._isCategoryHeader || isDefaultSource(row) || row.id === '__totals__'
+  , [isDefaultSource])
 
-  const hideDeleteButton = (row: TrafficSourceGridRow) => {
+  const hideDeleteButton = useCallback((row: TrafficSourceGridRow) => {
     if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
     return isDefaultSource(row) || row.id === '__totals__'
-  }
+  }, [hideCategoryStripEditDelete, isDefaultSource])
 
   const statCols = useMemo(
     () => mapStatColsForCategoryStrip(buildColumnsFromReport<TrafficSourceGridRow>(reportColumns)),
@@ -356,6 +361,9 @@ export function TrafficSourcesPage() {
     handleClone,
     handleArchiveTrafficSource,
     handleDeleteOrCategory,
+    hideEditButton,
+    hideCloneArchive,
+    hideDeleteButton,
   ])
 
   const gridColumnVisibility = useEntityGridColumnVisibility(
@@ -364,14 +372,14 @@ export function TrafficSourcesPage() {
     { defaultVisibleColumnIds: defaultColIds },
   )
 
-  const handleBulkDeselectAllTrafficSources = useCallback(() => setRowSelection({}), [])
+  const handleBulkDeselectAllTrafficSources = useCallback(() => setRowSelection({}), [setRowSelection])
 
   const handleBulkArchiveTrafficSources = useCallback(async () => {
     await api.put('/data/trafficsource/archive/', { ids: entityIdsForBulk, archive: true })
     toast.success('Selected traffic sources archived')
     setRowSelection({})
     reload()
-  }, [entityIdsForBulk, toast, reload])
+  }, [entityIdsForBulk, toast, reload, setRowSelection])
 
   const handleBulkDeleteTrafficSources = useCallback(async () => {
     const categoryKeys = [
@@ -391,7 +399,7 @@ export function TrafficSourcesPage() {
     toast.success('Selected items deleted')
     setRowSelection({})
     reload()
-  }, [selectedIds, entityIdsForBulk, deleteMutation, deleteCategoryMutation, toast, reload])
+  }, [selectedIds, entityIdsForBulk, deleteMutation, deleteCategoryMutation, toast, reload, setRowSelection])
 
   const handleBulkAssignTrafficSourceCategory = useCallback(async (idCategory: string) => {
     await api.put('/data/trafficsource/category/assign/', {
@@ -412,14 +420,14 @@ export function TrafficSourcesPage() {
 
   const handleTrafficSourcesDateRangeChange = useCallback((v: DateRange & { preset: string | null }) => {
     if (v.from && v.to) setDateRange({ from: v.from, to: v.to })
-  }, [])
+  }, [setDateRange])
 
   const handleTrafficSourceFormOpenChange = useCallback((open: boolean) => {
     setSheetOpen(open)
     if (!open) setEditId(null)
-  }, [])
+  }, [setEditId, setSheetOpen])
 
-  const handleDismissTrafficSourceDelete = useCallback(() => setDeleteId(null), [])
+  const handleDismissTrafficSourceDelete = useCallback(() => setDeleteId(null), [setDeleteId])
 
   return (
     <PageShell

@@ -57,10 +57,12 @@ export function GroupingFilterPopover({
     if (!open) return
 
     if (!isAsset) {
-      setWhitelistInput(stringifyValues(filters.whitelist))
-      setBlacklistInput(stringifyValues(filters.blacklist))
-      setWhitelistAssets([])
-      setBlacklistAssets([])
+      queueMicrotask(() => {
+        setWhitelistInput(stringifyValues(filters.whitelist))
+        setBlacklistInput(stringifyValues(filters.blacklist))
+        setWhitelistAssets([])
+        setBlacklistAssets([])
+      })
       return
     }
 
@@ -78,10 +80,12 @@ export function GroupingFilterPopover({
 
     const w = split(filters.whitelist)
     const b = split(filters.blacklist)
-    setWhitelistAssets(w.asset)
-    setWhitelistInput(w.manual)
-    setBlacklistAssets(b.asset)
-    setBlacklistInput(b.manual)
+    queueMicrotask(() => {
+      setWhitelistAssets(w.asset)
+      setWhitelistInput(w.manual)
+      setBlacklistAssets(b.asset)
+      setBlacklistInput(b.manual)
+    })
   }, [open, grouping, filters, isAsset, isLoading, optionValueSet])
 
   const isActive = useMemo(

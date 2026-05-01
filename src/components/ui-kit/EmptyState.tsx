@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Button } from 'antd'
 import { Icon } from '@/components/ui-kit/icons'
+import { Button } from './Button'
 
 interface EmptyStateProps {
   icon?: ReactNode

@@ -17,6 +17,7 @@ const METRIC_OPTIONS = [
   { value: 'cost', label: 'Cost' },
   { value: 'roi', label: 'ROI' },
 ] as const
+const METRIC_SELECT_OPTIONS = METRIC_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -135,7 +136,7 @@ export function HeatmapOverlay({ funnelId, active, onToggle }: HeatmapOverlayPro
         </Tag>
 
         <Select value={metric} onChange={setMetric} placeholder="Select metric" className="w-[150px]" size="small"
-          options={METRIC_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+          options={METRIC_SELECT_OPTIONS}
         />
 
         {drilldown.isPending && (

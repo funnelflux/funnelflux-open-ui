@@ -94,14 +94,14 @@ The dev server proxies `/admin/*` requests (PHP login + V2 API) to the backend s
 
 | Path | Purpose |
 |------|---------|
-| `src/api/client.ts` | Fetch-based API client (handles auth, base URL, JSON parsing) |
+| `src/api/client.ts` | Fetch-based API client (handles auth, base URL, JSON parsing, and explicit `postDrilldown` bigint-safe parsing) |
 | `src/api/auth.ts` | Auth endpoints |
 | `src/api/queryKeys.ts` | Centralized React Query key factories |
 | `src/api/drilldown.ts` | Drilldown report fetcher |
 | `src/api/normalizeTemplateList.ts`, `offerSourceTemplateLoad.ts`, `trafficSourceTemplateLoad.ts` | Template normalization |
 | `src/api/useAuth.ts`, `useEntityPage.ts`, `useNotifications.ts` | High-level page hooks |
 | `src/api/generated/` | Auto-generated API types (do NOT hand-edit; regen via `pnpm run generate-types`) |
-| `src/api/hooks/` | One React Query hook file per entity: `useCampaigns`, `useCategories`, `useCodeSnippets`, `useConditions`, `useDashboard`, `useDomains`, `useDrilldown`, `useEntityGrid`, `useFunnels`, `useGroupingFilterAssetOptions`, `useInbox`, `useOfferSources`, `usePages`, `useSavedViews`, `useStoredLinks`, `useSystemLinks`, `useSystemSettings`, `useTags`, `useTrafficFilters`, `useTrafficSources`, `useUserManagement`, plus `createEntityHooks` factory and `index.ts` barrel |
+| `src/api/hooks/` | One React Query hook file per entity: `useCampaigns`, `useCategories`, `useCodeSnippets`, `useConditions`, `useDashboard`, `useDomains`, `useDrilldown`, `useEntityGrid`, `useFunnels`, `useGroupingFilterAssetOptions`, `useInbox`, `useOfferSources`, `usePages`, `useSavedViews`, `useStoredLinks`, `useSystemLinks`, `useSystemSettings`, `useTags`, `useTrafficFilters`, `useTrafficSources`, `useUserManagement`, and `index.ts` barrel |
 
 ### `src/components/`
 
@@ -128,7 +128,8 @@ One directory per section. Page components are lazy-loaded in `src/App.tsx`.
 | `src/pages/funnels/` | `FunnelEditorPage`, `FunnelBuilderLegacyRedirect` |
 | `src/pages/traffic-sources/` | Traffic source management |
 | `src/pages/offer-sources/` | Offer source management |
-| `src/pages/offers/`, `src/pages/landers/` | Entity pages |
+| `src/pages/PageEntitiesPage.tsx` | Shared offers/landers entity page shell (category-strip + table flow) |
+| `src/pages/offers/`, `src/pages/landers/` | Thin wrappers around `PageEntitiesPage` with type-specific config |
 | `src/pages/reports/` | `DrilldownTreePage`, `DrilldownFlatPage` |
 | `src/pages/quickview/` | `QuickViewPage` |
 | `src/pages/links/` | `SystemLinksPage`, `StoredLinksPage` |
@@ -150,7 +151,7 @@ One directory per section. Page components are lazy-loaded in `src/App.tsx`.
 
 ### `src/schemas/` (Zod)
 
-One schema per entity: `campaign.ts`, `condition.ts`, `funnel.ts`, `landerNode.ts`, `offerNode.ts`, `offerSource.ts`, `page.ts`, `systemSettings.ts`, `trafficFilter.ts`, `trafficSource.ts`.
+One schema per entity: `campaign.ts`, `condition.ts`, `funnel.ts`, `landerNode.ts`, `offerNode.ts`, `offerSource.ts`, `page.ts`, `systemSettings.ts`, `trafficFilter.ts`, `trafficSource.ts`, `userEdit.ts`.
 
 ### `src/types/`
 
@@ -164,7 +165,7 @@ One schema per entity: `campaign.ts`, `condition.ts`, `funnel.ts`, `landerNode.t
 
 ### `src/hooks/`
 
-Custom React hooks. Page-level hooks live in `src/api/` (e.g. `useAuth.ts`, `useEntityPage.ts`). Auth/notification convenience hooks may live here.
+Custom React hooks. Page-level hooks live in `src/api/` (e.g. `useAuth.ts`, `useEntityPage.ts`). Shared table/page orchestration hooks (for example `useCategoryStripTableFlow.ts`) live here.
 
 ### `src/lib/`
 
@@ -240,6 +241,13 @@ Utilities, theming, and pure helpers (most have unit tests):
 - **Server data → React Query.** All data fetched from the API uses `@tanstack/react-query` with hooks in `src/api/hooks/`. Caching, background refetching, and loading/error states belong here.
 - **Client UI state → Zustand.** Auth, theme, drilldown filters, funnel canvas state, persisted table config — anything that does not come from the server.
 - Do not use React Query for purely local UI state. Do not use Zustand for server-fetched data.
+
+## API & Query Guardrails
+
+- Add new query keys in `src/api/queryKeys.ts`; do not create ad hoc literal key arrays at call sites.
+- Use `api.postDrilldown(...)` for drilldown report requests so `raw` bigint metrics are parsed safely.
+- `codeEdgeRole` on funnel code edges is UI-only; never add it to PHP-facing save payloads.
+- Keep offers/landers page differences in wrapper files; shared table/category-strip behavior belongs in `src/pages/PageEntitiesPage.tsx` + `src/hooks/useCategoryStripTableFlow.ts`.
 
 ## UI / Styling Rules
 
@@ -326,5 +334,8 @@ Before marking work as complete, verify:
 - [ ] No unstable references in `useEffect` deps (no inline `.filter()`, `.map()`, object literals)
 - [ ] `columnDefs` and expensive computations wrapped in `useMemo` with stable deps
 - [ ] Action handlers in memoized `columnDefs` use the `useRef` pattern
+- [ ] New/updated drilldown report calls use `api.postDrilldown(...)`
+- [ ] New react-query keys are added to `src/api/queryKeys.ts` (no ad hoc literal key arrays)
+- [ ] New settings/entity forms follow RHF + Zod pattern (`src/schemas/*`)
 - [ ] Import alias `@/` used for all `src/` imports
 - [ ] Used `pnpm` (never `npm` or `yarn`) for any dependency changes

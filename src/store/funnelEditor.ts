@@ -14,10 +14,11 @@ import { extractMetaFromRawFunnel, normalizeFunnelApiResponse } from '@/lib/funn
 import { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
 import { materializeRotatorWeights, reclassifyLoadedRotatorEdges } from '@/lib/rotatorWeights'
 import {
+  coerceCodeEdgeRoles,
   coerceJsPhpCodeOutboundHandles,
   coerceJsPhpInboundTargetHandles,
   coerceVisitorTagOutboundEdges,
-} from '@/components/funnel-builder/validation'
+} from '@/lib/funnel-graph/graphHydrationCoercion'
 import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
 import type { FunnelEditorMeta } from '@/types/funnel'
 
@@ -211,9 +212,12 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
       flowNodes,
       coerceJsPhpCodeOutboundHandles(
         flowNodes,
-        coerceVisitorTagOutboundEdges(
+        coerceCodeEdgeRoles(
           flowNodes,
-          reclassifyLoadedRotatorEdges(funnel.connections.map(apiConnectionToFlowEdge)),
+          coerceVisitorTagOutboundEdges(
+            flowNodes,
+            reclassifyLoadedRotatorEdges(funnel.connections.map(apiConnectionToFlowEdge)),
+          ),
         ),
       ),
     )

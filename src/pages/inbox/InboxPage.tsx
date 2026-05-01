@@ -121,19 +121,28 @@ export function InboxPage() {
                     {formatDate(message.timestamp)}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1 shrink-0">
                   <Button
                     type="text"
-                    className="h-7 w-7"
-                    icon={message.alreadyRead ? <Icon name="mail" size="sm" /> : <Icon name="mail-open" size="sm" />}
-                    onClick={() => toggleReadStatus(message)}
+                    size="sm"
+                    iconName={message.alreadyRead ? 'mail' : 'mail-open'}
+                    iconSize="sm"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      toggleReadStatus(message)
+                    }}
                     title={message.alreadyRead ? 'Mark as unread' : 'Mark as read'}
                   />
                   <Button
                     type="text"
-                    className="h-7 w-7 text-destructive hover:text-destructive"
-                    icon={<Icon name="trash-2" size="sm" />}
-                    onClick={() => setDeleteTarget(message)}
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    iconName="trash-2"
+                    iconSize="sm"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setDeleteTarget(message)
+                    }}
                     title="Delete"
                   />
                 </div>

@@ -1,7 +1,9 @@
 import { useRef } from 'react'
-import { DatePicker } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
+import { DatePicker } from './DatePicker'
+import type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
+import { controlTierToAntdSize, normalizeControlTier } from '@/lib/controlSize'
 
 const { RangePicker } = DatePicker
 
@@ -14,6 +16,8 @@ interface DateTimeRangePickerProps {
   showTime?: boolean
   className?: string
   style?: React.CSSProperties
+  /** sm | md | lg to align with other toolbar controls */
+  size?: ControlSize | LegacyAntdControlSize
   allowClear?: boolean
   presets?: { label: string; value: RangeValue }[]
 }
@@ -34,10 +38,12 @@ export function DateTimeRangePicker({
   showTime = false,
   className,
   style,
+  size = 'md',
   allowClear = false,
   presets,
 }: DateTimeRangePickerProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
+  const antdSize = controlTierToAntdSize(normalizeControlTier(size))
 
   if (!showTime) {
     return (
@@ -46,6 +52,7 @@ export function DateTimeRangePicker({
         onChange={onChange}
         className={className}
         style={style}
+        size={antdSize}
         allowClear={allowClear}
         presets={presets}
         format="YYYY-MM-DD"
@@ -56,11 +63,7 @@ export function DateTimeRangePicker({
   // When a date cell is clicked, auto-click the OK button to advance panels.
   // The OK button is inside the popup dropdown, not the picker wrapper,
   // so we search from document.
-  const handleCalendarChange = (
-    _dates: RangeValue,
-    _dateStrings: [string, string],
-    _info: { range?: 'start' | 'end' },
-  ) => {
+  const handleCalendarChange = () => {
     // Small delay to let antd render the OK button in the footer
     setTimeout(() => {
       // The popup is appended to document.body. Find the visible one.
@@ -86,6 +89,7 @@ export function DateTimeRangePicker({
         }}
         className={className}
         style={style}
+        size={antdSize}
         allowClear={allowClear}
         presets={presets}
         format="YYYY-MM-DD HH:mm"

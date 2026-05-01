@@ -4,6 +4,7 @@ import {
   CODE_NODE_UNIFIED_SOURCE_HANDLE,
   CODE_NODE_UNIFIED_TARGET_HANDLE,
 } from '@/lib/codeNodeExits'
+import { conditionBranchFromSourceHandle } from '@/lib/funnel-graph/conditionBranchPolicy'
 
 /** Must match Handle `id` values on `BaseNode` */
 export const SOURCE_HANDLE = {
@@ -67,22 +68,10 @@ export function computeOptimalHandles(
     sourceHandle = CODE_NODE_UNIFIED_SOURCE_HANDLE
   } else if (sourceNode.data.nodeType === NODE_TYPES.condition) {
     const data = edge.data
-    const inferBranchFromHandle = (h: string | null | undefined): 'yes' | 'no' => {
-      switch (h) {
-        case SOURCE_HANDLE.left:
-        case SOURCE_HANDLE.bottom:
-          return 'no'
-        case SOURCE_HANDLE.top:
-        case SOURCE_HANDLE.right:
-        default:
-          return 'yes'
-      }
-    }
-
     const branch: 'yes' | 'no' =
       data?.edgeType === 'condition'
-        ? ((data as ConditionEdgeData).branch ?? inferBranchFromHandle(edge.sourceHandle))
-        : inferBranchFromHandle(edge.sourceHandle)
+        ? ((data as ConditionEdgeData).branch ?? conditionBranchFromSourceHandle(edge.sourceHandle))
+        : conditionBranchFromSourceHandle(edge.sourceHandle)
 
     const yesPreferred = Math.abs(dx) >= Math.abs(dy) ? SOURCE_HANDLE.right : SOURCE_HANDLE.top
     const noPreferred = Math.abs(dx) >= Math.abs(dy) ? SOURCE_HANDLE.left : SOURCE_HANDLE.bottom

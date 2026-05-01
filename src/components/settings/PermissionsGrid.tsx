@@ -68,7 +68,7 @@ export function PermissionsGrid({ value, onChange }: PermissionsGridProps) {
 
             {'restrictTo' in sectionValue ? (
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-foreground">Restrict To</label>
+                <span className="block text-sm font-medium text-foreground">Restrict To</span>
                 <Input
                   value={Array.isArray(sectionValue.restrictTo) ? sectionValue.restrictTo.join(', ') : ''}
                   onChange={(event) =>
@@ -88,7 +88,7 @@ export function PermissionsGrid({ value, onChange }: PermissionsGridProps) {
             {section.assetRestrictions ? (
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">Restrict To Asset IDs</label>
+                  <span className="block text-sm font-medium text-foreground">Restrict To Asset IDs</span>
                   <Input
                     value={Array.isArray(sectionValue.restrictToAssetIds) ? sectionValue.restrictToAssetIds.join(', ') : ''}
                     onChange={(event) =>
@@ -104,7 +104,7 @@ export function PermissionsGrid({ value, onChange }: PermissionsGridProps) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">Restrict To Category IDs</label>
+                  <span className="block text-sm font-medium text-foreground">Restrict To Category IDs</span>
                   <Input
                     value={Array.isArray(sectionValue.restrictToCategoryIds) ? sectionValue.restrictToCategoryIds.join(', ') : ''}
                     onChange={(event) =>

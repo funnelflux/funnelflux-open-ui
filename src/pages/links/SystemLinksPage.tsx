@@ -151,12 +151,12 @@ export function SystemLinksPage() {
         <>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Campaign *</label>
+              <span className="text-sm font-medium">Campaign *</span>
               <Select options={campaignOptions} value={selectedCampaign || undefined} onChange={setSelectedCampaign} placeholder="Select campaign" className="w-full" />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Funnel *</label>
+              <span className="text-sm font-medium">Funnel *</span>
               <Select
                 options={funnelOptions}
                 value={selectedFunnel || undefined}
@@ -168,7 +168,7 @@ export function SystemLinksPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Node</label>
+              <span className="text-sm font-medium">Node</span>
               <Select
                 options={nodeOptions}
                 value={selectedNode || '__default__'}
@@ -180,12 +180,12 @@ export function SystemLinksPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Traffic Source *</label>
+              <span className="text-sm font-medium">Traffic Source *</span>
               <Select options={trafficSourceOptions} value={selectedTrafficSource || undefined} onChange={setSelectedTrafficSource} placeholder="Select traffic source" className="w-full" />
             </div>
 
             <div className="space-y-1.5 lg:col-span-2">
-              <label className="text-sm font-medium">Domain</label>
+              <span className="text-sm font-medium">Domain</span>
               <Select
                 options={domainOptions}
                 value={selectedDomain || '__default__'}

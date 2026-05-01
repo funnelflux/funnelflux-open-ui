@@ -1,13 +1,16 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Icon } from '@/components/ui-kit/icons'
 import { Tag } from '@/components/ui-kit'
 import { Button, Switch, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, deleteBtnColumn, enableBtnColumn, disableBtnColumn } from '@/components/ui-kit/data-table'
 import { useUsers, useChangeUserStatus, useDeleteUser } from '@/api/hooks/useUserManagement'
 import type { ManagedUser } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
+
+function managedUserRowId(row: ManagedUser): string {
+  return String(row.id)
+}
 
 export function UserManagementPage() {
   const navigate = useNavigate()
@@ -51,6 +54,10 @@ export function UserManagementPage() {
   const handleRequestDelete = useCallback((row: ManagedUser) => {
     setDeleteTarget(row)
   }, [])
+
+  const handleNavigateToCreate = useCallback(() => {
+    navigate('/settings/users/new')
+  }, [navigate])
 
   const confirmDelete = useCallback(() => {
     if (!deleteTarget) return
@@ -117,10 +124,7 @@ export function UserManagementPage() {
     <PageShell fillHeight
       title="User Management"
       actions={
-        <Button type="primary" onClick={() => navigate('/settings/users/new')}>
-          <span className="mr-1.5 inline-flex">
-            <Icon name="user-plus" size="sm" />
-          </span>
+        <Button type="primary" iconName="user-plus" onClick={handleNavigateToCreate}>
           Add User
         </Button>
       }
@@ -128,7 +132,7 @@ export function UserManagementPage() {
       <DataTable<ManagedUser>
         data={users ?? []}
         columns={columns}
-        getRowId={(row) => String(row.id)}
+        getRowId={managedUserRowId}
         loading={isLoading}
         tableConfigKey="settings-users"
         defaultSorting={[{ id: 'email', desc: false }]}

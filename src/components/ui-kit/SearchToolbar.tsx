@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
-import { Input } from 'antd'
 import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import { Button } from './Button'
+import { Input } from './Input'
 import { Tooltip } from './Tooltip'
 
 interface SearchToolbarProps {
@@ -72,7 +72,7 @@ export function SearchToolbar({
               <Button
                 type="default"
                 htmlType="button"
-                icon={<Icon name="refresh-cw" size="md" />}
+                iconName="refresh-cw"
                 loading={refreshLoading}
                 onClick={handleRefreshClick}
                 aria-label="Refresh"

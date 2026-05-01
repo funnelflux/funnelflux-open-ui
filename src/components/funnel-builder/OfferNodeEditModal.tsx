@@ -1,5 +1,5 @@
 import { Icon } from '@/components/ui-kit/icons'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -11,43 +11,28 @@ import {
   Switch,
   Modal,
   useToastApi,
-  type SelectOption,
 } from '@/components/ui-kit'
-import { useCategories, useOfferSources, usePage, useSaveCategory, useSavePage } from '@/api/hooks'
+import { useCategories, useOfferSources, useSavePage } from '@/api/hooks'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/api/queryKeys'
 import { offerNodeEditSchema, type OfferNodeEditFormData } from '@/schemas/offerNode'
 import type { Page } from '@/types/entities'
 import { NODE_TYPES, type OfferNodeParams } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import { FUNNEL_URL_TOKEN_OPTIONS } from '@/lib/urlTokens'
 import { cn, getErrorMessage } from '@/lib/utils'
-
-const REDIRECT_OPTIONS = [
-  { value: '307', label: '307 Temporary Redirect' },
-  { value: '301', label: '301 Permanent Redirect' },
-  { value: 'umr', label: 'Ultimate Meta Refresh (UMR)' },
-  { value: 'fluxify', label: 'Fluxify (reverse proxy)' },
-] as const
-
-const UNCATEGORIZED = 'Uncategorized'
-
-/** Category select value derived from tags[0] (same logic as Offers list). */
-function tagCategorySelectValue(tags: string[] | undefined): string {
-  const raw = tags?.[0]
-  if (!raw || raw === UNCATEGORIZED) return '__none__'
-  return raw
-}
-
-const REDIRECT_NOTES: Partial<Record<OfferNodeEditFormData['redirectType'], string>> = {
-  umr:
-    "FunnelFlux's Ultimate Meta Refresh does not leak the referrer the way a double meta refresh can. " +
-    'It is faster than a typical double meta refresh, but still slower than a 301 or 307 redirect.',
-  '301': 'Permanent redirect. Search engines treat the destination URL as the canonical URL.',
-  '307': 'Temporary redirect. Preserves the request method; good default for most tracking flows.',
-  fluxify:
-    'Advanced cloaking with Fluxify. Use when you need on-page rewriting, referrers/UA spoofing, or other Fluxify features.',
-}
+import { PageCategoryCreateModal } from './PageCategoryCreateModal'
+import {
+  REDIRECT_NOTES,
+  REDIRECT_SELECT_OPTIONS,
+  TOKEN_SELECT_OPTIONS,
+  UNCATEGORIZED,
+  openNodePageUrl,
+  pageNameForToast,
+  toNodeAdditionalTokens,
+  useCategorySmartOptions,
+  useNodePageDetail,
+  usePageCategoryCreator,
+} from './pageNodeModalShared'
 
 interface OfferNodeEditModalProps {
   nodeId: string | null
@@ -68,26 +53,10 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
       ? String((node.data.params as OfferNodeParams).pageId ?? '')
       : ''
 
-  const {
-    data: page,
-    isLoading,
-    isFetching,
-    isError,
-    error,
-  } = usePage(pageId, {
-    enabled: open && !!pageId,
-    staleTime: 0,
-    refetchOnMount: 'always',
-  })
-
-  const pageLoading = isLoading || (open && isFetching)
+  const { data: page, isFetching, isError, error, noPage, pageLoading } = useNodePageDetail(pageId, open)
   const { data: categories } = useCategories('page')
   const { data: offerSources } = useOfferSources()
   const savePage = useSavePage()
-  const saveCategory = useSaveCategory()
-
-  const [addCategoryOpen, setAddCategoryOpen] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
 
   const form = useForm<OfferNodeEditFormData>({
     resolver: zodResolver(offerNodeEditSchema),
@@ -144,27 +113,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
     defaultValue: false,
   })
 
-  const categoryNamesFromApi = new Set((categories ?? []).map((c) => c.name).filter(Boolean))
-  const rawTag = tags?.[0]
-  const orphanCategory =
-    rawTag && rawTag !== UNCATEGORIZED && !categoryNamesFromApi.has(rawTag) ? rawTag : null
-
-  const categorySmartOptions = useMemo<SelectOption[]>(() => {
-    const out: SelectOption[] = [{ value: '__none__', label: '—' }]
-    if (orphanCategory) out.push({ value: orphanCategory, label: orphanCategory })
-    for (const c of categories?.filter((c) => c.name && c.name !== UNCATEGORIZED) ?? []) {
-      out.push({ value: c.name, label: c.name })
-    }
-    return out
-  }, [categories, orphanCategory])
-
-  const tokenSelectOptions = useMemo<SelectOption[]>(
-    () => [
-      { value: '__pick__', label: '—' },
-      ...FUNNEL_URL_TOKEN_OPTIONS.map((t) => ({ value: t, label: t })),
-    ],
-    [],
-  )
+  const { categorySelectValue, categorySmartOptions } = useCategorySmartOptions(categories, tags)
 
   const offerSourceOptions = useMemo(
     () =>
@@ -175,35 +124,20 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
     [offerSources],
   )
 
-  const openAddCategoryModal = useCallback(() => {
-    setNewCategoryName('')
-    setAddCategoryOpen(true)
-  }, [])
+  const {
+    addCategoryOpen,
+    newCategoryName,
+    setNewCategoryName,
+    openAddCategoryModal,
+    closeAddCategoryModal,
+    handleConfirmAddCategory,
+    addCategorySaving,
+  } = usePageCategoryCreator({
+    onCreated: (name) => form.setValue('tags', [name], { shouldDirty: true }),
+  })
 
-  const openOfferUrl = useCallback(() => {
-    const u = urlValue?.trim()
-    if (!u || !/^https?:\/\//i.test(u)) {
-      toast.error('Enter a valid http(s) URL first')
-      return
-    }
-    window.open(u, '_blank', 'noopener,noreferrer')
-  }, [toast, urlValue])
-
-  const handleConfirmAddCategory = async () => {
-    const name = newCategoryName.trim()
-    if (!name) {
-      toast.error('Enter a category name')
-      return
-    }
-    try {
-      await saveCategory.mutateAsync({ entityType: 'page', name })
-      toast.success('Category saved')
-      form.setValue('tags', [name], { shouldDirty: true })
-      setAddCategoryOpen(false)
-      setNewCategoryName('')
-    } catch (e) {
-      toast.error(getErrorMessage(e))
-    }
+  const openOfferUrl = () => {
+    openNodePageUrl(urlValue ?? '', toast)
   }
 
   const onSubmit = async (data: OfferNodeEditFormData) => {
@@ -223,10 +157,8 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
       await savePage.mutateAsync({ page: payload, isCreate: false })
       await qc.refetchQueries({ queryKey: queryKeys.pages.detail(String(data.idPage)) })
 
-      const tokenRows = data.additionalTokens ?? form.getValues('additionalTokens') ?? []
-      const tokens = tokenRows
-        .filter((r) => r.field.trim() !== '')
-        .map((r) => ({ field: r.field.trim(), token: r.token }))
+      const tokenRows = data.additionalTokens ?? form.getValues('additionalTokens')
+      const tokens = toNodeAdditionalTokens(tokenRows)
 
       updateNodeData(nodeId, {
         label: data.pageName,
@@ -235,18 +167,17 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
           pageId: String(data.idPage),
           pageName: data.pageName,
           accumulateUrlParams: data.accumulateUrlParams,
-          additionalTokens: tokens.length > 0 ? tokens : undefined,
+          additionalTokens: tokens,
         },
       })
 
-      toast.success('Offer saved.')
+      toast.success(`${pageNameForToast('offer')} saved.`)
       onClose()
     } catch (e) {
       toast.error(getErrorMessage(e))
     }
   }
 
-  const noPage = !pageId || pageId === '0'
   const busy = savePage.isPending
 
   return (
@@ -258,7 +189,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
         destroyOnHidden
         maskClosable={false}
         width={640}
-        scrollBody
+        layoutVariant="form"
         footer={
           <div className="flex w-full gap-2">
             <Button
@@ -267,11 +198,11 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
               form="offer-node-edit-form"
               disabled={busy || noPage || pageLoading || isError}
               loading={busy}
-              className="min-w-0 flex-1"
+              block
             >
               Save
             </Button>
-            <Button htmlType="button" disabled={busy} onClick={onClose} className="min-w-0 flex-1">
+            <Button htmlType="button" disabled={busy} onClick={onClose} block>
               Cancel
             </Button>
           </div>
@@ -331,7 +262,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                               className="w-full"
                               size="md"
                               options={categorySmartOptions}
-                              value={tagCategorySelectValue(tags)}
+                              value={categorySelectValue}
                               placeholder="Category"
                               onChange={(v) => {
                                 if (v === '__none__' || v === UNCATEGORIZED) {
@@ -348,7 +279,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                             size="md"
                             className="shrink-0"
                             title="Add category"
-                            icon={<Icon name="plus" />}
+                            iconName="plus"
                             onClick={openAddCategoryModal}
                           />
                         </div>
@@ -387,7 +318,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                           size="md"
                           className="shrink-0"
                           title="Open URL"
-                          icon={<Icon name="external-link" />}
+                          iconName="external-link"
                           onClick={openOfferUrl}
                         />
                       </div>
@@ -445,10 +376,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                               <Select
                                 className="w-full min-w-0"
                                 size="md"
-                                options={REDIRECT_OPTIONS.map((opt) => ({
-                                  label: opt.label,
-                                  value: opt.value,
-                                }))}
+                                options={REDIRECT_SELECT_OPTIONS}
                                 placeholder="Redirect type"
                                 value={field.value}
                                 onChange={field.onChange}
@@ -549,7 +477,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                                   onChange={(v) => {
                                     field.onChange(v === '__pick__' ? '' : v)
                                   }}
-                                  options={tokenSelectOptions}
+                                  options={TOKEN_SELECT_OPTIONS}
                                   placeholder="Insert…"
                                   alphabetical={false}
                                 />
@@ -564,7 +492,7 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                               className="text-muted-foreground"
                               title="Remove row"
                               disabled={fields.length <= 1}
-                              icon={<Icon name="trash-2" />}
+                              iconName="trash-2"
                               onClick={() => remove(index)}
                             />
                           </div>
@@ -573,7 +501,8 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                       <Button
                         htmlType="button"
                         size="sm"
-                        icon={<Icon name="plus" size="sm" />}
+                        iconName="plus"
+                        iconSize="sm"
                         onClick={() => append({ field: '', token: '' })}
                       >
                         Pass another token
@@ -585,38 +514,15 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
         </div>
       </Modal>
 
-      <Modal
-        title="New category"
+      <PageCategoryCreateModal
         open={addCategoryOpen}
-        okText="Create"
-        cancelText="Cancel"
-        confirmLoading={saveCategory.isPending}
-        onOk={() => void handleConfirmAddCategory()}
-        onCancel={() => {
-          setAddCategoryOpen(false)
-          setNewCategoryName('')
-        }}
-        destroyOnHidden
-      >
-        <p className="mb-2 text-sm text-muted-foreground">Letters, numbers, and spaces only.</p>
-        <label htmlFor="offer-new-category-name" className="sr-only">
-          Category name
-        </label>
-        <Input
-          id="offer-new-category-name"
-          size="md"
-          className="h-control-md"
-          value={newCategoryName}
-          onChange={(e) => setNewCategoryName(e.target.value)}
-          placeholder="Category name"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              void handleConfirmAddCategory()
-            }
-          }}
-        />
-      </Modal>
+        inputId="offer-new-category-name"
+        value={newCategoryName}
+        confirmLoading={addCategorySaving}
+        onChange={setNewCategoryName}
+        onConfirm={handleConfirmAddCategory}
+        onCancel={closeAddCategoryModal}
+      />
     </>
   )
 }

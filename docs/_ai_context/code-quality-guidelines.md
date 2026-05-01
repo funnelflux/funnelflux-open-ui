@@ -15,7 +15,7 @@ Project-specific conventions and patterns for the FunnelFlux React UI.
 
 - Always use `@/` alias for src-relative imports: `import { DataGrid } from '@/components/ui-kit'`
 - UI kit components: import from barrel `@/components/ui-kit` (not individual files)
-- Ant Design: import components directly from `antd`, icons from `@ant-design/icons`
+- App code should use ui-kit wrappers; raw AntD imports are only for ui-kit implementation files
 - Types: use `import type` for type-only imports
 
 ## Component Patterns
@@ -41,7 +41,9 @@ Follow the pattern in `src/api/hooks/useCampaigns.ts`:
 - One file per entity in `src/api/hooks/`
 - Export from barrel `src/api/hooks/index.ts`
 - Use query key factory from `src/api/queryKeys.ts`
+- Add/extend key factories in `queryKeys.ts` (including `groupingFilterAssets`) instead of ad hoc query key arrays
 - Queries use `useQuery`, mutations use `useMutation` with cache invalidation
+- Use `api.postDrilldown(...)` for drilldown report calls; do not rely on endpoint substring parsing
 
 ### Zustand Stores
 
@@ -69,7 +71,7 @@ Follow the pattern in `src/store/funnelEditor.ts`:
 
 ## Testing Patterns
 
-- No test framework configured yet — tests are a future addition
+- Test runner is Vitest (`pnpm test`)
 - When tests are added, test behavior not implementation
 - Prefer real dependencies over mocks when fast and deterministic
 
@@ -88,5 +90,8 @@ Follow the pattern in `src/store/funnelEditor.ts`:
 - Hardcoding colors/spacing instead of using design tokens
 - Importing from individual ui-kit files instead of the barrel
 - Mixing Ant Design component props with Tailwind styling when the token system already covers it
+- Reintroducing `createEntityHooks`-style local key factories that diverge from `queryKeys.ts`
+- Calling `api.post('/stats/reporting/drilldown/', ...)` directly instead of `api.postDrilldown(...)`
+- Persisting UI-only funnel fields such as `codeEdgeRole` in save payloads
 - Over-engineering with feature flags or configuration for simple changes
 - Adding backwards-compatibility shims when you can just change the code

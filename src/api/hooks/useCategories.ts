@@ -7,13 +7,6 @@ export interface Category {
   name: string
 }
 
-const categoryQueryKeys = (queryKeys as typeof queryKeys & {
-  categories: {
-    all: readonly ['categories']
-    list: (entityType?: string) => readonly ['categories', 'list', string | undefined]
-  }
-}).categories
-
 function categoryEndpoints(entityType: string): {
   list: string
   save: string
@@ -38,7 +31,7 @@ function categoryEndpoints(entityType: string): {
 
 export function useCategories(entityType: string) {
   return useQuery({
-    queryKey: categoryQueryKeys.list(entityType),
+    queryKey: queryKeys.categories.list(entityType),
     queryFn: async () => {
       const { list } = categoryEndpoints(entityType)
       const response = await api.get<Array<{ idCategory?: string; id?: string; name?: string }>>(
@@ -74,7 +67,7 @@ export function useSaveCategory() {
         : api.put(save, { idCategory, name })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: categoryQueryKeys.all })
+      qc.invalidateQueries({ queryKey: queryKeys.categories.all })
     },
   })
 }
@@ -88,7 +81,7 @@ export function useDeleteCategory() {
       return api.delete(del, { idCategory })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: categoryQueryKeys.all })
+      qc.invalidateQueries({ queryKey: queryKeys.categories.all })
     },
   })
 }

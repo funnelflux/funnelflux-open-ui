@@ -6,10 +6,16 @@ import {
   computeDisplayedWeights,
   formatWeight,
   getSiblingWeightedEdges,
+  maxAllowedWeight,
   WEIGHT_EPSILON,
 } from '@/lib/rotatorWeights'
 import { cn } from '@/lib/utils'
-import { NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel'
+import {
+  NODE_TYPE_LABELS,
+  type FunnelFlowEdge,
+  type NodeTypeValue,
+  type WeightedEdgeData,
+} from '@/types/funnel'
 
 interface RotatorNodeEditModalProps {
   nodeId: string | null
@@ -61,36 +67,34 @@ export function RotatorNodeEditModal({ nodeId, open, onClose }: RotatorNodeEditM
 
   if (!node) return null
 
-  const lockedSum = rows
-    .filter((r) => r.locked)
-    .reduce((acc, r) => acc + Math.max(0, Math.min(100, r.weight)), 0)
-  const unlockedCount = rows.filter((r) => !r.locked).length
-  const remaining = Math.max(0, 100 - lockedSum)
-  const share = unlockedCount > 0 ? remaining / unlockedCount : 0
-  const total = rows.reduce(
-    (acc, r) => acc + (r.locked ? Math.max(0, Math.min(100, r.weight)) : share),
-    0,
-  )
-  const allLocked = rows.length > 0 && unlockedCount === 0
-  const hasError = allLocked && Math.abs(100 - total) > WEIGHT_EPSILON
+  const draftSiblings = rows.map((r) => ({
+    id: r.edgeId,
+    source: node.id,
+    target: r.edgeId,
+    type: 'weighted',
+    data: { edgeType: 'weighted', weight: r.weight, locked: r.locked },
+  })) as Array<FunnelFlowEdge & { data: WeightedEdgeData }>
+  const draftDistribution = computeDisplayedWeights(draftSiblings)
+  const total = draftDistribution.total
+  const allLocked = draftDistribution.allLocked
+  const hasError = allLocked && draftDistribution.errorDrift > WEIGHT_EPSILON
 
   function setRowWeight(edgeId: string, weight: number) {
+    const max = maxAllowedWeight(draftSiblings, edgeId)
+    const nextWeight = Math.max(0, Math.min(max, weight))
     setRows((prev) =>
-      prev.map((r) => (r.edgeId === edgeId ? { ...r, weight, locked: true } : r)),
+      prev.map((r) => (r.edgeId === edgeId ? { ...r, weight: nextWeight, locked: true } : r)),
     )
   }
 
   function setRowLocked(edgeId: string, locked: boolean) {
+    const displayed = draftDistribution.byEdgeId.get(edgeId)?.weight ?? 0
     setRows((prev) =>
       prev.map((r) => {
         if (r.edgeId !== edgeId) return r
         if (!locked) return { ...r, locked: false, weight: 0 }
-        // When locking, snap to current displayed share so the number doesn't jump
-        const others = prev.filter((x) => x.edgeId !== edgeId)
-        const otherLocked = others.filter((x) => x.locked).reduce((a, x) => a + x.weight, 0)
-        const otherUnlocked = others.filter((x) => !x.locked).length
-        const snap = Math.max(0, 100 - otherLocked) / (otherUnlocked + 1)
-        const seed = r.weight > 0 ? r.weight : snap
+        // Snap to currently displayed distribution when turning a row from auto -> locked.
+        const seed = r.weight > 0 ? r.weight : displayed
         return { ...r, locked: true, weight: Math.round(seed) }
       }),
     )
@@ -143,7 +147,7 @@ export function RotatorNodeEditModal({ nodeId, open, onClose }: RotatorNodeEditM
                 <span className="text-right">Locked</span>
               </div>
               {rows.map((r) => {
-                const displayed = r.locked ? r.weight : share
+                const displayed = draftDistribution.byEdgeId.get(r.edgeId)?.weight ?? r.weight
                 return (
                   <div
                     key={r.edgeId}

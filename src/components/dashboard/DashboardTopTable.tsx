@@ -28,6 +28,10 @@ export interface DashboardTopTableFlatRow {
   cells: ReportCell[]
 }
 
+function dashboardTopTableRowId(row: DashboardTopTableFlatRow): string {
+  return row._id
+}
+
 function reportRowsToFlatData(report: Report): DashboardTopTableFlatRow[] {
   const n = report.columns.length
   return report.rows.map((row, index) => {
@@ -109,7 +113,7 @@ export function DashboardTopTable({
     setLoading(true)
     const sortParam = drilldownSortParamFromReport(effectiveSorting, reportRef.current?.columns ?? null)
     try {
-      const data = await api.post<Report>("/stats/reporting/drilldown/", {
+      const data = await api.postDrilldown<Report>({
         timeRange,
         timeZone: { name: timezone },
         groupings: [{ groupBy, whitelistFilters: [], blacklistFilters: [] }],
@@ -175,7 +179,7 @@ export function DashboardTopTable({
         data={flatData}
         columns={columnDefs}
         loading={loading}
-        getRowId={(row) => row._id}
+        getRowId={dashboardTopTableRowId}
         sorting={effectiveSorting}
         onSortingChange={handleSortingChange}
         manualSorting

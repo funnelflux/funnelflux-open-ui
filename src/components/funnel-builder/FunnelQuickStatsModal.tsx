@@ -33,6 +33,10 @@ interface QuickStatsApiResponse {
   availableTrackingFields?: unknown
 }
 
+function quickStatsRowId(row: Record<string, string>): string {
+  return `qs-${Object.values(row).join('\u001e')}`
+}
+
 const ROW1: { id: FunnelQuickStatsTab; label: string }[] = [
   { id: 'traffic-sources', label: 'Traffic Sources' },
   { id: 'funnels', label: 'Funnels' },
@@ -205,7 +209,7 @@ export function FunnelQuickStatsModal({
       })
 
       if (drillBody) {
-        const r = await api.post<Report>('/stats/reporting/drilldown/', drillBody)
+        const r = await api.postDrilldown<Report>(drillBody)
         setReport(r)
         return
       }
@@ -382,35 +386,7 @@ export function FunnelQuickStatsModal({
       destroyOnClose
       centered={false}
       width="100%"
-      style={{ top: 0, paddingBottom: 0, margin: 0, maxWidth: '100vw' }}
-      styles={{
-        wrapper: {
-          padding: 0,
-          alignItems: 'stretch',
-        },
-        container: {
-          height: '100vh',
-          maxHeight: '100dvh',
-          margin: 0,
-          padding: 0,
-          top: 0,
-          borderRadius: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          maxWidth: '100%',
-          overflow: 'hidden',
-        },
-        body: {
-          flex: 1,
-          minHeight: 0,
-          height: '100%',
-          padding: 0,
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        },
-      }}
-      classNames={{ mask: 'backdrop-blur-[2px]' }}
+      layoutVariant="fullscreen"
       zIndex={1200}
     >
       <div className="flex min-h-0 flex-1 flex-col bg-background text-foreground">
@@ -631,7 +607,7 @@ export function FunnelQuickStatsModal({
                 data={rowData}
                 columns={columnDefs}
                 pinnedBottomRows={pinnedBottomRowData}
-                getRowId={(row) => `qs-${Object.values(row).join('\u001e')}`}
+                getRowId={quickStatsRowId}
                 noPagination
                 maxHeight="100%"
                 tableConfigKey={`funnel-quick-stats-${funnelId}-${tab}`}

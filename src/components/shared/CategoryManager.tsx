@@ -132,7 +132,6 @@ export function CategoryManager({
             value={createValue}
             onChange={(e) => setCreateValue(e.target.value)}
             onPressEnter={() => void handleCreate()}
-            autoFocus
           />
         </div>
       </Modal>
@@ -167,7 +166,6 @@ export function CategoryManager({
                         value={editingName}
                         onChange={(e) => setEditingName(e.target.value)}
                         onPressEnter={() => void handleRename(cat.idCategory)}
-                        autoFocus
                         className="flex-1"
                       />
                       <Button

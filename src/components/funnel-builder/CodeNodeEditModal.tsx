@@ -363,7 +363,7 @@ export function CodeNodeEditModal({ nodeId, codeType, open, onClose }: CodeNodeE
       onCancel={onClose}
       footer={null}
       destroyOnHidden
-      scrollBody
+      layoutVariant="form"
     >
       {open ?
         <CodeNodeEditForm key={nodeId} nodeId={nodeId} codeType={codeType} onClose={onClose} />

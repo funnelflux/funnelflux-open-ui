@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { Controller, useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
-import { Icon } from '@/components/ui-kit/icons'
-import { Button, Input, Switch, Select, PageShell, useToastApi } from '@/components/ui-kit'
+import { Button, Input, PageShell, Select, Switch, useToastApi } from '@/components/ui-kit'
 import { PermissionsGrid } from '@/components/settings/PermissionsGrid'
 import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
@@ -10,32 +11,96 @@ import { queryKeys } from '@/api/queryKeys'
 import type { Permissions } from '@/types/api'
 import type { ManagedUser, UserManagementData, UserProfile } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
+import { userEditSchema, type UserEditFormData } from '@/schemas/userEdit'
 
 const DEFAULT_PERMISSIONS: Permissions = {
   stats: { enabled: false, canView: false, canEditCustomViews: false },
-  campaigns: { enabled: false, canView: false, canCreateNew: false, canEdit: false, canArchive: false, canDelete: false, restrictTo: [] },
-  trafficSources: { enabled: false, canView: false, canCreateNew: false, canEdit: false, canArchive: false, canDelete: false, restrictTo: [] },
-  offerSources: { enabled: false, canView: false, canCreateNew: false, canEdit: false, canArchive: false, canDelete: false, restrictTo: [] },
-  offers: { enabled: false, canView: false, canCreateNew: false, canEdit: false, canArchive: false, canDelete: false, restrictTo: [], restrictToAssetIds: [], restrictToCategoryIds: [] },
-  landers: { enabled: false, canView: false, canCreateNew: false, canEdit: false, canArchive: false, canDelete: false, restrictTo: [], restrictToAssetIds: [], restrictToCategoryIds: [] },
+  campaigns: {
+    enabled: false,
+    canView: false,
+    canCreateNew: false,
+    canEdit: false,
+    canArchive: false,
+    canDelete: false,
+    restrictTo: [],
+  },
+  trafficSources: {
+    enabled: false,
+    canView: false,
+    canCreateNew: false,
+    canEdit: false,
+    canArchive: false,
+    canDelete: false,
+    restrictTo: [],
+  },
+  offerSources: {
+    enabled: false,
+    canView: false,
+    canCreateNew: false,
+    canEdit: false,
+    canArchive: false,
+    canDelete: false,
+    restrictTo: [],
+  },
+  offers: {
+    enabled: false,
+    canView: false,
+    canCreateNew: false,
+    canEdit: false,
+    canArchive: false,
+    canDelete: false,
+    restrictTo: [],
+    restrictToAssetIds: [],
+    restrictToCategoryIds: [],
+  },
+  landers: {
+    enabled: false,
+    canView: false,
+    canCreateNew: false,
+    canEdit: false,
+    canArchive: false,
+    canDelete: false,
+    restrictTo: [],
+    restrictToAssetIds: [],
+    restrictToCategoryIds: [],
+  },
   systemLinks: { enabled: false, canView: false },
-  storedLinks: { enabled: false, canView: false, canCreateNew: false, canEdit: false, canDelete: false, canResetStats: false },
-  trafficFilters: { enabled: false, canView: false, canCreateNew: false, canEdit: false, canDelete: false, canApplyToPastStats: false },
-  dataUpdates: { enabled: false, canUpdateConversions: false, canUpdateTrafficCost: false, canResetStats: false },
+  storedLinks: {
+    enabled: false,
+    canView: false,
+    canCreateNew: false,
+    canEdit: false,
+    canDelete: false,
+    canResetStats: false,
+  },
+  trafficFilters: {
+    enabled: false,
+    canView: false,
+    canCreateNew: false,
+    canEdit: false,
+    canDelete: false,
+    canApplyToPastStats: false,
+  },
+  dataUpdates: {
+    enabled: false,
+    canUpdateConversions: false,
+    canUpdateTrafficCost: false,
+    canResetStats: false,
+  },
   systemUpdates: { enabled: false, canView: false, canInstallUpdate: false },
 }
 
-interface UserFormState {
-  id: string
-  login: string
-  firstname: string
-  lastname: string
-  email: string
-  password: string
-  avatarURL: string
-  isAdmin: boolean
-  enabled: boolean
-  permissions: Permissions
+const DEFAULT_USER_FORM_VALUES: UserEditFormData = {
+  id: '',
+  login: '',
+  firstname: '',
+  lastname: '',
+  email: '',
+  password: '',
+  avatarURL: '',
+  isAdmin: false,
+  enabled: true,
+  permissions: DEFAULT_PERMISSIONS,
 }
 
 function normalizePermissions(value: unknown): Permissions {
@@ -45,6 +110,11 @@ function normalizePermissions(value: unknown): Permissions {
   return DEFAULT_PERMISSIONS
 }
 
+function userListLabel(user: ManagedUser): string {
+  const name = [user.firstname, user.lastname].filter(Boolean).join(' ').trim()
+  return name || user.email
+}
+
 export function UserEditPage() {
   const navigate = useNavigate()
   const toast = useToastApi()
@@ -52,34 +122,28 @@ export function UserEditPage() {
   const { userId } = useParams()
   const isNew = !userId || userId === 'new'
   const { data: users } = useUsers()
-
   const [isLoading, setIsLoading] = useState(!isNew)
   const [isSaving, setIsSaving] = useState(false)
-  const [form, setForm] = useState<UserFormState>({
-    id: '',
-    login: '',
-    firstname: '',
-    lastname: '',
-    email: '',
-    password: '',
-    avatarURL: '',
-    isAdmin: false,
-    enabled: true,
-    permissions: DEFAULT_PERMISSIONS,
+
+  const form = useForm<UserEditFormData>({
+    resolver: zodResolver(userEditSchema),
+    defaultValues: DEFAULT_USER_FORM_VALUES,
   })
 
   useEffect(() => {
     if (isNew || !userId) {
+      form.reset(DEFAULT_USER_FORM_VALUES)
       setIsLoading(false)
       return
     }
 
+    setIsLoading(true)
     api
       .get<UserProfile>('/ui/userprofile/load/', { id: userId })
       .then((profile) => {
-        setForm((current) => ({
-          ...current,
-          id: profile.id,
+        form.reset({
+          ...DEFAULT_USER_FORM_VALUES,
+          id: String(profile.id),
           login: profile.login,
           firstname: profile.firstname,
           lastname: profile.lastname,
@@ -88,37 +152,38 @@ export function UserEditPage() {
           enabled: profile.enabled,
           isAdmin: profile.isAdmin,
           permissions: normalizePermissions(profile.permissions),
-        }))
+        })
       })
       .catch(() => {
         const user = users?.find((entry) => String(entry.id) === userId)
-        if (user) {
-          setForm((current) => ({
-            ...current,
-            id: userId,
-            login: '',
-            firstname: user.firstname,
-            lastname: user.lastname,
-            email: user.email,
-            enabled: user.enabled,
-            isAdmin: user.isAdmin,
-          }))
-        }
+        if (!user) return
+        form.reset({
+          ...DEFAULT_USER_FORM_VALUES,
+          id: userId,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          email: user.email,
+          enabled: user.enabled,
+          isAdmin: user.isAdmin,
+        })
       })
       .finally(() => setIsLoading(false))
-  }, [isNew, userId, users])
+  }, [form, isNew, userId, users])
 
   const copyOptions = useMemo(
     () => (users ?? []).filter((user) => String(user.id) !== userId),
     [users, userId],
   )
+  const copySelectOptions = useMemo(
+    () =>
+      copyOptions.map((user) => ({
+        value: String(user.id),
+        label: userListLabel(user),
+      })),
+    [copyOptions],
+  )
 
-  function userListLabel(user: ManagedUser): string {
-    const name = [user.firstname, user.lastname].filter(Boolean).join(' ').trim()
-    return name || user.email
-  }
-
-  async function loadUserRows(): Promise<ManagedUser[]> {
+  const loadUserRows = useCallback(async (): Promise<ManagedUser[]> => {
     return queryClient.fetchQuery({
       queryKey: queryKeys.userManagement.list(),
       queryFn: async () => {
@@ -127,52 +192,48 @@ export function UserEditPage() {
       },
       staleTime: 0,
     })
-  }
+  }, [queryClient])
 
-  const handleCopyRights = async (sourceUserId: string) => {
+  const handleCopyRights = useCallback(async (sourceUserId: string) => {
     try {
       const permissions = await api.post('/ui/usermanagement/copyRights/', {
         sourceUserId,
-        targetUserId: form.id || userId || '',
+        targetUserId: form.getValues('id') || userId || '',
       })
-      setForm((current) => ({
-        ...current,
-        permissions: normalizePermissions(permissions),
-      }))
+      form.setValue('permissions', normalizePermissions(permissions), { shouldDirty: true })
       toast.success('Permissions copied')
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
-  }
+  }, [form, toast, userId])
 
-  const handleSave = async () => {
+  const onSubmit = useCallback(async (data: UserEditFormData) => {
     setIsSaving(true)
     try {
-      const baselineRows = !form.id && form.password
-        ? (users ?? await loadUserRows())
-        : (users ?? [])
+      const baselineRows =
+        !data.id && data.password ? (users ?? (await loadUserRows())) : (users ?? [])
 
       await api.put('/ui/userprofile/save/', {
-        id: form.id,
-        login: form.login,
-        firstname: form.firstname,
-        lastname: form.lastname,
-        email: form.email,
-        avatarURL: form.avatarURL,
-        isAdmin: form.isAdmin,
-        enabled: form.enabled,
-        permissions: form.permissions,
+        id: data.id,
+        login: data.login,
+        firstname: data.firstname,
+        lastname: data.lastname,
+        email: data.email,
+        avatarURL: data.avatarURL,
+        isAdmin: data.isAdmin,
+        enabled: data.enabled,
+        permissions: data.permissions,
       })
 
       await queryClient.invalidateQueries({ queryKey: queryKeys.userManagement.all })
 
-      let savedUserId = form.id
-      if (form.password && !savedUserId) {
+      let savedUserId = data.id
+      if (data.password && !savedUserId) {
         const rows = await loadUserRows()
         const previousIds = new Set(baselineRows.map((row) => String(row.id)))
         const newRows = rows.filter((row) => !previousIds.has(String(row.id)))
-        const emailMatches = form.email
-          ? rows.filter((row) => row.email === form.email)
+        const emailMatches = data.email
+          ? rows.filter((row) => row.email === data.email)
           : []
 
         savedUserId =
@@ -186,10 +247,10 @@ export function UserEditPage() {
         }
       }
 
-      if (form.password && savedUserId) {
+      if (data.password && savedUserId) {
         await api.put('/ui/userprofile/changePassword/', {
           idUser: savedUserId,
-          newPassword: form.password,
+          newPassword: data.password,
         })
       }
 
@@ -200,77 +261,124 @@ export function UserEditPage() {
     } finally {
       setIsSaving(false)
     }
-  }
+  }, [users, loadUserRows, queryClient, toast, navigate])
 
   return (
     <PageShell title={isNew ? 'New User' : 'Edit User'}>
-
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading user...</div>
       ) : (
-        <>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <label htmlFor="login" className="block text-sm font-medium text-foreground">Login</label>
-              <Input id="login" value={form.login} onChange={(event) => setForm((current) => ({ ...current, login: event.target.value }))} />
+              <Controller
+                control={form.control}
+                name="login"
+                render={({ field }) => (
+                  <Input id="login" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
+                )}
+              />
+              {form.formState.errors.login && (
+                <p className="text-xs text-destructive">{form.formState.errors.login.message}</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <label htmlFor="email" className="block text-sm font-medium text-foreground">Email</label>
-              <Input id="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
+              <Controller
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <Input id="email" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
+                )}
+              />
+              {form.formState.errors.email && (
+                <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <label htmlFor="firstname" className="block text-sm font-medium text-foreground">First name</label>
-              <Input id="firstname" value={form.firstname} onChange={(event) => setForm((current) => ({ ...current, firstname: event.target.value }))} />
+              <Controller
+                control={form.control}
+                name="firstname"
+                render={({ field }) => (
+                  <Input id="firstname" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
+                )}
+              />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="lastname" className="block text-sm font-medium text-foreground">Last name</label>
-              <Input id="lastname" value={form.lastname} onChange={(event) => setForm((current) => ({ ...current, lastname: event.target.value }))} />
+              <Controller
+                control={form.control}
+                name="lastname"
+                render={({ field }) => (
+                  <Input id="lastname" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
+                )}
+              />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="password" className="block text-sm font-medium text-foreground">Password</label>
-              <Input id="password" type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
+              <Controller
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <Input
+                    id="password"
+                    type="password"
+                    value={field.value}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  />
+                )}
+              />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-foreground">Copy Rights From</label>
+              <span className="block text-sm font-medium text-foreground">Copy Rights From</span>
               <Select
                 onChange={(value) => void handleCopyRights(value)}
                 placeholder="Select a user"
                 className="w-full"
-                options={copyOptions.map((user) => ({
-                  value: String(user.id),
-                  label: userListLabel(user),
-                }))}
+                options={copySelectOptions}
               />
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
-              <label className="text-sm font-medium">Enabled</label>
-              <Switch checked={form.enabled} onChange={(checked) => setForm((current) => ({ ...current, enabled: checked }))} />
+              <span className="text-sm font-medium">Enabled</span>
+              <Controller
+                control={form.control}
+                name="enabled"
+                render={({ field }) => (
+                  <Switch checked={field.value} onChange={(checked) => field.onChange(checked)} />
+                )}
+              />
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
-              <label className="text-sm font-medium">Admin</label>
-              <Switch checked={form.isAdmin} onChange={(checked) => setForm((current) => ({ ...current, isAdmin: checked }))} />
+              <span className="text-sm font-medium">Admin</span>
+              <Controller
+                control={form.control}
+                name="isAdmin"
+                render={({ field }) => (
+                  <Switch checked={field.value} onChange={(checked) => field.onChange(checked)} />
+                )}
+              />
             </div>
           </div>
 
-          <PermissionsGrid
-            value={form.permissions}
-            onChange={(permissions) => setForm((current) => ({ ...current, permissions }))}
+          <Controller
+            control={form.control}
+            name="permissions"
+            render={({ field }) => (
+              <PermissionsGrid value={field.value} onChange={field.onChange} />
+            )}
           />
 
           <div className="flex justify-end gap-2">
             <Button htmlType="button" onClick={() => navigate('/settings/users')}>
               Cancel
             </Button>
-            <Button type="primary" htmlType="button" onClick={() => void handleSave()} disabled={isSaving}>
-              {isSaving ? (
-                <span className="mr-2 inline-flex">
-                  <Icon name="loader-2" size="md" animation="spin" />
-                </span>
-              ) : null}
+            <Button type="primary" htmlType="submit" loading={isSaving} disabled={isSaving}>
               Save
             </Button>
           </div>
-        </>
+        </form>
       )}
     </PageShell>
   )

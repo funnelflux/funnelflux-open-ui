@@ -6,6 +6,8 @@ import { controlSizeToAntdSize, normalizeControlTier } from '@/lib/controlSize'
 import { cn } from '@/lib/utils'
 import { Icon, type IconName, type IconSize, type IconProps } from '@/components/ui-kit/icons'
 
+type ButtonUiVariant = 'default' | 'accent'
+
 export interface ButtonProps extends Omit<AntdButtonProps, 'size'> {
   /**
    * sm | md | lg — matches Select and Input (`h-control-*`).
@@ -24,11 +26,27 @@ export interface ButtonProps extends Omit<AntdButtonProps, 'size'> {
 
   /** Optional icon animation (e.g. spinner/pulse) without custom classes. */
   iconAnimation?: IconProps['animation']
+
+  /**
+   * Design-system variant for app-level button visuals.
+   * Keep color decisions centralized instead of feature-level `bg-*` overrides.
+   */
+  uiVariant?: ButtonUiVariant
 }
 
 export const Button = forwardRef<HTMLButtonElement | null, ButtonProps>(
   function Button(
-    { size = 'md', className, icon, iconName, iconSize, iconAnimation, children, ...rest },
+    {
+      size = 'md',
+      className,
+      icon,
+      iconName,
+      iconSize,
+      iconAnimation,
+      uiVariant = 'default',
+      children,
+      ...rest
+    },
     ref,
   ) {
     const tier = normalizeControlTier(size)
@@ -54,12 +72,17 @@ export const Button = forwardRef<HTMLButtonElement | null, ButtonProps>(
         }[tier])
       : undefined
 
+    const variantClass =
+      uiVariant === 'accent'
+        ? '!border-orange-600 !bg-orange-600 !text-white hover:!border-orange-500 hover:!bg-orange-500 hover:!text-white'
+        : undefined
+
     return (
       <AntdButton
         ref={ref}
         size={antdBtnSize}
         icon={resolvedIcon}
-        className={cn(iconOnlyClass, className)}
+        className={cn(iconOnlyClass, variantClass, className)}
         {...rest}
       >
         {children}

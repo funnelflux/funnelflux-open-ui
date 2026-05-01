@@ -1,4 +1,3 @@
-import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Select } from '@/components/ui-kit'
 import type { ConditionRule, ConditionField, ConditionOperator } from '@/types/funnel'
 import { CONDITION_FIELDS, CONDITION_OPERATORS } from '@/types/funnel'
@@ -53,6 +52,8 @@ const OPERATOR_LABELS: Record<ConditionOperator, string> = {
 }
 
 const EXTRA_KEY_FIELDS: ConditionField[] = ['visitorTag', 'queryParam', 'customField']
+const CONDITION_FIELD_OPTIONS = CONDITION_FIELDS.map((f) => ({ value: f, label: FIELD_LABELS[f] }))
+const CONDITION_OPERATOR_OPTIONS = CONDITION_OPERATORS.map((op) => ({ value: op, label: OPERATOR_LABELS[op] }))
 
 export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowProps) {
   const needsExtraKey = EXTRA_KEY_FIELDS.includes(rule.field)
@@ -69,13 +70,14 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         className="w-40 shrink-0"
         size="small"
         alphabetical={false}
-        options={CONDITION_FIELDS.map((f) => ({ value: f, label: FIELD_LABELS[f] }))}
+        options={CONDITION_FIELD_OPTIONS}
       />
 
       {/* Extra key input for visitorTag, queryParam, customField */}
       {needsExtraKey && (
         <Input
-          className="h-8 text-sm w-24 shrink-0"
+          size="sm"
+          className="text-sm w-24 shrink-0"
           value={rule.extraKey ?? ''}
           onChange={(e) => onChange({ ...rule, extraKey: e.target.value })}
           placeholder="Key"
@@ -92,7 +94,7 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         className="w-40 shrink-0"
         size="small"
         alphabetical={false}
-        options={CONDITION_OPERATORS.map((op) => ({ value: op, label: OPERATOR_LABELS[op] }))}
+        options={CONDITION_OPERATOR_OPTIONS}
       />
 
       {/* Value input */}
@@ -107,12 +109,13 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
       <Button
         htmlType="button"
         type="text"
-        className="h-8 w-8 shrink-0"
+        size="sm"
+        className="shrink-0"
         onClick={onRemove}
         aria-label="Remove rule"
-      >
-        <Icon name="x" size="sm" />
-      </Button>
+        iconName="x"
+        iconSize="sm"
+      />
     </div>
   )
 }

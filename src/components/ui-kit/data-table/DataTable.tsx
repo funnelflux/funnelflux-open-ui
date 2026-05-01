@@ -267,9 +267,11 @@ function DataTableInner<TData>({
     (header: Header<TData, unknown>) => {
       if (!enableColumnResizing || header.column.columnDef.enableResizing === false) return null
       return (
-        <div
+        <button
+          type="button"
           onMouseDown={header.getResizeHandler()}
           onTouchStart={header.getResizeHandler()}
+          aria-label={`Resize ${String(header.column.id)} column`}
           className={`dt-resizer${header.column.getIsResizing() ? ' dt-resizer--active' : ''}`}
         />
       )
@@ -441,9 +443,11 @@ function DataTableInner<TData>({
                     style={{ width: getColWidth(header.column) }}
                   >
                     {isFirstDataCol && <span className="dt-tree-header-spacer" />}
-                    <div
+                    <button
+                      type="button"
                       className="dt-header-cell-content"
                       onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                      disabled={!canSort}
                     >
                       {header.isPlaceholder
                         ? null
@@ -453,7 +457,7 @@ function DataTableInner<TData>({
                           {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
                         </span>
                       )}
-                    </div>
+                    </button>
                     {renderResizer(header)}
                   </div>
                 )

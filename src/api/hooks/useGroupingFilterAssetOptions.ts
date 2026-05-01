@@ -69,7 +69,7 @@ export function useGroupingFilterAssetOptions(groupBy: string, queryEnabled: boo
   const enabled = queryEnabled && kind !== null
 
   const campaigns = useQuery({
-    queryKey: queryKeys.campaigns.list({ simple: 'true' }),
+    queryKey: queryKeys.groupingFilterAssets.campaignsSimple(),
     queryFn: () =>
       api.get<IdName[]>('/data/campaign/list/').then((rows) =>
         rows.map((r) => ({ ...r, id: String(r.id) })),
@@ -79,7 +79,7 @@ export function useGroupingFilterAssetOptions(groupBy: string, queryEnabled: boo
   })
 
   const funnels = useQuery({
-    queryKey: [...queryKeys.funnels.all, 'list', 'ALL', 'prefixed'] as const,
+    queryKey: queryKeys.groupingFilterAssets.funnelsPrefixed(),
     queryFn: () =>
       api
         .get<IdName[]>('/data/campaign/funnel/list/', { prefixWithCampaignNames: 'true' })
@@ -89,21 +89,21 @@ export function useGroupingFilterAssetOptions(groupBy: string, queryEnabled: boo
   })
 
   const landers = useQuery({
-    queryKey: queryKeys.pages.list({ pageType: 'lander' }),
+    queryKey: queryKeys.groupingFilterAssets.pageList('lander'),
     queryFn: () => api.get<PageListRow[]>('/data/page/list/', { pageType: 'lander' }),
     enabled: enabled && kind === 'lander',
     staleTime: 60_000,
   })
 
   const offers = useQuery({
-    queryKey: queryKeys.pages.list({ pageType: 'offer' }),
+    queryKey: queryKeys.groupingFilterAssets.pageList('offer'),
     queryFn: () => api.get<PageListRow[]>('/data/page/list/', { pageType: 'offer' }),
     enabled: enabled && kind === 'offer',
     staleTime: 60_000,
   })
 
   const pageCategories = useQuery({
-    queryKey: queryKeys.categories.list('page'),
+    queryKey: queryKeys.groupingFilterAssets.pageCategories(),
     queryFn: () =>
       api
         .get<Array<{ idCategory?: string; id?: string; name?: string }>>('/data/page/category/list/')
@@ -118,14 +118,14 @@ export function useGroupingFilterAssetOptions(groupBy: string, queryEnabled: boo
   })
 
   const trafficSources = useQuery({
-    queryKey: queryKeys.trafficSources.list({}),
+    queryKey: queryKeys.groupingFilterAssets.trafficSourcesList(),
     queryFn: () => api.get<TrafficSourceListRow[]>('/data/trafficsource/list/'),
     enabled: enabled && kind === 'trafficSource',
     staleTime: 60_000,
   })
 
   const offerSources = useQuery({
-    queryKey: [...queryKeys.offerSources.all, 'list', 'groupingFilter', 'all'] as const,
+    queryKey: queryKeys.groupingFilterAssets.offerSourcesAllStatuses(),
     queryFn: async () => {
       const [active, archived] = await Promise.all([
         api.get<OfferSource[]>('/data/offersource/find/byStatus/', { status: 'active' }),

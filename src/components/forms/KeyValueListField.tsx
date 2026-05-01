@@ -44,21 +44,24 @@ export function KeyValueListField({
       {value.map((item, i) => (
         <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2">
           <Input
+            size="sm"
             value={item.key}
             onChange={(e) => updateRow(i, 'key', e.target.value)}
             placeholder={keyPlaceholder}
-            className="h-8 text-sm"
+            className="text-sm"
           />
           <Input
+            size="sm"
             value={item.value}
             onChange={(e) => updateRow(i, 'value', e.target.value)}
             placeholder={valuePlaceholder}
-            className="h-8 text-sm"
+            className="text-sm"
           />
           <Button
             type="text"
             htmlType="button"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive"
             onClick={() => removeRow(i)}
             aria-label="Remove row"
             iconName="trash-2"
@@ -66,7 +69,7 @@ export function KeyValueListField({
           />
         </div>
       ))}
-      <Button htmlType="button" size="small" className="h-8 text-xs" onClick={addRow} iconName="plus" iconSize="sm">
+      <Button htmlType="button" size="sm" className="text-xs" onClick={addRow} iconName="plus" iconSize="sm">
         Add Row
       </Button>
     </div>

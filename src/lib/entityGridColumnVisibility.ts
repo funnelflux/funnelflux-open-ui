@@ -72,16 +72,17 @@ export function useEntityGridColumnVisibility(
   const defaultVisibleColumnIds = options?.defaultVisibleColumnIds
 
   const tableColumns = useMemo(() => listToggleableColumns(columnDefs), [columnDefs])
-  const toggleableKey = useMemo(() => tableColumns.map((c) => c.id).join('\0'), [tableColumns])
 
   const hiddenCols = useMemo(() => {
+    // Touch `bump` so this memo intentionally re-runs after localStorage writes.
+    void bump
     const fromLs = readHiddenFromLs(lsKey)
     if (fromLs) return fromLs
     return computeFirstVisitHidden(
       tableColumns.map((c) => c.id),
       defaultVisibleColumnIds,
     )
-  }, [lsKey, toggleableKey, defaultVisibleColumnIds, bump])
+  }, [lsKey, tableColumns, defaultVisibleColumnIds, bump])
 
   const columnVisibility = useMemo(
     () => Object.fromEntries(tableColumns.map((c) => [c.id, !hiddenCols.has(c.id)])),

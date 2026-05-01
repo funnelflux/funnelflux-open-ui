@@ -161,13 +161,13 @@ export function CostUpdatePage() {
       <form onSubmit={handleSubmit} className="max-w-lg space-y-4">
         {/* Traffic Source */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Traffic Source *</label>
+          <span className="text-sm font-medium">Traffic Source *</span>
           <Select options={trafficSourceOptions} value={idTrafficSource || undefined} onChange={setIdTrafficSource} placeholder="Select traffic source" className="w-full" />
         </div>
 
         {/* Funnel (optional) — API field idFunnel */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Funnel (optional)</label>
+          <span className="text-sm font-medium">Funnel (optional)</span>
           <Select options={funnelOptions} value={idFunnel || undefined} onChange={setIdFunnel} placeholder="All funnels" className="w-full" />
         </div>
 
@@ -195,7 +195,7 @@ export function CostUpdatePage() {
 
         {/* Timezone */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Timezone</label>
+          <span className="text-sm font-medium">Timezone</span>
           <TimezoneSelect value={timezone} onChange={setTimezone} />
         </div>
 

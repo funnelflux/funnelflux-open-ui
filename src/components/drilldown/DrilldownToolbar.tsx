@@ -449,6 +449,7 @@ export function DrilldownToolbarHeaderFilters() {
     <div className="flex flex-wrap items-center gap-2">
       <DateTimeRangePicker
         showTime
+        size="md"
         value={dateTimeRangeValue}
         onChange={(dates) => {
           const a = dates?.[0]
@@ -459,7 +460,7 @@ export function DrilldownToolbarHeaderFilters() {
         }}
         presets={presetRangesDayjs(timezone)}
         allowClear={false}
-        className="ff-drilldown-datetime-range h-control-md [&_.ant-picker]:h-full [&_.ant-picker-input>input]:text-xs"
+        className="ff-drilldown-datetime-range [&_.ant-picker-input>input]:text-xs"
       />
       <TimezoneSelect value={timezone} onChange={setTimezone} />
     </div>
@@ -638,6 +639,16 @@ export function DrilldownToolbarReportActions() {
     openSaveNewViewModal()
   }, [handleCloseManage, openSaveNewViewModal])
 
+  const savedViewOptions = useMemo(
+    () =>
+      (savedViews ?? []).map((view) => ({
+        key: view.idView,
+        value: view.idView,
+        label: view.name,
+      })),
+    [savedViews],
+  )
+
   return (
     <div className="flex flex-wrap items-center gap-2 shrink-0">
       <div className="flex items-center gap-1.5 shrink-0">
@@ -647,11 +658,7 @@ export function DrilldownToolbarReportActions() {
           placeholder="Saved views"
           style={{ width: 220 }}
           className="text-xs"
-          options={(savedViews ?? []).map((view) => ({
-            key: view.idView,
-            value: view.idView,
-            label: view.name,
-          }))}
+          options={savedViewOptions}
         />
         <Button
           type="text"
@@ -745,7 +752,6 @@ export function DrilldownToolbarReportActions() {
               value={saveViewName}
               onChange={(ev) => setSaveViewName(ev.target.value)}
               placeholder="e.g. Weekly offer breakdown"
-              autoFocus
               allowClear
             />
           </FormField>
@@ -781,7 +787,6 @@ export function DrilldownToolbarReportActions() {
                         value={editingName}
                         onChange={(e) => setEditingName(e.target.value)}
                         onPressEnter={() => void handleRenameView(view.idView)}
-                        autoFocus
                         className="flex-1"
                       />
                       <Button

@@ -96,6 +96,7 @@ export function CampaignsPage() {
   const toast = useToastApi()
   const navigate = useNavigate()
   const tableRef = useRef<Table<CampaignTreeRow> | null>(null)
+  const [tableForChooser, setTableForChooser] = useState<Table<CampaignTreeRow> | null>(null)
   const [search, setSearch] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -167,8 +168,8 @@ export function CampaignsPage() {
     queryFn: loadCampaignData,
   })
 
-  const treeData = campaignData?.treeData ?? []
-  const columns = campaignData?.columns ?? []
+  const treeData = useMemo(() => campaignData?.treeData ?? [], [campaignData?.treeData])
+  const columns = useMemo(() => campaignData?.columns ?? [], [campaignData?.columns])
   const totalsCells = campaignData?.totalsCells ?? null
   const campaignLoadError = error ? getErrorMessage(error) : null
 
@@ -447,7 +448,7 @@ export function CampaignsPage() {
     <PageShell
       title="Campaigns"
       actions={
-        <Button type="primary" className="bg-orange-600 hover:bg-orange-600/90" onClick={handleCreate}>
+        <Button type="primary" uiVariant="default" onClick={handleCreate}>
           Add funnel or campaign
         </Button>
       }
@@ -479,7 +480,7 @@ export function CampaignsPage() {
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={tableRef.current ? <ColumnChooser columns={columnDefs} table={tableRef.current} storageKey="campaigns" /> : null}
+        actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="campaigns" /> : null}
       />
 
       <DataTable
@@ -497,6 +498,7 @@ export function CampaignsPage() {
         expanded={expanded}
         onExpandedChange={setExpanded}
         tableRef={tableRef}
+        onTableInstance={setTableForChooser}
         columnSizing={tableConfig.columnSizing}
         onColumnSizingChange={handleTableColumnSizingChange}
         columnVisibility={tableConfig.columnVisibility}

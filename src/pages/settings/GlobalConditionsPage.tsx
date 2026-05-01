@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Icon } from '@/components/ui-kit/icons'
 import {
   useConditions,
   useSaveCondition,
@@ -13,6 +12,10 @@ import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
 import { Tag } from '@/components/ui-kit'
 import { getErrorMessage } from '@/lib/utils'
 import type { FunnelCondition } from '@/types/entities'
+
+function conditionRowId(row: ConditionListItem): string {
+  return row.idCondition
+}
 
 export function GlobalConditionsPage() {
   const toast = useToastApi()
@@ -56,6 +59,14 @@ export function GlobalConditionsPage() {
   const handleRefreshConditions = useCallback(() => {
     void refetchConditions()
   }, [refetchConditions])
+
+  const handleOpenEditor = useCallback(() => {
+    setEditorOpen(true)
+  }, [])
+
+  const handleCloseEditor = useCallback(() => {
+    setEditorOpen(false)
+  }, [])
 
   const columns = useMemo<ColumnDef<ConditionListItem, unknown>[]>(
     () => [
@@ -136,13 +147,9 @@ export function GlobalConditionsPage() {
       actions={
         <Button
           type="primary"
-          onClick={() => {
-            setEditorOpen(true)
-          }}
+          iconName="plus"
+          onClick={handleOpenEditor}
         >
-          <span className="mr-1 inline-flex">
-            <Icon name="plus" size="md" />
-          </span>
           Add Condition
         </Button>
       }
@@ -158,7 +165,7 @@ export function GlobalConditionsPage() {
       <DataTable<ConditionListItem>
         data={filtered}
         columns={columns}
-        getRowId={(row) => row.idCondition}
+        getRowId={conditionRowId}
         loading={isLoading}
         tableConfigKey="settings-global-conditions"
         defaultSorting={[{ id: 'name', desc: false }]}
@@ -168,9 +175,7 @@ export function GlobalConditionsPage() {
 
       <ConditionEditor
         open={editorOpen}
-        onClose={() => {
-          setEditorOpen(false)
-        }}
+        onClose={handleCloseEditor}
         condition={null}
         onSave={handleSave}
       />

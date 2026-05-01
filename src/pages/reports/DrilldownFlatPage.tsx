@@ -24,6 +24,10 @@ interface FlatRowData {
   cells: ReportCell[]
 }
 
+function drilldownFlatRowId(row: FlatRowData): string {
+  return row._id
+}
+
 function reportRowsToFlatData(report: Report): FlatRowData[] {
   return report.rows.map((row, index) => {
     const cells = reportRowToCells(row, report.columns.length)
@@ -130,7 +134,7 @@ export function DrilldownFlatPage() {
       <PageShell
         title="Drilldown Report (Flat)"
         fillHeight
-        className="gap-3"
+        density="dense"
         actions={<DrilldownToolbarHeaderFilters />}
       >
         <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-2 w-full shrink-0">
@@ -152,7 +156,7 @@ export function DrilldownFlatPage() {
             data={flatData}
             columns={columnDefs}
             loading={drilldownMutation.isPending}
-            getRowId={(row) => row._id}
+            getRowId={drilldownFlatRowId}
             sorting={sorting}
             onSortingChange={handleSortingChange}
             manualSorting

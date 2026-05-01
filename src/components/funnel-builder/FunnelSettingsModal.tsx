@@ -26,6 +26,7 @@ export function FunnelSettingsModal({
       maskClosable={!isSaving}
       width="min(1200px, 96vw)"
       zIndex={1100}
+      layoutVariant="form"
       title={
         <div className="space-y-1 pr-8">
           <div className="text-lg font-semibold text-foreground">Funnel settings</div>
@@ -55,7 +56,8 @@ export function FunnelSettingsModal({
             type="primary"
             htmlType="button"
             loading={isSaving}
-            className="min-w-[120px] !bg-orange-600 hover:!bg-orange-500"
+            uiVariant="default"
+            className="min-w-[120px]"
             onClick={() => void onSave()}
           >
             Save Funnel

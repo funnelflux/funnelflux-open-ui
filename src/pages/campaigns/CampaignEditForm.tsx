@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useForm, Controller, type Resolver } from 'react-hook-form'
+import { useForm, Controller, useWatch, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Checkbox, FormField, Modal } from '@/components/ui-kit'
@@ -34,6 +34,8 @@ export function CampaignEditForm({
   })
 
   const { reset } = form
+  const acculumatedUrlParams = useWatch({ control: form.control, name: 'acculumatedUrlParams' })
+  const customTokens = useWatch({ control: form.control, name: 'customTokens' })
 
   useEffect(() => {
     if (open) {
@@ -65,7 +67,7 @@ export function CampaignEditForm({
       footer={null}
       width={640}
       destroyOnHidden
-      scrollBody
+      layoutVariant="form"
     >
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-4 space-y-6">
@@ -107,7 +109,7 @@ export function CampaignEditForm({
 
         <FormField label="URL Parameters">
           <KeyValueListField
-            value={form.watch('acculumatedUrlParams')}
+            value={acculumatedUrlParams}
             onChange={(v) => form.setValue('acculumatedUrlParams', v, { shouldDirty: true })}
             keyLabel="Parameter"
             valueLabel="Value"
@@ -118,7 +120,7 @@ export function CampaignEditForm({
 
         <FormField label="Custom Tokens">
           <KeyValueListField
-            value={form.watch('customTokens')}
+            value={customTokens}
             onChange={(v) => form.setValue('customTokens', v, { shouldDirty: true })}
             keyLabel="Token"
             valueLabel="Value"

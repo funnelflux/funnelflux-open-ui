@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from 'react'
-import { Icon } from '@/components/ui-kit/icons'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { Button, Input, Select } from '@/components/ui-kit'
 import type { FunnelKeyValuePair, FunnelPostbackOverrideRow } from '@/types/funnel'
@@ -11,6 +10,7 @@ const POSTBACK_TYPES = [
   { value: 'pixelUrl', label: 'Pixel URL' },
   { value: 'javascript', label: 'JavaScript' },
 ] as const
+const POSTBACK_TYPE_OPTIONS = POSTBACK_TYPES.map((t) => ({ label: t.label, value: t.value }))
 
 function kvToLines(rows: FunnelKeyValuePair[]): string {
   return rows.map((r) => `${r.key}=${r.value}`).join('\n')
@@ -127,7 +127,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-foreground">Incoming traffic cost overrides</span>
-            <Button htmlType="button" type="default" size="small" icon={<Icon name="plus" size="sm" />} onClick={addCostRow}>
+            <Button htmlType="button" type="default" size="small" iconName="plus" iconSize="sm" onClick={addCostRow}>
               Add override
             </Button>
           </div>
@@ -155,7 +155,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                   danger
                   size="small"
                   className="shrink-0"
-                  icon={<Icon name="trash-2" size="md" />}
+                  iconName="trash-2"
                   onClick={() => removeCostRow(i)}
                 />
               </div>
@@ -166,7 +166,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-foreground">Traffic source postback overrides</span>
-            <Button htmlType="button" type="default" size="small" icon={<Icon name="plus" size="sm" />} onClick={addPbRow}>
+            <Button htmlType="button" type="default" size="small" iconName="plus" iconSize="sm" onClick={addPbRow}>
               Add postback
             </Button>
           </div>
@@ -192,7 +192,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                       size="small"
                       value={row.postbackType}
                       onChange={(v) => updatePbRow(i, { postbackType: v })}
-                      options={POSTBACK_TYPES.map((t) => ({ label: t.label, value: t.value }))}
+                      options={POSTBACK_TYPE_OPTIONS}
                     />
                   </div>
                   <Button
@@ -200,7 +200,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                     type="text"
                     danger
                     size="small"
-                    icon={<Icon name="trash-2" size="md" />}
+                    iconName="trash-2"
                     onClick={() => removePbRow(i)}
                   />
                 </div>

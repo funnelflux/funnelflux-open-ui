@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import type { ColumnDef } from "@tanstack/react-table"
-import { Icon } from '@/components/ui-kit/icons'
 import { api } from "@/api/client"
 import { PageShell, DataTable, TimezoneSelect } from "@/components/ui-kit"
 import { entityRowId } from "@/components/ui-kit/data-table"
@@ -81,7 +80,7 @@ export function QuickViewPage() {
 
     try {
       const now = new Date()
-      const nameReport = await api.post<Report>("/stats/reporting/drilldown/", {
+      const nameReport = await api.postDrilldown<Report>({
         timeRange: toApiDateTimeRange(now, now),
         timeZone: { name: timezone },
         groupings: [
@@ -107,7 +106,7 @@ export function QuickViewPage() {
 
     setIsLoading(true)
     try {
-      const nextReport = await api.post<Report>("/stats/reporting/drilldown/", {
+      const nextReport = await api.postDrilldown<Report>({
         timeRange: toApiDateTimeRange(dateRange.from, dateRange.to),
         timeZone: { name: timezone },
         groupings: [
@@ -194,7 +193,7 @@ export function QuickViewPage() {
       title={`${entityName} Quick View`}
       subtitle={`${entityGroupBy} · ${entityId}`}
       actions={
-        <Button type="primary" size="small" onClick={handleOpenInDrilldown} icon={<Icon name="arrow-right" size="sm" />}>
+        <Button type="primary" size="small" onClick={handleOpenInDrilldown} iconName="arrow-right" iconSize="sm">
           Open in Drilldown
         </Button>
       }
