@@ -57,34 +57,47 @@ export type ModalProps = AntModalProps & {
   layoutVariant?: ModalLayoutVariant
 }
 
+type ModalStylesObject = {
+  wrapper?: CSSProperties
+  container?: CSSProperties
+  body?: CSSProperties
+  [key: string]: CSSProperties | undefined
+}
+
+function asStylesObject(styles: AntModalProps['styles'] | undefined): ModalStylesObject {
+  return typeof styles === 'object' && styles ? (styles as ModalStylesObject) : {}
+}
+
 function mergedModalStyles(
   variant: ModalLayoutVariant,
   styles: AntModalProps['styles'] | undefined,
 ): AntModalProps['styles'] {
   if (variant === 'default') return styles
+  const base = asStylesObject(styles)
   if (variant === 'form') {
     return {
-      ...(typeof styles === 'object' && styles ? styles : {}),
+      ...base,
       body: {
         ...SCROLL_BODY_STYLE,
-        ...(styles as { body?: CSSProperties } | undefined)?.body,
+        ...base.body,
       },
     }
   }
+  const fullscreen = FULLSCREEN_STYLE as ModalStylesObject
   return {
-    ...FULLSCREEN_STYLE,
-    ...(typeof styles === 'object' && styles ? styles : {}),
+    ...fullscreen,
+    ...base,
     wrapper: {
-      ...FULLSCREEN_STYLE.wrapper,
-      ...(styles as { wrapper?: CSSProperties } | undefined)?.wrapper,
+      ...fullscreen.wrapper,
+      ...base.wrapper,
     },
     container: {
-      ...FULLSCREEN_STYLE.container,
-      ...(styles as { container?: CSSProperties } | undefined)?.container,
+      ...fullscreen.container,
+      ...base.container,
     },
     body: {
-      ...FULLSCREEN_STYLE.body,
-      ...(styles as { body?: CSSProperties } | undefined)?.body,
+      ...fullscreen.body,
+      ...base.body,
     },
   }
 }
@@ -99,9 +112,12 @@ export function Modal({
 }: ModalProps) {
   const effectiveVariant: ModalLayoutVariant = layoutVariant === 'default' && scrollBody ? 'form' : layoutVariant
   const mergedStyles = mergedModalStyles(effectiveVariant, styles)
+  const classNamesObj = typeof classNames === 'object' && classNames
+    ? (classNames as Record<string, string | undefined>)
+    : {}
   const mergedClassNames =
     effectiveVariant === 'fullscreen'
-      ? { ...(classNames ?? {}), mask: [classNames?.mask, 'backdrop-blur-[2px]'].filter(Boolean).join(' ') }
+      ? { ...classNamesObj, mask: [classNamesObj.mask, 'backdrop-blur-[2px]'].filter(Boolean).join(' ') }
       : classNames
   const mergedStyle = effectiveVariant === 'fullscreen'
     ? { top: 0, paddingBottom: 0, margin: 0, maxWidth: '100vw', ...(style ?? {}) }
