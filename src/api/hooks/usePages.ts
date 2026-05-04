@@ -2,10 +2,23 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { Page, PageType } from '@/types/entities'
+import {
+  applyPageArchiveToEntityGridCaches,
+  refreshPagesListQueries,
+  removePageFromEntityGridCaches,
+  upsertClonedPageInEntityGridCaches,
+  upsertPageInEntityGridCaches,
+  type PageCloneWireResponse,
+} from '@/lib/entityGridQueryCache'
 
 export type SavePageInput = {
   page: Partial<Page>
   isCreate: boolean
+}
+
+export type ClonePageVariables = {
+  idPage: string
+  pageType: PageType
 }
 
 export function usePages(pageType?: PageType, status?: string) {
@@ -52,8 +65,12 @@ export function useSavePage() {
       isCreate
         ? api.post<Page>('/data/page/save/', page)
         : api.put<Page>('/data/page/save/', page),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.pages.all })
+    onSuccess: (savedPage) => {
+      upsertPageInEntityGridCaches(qc, savedPage)
+      refreshPagesListQueries(qc)
+      if (savedPage.idPage) {
+        void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(savedPage.idPage) })
+      }
     },
   })
 }
@@ -62,8 +79,10 @@ export function useDeletePage() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete('/data/page/delete/', { idPage: id }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.pages.all })
+    onSuccess: (_, idPage) => {
+      removePageFromEntityGridCaches(qc, idPage)
+      refreshPagesListQueries(qc)
+      qc.removeQueries({ queryKey: queryKeys.pages.detail(idPage) })
     },
   })
 }
@@ -71,9 +90,12 @@ export function useDeletePage() {
 export function useClonePage() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.post('/data/page/clone/', undefined, { idPage: id }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.pages.all })
+    mutationFn: ({ idPage }: ClonePageVariables) =>
+      api.post<PageCloneWireResponse>('/data/page/clone/', undefined, { idPage }),
+    onSuccess: (data, variables) => {
+      upsertClonedPageInEntityGridCaches(qc, { ...data, pageType: variables.pageType })
+      refreshPagesListQueries(qc)
+      void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(data.idPage) })
     },
   })
 }
@@ -83,8 +105,10 @@ export function useArchivePage() {
   return useMutation({
     mutationFn: ({ id, archive }: { id: string; archive: boolean }) =>
       api.put('/data/page/archive/', { ids: [id], archive }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.pages.all })
+    onSuccess: (_, { id, archive }) => {
+      applyPageArchiveToEntityGridCaches(qc, id, archive)
+      refreshPagesListQueries(qc)
+      void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(id) })
     },
   })
 }

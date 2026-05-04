@@ -3,12 +3,24 @@ import { api } from '@/api/client'
 import { normalizeTemplateList } from '@/api/normalizeTemplateList'
 import type { TrafficSourceTemplateLoadResponse } from '@/api/trafficSourceTemplateLoad'
 import { queryKeys } from '@/api/queryKeys'
+import {
+  applyTrafficSourceArchiveToEntityGridCaches,
+  refreshTrafficSourcesListQueries,
+  removeTrafficSourceFromEntityGridCaches,
+  upsertClonedTrafficSourceInEntityGridCaches,
+  upsertTrafficSourceInEntityGridCaches,
+  type TrafficSourceCloneWireResponse,
+} from '@/lib/entityGridQueryCache'
 import type { TrafficSource } from '@/types/entities'
 
 export type SaveTrafficSourceInput = {
   trafficSource: Partial<TrafficSource>
   isCreate: boolean
 }
+
+export type CloneTrafficSourceVariables =
+  | string
+  | { idTrafficSource: string; categoryId?: string }
 
 export function useTrafficSources(status?: string) {
   const params: Record<string, string> = {}
@@ -51,8 +63,10 @@ export function useSaveTrafficSource() {
         ? api.post<TrafficSource>('/data/trafficsource/save/', body)
         : api.put<TrafficSource>('/data/trafficsource/save/', body)
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.trafficSources.all })
+    onSuccess: (saved) => {
+      upsertTrafficSourceInEntityGridCaches(qc, saved)
+      refreshTrafficSourcesListQueries(qc)
+      void qc.invalidateQueries({ queryKey: queryKeys.trafficSources.detail(saved.idTrafficSource) })
     },
   })
 }
@@ -61,8 +75,10 @@ export function useDeleteTrafficSource() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete('/data/trafficsource/delete/', { idTrafficSource: id }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.trafficSources.all })
+    onSuccess: (_, id) => {
+      removeTrafficSourceFromEntityGridCaches(qc, id)
+      refreshTrafficSourcesListQueries(qc)
+      qc.removeQueries({ queryKey: queryKeys.trafficSources.detail(id) })
     },
   })
 }
@@ -70,10 +86,24 @@ export function useDeleteTrafficSource() {
 export function useCloneTrafficSource() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) =>
-      api.post('/data/trafficsource/clone/', undefined, { idTrafficSource: id }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.trafficSources.all })
+    mutationFn: async (input: CloneTrafficSourceVariables) => {
+      const idTrafficSource = typeof input === 'string' ? input : input.idTrafficSource
+      const categoryId = typeof input === 'object' ? input.categoryId : undefined
+      const data = await api.post<TrafficSourceCloneWireResponse>(
+        '/data/trafficsource/clone/',
+        undefined,
+        { idTrafficSource },
+      )
+      return { ...data, categoryId }
+    },
+    onSuccess: (data) => {
+      upsertClonedTrafficSourceInEntityGridCaches(qc, {
+        idTrafficSource: data.idTrafficSource,
+        trafficSourceName: data.trafficSourceName,
+        categoryId: data.categoryId,
+      })
+      refreshTrafficSourcesListQueries(qc)
+      void qc.invalidateQueries({ queryKey: queryKeys.trafficSources.detail(data.idTrafficSource) })
     },
   })
 }
@@ -83,8 +113,10 @@ export function useArchiveTrafficSource() {
   return useMutation({
     mutationFn: ({ id, archive }: { id: string; archive: boolean }) =>
       api.put('/data/trafficsource/archive/', { ids: [id], archive }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.trafficSources.all })
+    onSuccess: (_, { id, archive }) => {
+      applyTrafficSourceArchiveToEntityGridCaches(qc, id, archive)
+      refreshTrafficSourcesListQueries(qc)
+      void qc.invalidateQueries({ queryKey: queryKeys.trafficSources.detail(id) })
     },
   })
 }

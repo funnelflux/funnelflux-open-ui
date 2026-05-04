@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef, RowSelectionState, Table, Updater } from '@tanstack/react-table'
 import { Button, ConfirmModal, DataTable, Input, Modal, PageShell, SearchToolbar, TimezoneSelect, useToastApi } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
@@ -22,6 +23,7 @@ import { useArchivePage, useCategories, useClonePage, useDeleteCategory, useDele
 import { useEntityGrid, buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
 import { queryKeys } from '@/api/queryKeys'
 import { api } from '@/api/client'
+import { applyPageArchiveToEntityGridCaches, refreshPagesListQueries } from '@/lib/entityGridQueryCache'
 import { pagesToListEntities } from '@/lib/entityGridUtils'
 import { mapStatColsForCategoryStrip } from '@/lib/categoryStripTable'
 import {
@@ -76,6 +78,7 @@ export function PageEntitiesPage({
   csvFieldOptions,
   buildImportPayload,
 }: PageEntitiesPageProps) {
+  const queryClient = useQueryClient()
   const toast = useToastApi()
   const singularLower = singularLabel.toLowerCase()
   const pluralLower = `${singularLower}s`
@@ -197,23 +200,24 @@ export function PageEntitiesPage({
           toast.success(editId ? `${singularLabel} updated` : `${singularLabel} created`)
           setSheetOpen(false)
           setEditId(null)
-          reload()
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [saveMutation, editId, toast, singularLabel, reload])
+  }, [saveMutation, editId, toast, singularLabel])
 
   const cloneMutate = cloneMutation.mutate
   const handleClone = useCallback((id: string) => {
-    cloneMutate(id, {
-      onSuccess: () => {
-        toast.success(`${singularLabel} cloned`)
-        reload()
+    cloneMutate(
+      { idPage: id, pageType },
+      {
+        onSuccess: () => {
+          toast.success(`${singularLabel} cloned`)
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
       },
-      onError: (err) => toast.error(getErrorMessage(err)),
-    })
-  }, [cloneMutate, toast, singularLabel, reload])
+    )
+  }, [cloneMutate, toast, singularLabel, pageType])
 
   const archiveMutate = archiveMutation.mutate
   const handleArchive = useCallback((id: string, archive: boolean) => {
@@ -222,12 +226,11 @@ export function PageEntitiesPage({
       {
         onSuccess: () => {
           toast.success(archive ? 'Archived' : 'Restored')
-          reload()
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [archiveMutate, toast, reload])
+  }, [archiveMutate, toast])
 
   const handleDelete = useCallback(() => {
     if (!deleteId) return
@@ -235,11 +238,10 @@ export function PageEntitiesPage({
       onSuccess: () => {
         toast.success('Deleted')
         setDeleteId(null)
-        reload()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }, [deleteId, deleteMutation, toast, reload])
+  }, [deleteId, deleteMutation, toast])
 
   const handleImport = useCallback(async (importRows: Record<string, string>[]) => {
     for (const row of importRows) {
@@ -375,10 +377,13 @@ export function PageEntitiesPage({
 
   const handleBulkArchive = useCallback(async () => {
     await api.put('/data/page/archive/', { ids: entityIdsForBulk, archive: true })
+    for (const id of entityIdsForBulk) {
+      applyPageArchiveToEntityGridCaches(queryClient, id, true)
+    }
+    refreshPagesListQueries(queryClient)
     toast.success(`Selected ${pluralLower} archived`)
     setRowSelection({})
-    reload()
-  }, [entityIdsForBulk, pluralLower, toast, reload])
+  }, [entityIdsForBulk, pluralLower, queryClient, toast])
 
   const handleBulkDelete = useCallback(async () => {
     const categoryKeys = [
@@ -396,8 +401,7 @@ export function PageEntitiesPage({
     }
     toast.success('Selected items deleted')
     setRowSelection({})
-    reload()
-  }, [selectedIds, entityIdsForBulk, deleteMutation, deleteCategoryMutation, toast, reload])
+  }, [selectedIds, entityIdsForBulk, deleteMutation, deleteCategoryMutation, toast])
 
   const handleBulkAssignCategory = useCallback(async (idCategory: string) => {
     await api.put('/data/page/category/assign/', {

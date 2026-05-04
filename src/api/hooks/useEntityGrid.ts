@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ENTITY_GRID_LIST_KEY } from '@/lib/entityGridQueryCache'
 import { toApiDateTimeRange } from '@/types/stats'
 import type { DrilldownRequest, ReportCell } from '@/types/stats'
 import { buildMergedRows, buildTotalsRow } from '@/lib/entityGridUtils'
@@ -31,7 +32,7 @@ export function useEntityGrid(options: UseEntityGridOptions) {
   const queryClient = useQueryClient()
 
   const listQuery = useQuery({
-    queryKey: [...queryKeyPrefix, 'entityGridList', listEndpoint, listParams],
+    queryKey: [...queryKeyPrefix, ENTITY_GRID_LIST_KEY, listEndpoint, listParams],
     queryFn: async () => {
       const raw = await api.get<unknown>(listEndpoint, listParams)
       const arr = Array.isArray(raw) ? raw : []

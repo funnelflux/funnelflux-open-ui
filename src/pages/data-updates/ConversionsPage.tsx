@@ -1,9 +1,20 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Icon } from '@/components/ui-kit/icons'
-import { Button, Input, PageShell, useToastApi } from '@/components/ui-kit'
+import { Button, Card, Field, Input, PageShell, Select, useToastApi } from '@/components/ui-kit'
+import type { SelectOption } from '@/components/ui-kit'
 import { api } from '@/api/client'
 import type { BackgroundJobResponse, ConvertedHit, ConversionsUpload } from '@/types/stats'
 import { getErrorMessage } from '@/lib/utils'
+
+const POSTBACK_OPTIONS: SelectOption[] = [
+  { label: 'Do not fire postback URLs', value: 'none', searchId: 'none' },
+  { label: 'Fire only for hits not yet fired', value: 'onlyOnce', searchId: 'onlyOnce' },
+  {
+    label: 'Fire for all hits (even if already fired)',
+    value: 'all',
+    searchId: 'all',
+  },
+]
 
 /** One line per conversion: `hit_id, transaction_id, payout` (transaction and payout optional). */
 function csvTextToConvertedHits(text: string): ConvertedHit[] {
@@ -33,9 +44,21 @@ function csvTextToConvertedHits(text: string): ConvertedHit[] {
 export function ConversionsPage() {
   const toast = useToastApi()
   const [csvData, setCsvData] = useState('')
+  const [postbackCalls, setPostbackCalls] = useState<NonNullable<ConversionsUpload['postbackCalls']>>(
+    'none',
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  async function handleSubmit() {
+  const handleCsvChange = useCallback((event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCsvData(event.target.value)
+  }, [])
+
+  const handlePostbackCallsChange = useCallback((value: string) => {
+    setPostbackCalls(value as NonNullable<ConversionsUpload['postbackCalls']>)
+  }, [])
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
     const trimmed = csvData.trim()
     if (!trimmed) {
       toast.error('Please enter conversion data')
@@ -57,7 +80,7 @@ export function ConversionsPage() {
 
     const body: ConversionsUpload = {
       hits,
-      postbackCalls: 'none',
+      postbackCalls,
       notificationWhenComplete: false,
     }
 
@@ -81,35 +104,57 @@ export function ConversionsPage() {
   return (
     <PageShell
       title="Update Conversions"
-      subtitle="Submit conversion data in CSV format"
+      subtitle="Submit conversion rows for processing; optional traffic-source postbacks can fire based on your selection."
     >
-      <div className="max-w-2xl space-y-4">
-        <div className="space-y-1.5">
-          <label htmlFor="csv-data" className="text-sm font-medium">
-            Conversion Data
-          </label>
-          <p className="text-xs text-muted-foreground">
-            One conversion per line: hit_id, transaction_id, payout
-          </p>
-          <Input.TextArea
-            id="csv-data"
-            value={csvData}
-            onChange={(e) => setCsvData(e.target.value)}
-            placeholder={"abc123, txn_001, 5.00\ndef456, txn_002, 12.50"}
-            rows={12}
-            className="font-mono text-xs"
-          />
-        </div>
+      <Card className="max-w-2xl border-border" styles={{ body: { padding: 24 } }}>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Field
+            title="Postback firing"
+            htmlFor="conversions-postback-calls"
+            description="Whether to trigger traffic-source postback URLs for the hits in your upload."
+          >
+            <Select
+              id="conversions-postback-calls"
+              options={POSTBACK_OPTIONS}
+              value={postbackCalls}
+              onChange={handlePostbackCallsChange}
+              className="w-full"
+              size="sm"
+            />
+          </Field>
 
-        <Button type="primary" onClick={handleSubmit} disabled={isSubmitting || !csvData.trim()}>
-          {isSubmitting && (
-            <span className="mr-2 inline-flex">
-              <Icon name="loader-2" size="md" animation="spin" />
-            </span>
-          )}
-          Submit Conversions
-        </Button>
-      </div>
+          <Field
+            title="Conversion data"
+            required
+            htmlFor="conversions-csv-data"
+            description="One conversion per line: hit_id, transaction_id, payout (transaction and payout optional)."
+          >
+            <Input.TextArea
+              id="conversions-csv-data"
+              value={csvData}
+              onChange={handleCsvChange}
+              placeholder={"abc123, txn_001, 5.00\ndef456, txn_002, 12.50"}
+              rows={12}
+              className="font-mono text-xs"
+            />
+          </Field>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <Button
+              type="primary"
+              htmlType="submit"
+              disabled={isSubmitting || !csvData.trim()}
+            >
+              {isSubmitting && (
+                <span className="mr-2 inline-flex">
+                  <Icon name="loader-2" size="md" animation="spin" />
+                </span>
+              )}
+              Update conversions
+            </Button>
+          </div>
+        </form>
+      </Card>
     </PageShell>
   )
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef, Table } from '@tanstack/react-table'
 import { Button } from '@/components/ui-kit'
 import {
@@ -32,6 +33,7 @@ import {
   useOfferSource,
 } from '@/api/hooks'
 import { buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
+import { applyOfferSourceArchiveToEntityGridCaches, refreshOfferSourcesListQueries } from '@/lib/entityGridQueryCache'
 import { offerSourcesToListEntities } from '@/lib/entityGridUtils'
 import { useEntityPage } from '@/hooks/useEntityPage'
 import { queryKeys } from '@/api/queryKeys'
@@ -47,6 +49,7 @@ import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
 type OfferSourceGridRow = EntityGridRow & Record<string, unknown>
 
 export function OfferSourcesPage() {
+  const queryClient = useQueryClient()
   const toast = useToastApi()
   const tableRef = useRef<Table<OfferSourceGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<OfferSourceGridRow> | null>(null)
@@ -98,7 +101,6 @@ export function OfferSourcesPage() {
         toast.success(editId ? 'Offer source updated' : 'Offer source created')
         setSheetOpen(false)
         setEditId(null)
-        reload()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
@@ -107,7 +109,10 @@ export function OfferSourcesPage() {
   const handleDelete = () => {
     if (!deleteId) return
     deleteMutation.mutate(deleteId, {
-      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); reload() },
+      onSuccess: () => {
+        toast.success('Deleted')
+        setDeleteId(null)
+      },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
@@ -124,18 +129,22 @@ export function OfferSourcesPage() {
   const cloneMutate = cloneMutation.mutate
   const handleCloneOfferSource = useCallback((id: string) => {
     cloneMutate(id, {
-      onSuccess: () => { toast.success('Offer source cloned'); reload() },
+      onSuccess: () => {
+        toast.success('Offer source cloned')
+      },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }, [cloneMutate, toast, reload])
+  }, [cloneMutate, toast])
 
   const archiveMutate = archiveMutation.mutate
   const handleArchiveOfferSource = useCallback((id: string, archive: boolean) => {
     archiveMutate({ ids: [id], archive }, {
-      onSuccess: () => { toast.success(archive ? 'Archived' : 'Restored'); reload() },
+      onSuccess: () => {
+        toast.success(archive ? 'Archived' : 'Restored')
+      },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }, [archiveMutate, toast, reload])
+  }, [archiveMutate, toast])
 
   const columnDefs = useMemo<ColumnDef<OfferSourceGridRow, unknown>[]>(() => [
     selectionColumn<OfferSourceGridRow>(),
@@ -171,10 +180,11 @@ export function OfferSourcesPage() {
 
   const handleBulkArchiveOfferSources = useCallback(async () => {
     await api.put('/data/offersource/archive/', { ids: selectedIds, archive: true })
+    applyOfferSourceArchiveToEntityGridCaches(queryClient, selectedIds, true)
+    refreshOfferSourcesListQueries(queryClient)
     toast.success('Selected offer sources archived')
     setRowSelection({})
-    reload()
-  }, [selectedIds, toast, reload, setRowSelection])
+  }, [selectedIds, queryClient, toast, setRowSelection])
 
   const handleBulkDeleteOfferSources = useCallback(async () => {
     for (const id of selectedIds) {
@@ -182,8 +192,7 @@ export function OfferSourcesPage() {
     }
     toast.success('Selected offer sources deleted')
     setRowSelection({})
-    reload()
-  }, [selectedIds, deleteMutation, toast, reload, setRowSelection])
+  }, [selectedIds, deleteMutation, toast, setRowSelection])
 
   const handleOfferSourcesDateRangeChange = useCallback((v: DateRange & { preset: string | null }) => {
     if (v.from && v.to) setDateRange({ from: v.from, to: v.to })

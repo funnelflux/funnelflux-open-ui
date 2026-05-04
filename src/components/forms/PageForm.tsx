@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -33,12 +33,31 @@ interface PageFormProps {
 }
 
 const REDIRECT_OPTIONS = [
-  { value: '307', label: '307 Redirect' },
-  { value: '301', label: '301 Redirect' },
+  { value: '307', label: '307 Temporary Redirect' },
+  { value: '301', label: '301 Moved Permanently' },
   { value: 'umr', label: 'UMR (Meta Refresh)' },
   { value: 'fluxify', label: 'Fluxify (Reverse Proxy)' },
 ] as const
 const REDIRECT_SELECT_OPTIONS = REDIRECT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))
+
+const PAYOUT_TYPE_OPTIONS: SelectOption[] = [
+  { value: 'perConversion', label: 'Per conversion' },
+  { value: 'revShare', label: 'Revenue share' },
+]
+
+/** API/legacy stores custom fields joined with `-|`; the form edits one value per line. */
+function customFieldsDisplayFromWire(wire: string | undefined): string {
+  if (!wire) return ''
+  return wire.split('-|').join('\n')
+}
+
+function customFieldsWireFromDisplay(display: string): string {
+  const lines = display
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  return lines.length > 0 ? lines.join('-|') : ''
+}
 
 const defaultFluxifyParams: FluxifyFormParams = {
   enableCache: false,
@@ -94,7 +113,8 @@ export function PageForm({
       numberOfActions: undefined,
       tags: [],
       notes: '',
-      offerParams: isOffer ? { idOfferSource: '', payout: 0 } : undefined,
+      customFields: '',
+      offerParams: isOffer ? { idOfferSource: '', payout: 0, payoutType: 'perConversion' } : undefined,
       fluxifyParams: undefined,
     },
   })
@@ -118,8 +138,13 @@ export function PageForm({
           numberOfActions: initialData.numberOfActions,
           tags: initialData.tags ?? [],
           notes: initialData.notes ?? '',
+          customFields: customFieldsDisplayFromWire(initialData.customFields),
           offerParams: isOffer
-            ? initialData.offerParams ?? { idOfferSource: '', payout: 0 }
+            ? {
+                idOfferSource: initialData.offerParams?.idOfferSource ?? '',
+                payout: initialData.offerParams?.payout ?? 0,
+                payoutType: initialData.offerParams?.payoutType ?? 'perConversion',
+              }
             : undefined,
           fluxifyParams: initialData.fluxifyParams ?? (initialData.redirectType === 'fluxify' ? defaultFluxifyParams : undefined),
         })
@@ -134,7 +159,8 @@ export function PageForm({
           numberOfActions: undefined,
           tags: [],
           notes: '',
-          offerParams: isOffer ? { idOfferSource: '', payout: 0 } : undefined,
+          customFields: '',
+          offerParams: isOffer ? { idOfferSource: '', payout: 0, payoutType: 'perConversion' } : undefined,
           fluxifyParams: undefined,
         })
       }
@@ -163,6 +189,16 @@ export function PageForm({
     form.setValue('fluxifyParams', { ...current, [field]: value } as FluxifyFormParams, { shouldDirty: true })
   }
 
+  const submitForm = useCallback(
+    (data: PageFormData) => {
+      onSubmit({
+        ...data,
+        customFields: customFieldsWireFromDisplay(data.customFields ?? ''),
+      })
+    },
+    [onSubmit],
+  )
+
   const handleCreateCategory = async () => {
     const name = newCategoryName.trim()
     if (!name) return
@@ -180,11 +216,11 @@ export function PageForm({
 
   return (
     <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? `Edit ${entityLabel}` : `New ${entityLabel}`} footer={null} width={640} destroyOnHidden layoutVariant="form">
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      <form onSubmit={form.handleSubmit(submitForm)} className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-4 space-y-5">
         {initialData?.idPage && (
           <FormField label="ID">
-            <Input value={initialData.idPage} disabled className="font-mono text-xs" />
+            <Input value={initialData.idPage} disabled className="font-mono text-xs" size="sm" />
           </FormField>
         )}
 
@@ -195,6 +231,7 @@ export function PageForm({
             render={({ field }) => (
               <Input
                 id="pageName"
+                size="sm"
                 value={field.value}
                 onChange={(e) => field.onChange(e.target.value)}
                 onBlur={field.onBlur}
@@ -212,6 +249,7 @@ export function PageForm({
             render={({ field }) => (
               <Input
                 id="url"
+                size="sm"
                 value={field.value}
                 onChange={(e) => field.onChange(e.target.value)}
                 onBlur={field.onBlur}
@@ -222,7 +260,7 @@ export function PageForm({
           />
         </FormField>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-start">
           <FormField label="Redirect Type">
             <Controller
               control={form.control}
@@ -233,6 +271,7 @@ export function PageForm({
                   onChange={field.onChange}
                   placeholder="Select redirect type"
                   className="w-full"
+                  size="sm"
                   options={REDIRECT_SELECT_OPTIONS}
                 />
               )}
@@ -240,7 +279,7 @@ export function PageForm({
           </FormField>
 
           <FormField label="Category">
-            <div className="flex gap-1 items-center">
+            <div className="flex min-w-0 items-center gap-1">
               <div className="min-w-0 flex-1">
                 <Controller
                   control={form.control}
@@ -252,13 +291,15 @@ export function PageForm({
                       onChange={field.onChange}
                       placeholder="Select category"
                       className="w-full"
+                      size="sm"
                     />
                   )}
                 />
               </div>
               <Button
                 type="text"
-                size="small"
+                size="sm"
+                className="shrink-0"
                 iconName="plus"
                 iconSize="sm"
                 title="New category"
@@ -291,6 +332,7 @@ export function PageForm({
         <FormField label="Tags" htmlFor="tags" help="Comma-separated list of tags">
           <Input
             id="tags"
+            size="sm"
             value={(tagsValue ?? []).join(', ')}
             onChange={(e) => handleTagsChange(e.target.value)}
             placeholder="tag1, tag2, tag3"
@@ -310,6 +352,25 @@ export function PageForm({
                 }
                 placeholder="Select offer source"
                 className="w-full"
+                size="sm"
+              />
+            </FormField>
+
+            <FormField label="Payout type">
+              <Controller
+                control={form.control}
+                name="offerParams.payoutType"
+                render={({ field }) => (
+                  <Select
+                    value={field.value || 'perConversion'}
+                    onChange={field.onChange}
+                    placeholder="Payout mode"
+                    className="w-full"
+                    size="sm"
+                    alphabetical={false}
+                    options={PAYOUT_TYPE_OPTIONS}
+                  />
+                )}
               />
             </FormField>
 
@@ -320,6 +381,7 @@ export function PageForm({
                 render={({ field }) => (
                   <Input
                     id="payout"
+                    size="sm"
                     type="number"
                     step="0.01"
                     min="0"
@@ -345,11 +407,35 @@ export function PageForm({
             render={({ field }) => (
               <Input.TextArea
                 id="notes"
+                size="sm"
                 value={field.value ?? ''}
                 onChange={(e) => field.onChange(e.target.value)}
                 onBlur={field.onBlur}
                 ref={field.ref}
                 placeholder="Optional notes..."
+                rows={3}
+              />
+            )}
+          />
+        </FormField>
+
+        <FormField
+          label="Custom fields"
+          htmlFor="customFields"
+          help="Optional values passed with the page (legacy). Use one line per value; they are stored joined as in the classic admin."
+        >
+          <Controller
+            control={form.control}
+            name="customFields"
+            render={({ field }) => (
+              <Input.TextArea
+                id="customFields"
+                size="sm"
+                value={field.value ?? ''}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                placeholder="One value per line"
                 rows={3}
               />
             )}

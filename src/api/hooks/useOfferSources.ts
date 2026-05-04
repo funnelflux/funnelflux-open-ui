@@ -3,6 +3,14 @@ import { api } from '@/api/client'
 import type { OfferSourceTemplateLoadResponse } from '@/api/offerSourceTemplateLoad'
 import { normalizeTemplateList } from '@/api/normalizeTemplateList'
 import { queryKeys } from '@/api/queryKeys'
+import {
+  applyOfferSourceArchiveToEntityGridCaches,
+  refreshOfferSourcesListQueries,
+  removeOfferSourceFromEntityGridCaches,
+  upsertClonedOfferSourceInEntityGridCaches,
+  upsertOfferSourceInEntityGridCaches,
+  type OfferSourceCloneWireResponse,
+} from '@/lib/entityGridQueryCache'
 import type { OfferSource } from '@/types/entities'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
 
@@ -40,8 +48,10 @@ export function useSaveOfferSource() {
       isCreate
         ? api.post<OfferSource>('/data/offersource/save/', offerSource)
         : api.put<OfferSource>('/data/offersource/save/', offerSource),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+    onSuccess: (saved) => {
+      upsertOfferSourceInEntityGridCaches(queryClient, saved)
+      refreshOfferSourcesListQueries(queryClient)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(saved.idOfferSource) })
     },
   })
 }
@@ -50,8 +60,10 @@ export function useDeleteOfferSource() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete('/data/offersource/delete/', { idOfferSource: id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+    onSuccess: (_, id) => {
+      removeOfferSourceFromEntityGridCaches(queryClient, id)
+      refreshOfferSourcesListQueries(queryClient)
+      queryClient.removeQueries({ queryKey: queryKeys.offerSources.detail(id) })
     },
   })
 }
@@ -61,8 +73,12 @@ export function useArchiveOfferSource() {
   return useMutation({
     mutationFn: ({ ids, archive }: { ids: string[]; archive: boolean }) =>
       api.put('/data/offersource/archive/', { ids, archive }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+    onSuccess: (_, { ids, archive }) => {
+      applyOfferSourceArchiveToEntityGridCaches(queryClient, ids, archive)
+      refreshOfferSourcesListQueries(queryClient)
+      for (const id of ids) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(id) })
+      }
     },
   })
 }
@@ -71,9 +87,13 @@ export function useCloneOfferSource() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) =>
-      api.post('/data/offersource/clone/', undefined, { idOfferSource: id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+      api.post<OfferSourceCloneWireResponse>('/data/offersource/clone/', undefined, {
+        idOfferSource: id,
+      }),
+    onSuccess: (data) => {
+      upsertClonedOfferSourceInEntityGridCaches(queryClient, data)
+      refreshOfferSourcesListQueries(queryClient)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(data.idOfferSource) })
     },
   })
 }

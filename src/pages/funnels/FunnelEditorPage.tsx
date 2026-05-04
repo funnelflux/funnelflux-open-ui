@@ -34,6 +34,7 @@ export function FunnelEditorPage() {
 
   const hydrate = useFunnelEditorStore((s) => s.hydrate)
   const reset = useFunnelEditorStore((s) => s.reset)
+  const seedDefaultEntranceNode = useFunnelEditorStore((s) => s.seedDefaultEntranceNode)
   const meta = useFunnelEditorStore((s) => s.meta)
   const nodes = useFunnelEditorStore((s) => s.nodes)
   const edges = useFunnelEditorStore((s) => s.edges)
@@ -51,12 +52,13 @@ export function FunnelEditorPage() {
       reset()
       if (campaignId) {
         updateMeta({ idCampaign: campaignId, idFunnel: generateId() })
+        seedDefaultEntranceNode()
       }
     } else if (funnel) {
       persistExtrasRef.current = extractPersistExtras(funnel)
       hydrate(funnel)
     }
-  }, [funnel, isNew, campaignId, hydrate, reset, updateMeta])
+  }, [funnel, isNew, campaignId, hydrate, reset, seedDefaultEntranceNode, updateMeta])
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {

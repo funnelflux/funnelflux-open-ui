@@ -31,4 +31,11 @@ export default defineConfig([
       ),
     },
   },
+  {
+    files: ['src/components/ui-kit/DatePicker.tsx'],
+    rules: {
+      // Object.assign(DatePicker, { RangePicker }) mirrors antd’s static API, not a second component.
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

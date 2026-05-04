@@ -11,7 +11,8 @@ const SCROLL_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-const FULLSCREEN_STYLE: NonNullable<AntModalProps['styles']> = {
+/** Ant Design `styles` typing includes function forms; object literals are supported at runtime. */
+const FULLSCREEN_STYLE = {
   wrapper: {
     padding: 0,
     alignItems: 'stretch',
@@ -37,7 +38,7 @@ const FULLSCREEN_STYLE: NonNullable<AntModalProps['styles']> = {
     display: 'flex',
     flexDirection: 'column',
   },
-}
+} as unknown as NonNullable<Extract<AntModalProps['styles'], Record<string, unknown>>>
 
 type ModalLayoutVariant = 'default' | 'form' | 'fullscreen'
 
@@ -81,7 +82,7 @@ function mergedModalStyles(
         ...SCROLL_BODY_STYLE,
         ...base.body,
       },
-    }
+    } as AntModalProps['styles']
   }
   const fullscreen = FULLSCREEN_STYLE as ModalStylesObject
   return {
@@ -99,7 +100,7 @@ function mergedModalStyles(
       ...fullscreen.body,
       ...base.body,
     },
-  }
+  } as AntModalProps['styles']
 }
 
 export function Modal({

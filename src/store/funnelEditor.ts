@@ -21,6 +21,7 @@ import {
   coerceVisitorTagOutboundEdges,
 } from '@/lib/funnel-graph/graphHydrationCoercion'
 import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
+import { createDefaultEntranceFlowNode } from '@/lib/defaultNewFunnelNodes'
 import type { FunnelEditorMeta } from '@/types/funnel'
 
 export { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
@@ -187,6 +188,9 @@ interface FunnelEditorState {
   setSelectedEdgeId: (id: string | null) => void
   markClean: () => void
 
+  /** Ensures a new funnel canvas has one root (traffic/entrance) node; no-op if nodes already exist. */
+  seedDefaultEntranceNode: () => void
+
   addNode: (nodeType: NodeTypeValue, position: { x: number; y: number }, data?: Partial<FunnelNodeData>) => string
   removeNode: (id: string) => void
   updateNodeData: (id: string, data: Partial<FunnelNodeData>) => void
@@ -292,6 +296,16 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
   setSelectedNodeId: (selectedNodeId) => set({ selectedNodeId, selectedEdgeId: null }),
   setSelectedEdgeId: (selectedEdgeId) => set({ selectedEdgeId, selectedNodeId: null }),
   markClean: () => set({ isDirty: false }),
+
+  seedDefaultEntranceNode: () => {
+    if (get().nodes.length > 0) return
+    const idNode = generateId()
+    set({
+      nodes: [createDefaultEntranceFlowNode(idNode)],
+      edges: [],
+      isDirty: false,
+    })
+  },
 
   addNode: (nodeType, position, data) => {
     const id = generateId()

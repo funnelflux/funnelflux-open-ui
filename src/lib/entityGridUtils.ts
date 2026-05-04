@@ -1,5 +1,5 @@
 import type { ReportCell, ReportColumn } from '@/types/stats'
-import type { OfferSource, Page } from '@/types/entities'
+import type { OfferSource, Page, TrafficSource } from '@/types/entities'
 import { getColumnMeta, resolveApiColumnId } from '@/components/ui-kit/data-table'
 
 export interface ListEntity {
@@ -103,6 +103,20 @@ export function offerSourcesToListEntities(items: OfferSource[]): ListEntity[] {
     name: os.offerSourceName,
     isArchived: os.isArchived === true,
   }))
+}
+
+/** Map a saved traffic source (v2 shape) to a grid {@link ListEntity}. */
+export function trafficSourceToListEntity(trafficSource: TrafficSource): ListEntity {
+  const entity: ListEntity = {
+    id: trafficSource.idTrafficSource,
+    name: trafficSource.trafficSourceName,
+    isArchived: trafficSource.isArchived === true,
+  }
+  const categoryId = trafficSource.idCategory
+  if (categoryId != null && String(categoryId) !== '') {
+    entity.categoryId = String(categoryId)
+  }
+  return entity
 }
 
 /** Map v2 GET /data/trafficsource/list/ rows to grid entities (includes optional categoryId). */

@@ -56,11 +56,12 @@ interface TimezoneSelectProps {
   value?: string
   onChange?: (timezone: string) => void
   className?: string
+  disabled?: boolean
   /** Default **md** — aligns with other toolbar selects */
   size?: ControlSize | LegacyAntdControlSize
 }
 
-export function TimezoneSelect({ id, value, onChange, className, size = 'md' }: TimezoneSelectProps) {
+export function TimezoneSelect({ id, value, onChange, className, disabled, size = 'md' }: TimezoneSelectProps) {
   const currentTz = value || getStoredTimezone()
   const normalized = normalizeTimezone(currentTz)
 
@@ -78,6 +79,7 @@ export function TimezoneSelect({ id, value, onChange, className, size = 'md' }: 
       size={size}
       className={className}
       style={{ minWidth: 180 }}
+      disabled={disabled}
     />
   )
 }

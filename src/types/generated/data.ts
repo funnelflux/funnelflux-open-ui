@@ -262,6 +262,7 @@ export interface FluxifyParams {
 export interface OfferParams {
   idOfferSource: string;
   payout?: number;
+  payoutType?: 'perConversion' | 'revShare';
 }
 
 export interface CampaignsFunnelsAndNodes {
@@ -276,6 +277,7 @@ export interface Page {
   redirectType?: '301' | '307' | 'umr' | 'fluxify';
   tags?: string[];
   notes?: string;
+  customFields?: string;
   offerParams?: OfferParams;
   fluxifyParams?: FluxifyParams;
   isArchived?: boolean;

@@ -54,6 +54,7 @@ import type { DrilldownRequest, ReportCell } from '@/types/stats'
 import type { CampaignFormData } from '@/schemas/campaign'
 import { getErrorMessage, selectedRowIds } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
+import { createDefaultEntranceApiNode } from '@/lib/defaultNewFunnelNodes'
 import { generateId } from '@/lib/id-generator'
 
 function isCampaignTotalsRow(row: CampaignTreeRow): boolean {
@@ -274,6 +275,7 @@ export function CampaignsPage() {
     openEditor: boolean
   }) => {
     const idFunnel = generateId()
+    const idEntranceNode = generateId()
     saveFunnel.mutate(
       {
         create: true,
@@ -283,7 +285,7 @@ export function CampaignsPage() {
         defaultCostPerEntrance: '0',
         canvasWidth: 2000,
         canvasHeight: 1500,
-        nodes: [],
+        nodes: [createDefaultEntranceApiNode(idFunnel, idEntranceNode)],
         connections: [],
       },
       {

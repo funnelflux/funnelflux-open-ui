@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useRef, useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { type ColumnDef, type Table, type PaginationState, type Updater, type RowSelectionState, type SortingState } from '@tanstack/react-table'
 import { Button, Modal, Input } from '@/components/ui-kit'
 import {
@@ -36,6 +37,7 @@ import {
   useDeleteCategory,
 } from '@/api/hooks'
 import { buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
+import { applyTrafficSourceArchiveToEntityGridCaches, refreshTrafficSourcesListQueries } from '@/lib/entityGridQueryCache'
 import { trafficSourceListToListEntities } from '@/lib/entityGridUtils'
 import { useEntityPage } from '@/hooks/useEntityPage'
 import { queryKeys } from '@/api/queryKeys'
@@ -74,6 +76,7 @@ const trafficCategoryRowClassName = (row: TrafficSourceGridRow) =>
   row._isCategoryHeader ? 'dt-row--category-strip' : undefined
 
 export function TrafficSourcesPage() {
+  const queryClient = useQueryClient()
   const toast = useToastApi()
   const tableRef = useRef<Table<TrafficSourceGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<TrafficSourceGridRow> | null>(null)
@@ -203,7 +206,6 @@ export function TrafficSourcesPage() {
         toast.success(editId ? 'Traffic source updated' : 'Traffic source created')
         setSheetOpen(false)
         setEditId(null)
-        reload()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
@@ -211,24 +213,38 @@ export function TrafficSourcesPage() {
 
   const cloneMutate = cloneMutation.mutate
   const handleClone = useCallback((id: string) => {
-    cloneMutate(id, {
-      onSuccess: () => { toast.success('Traffic source cloned'); reload() },
-      onError: (err) => toast.error(getErrorMessage(err)),
-    })
-  }, [cloneMutate, toast, reload])
+    const row = listFiltered.find((r): r is TrafficSourceGridRow => !r._isCategoryHeader && r.id === id)
+    cloneMutate(
+      {
+        idTrafficSource: id,
+        categoryId: row?.categoryId != null ? String(row.categoryId) : undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Traffic source cloned')
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+      },
+    )
+  }, [cloneMutate, listFiltered, toast])
 
   const archiveMutate = archiveMutation.mutate
   const handleArchiveTrafficSource = useCallback((id: string, archive: boolean) => {
     archiveMutate({ id, archive }, {
-      onSuccess: () => { toast.success(archive ? 'Archived' : 'Restored'); reload() },
+      onSuccess: () => {
+        toast.success(archive ? 'Archived' : 'Restored')
+      },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }, [archiveMutate, toast, reload])
+  }, [archiveMutate, toast])
 
   const handleDelete = () => {
     if (!deleteId) return
     deleteMutation.mutate(deleteId, {
-      onSuccess: () => { toast.success('Deleted'); setDeleteId(null); reload() },
+      onSuccess: () => {
+        toast.success('Deleted')
+        setDeleteId(null)
+      },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
@@ -376,10 +392,13 @@ export function TrafficSourcesPage() {
 
   const handleBulkArchiveTrafficSources = useCallback(async () => {
     await api.put('/data/trafficsource/archive/', { ids: entityIdsForBulk, archive: true })
+    for (const id of entityIdsForBulk) {
+      applyTrafficSourceArchiveToEntityGridCaches(queryClient, id, true)
+    }
+    refreshTrafficSourcesListQueries(queryClient)
     toast.success('Selected traffic sources archived')
     setRowSelection({})
-    reload()
-  }, [entityIdsForBulk, toast, reload, setRowSelection])
+  }, [entityIdsForBulk, queryClient, toast, setRowSelection])
 
   const handleBulkDeleteTrafficSources = useCallback(async () => {
     const categoryKeys = [
@@ -398,8 +417,7 @@ export function TrafficSourcesPage() {
     }
     toast.success('Selected items deleted')
     setRowSelection({})
-    reload()
-  }, [selectedIds, entityIdsForBulk, deleteMutation, deleteCategoryMutation, toast, reload, setRowSelection])
+  }, [selectedIds, entityIdsForBulk, deleteMutation, deleteCategoryMutation, toast, setRowSelection])
 
   const handleBulkAssignTrafficSourceCategory = useCallback(async (idCategory: string) => {
     await api.put('/data/trafficsource/category/assign/', {

@@ -47,10 +47,12 @@ export const pageSchema = z.object({
   numberOfActions: z.coerce.number().min(1).max(64).optional(),
   tags: z.array(z.string()),
   notes: z.string().optional(),
+  customFields: z.string().optional(),
   /** Matches {@link OfferParams} when `pageType === 'offer'`. */
   offerParams: z.object({
     idOfferSource: z.string(),
     payout: z.coerce.number().min(0),
+    payoutType: z.enum(['perConversion', 'revShare']).optional(),
   }).optional(),
   fluxifyParams: fluxifyParamsSchema.optional(),
   isArchived: z.boolean().optional(),

@@ -89,6 +89,11 @@ export const queryKeys = {
     all: ['categories'] as const,
     list: (entityType?: string) => [...queryKeys.categories.all, 'list', entityType] as const,
   },
+  dataUpdates: {
+    all: ['dataUpdates'] as const,
+    updateCostPage: () => [...queryKeys.dataUpdates.all, 'updateCostPage'] as const,
+    resetStatsPage: () => [...queryKeys.dataUpdates.all, 'resetStatsPage'] as const,
+  },
   groupingFilterAssets: {
     all: ['groupingFilterAssets'] as const,
     campaignsSimple: () => [...queryKeys.groupingFilterAssets.all, 'campaigns', 'simple'] as const,
