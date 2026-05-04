@@ -19,10 +19,6 @@ export function buildCategorySegmentsFromRows<T extends EntityGridRow>(
     grouped.get(catName)!.push(row)
   }
 
-  if (grouped.size <= 1) {
-    return [{ header: null, items: listFiltered }]
-  }
-
   const out: CategorySegment<T>[] = []
   for (const [catName, catRows] of grouped) {
     const first = catRows[0]

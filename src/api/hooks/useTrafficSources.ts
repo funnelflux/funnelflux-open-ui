@@ -11,6 +11,7 @@ import {
   upsertTrafficSourceInEntityGridCaches,
   type TrafficSourceCloneWireResponse,
 } from '@/lib/entityGridQueryCache'
+import { trafficSourceForEntityGridCache } from '@/lib/entityGridSaveMerge'
 import type { TrafficSource } from '@/types/entities'
 
 export type SaveTrafficSourceInput = {
@@ -63,10 +64,15 @@ export function useSaveTrafficSource() {
         ? api.post<TrafficSource>('/data/trafficsource/save/', body)
         : api.put<TrafficSource>('/data/trafficsource/save/', body)
     },
-    onSuccess: (saved) => {
-      upsertTrafficSourceInEntityGridCaches(qc, saved)
+    onSuccess: (saveResponse, variables) => {
+      const mergedTrafficSource = trafficSourceForEntityGridCache(saveResponse, variables.trafficSource)
+      if (mergedTrafficSource) {
+        upsertTrafficSourceInEntityGridCaches(qc, mergedTrafficSource)
+        void qc.invalidateQueries({
+          queryKey: queryKeys.trafficSources.detail(mergedTrafficSource.idTrafficSource),
+        })
+      }
       refreshTrafficSourcesListQueries(qc)
-      void qc.invalidateQueries({ queryKey: queryKeys.trafficSources.detail(saved.idTrafficSource) })
     },
   })
 }

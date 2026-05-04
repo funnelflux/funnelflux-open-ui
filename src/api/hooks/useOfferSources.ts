@@ -11,6 +11,7 @@ import {
   upsertOfferSourceInEntityGridCaches,
   type OfferSourceCloneWireResponse,
 } from '@/lib/entityGridQueryCache'
+import { offerSourceForEntityGridCache } from '@/lib/entityGridSaveMerge'
 import type { OfferSource } from '@/types/entities'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
 
@@ -48,10 +49,15 @@ export function useSaveOfferSource() {
       isCreate
         ? api.post<OfferSource>('/data/offersource/save/', offerSource)
         : api.put<OfferSource>('/data/offersource/save/', offerSource),
-    onSuccess: (saved) => {
-      upsertOfferSourceInEntityGridCaches(queryClient, saved)
+    onSuccess: (saveResponse, variables) => {
+      const mergedOfferSource = offerSourceForEntityGridCache(saveResponse, variables.offerSource)
+      if (mergedOfferSource) {
+        upsertOfferSourceInEntityGridCaches(queryClient, mergedOfferSource)
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.offerSources.detail(mergedOfferSource.idOfferSource),
+        })
+      }
       refreshOfferSourcesListQueries(queryClient)
-      void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(saved.idOfferSource) })
     },
   })
 }

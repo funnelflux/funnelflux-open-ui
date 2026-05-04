@@ -90,7 +90,7 @@ export interface PageCloneWireResponse {
 
 export function upsertClonedPageInEntityGridCaches(
   queryClient: QueryClient,
-  payload: PageCloneWireResponse & { pageType: PageType },
+  payload: PageCloneWireResponse & { pageType: PageType; categoryId?: string },
 ): void {
   const synthetic = {
     idPage: payload.idPage,
@@ -98,6 +98,9 @@ export function upsertClonedPageInEntityGridCaches(
     pageType: payload.pageType,
     url: '',
     isArchived: false as boolean | undefined,
+    ...(payload.categoryId != null && payload.categoryId !== ''
+      ? { categoryId: payload.categoryId }
+      : {}),
   } as Page
   upsertPageInEntityGridCaches(queryClient, synthetic)
 }

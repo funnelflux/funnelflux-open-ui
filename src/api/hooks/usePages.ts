@@ -10,6 +10,7 @@ import {
   upsertPageInEntityGridCaches,
   type PageCloneWireResponse,
 } from '@/lib/entityGridQueryCache'
+import { pageForEntityGridCache } from '@/lib/entityGridSaveMerge'
 
 export type SavePageInput = {
   page: Partial<Page>
@@ -19,6 +20,8 @@ export type SavePageInput = {
 export type ClonePageVariables = {
   idPage: string
   pageType: PageType
+  /** Source row category so the grid cache matches server clone behavior (FluxPage __clone keeps idCategory). */
+  categoryId?: string
 }
 
 export function usePages(pageType?: PageType, status?: string) {
@@ -65,12 +68,13 @@ export function useSavePage() {
       isCreate
         ? api.post<Page>('/data/page/save/', page)
         : api.put<Page>('/data/page/save/', page),
-    onSuccess: (savedPage) => {
-      upsertPageInEntityGridCaches(qc, savedPage)
-      refreshPagesListQueries(qc)
-      if (savedPage.idPage) {
-        void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(savedPage.idPage) })
+    onSuccess: (saveResponse, variables) => {
+      const mergedPage = pageForEntityGridCache(saveResponse, variables.page)
+      if (mergedPage) {
+        upsertPageInEntityGridCaches(qc, mergedPage)
+        void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(mergedPage.idPage) })
       }
+      refreshPagesListQueries(qc)
     },
   })
 }
@@ -93,7 +97,11 @@ export function useClonePage() {
     mutationFn: ({ idPage }: ClonePageVariables) =>
       api.post<PageCloneWireResponse>('/data/page/clone/', undefined, { idPage }),
     onSuccess: (data, variables) => {
-      upsertClonedPageInEntityGridCaches(qc, { ...data, pageType: variables.pageType })
+      upsertClonedPageInEntityGridCaches(qc, {
+        ...data,
+        pageType: variables.pageType,
+        categoryId: variables.categoryId,
+      })
       refreshPagesListQueries(qc)
       void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(data.idPage) })
     },

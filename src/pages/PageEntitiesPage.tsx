@@ -207,9 +207,16 @@ export function PageEntitiesPage({
   }, [saveMutation, editId, toast, singularLabel])
 
   const cloneMutate = cloneMutation.mutate
-  const handleClone = useCallback((id: string) => {
+  const handleClone = useCallback((idPage: string) => {
+    const sourceRow = listFiltered.find(
+      (row): row is PageGridRow => !row._isCategoryHeader && row.id === idPage,
+    )
+    const categoryIdFromSource =
+      sourceRow?.categoryId != null && String(sourceRow.categoryId) !== ''
+        ? String(sourceRow.categoryId)
+        : undefined
     cloneMutate(
-      { idPage: id, pageType },
+      { idPage, pageType, categoryId: categoryIdFromSource },
       {
         onSuccess: () => {
           toast.success(`${singularLabel} cloned`)
@@ -217,7 +224,7 @@ export function PageEntitiesPage({
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [cloneMutate, toast, singularLabel, pageType])
+  }, [cloneMutate, listFiltered, toast, singularLabel, pageType])
 
   const archiveMutate = archiveMutation.mutate
   const handleArchive = useCallback((id: string, archive: boolean) => {
