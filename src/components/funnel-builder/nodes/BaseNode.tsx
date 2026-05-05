@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { Handle, Position } from '@xyflow/react'
+import { Handle, Position, useNodeId } from '@xyflow/react'
 import { cn } from '@/lib/utils'
 import { SOURCE_HANDLE, TARGET_HANDLE } from '@/lib/funnelEdgeGeometry'
+import { HeatmapNodeBadge } from '@/components/funnel-builder/HeatmapNodeBadge'
 
 const ACCENT_STYLES = {
   emerald:
@@ -98,6 +99,8 @@ export function BaseNode({
   hideSource,
   card,
 }: BaseNodeProps) {
+  const nodeId = useNodeId()
+
   if (card) {
     const iconWrap = ACCENT_STYLES[card.accent]
     return (
@@ -112,6 +115,9 @@ export function BaseNode({
         )}
       >
         <MultiHandles hideTarget={hideTarget} hideSource={hideSource} />
+        {nodeId ? (
+          <HeatmapNodeBadge nodeId={nodeId} nodeKind={card.kind} nodeTitle={card.title} />
+        ) : null}
 
         <div className="px-3.5 pt-3.5 pb-3">
           <div className="flex gap-3 items-start">
@@ -152,6 +158,7 @@ export function BaseNode({
       )}
     >
       <MultiHandles hideTarget={hideTarget} hideSource={hideSource} />
+      {nodeId ? <HeatmapNodeBadge nodeId={nodeId} /> : null}
 
       <div className="p-3">{children}</div>
     </div>

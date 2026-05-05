@@ -9,6 +9,7 @@ import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { FunnelSettingsModal } from '@/components/funnel-builder/FunnelSettingsModal'
 import { FunnelQuickStatsModal } from '@/components/funnel-builder/FunnelQuickStatsModal'
 import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
+import { HeatmapOverlay } from '@/components/funnel-builder/HeatmapOverlay'
 import { useToastApi } from '@/components/ui-kit'
 import { Button } from '@/components/ui-kit'
 import { useAuthStore } from '@/store/auth'
@@ -274,9 +275,16 @@ export function FunnelEditorPage() {
             </Button>
           </header>
 
-          <div className="relative min-h-0 flex-1">
-            <FunnelCanvas className="absolute inset-0 min-h-0" />
-          </div>
+          <HeatmapOverlay
+            funnelId={funnelId ?? ''}
+            campaignId={campaignId}
+            enabled={Boolean(canViewStats)}
+            isNew={isNew}
+          >
+            <div className="relative min-h-0 flex-1">
+              <FunnelCanvas className="absolute inset-0 min-h-0" />
+            </div>
+          </HeatmapOverlay>
         </div>
       </ReactFlowProvider>
 

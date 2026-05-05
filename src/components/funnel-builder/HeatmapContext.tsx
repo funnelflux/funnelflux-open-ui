@@ -1,13 +1,18 @@
 import { createContext } from 'react'
+import type { FunnelHeatmapMode, FunnelHeatmapStatsByNode } from '@/lib/funnelHeatmap'
 
 export type HeatmapContextValue = {
   active: boolean
-  metric: string
-  nodeStats: Record<string, Record<string, number>>
+  mode: FunnelHeatmapMode
+  nodeStats: FunnelHeatmapStatsByNode
+  intensityMax: number
+  isLoading: boolean
 }
 
 export const HeatmapContext = createContext<HeatmapContextValue>({
   active: false,
-  metric: 'visits',
+  mode: 'trafficFlow',
   nodeStats: {},
+  intensityMax: 0,
+  isLoading: false,
 })
