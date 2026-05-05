@@ -72,7 +72,6 @@ export function ConditionFieldValueInput({
     return (
       <div className="flex w-full min-w-0 items-center gap-1">
         <Input
-          size="sm"
           className="w-20 shrink-0"
           value={left}
           onChange={(e) => onChange(`${e.target.value}, ${right}`)}
@@ -80,7 +79,6 @@ export function ConditionFieldValueInput({
         />
         <span className="text-xs text-muted-foreground px-1">&mdash;</span>
         <Input
-          size="sm"
           className="w-20 shrink-0"
           value={right}
           onChange={(e) => onChange(`${left}, ${e.target.value}`)}
@@ -97,7 +95,6 @@ export function ConditionFieldValueInput({
     return (
       <Input.TextArea
         className="min-h-[4rem] w-full resize-none"
-        size="sm"
         value={lines}
         onChange={(e) => {
           const vals = e.target.value.split('\n')
@@ -116,7 +113,6 @@ export function ConditionFieldValueInput({
         onChange={(val) => onChange(val)}
         placeholder="Day"
         className="w-32 shrink-0"
-        size="sm"
         alphabetical={false}
         options={DAY_OF_WEEK_OPTIONS}
       />
@@ -130,7 +126,6 @@ export function ConditionFieldValueInput({
         onChange={(val) => onChange(val)}
         placeholder="Hour"
         className="w-28 shrink-0"
-        size="sm"
         alphabetical={false}
         options={HOUR_OPTIONS}
       />
@@ -144,7 +139,6 @@ export function ConditionFieldValueInput({
         onChange={(val) => onChange(val)}
         placeholder="Type"
         className="w-32 shrink-0"
-        size="sm"
         alphabetical={false}
         options={DEVICE_TYPE_OPTIONS}
       />
@@ -158,7 +152,6 @@ export function ConditionFieldValueInput({
         onChange={(val) => onChange(val)}
         placeholder="Type"
         className="w-32 shrink-0"
-        size="sm"
         alphabetical={false}
         options={CONNECTION_TYPE_OPTIONS}
       />
@@ -168,7 +161,6 @@ export function ConditionFieldValueInput({
   // Default: text input
   return (
     <Input
-      size="sm"
       className="w-full min-w-0"
       value={stringValue(value)}
       onChange={(e) => onChange(e.target.value)}

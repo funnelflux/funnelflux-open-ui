@@ -83,7 +83,6 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
           <span className="block text-sm font-medium text-foreground">Campaign name</span>
           <Select
             className="h-10 w-full"
-            size="middle"
             value={meta.idCampaign || undefined}
             onChange={(v: string) => updateMeta({ idCampaign: v })}
             disabled={!isNew}

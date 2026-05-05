@@ -20,11 +20,9 @@ import { queryKeys } from '@/api/queryKeys'
 import type { BackgroundJobResponse, CostUpload } from '@/types/stats'
 import type { KeyValuePairTreeItem } from '@/types/generated/data'
 import type { UpdateCostPageData } from '@/types/generated/ui'
-import { controlTierToAntdSize } from '@/lib/controlSize'
 import { cn, getErrorMessage } from '@/lib/utils'
 
 const DATE_FMT = 'YYYY-MM-DD'
-const datePickerSize = controlTierToAntdSize('sm')
 
 function localCalendarReportingDay(): ReportingDayMeta {
   const d = new Date()
@@ -196,7 +194,6 @@ export function CostUpdatePage() {
                 onChange={setIdTrafficSource}
                 placeholder={costPageLoading ? 'Loading…' : 'Select traffic source'}
                 className="w-full"
-                size="sm"
                 disabled={formLocked || noTrafficSources}
               />
             </Field>
@@ -213,7 +210,6 @@ export function CostUpdatePage() {
                 onChange={setIdFunnel}
                 placeholder="All funnels"
                 className="w-full"
-                size="sm"
                 disabled={formLocked}
               />
             </Field>
@@ -227,8 +223,7 @@ export function CostUpdatePage() {
               >
                 <DatePicker
                   id="cost-update-date-from"
-                  className={cn('w-full h-control-sm')}
-                  size={datePickerSize}
+                  className={cn('w-full h-control-md')}
                   format={DATE_FMT}
                   reportingValue={dateFromDay}
                   onChange={(_d, _s, reporting) => {
@@ -246,8 +241,7 @@ export function CostUpdatePage() {
               >
                 <DatePicker
                   id="cost-update-date-to"
-                  className={cn('w-full h-control-sm')}
-                  size={datePickerSize}
+                  className={cn('w-full h-control-md')}
                   format={DATE_FMT}
                   reportingValue={dateToDay}
                   onChange={(_d, _s, reporting) => {
@@ -268,7 +262,6 @@ export function CostUpdatePage() {
                 id="cost-update-timezone"
                 value={timezone}
                 onChange={setTimezone}
-                size="sm"
                 className="w-full"
                 disabled={formLocked}
               />
@@ -283,7 +276,6 @@ export function CostUpdatePage() {
               <Input
                 id="cost-update-total"
                 type="number"
-                size="sm"
                 step="0.01"
                 min="0"
                 value={totalCost}

@@ -108,7 +108,6 @@ const GroupingLevelEditorRow = memo(function GroupingLevelEditorRow({
           onChange={handleSelectChange}
           placeholder="Select grouping"
           allowClear
-          size="middle"
           className="w-full max-w-full text-xs"
           optionGroups={groupedOptions}
         />
@@ -116,7 +115,6 @@ const GroupingLevelEditorRow = memo(function GroupingLevelEditorRow({
           <Button
             htmlType="button"
             type="text"
-            size="sm"
             iconName="chevron-up"
             iconSize="md"
             onClick={handleMoveUp}
@@ -126,7 +124,6 @@ const GroupingLevelEditorRow = memo(function GroupingLevelEditorRow({
           <Button
             htmlType="button"
             type="text"
-            size="sm"
             iconName="chevron-down"
             iconSize="md"
             onClick={handleMoveDown}
@@ -154,7 +151,6 @@ const GroupingLevelEditorRow = memo(function GroupingLevelEditorRow({
             <Button
               htmlType="button"
               type="text"
-              size="sm"
               iconName="x"
               iconSize="sm"
               onClick={handleRemoveClick}
@@ -306,7 +302,7 @@ export function GroupingsLevelsEditor({
         ))}
       </div>
       {canAddLevel ? (
-        <Button size="sm" className="text-xs" onClick={handleAdd} iconName="plus" iconSize="sm">
+        <Button className="text-xs" onClick={handleAdd} iconName="plus" iconSize="sm">
           Add level
         </Button>
       ) : null}

@@ -122,7 +122,6 @@ export function PageForm({
   const redirectType = useWatch({ control: form.control, name: 'redirectType' })
   const isFluxify = redirectType === 'fluxify'
   const fluxifyParams = useWatch({ control: form.control, name: 'fluxifyParams' })
-  const tagsValue = useWatch({ control: form.control, name: 'tags' })
   const offerSourceIdValue = useWatch({ control: form.control, name: 'offerParams.idOfferSource' })
 
   useEffect(() => {
@@ -164,6 +163,7 @@ export function PageForm({
           fluxifyParams: undefined,
         })
       }
+
     }
   }, [open, initialData, form, pageType, isOffer])
 
@@ -176,12 +176,14 @@ export function PageForm({
     }
   }, [isFluxify, fluxifyParams, form])
 
-  const handleTagsChange = (value: string) => {
-    const tags = value
+  const parseTags = (value: string) =>
+    value
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean)
-    form.setValue('tags', tags, { shouldDirty: true })
+
+  const handleTagsChange = (value: string) => {
+    form.setValue('tags', parseTags(value), { shouldDirty: true })
   }
 
   const setFluxifyField = (field: keyof FluxifyParams, value: unknown) => {
@@ -220,7 +222,7 @@ export function PageForm({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-4 space-y-5">
         {initialData?.idPage && (
           <FormField label="ID">
-            <Input value={initialData.idPage} disabled className="font-mono text-xs" size="sm" />
+            <Input value={initialData.idPage} disabled className="font-mono text-xs" />
           </FormField>
         )}
 
@@ -231,7 +233,6 @@ export function PageForm({
             render={({ field }) => (
               <Input
                 id="pageName"
-                size="sm"
                 value={field.value}
                 onChange={(e) => field.onChange(e.target.value)}
                 onBlur={field.onBlur}
@@ -249,7 +250,6 @@ export function PageForm({
             render={({ field }) => (
               <Input
                 id="url"
-                size="sm"
                 value={field.value}
                 onChange={(e) => field.onChange(e.target.value)}
                 onBlur={field.onBlur}
@@ -271,7 +271,6 @@ export function PageForm({
                   onChange={field.onChange}
                   placeholder="Select redirect type"
                   className="w-full"
-                  size="sm"
                   options={REDIRECT_SELECT_OPTIONS}
                 />
               )}
@@ -291,14 +290,12 @@ export function PageForm({
                       onChange={field.onChange}
                       placeholder="Select category"
                       className="w-full"
-                      size="sm"
                     />
                   )}
                 />
               </div>
               <Button
                 type="text"
-                size="sm"
                 className="shrink-0"
                 iconName="plus"
                 iconSize="sm"
@@ -332,8 +329,8 @@ export function PageForm({
         <FormField label="Tags" htmlFor="tags" help="Comma-separated list of tags">
           <Input
             id="tags"
-            size="sm"
-            value={(tagsValue ?? []).join(', ')}
+            key={initialData?.idPage ?? 'new'}
+            defaultValue={(initialData?.tags ?? []).join(', ')}
             onChange={(e) => handleTagsChange(e.target.value)}
             placeholder="tag1, tag2, tag3"
           />
@@ -352,7 +349,6 @@ export function PageForm({
                 }
                 placeholder="Select offer source"
                 className="w-full"
-                size="sm"
               />
             </FormField>
 
@@ -366,7 +362,6 @@ export function PageForm({
                     onChange={field.onChange}
                     placeholder="Payout mode"
                     className="w-full"
-                    size="sm"
                     alphabetical={false}
                     options={PAYOUT_TYPE_OPTIONS}
                   />
@@ -381,7 +376,6 @@ export function PageForm({
                 render={({ field }) => (
                   <Input
                     id="payout"
-                    size="sm"
                     type="number"
                     step="0.01"
                     min="0"
@@ -407,7 +401,6 @@ export function PageForm({
             render={({ field }) => (
               <Input.TextArea
                 id="notes"
-                size="sm"
                 value={field.value ?? ''}
                 onChange={(e) => field.onChange(e.target.value)}
                 onBlur={field.onBlur}
@@ -430,7 +423,6 @@ export function PageForm({
             render={({ field }) => (
               <Input.TextArea
                 id="customFields"
-                size="sm"
                 value={field.value ?? ''}
                 onChange={(e) => field.onChange(e.target.value)}
                 onBlur={field.onBlur}

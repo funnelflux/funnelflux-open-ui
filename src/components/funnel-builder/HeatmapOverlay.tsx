@@ -135,7 +135,11 @@ export function HeatmapOverlay({ funnelId, active, onToggle }: HeatmapOverlayPro
           Heatmap Active
         </Tag>
 
-        <Select value={metric} onChange={setMetric} placeholder="Select metric" className="w-[150px]" size="small"
+        <Select
+          value={metric}
+          onChange={setMetric}
+          placeholder="Select metric"
+          className="w-[150px]"
           options={METRIC_SELECT_OPTIONS}
         />
 

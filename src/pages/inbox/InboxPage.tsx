@@ -124,7 +124,6 @@ export function InboxPage() {
                 <div className="flex items-center gap-1 shrink-0">
                   <Button
                     type="text"
-                    size="sm"
                     iconName={message.alreadyRead ? 'mail' : 'mail-open'}
                     iconSize="sm"
                     onClick={(event) => {
@@ -135,7 +134,6 @@ export function InboxPage() {
                   />
                   <Button
                     type="text"
-                    size="sm"
                     className="text-destructive hover:text-destructive"
                     iconName="trash-2"
                     iconSize="sm"

@@ -68,7 +68,6 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         }
         placeholder="Field"
         className="w-40 shrink-0"
-        size="sm"
         alphabetical={false}
         options={CONDITION_FIELD_OPTIONS}
       />
@@ -76,7 +75,6 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
       {/* Extra key input for visitorTag, queryParam, customField */}
       {needsExtraKey && (
         <Input
-          size="sm"
           className="w-28 shrink-0"
           value={rule.extraKey ?? ''}
           onChange={(e) => onChange({ ...rule, extraKey: e.target.value })}
@@ -92,7 +90,6 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
         }
         placeholder="Operator"
         className="w-40 shrink-0"
-        size="sm"
         alphabetical={false}
         options={CONDITION_OPERATOR_OPTIONS}
       />
@@ -111,7 +108,6 @@ export function ConditionRuleRow({ rule, onChange, onRemove }: ConditionRuleRowP
       <Button
         htmlType="button"
         type="text"
-        size="sm"
         className="shrink-0"
         onClick={onRemove}
         aria-label="Remove rule"

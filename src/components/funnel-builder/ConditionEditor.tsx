@@ -210,7 +210,6 @@ export function ConditionEditor({
               placeholder="Select a global condition to copy"
               options={globalConditionOptions}
               className="w-full"
-              size="sm"
             />
           </Field>
         )}
@@ -228,7 +227,6 @@ export function ConditionEditor({
               <Input
                 id="conditionName"
                 className="w-full"
-                size="sm"
                 value={field.value ?? ''}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -290,7 +288,6 @@ export function ConditionEditor({
 
         <Button
           htmlType="button"
-          size="sm"
           onClick={handleAddBlock}
           iconName="plus"
           iconSize="sm"

@@ -4,6 +4,8 @@ export { Modal } from './Modal'
 export type { ModalProps } from './Modal'
 export { Button } from './Button'
 export type { ButtonProps } from './Button'
+export { CopyButton } from './CopyButton'
+export type { CopyButtonProps } from './CopyButton'
 export type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
 export {
   CONTROL_SIZE_HEIGHT_PX,

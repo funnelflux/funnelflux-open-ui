@@ -3,7 +3,7 @@ import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { DatePicker } from './DatePicker'
 import type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
-import { controlTierToAntdSize, normalizeControlTier } from '@/lib/controlSize'
+import { controlTierToAntdSize, normalizePickerControlTier } from '@/lib/controlSize'
 
 const { RangePicker } = DatePicker
 
@@ -16,7 +16,7 @@ interface DateTimeRangePickerProps {
   showTime?: boolean
   className?: string
   style?: React.CSSProperties
-  /** sm | md | lg to align with other toolbar controls */
+  /** md | lg (`sm`/`small` map to md) */
   size?: ControlSize | LegacyAntdControlSize
   allowClear?: boolean
   presets?: { label: string; value: RangeValue }[]
@@ -43,7 +43,7 @@ export function DateTimeRangePicker({
   presets,
 }: DateTimeRangePickerProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
-  const antdSize = controlTierToAntdSize(normalizeControlTier(size))
+  const antdSize = controlTierToAntdSize(normalizePickerControlTier(size))
 
   if (!showTime) {
     return (

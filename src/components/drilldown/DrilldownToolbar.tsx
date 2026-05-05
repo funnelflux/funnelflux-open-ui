@@ -449,7 +449,6 @@ export function DrilldownToolbarHeaderFilters() {
     <div className="flex flex-wrap items-center gap-2">
       <DateTimeRangePicker
         showTime
-        size="md"
         value={dateTimeRangeValue}
         onChange={(dates) => {
           const a = dates?.[0]

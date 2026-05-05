@@ -1,7 +1,7 @@
 import { DatePicker } from '@/components/ui-kit'
 import dayjs from 'dayjs'
 import type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
-import { normalizeControlTier } from '@/lib/controlSize'
+import { normalizePickerControlTier } from '@/lib/controlSize'
 import { controlSizeToAntdSize } from '@/lib/controlSize'
 import {
   DATE_PRESETS,
@@ -17,7 +17,7 @@ interface DateRangePickerProps {
   timezone: string
   onChange: (range: DateRange & { preset: string | null }) => void
   className?: string
-  /** sm | md | lg — matches toolbar Select / Button */
+  /** md | lg (`sm`/`small` map to md). */
   size?: ControlSize | LegacyAntdControlSize
   /** Accessible name for the range control (toolbar layouts often omit a visible label). */
   'aria-label'?: string
@@ -40,10 +40,9 @@ export function DateRangePicker({
   size = 'md',
   'aria-label': ariaLabel,
 }: DateRangePickerProps) {
-  const tier = normalizeControlTier(size)
+  const tier = normalizePickerControlTier(size)
   const antdSize = controlSizeToAntdSize(tier)
-  const heightClass =
-    tier === 'sm' ? 'h-control-sm' : tier === 'lg' ? 'h-control-lg' : 'h-control-md'
+  const heightClass = tier === 'lg' ? 'h-control-lg' : 'h-control-md'
 
   return (
     <RangePicker

@@ -257,7 +257,6 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                           <div className="min-w-0 flex-1">
                             <Select
                               className="w-full"
-                              size="md"
                               options={categorySmartOptions}
                               value={categorySelectValue}
                               placeholder="Category"
@@ -330,7 +329,6 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                             <Select
                               allowClear
                               className="w-full min-w-0"
-                              size="md"
                               options={offerSourceOptions}
                               placeholder="Select offer source"
                               value={field.value || undefined}
@@ -372,7 +370,6 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                             render={({ field }) => (
                               <Select
                                 className="w-full min-w-0"
-                                size="md"
                                 options={REDIRECT_SELECT_OPTIONS}
                                 placeholder="Redirect type"
                                 value={field.value}
@@ -469,7 +466,6 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                               render={({ field }) => (
                                 <Select
                                   className="h-control-md w-full font-mono text-xs"
-                                  size="md"
                                   value={field.value || '__pick__'}
                                   onChange={(v) => {
                                     field.onChange(v === '__pick__' ? '' : v)
@@ -497,7 +493,6 @@ export function OfferNodeEditModal({ nodeId, open, onClose }: OfferNodeEditModal
                       ))}
                       <Button
                         htmlType="button"
-                        size="sm"
                         iconName="plus"
                         iconSize="sm"
                         onClick={() => append({ field: '', token: '' })}

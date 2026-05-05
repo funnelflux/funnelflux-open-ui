@@ -19,11 +19,9 @@ import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { CurrentPeriod, ResetStatsPageData } from '@/types/generated/ui'
 import type { IntegerValue } from '@/types/stats'
-import { controlTierToAntdSize } from '@/lib/controlSize'
 import { cn, getErrorMessage } from '@/lib/utils'
 
 const DATE_FMT = 'YYYY-MM-DD'
-const datePickerSize = controlTierToAntdSize('sm')
 
 function localCalendarReportingDay(): ReportingDayMeta {
   const d = new Date()
@@ -217,7 +215,6 @@ export function ResetStatsPage() {
                 onChange={setIdCampaign}
                 placeholder={pageLoading ? 'Loading…' : 'All campaigns'}
                 className="w-full"
-                size="sm"
                 disabled={formLocked}
               />
             </Field>
@@ -234,7 +231,6 @@ export function ResetStatsPage() {
                 onChange={setIdTrafficSource}
                 placeholder={pageLoading ? 'Loading…' : 'All traffic sources'}
                 className="w-full"
-                size="sm"
                 disabled={formLocked || noTrafficSources}
               />
             </Field>
@@ -248,8 +244,7 @@ export function ResetStatsPage() {
               >
                 <DatePicker
                   id="reset-stats-date-from"
-                  className={cn('w-full h-control-sm')}
-                  size={datePickerSize}
+                  className={cn('w-full h-control-md')}
                   format={DATE_FMT}
                   reportingValue={dateFromDay}
                   onChange={(_d, _s, reporting) => {
@@ -267,8 +262,7 @@ export function ResetStatsPage() {
               >
                 <DatePicker
                   id="reset-stats-date-to"
-                  className={cn('w-full h-control-sm')}
-                  size={datePickerSize}
+                  className={cn('w-full h-control-md')}
                   format={DATE_FMT}
                   reportingValue={dateToDay}
                   onChange={(_d, _s, reporting) => {
@@ -289,7 +283,6 @@ export function ResetStatsPage() {
                 id="reset-stats-timezone"
                 value={timezone}
                 onChange={setTimezone}
-                size="sm"
                 className="w-full"
                 disabled={formLocked}
               />

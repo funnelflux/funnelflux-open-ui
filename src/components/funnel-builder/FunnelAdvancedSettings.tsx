@@ -189,7 +189,6 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Type</span>
                     <Select
                       className="h-8 w-full min-w-0 text-xs"
-                      size="small"
                       value={row.postbackType}
                       onChange={(v) => updatePbRow(i, { postbackType: v })}
                       options={POSTBACK_TYPE_OPTIONS}

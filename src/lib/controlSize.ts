@@ -23,6 +23,14 @@ export function normalizeControlTier(
   return 'md'
 }
 
+/** Date/range pickers use medium height minimum (`sm` → `md`). */
+export function normalizePickerControlTier(
+  size?: ControlSize | LegacyAntdControlSize,
+): Exclude<ControlSize, 'sm'> {
+  const tier = normalizeControlTier(size)
+  return tier === 'sm' ? 'md' : tier
+}
+
 /** Maps normalized control tier to Ant Design `size` on Button, Select, DatePicker, Input, etc. */
 export function controlSizeToAntdSize(
   controlSize: ControlSize,

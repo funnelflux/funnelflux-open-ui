@@ -245,7 +245,6 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                     <div className="flex max-w-full min-w-0 items-center gap-2">
                       <Select
                         className="min-w-0 flex-1"
-                        size="md"
                         value={categorySelectValue}
                         onChange={(v) => {
                           if (v === '__none__' || v === UNCATEGORIZED) {
@@ -316,7 +315,6 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                     <span className="block text-sm font-medium text-foreground">Redirect type</span>
                     <Select
                       className="w-full min-w-0"
-                      size="md"
                       value={redirectType}
                       onChange={(v) =>
                         form.setValue('redirectType', v as LanderNodeEditFormData['redirectType'], {
@@ -412,7 +410,6 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                           render={({ field }) => (
                             <Select
                               className="h-control-md w-full font-mono text-xs"
-                              size="md"
                               value={field.value || '__pick__'}
                               onChange={(v) => {
                                 field.onChange(v === '__pick__' ? '' : v)
@@ -440,7 +437,6 @@ export function LanderNodeEditModal({ nodeId, open, onClose }: LanderNodeEditMod
                   ))}
                   <Button
                     htmlType="button"
-                    size="sm"
                     iconName="plus"
                     iconSize="sm"
                     onClick={() => append({ field: '', token: '' })}

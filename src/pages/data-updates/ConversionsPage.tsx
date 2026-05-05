@@ -119,7 +119,6 @@ export function ConversionsPage() {
               value={postbackCalls}
               onChange={handlePostbackCallsChange}
               className="w-full"
-              size="sm"
             />
           </Field>
 
