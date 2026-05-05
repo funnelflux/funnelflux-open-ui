@@ -7,6 +7,7 @@ import { buildMergedRows, buildTotalsRow } from '@/lib/entityGridUtils'
 import type { ListEntity, EntityGridRow } from '@/lib/entityGridUtils'
 import { api } from '@/api/client'
 import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
+import { metricsForColumnIds } from '@/lib/drilldownMetrics'
 
 export type { ListEntity, EntityGridRow }
 export { buildTotalsRow }
@@ -20,13 +21,14 @@ interface UseEntityGridOptions {
   dateTo: Date
   timezone: string
   mapListToEntities?: (items: unknown[]) => ListEntity[]
+  metricColumnIds?: readonly string[]
   enabled?: boolean
 }
 
 export function useEntityGrid(options: UseEntityGridOptions) {
   const {
     queryKeyPrefix, listEndpoint, listParams, groupBy,
-    dateFrom, dateTo, timezone, mapListToEntities, enabled = true,
+    dateFrom, dateTo, timezone, mapListToEntities, metricColumnIds, enabled = true,
   } = options
 
   const queryClient = useQueryClient()
@@ -49,13 +51,16 @@ export function useEntityGrid(options: UseEntityGridOptions) {
       dateFrom.toISOString(),
       dateTo.toISOString(),
       timezone,
+      metricsForColumnIds(metricColumnIds ?? []) ?? 'allMetrics',
     ],
     queryFn: () => {
+      const metrics = metricsForColumnIds(metricColumnIds ?? [])
       const request: DrilldownRequest = {
         timeRange: toApiDateTimeRange(dateFrom, dateTo),
         timeZone: { name: timezone },
         groupings: [{ groupBy, whitelistFilters: [], blacklistFilters: [] }],
         options: { viewType: 'flat' },
+        ...(metrics ? { metrics } : {}),
       }
       return fetchAllFlatDrilldownRows(request)
     },

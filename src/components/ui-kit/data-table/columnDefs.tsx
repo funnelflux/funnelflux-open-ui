@@ -9,6 +9,7 @@ import {
   ENTITY_ID_COLUMN_META,
   type MetricScope,
 } from './columnRegistry'
+import { resolveApiColumnId as resolveSharedApiColumnId } from '@/lib/drilldownMetrics'
 
 export type { ColumnGroupDef, ColumnMeta, MetricScope } from './columnRegistry'
 
@@ -165,6 +166,9 @@ const API_NAME_TO_ID: Record<string, string> = {
 
 // Custom event name patterns: "CE1", "CE1 Rev", "CE1 %", "CPCE1", "RPCE1"
 export function resolveApiColumnId(apiName: string): string | undefined {
+  const shared = resolveSharedApiColumnId(apiName)
+  if (shared) return shared
+
   if (API_NAME_TO_ID[apiName]) return API_NAME_TO_ID[apiName]
 
   let m: RegExpMatchArray | null

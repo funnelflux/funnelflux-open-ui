@@ -15,6 +15,7 @@ import { useDrilldownReport } from "@/api/hooks"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
 import { reportRowToCells } from "@/lib/reportRowCells"
+import { metricsForColumnIds, visibleMetricColumnIdsFromHidden, withSortingMetricIds } from "@/lib/drilldownMetrics"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
 
 const DRILLDOWN_FLAT_TABLE_KEY = "reports-drilldown-flat"
@@ -56,11 +57,16 @@ export function DrilldownFlatPage() {
     (request: DrilldownRequest) => {
       setPage(0)
       const sortParam = drilldownSortParamFromReport(sorting, report?.columns)
+      const metrics = metricsForColumnIds(withSortingMetricIds(
+        visibleMetricColumnIdsFromHidden(DRILLDOWN_FLAT_TABLE_KEY, { defaultVisibleColumnIds: defaultColIds }),
+        sorting,
+      ))
       const paginatedRequest: DrilldownRequest = {
         ...request,
         options: { ...(request.options ?? {}), viewType: "flat" },
         paging: { start: 0, length: pageSize },
         sorting: sortParam,
+        ...(metrics ? { metrics } : {}),
       }
       setLastRequest(paginatedRequest)
       drilldownMutation.mutate(paginatedRequest, {
@@ -82,6 +88,15 @@ export function DrilldownFlatPage() {
         ...lastRequest,
         sorting: drilldownSortParamFromReport(newSorting, report?.columns),
         paging: { start: 0, length: pageSize },
+        ...(metricsForColumnIds(withSortingMetricIds(
+          visibleMetricColumnIdsFromHidden(DRILLDOWN_FLAT_TABLE_KEY, { defaultVisibleColumnIds: defaultColIds }),
+          newSorting,
+        )) ? {
+          metrics: metricsForColumnIds(withSortingMetricIds(
+            visibleMetricColumnIdsFromHidden(DRILLDOWN_FLAT_TABLE_KEY, { defaultVisibleColumnIds: defaultColIds }),
+            newSorting,
+          )),
+        } : { metrics: undefined }),
       }
       setLastRequest(nextRequest)
       drilldownMutation.mutate(nextRequest, {
@@ -90,6 +105,20 @@ export function DrilldownFlatPage() {
     },
     [lastRequest, pageSize, drilldownMutation, report?.columns, setTableSorting],
   )
+
+  const handleApplyColumns = useCallback((nextSelected: Set<string>) => {
+    if (!lastRequest) return
+    const metrics = metricsForColumnIds(withSortingMetricIds([...nextSelected], sorting))
+    const nextRequest: DrilldownRequest = {
+      ...lastRequest,
+      paging: { start: 0, length: pageSize },
+      ...(metrics ? { metrics } : { metrics: undefined }),
+    }
+    setLastRequest(nextRequest)
+    drilldownMutation.mutate(nextRequest, {
+      onSuccess: (data) => setReport(data),
+    })
+  }, [lastRequest, pageSize, drilldownMutation, sorting])
 
   const flatData = useMemo(
     () => (report ? reportRowsToFlatData(report) : []),
@@ -147,6 +176,7 @@ export function DrilldownFlatPage() {
               defaultVisibleColumnIds={defaultColIds}
               selectedCols={gridColumnVisibility.selectedCols}
               onColumnsChange={gridColumnVisibility.onColumnsChange}
+              onApply={handleApplyColumns}
             />
           ) : null}
           <DrilldownToolbarGroupings />

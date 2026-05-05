@@ -56,6 +56,8 @@ import { getErrorMessage, selectedRowIds } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
 import { createDefaultEntranceApiNode } from '@/lib/defaultNewFunnelNodes'
 import { generateId } from '@/lib/id-generator'
+import { metricColumnIdsForScope, metricsForColumnIds, visibleMetricColumnIdsFromVisibility } from '@/lib/drilldownMetrics'
+import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 
 function isCampaignTotalsRow(row: CampaignTreeRow): boolean {
   return row.id === '__totals__'
@@ -118,6 +120,18 @@ export function CampaignsPage() {
   const tableConfig = useTableConfigStore(selectTableConfig(TABLE_KEY))
   const setColumnSizing = useTableConfigStore((s) => s.setColumnSizing)
   const setColumnVisibility = useTableConfigStore((s) => s.setColumnVisibility)
+  const metricColumnIds = useMemo(
+    () => visibleMetricColumnIdsFromVisibility(tableConfig.columnVisibility, {
+      defaultVisibleColumnIds: defaultColIds,
+    }),
+    [tableConfig.columnVisibility],
+  )
+  const reportMetrics = useMemo(() => metricsForColumnIds(metricColumnIds), [metricColumnIds])
+  const selectedColumnIds = useMemo(() => {
+    const selected = new Set(metricColumnIds)
+    if (tableConfig.columnVisibility.id ?? true) selected.add('id')
+    return selected
+  }, [metricColumnIds, tableConfig.columnVisibility.id])
 
   const { data: editCampaign } = useCampaign(editId ?? '')
   const saveMutation = useSaveCampaign()
@@ -135,6 +149,7 @@ export function CampaignsPage() {
         { groupBy: 'Element: Funnel', whitelistFilters: [], blacklistFilters: [] },
       ],
       options: { viewType: 'flat' as const },
+      ...(reportMetrics ? { metrics: reportMetrics } : {}),
     }
 
     const [hierarchy, report] = await Promise.all([
@@ -150,7 +165,7 @@ export function CampaignsPage() {
       ),
       totalsCells: report.totals?.cells ?? null,
     }
-  }, [dateRange, tz])
+  }, [dateRange, tz, reportMetrics])
 
   const {
     data: campaignData,
@@ -165,6 +180,7 @@ export function CampaignsPage() {
       dateRange.from.toISOString(),
       dateRange.to.toISOString(),
       tz,
+      reportMetrics ?? 'allMetrics',
     ],
     queryFn: loadCampaignData,
   })
@@ -389,6 +405,14 @@ export function CampaignsPage() {
     setColumnVisibility(TABLE_KEY, vis)
   }, [setColumnVisibility])
 
+  const handleChooserColumnsChange = useCallback((next: Set<string>) => {
+    const allIds = [...metricColumnIdsForScope(), 'id']
+    setColumnVisibility(
+      TABLE_KEY,
+      Object.fromEntries(allIds.map((id) => [id, next.has(id)])),
+    )
+  }, [setColumnVisibility])
+
   const handleCloseAddCombinedModal = useCallback(() => setAddCombinedOpen(false), [])
 
   const handleCloseMoveFunnelModal = useCallback(() => setMoveFunnelTarget(null), [])
@@ -482,7 +506,16 @@ export function CampaignsPage() {
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
         }
-        actions={tableForChooser ? <ColumnChooser columns={columnDefs} table={tableForChooser} storageKey="campaigns" /> : null}
+        actions={tableForChooser ? (
+          <ColumnChooser
+            columns={columnDefs}
+            table={tableForChooser}
+            storageKey="campaigns"
+            defaultVisibleColumnIds={defaultColIds}
+            selectedCols={selectedColumnIds}
+            onColumnsChange={handleChooserColumnsChange}
+          />
+        ) : null}
       />
 
       <DataTable

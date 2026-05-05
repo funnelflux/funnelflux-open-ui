@@ -5,6 +5,8 @@ import type { RowSelectionState } from '@tanstack/react-table'
 import { useEntityGrid } from '@/api/hooks/useEntityGrid'
 import type { ListEntity, EntityGridRow } from '@/lib/entityGridUtils'
 import type { ArchiveStatus } from '@/components/shared/ArchiveToggle'
+import { visibleMetricColumnIdsFromHidden } from '@/lib/drilldownMetrics'
+import type { MetricScope } from '@/components/ui-kit/data-table'
 
 interface UseEntityPageOptions {
   queryKeyPrefix: readonly unknown[]
@@ -19,6 +21,9 @@ interface UseEntityPageOptions {
   archiveListFilter?: 'trafficsource' | 'status'
   groupBy: string
   mapListToEntities?: (items: unknown[]) => ListEntity[]
+  metricStorageKey?: string
+  defaultVisibleColumnIds?: readonly string[]
+  metricHideScopes?: Set<MetricScope>
 }
 
 export function useEntityPage(options: UseEntityPageOptions) {
@@ -29,6 +34,9 @@ export function useEntityPage(options: UseEntityPageOptions) {
     listEndpoint,
     groupBy,
     mapListToEntities,
+    metricStorageKey,
+    defaultVisibleColumnIds,
+    metricHideScopes,
   } = options
 
   const [search, setSearch] = useState('')
@@ -58,6 +66,10 @@ export function useEntityPage(options: UseEntityPageOptions) {
     return { ...base, status: archiveStatus }
   }, [staticListParams, archiveListFilter, archiveStatus])
 
+  const metricColumnIds = metricStorageKey
+    ? visibleMetricColumnIdsFromHidden(metricStorageKey, { defaultVisibleColumnIds, hideScopes: metricHideScopes })
+    : undefined
+
   const grid = useEntityGrid({
     queryKeyPrefix,
     listEndpoint,
@@ -67,6 +79,7 @@ export function useEntityPage(options: UseEntityPageOptions) {
     dateFrom: dateRange.from,
     dateTo: dateRange.to,
     timezone: tz,
+    metricColumnIds,
   })
 
   const filtered = useMemo(() => {

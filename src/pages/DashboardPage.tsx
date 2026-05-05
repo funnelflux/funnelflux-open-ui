@@ -13,6 +13,18 @@ import { toApiDateTimeRange } from "@/types/stats"
 import type { Report } from "@/types/stats"
 import { cellRaw } from "@/components/ui-kit/data-table"
 
+const DASHBOARD_SUMMARY_METRICS = [
+  "Entrances",
+  "Lander Views",
+  "Offer Views",
+  "Lander Clicks",
+  "Offer Clicks",
+  "Conv.",
+  "Revenue",
+  "Cost",
+  "ROI",
+] as const
+
 const ZERO_STATS: DashboardSummaryStats = {
   visits: 0,
   clicks: 0,
@@ -170,6 +182,7 @@ export function DashboardPage() {
         timeZone,
         groupings: [{ groupBy: "Time: Date", whitelistFilters: [], blacklistFilters: [] }],
         options: { viewType: "flat" },
+        metrics: [...DASHBOARD_SUMMARY_METRICS],
       })
       .then((report) => {
         if (cancelled) return

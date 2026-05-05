@@ -102,6 +102,8 @@ export function TrafficSourcesPage() {
     groupBy: 'Third Parties: Traffic Source',
     archiveListFilter: 'trafficsource',
     mapListToEntities: trafficSourceListToListEntities,
+    metricStorageKey: 'traffic-sources',
+    defaultVisibleColumnIds: defaultColIds,
   })
 
   const { data: categories } = useCategories('trafficsource')

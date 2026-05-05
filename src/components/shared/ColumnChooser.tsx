@@ -30,6 +30,8 @@ interface ColumnChooserProps<TData = unknown> {
   selectedCols?: Set<string>
   /** Receives the next set of visible toggleable column ids. */
   onColumnsChange?: (next: Set<string>) => void
+  /** Called after an explicit Apply commits staged column changes. */
+  onApply?: (next: Set<string>) => void
 }
 
 export function ColumnChooser<TData>({
@@ -41,6 +43,7 @@ export function ColumnChooser<TData>({
   defaultVisibleColumnIds,
   selectedCols: selectedColsProp,
   onColumnsChange: onColumnsChangeProp,
+  onApply,
 }: ColumnChooserProps<TData>) {
   const groups = useMemo(
     () => groupsProp ?? buildChooserGroupsForPage(hideScopes),
@@ -56,6 +59,7 @@ export function ColumnChooser<TData>({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [draftSelected, setDraftSelected] = useState<Set<string> | null>(null)
 
   const tableColumns = useMemo(
     () => listToggleableColumns(columnDefs as ColumnDef<unknown, unknown>[]),
@@ -74,10 +78,12 @@ export function ColumnChooser<TData>({
     return new Set()
   })
 
-  const effectiveSelected = useMemo(() => {
+  const appliedSelected = useMemo(() => {
     if (isControlled) return selectedColsProp!
     return new Set(tableColumns.map((c) => c.id).filter((id) => !internalHiddenCols.has(id)))
   }, [isControlled, selectedColsProp, tableColumns, internalHiddenCols])
+
+  const effectiveSelected = draftSelected ?? appliedSelected
 
   const defaultsAppliedRef = useRef(false)
 
@@ -152,22 +158,13 @@ export function ColumnChooser<TData>({
   )
 
   const handleToggle = useCallback((colId: string, visible: boolean) => {
-    if (isControlled) {
-      const next = new Set(effectiveSelected)
+    setDraftSelected((prev) => {
+      const next = new Set(prev ?? appliedSelected)
       if (visible) next.add(colId)
       else next.delete(colId)
-      onColumnsChangeProp!(next)
-      return
-    }
-    setInternalHiddenCols((prev) => {
-      const next = new Set(prev)
-      if (visible) next.delete(colId)
-      else next.add(colId)
-      applyVisibilityToTable(next)
-      localStorage.setItem(lsKey, JSON.stringify([...next]))
       return next
     })
-  }, [isControlled, effectiveSelected, onColumnsChangeProp, applyVisibilityToTable, lsKey])
+  }, [appliedSelected])
 
   const toggleGroup = useCallback((groupId: string) => {
     setCollapsedGroups((prev) => {
@@ -195,6 +192,12 @@ export function ColumnChooser<TData>({
   }, [groups, searchLower])
 
   const groupedIds = useMemo(() => new Set(groups.flatMap((g) => g.columns.map((c) => c.id))), [groups])
+  const chooserColumnIds = useMemo(
+    () => isControlled
+      ? groups.flatMap((g) => g.columns.map((c) => c.id))
+      : tableColumns.map((c) => c.id),
+    [isControlled, groups, tableColumns],
+  )
 
   const ungroupedColumns = useMemo(() => {
     return tableColumns.filter((c) => !groupedIds.has(c.id))
@@ -209,42 +212,70 @@ export function ColumnChooser<TData>({
   }, [ungroupedColumns, searchLower])
 
   const visibleCount = effectiveSelected.size
+  const hasDraftChanges = useMemo(() => {
+    if (!draftSelected) return false
+    if (draftSelected.size !== appliedSelected.size) return true
+    for (const id of draftSelected) {
+      if (!appliedSelected.has(id)) return true
+    }
+    return false
+  }, [draftSelected, appliedSelected])
 
   const showAll = useCallback(() => {
-    if (isControlled) {
-      onColumnsChangeProp!(new Set(tableColumns.map((c) => c.id)))
-      return
-    }
-    setInternalHiddenCols(() => {
-      applyVisibilityToTable(new Set())
-      localStorage.setItem(lsKey, JSON.stringify([]))
-      return new Set()
-    })
-  }, [isControlled, onColumnsChangeProp, applyVisibilityToTable, lsKey, tableColumns])
+    setDraftSelected(new Set(chooserColumnIds))
+  }, [chooserColumnIds])
 
   const hideAll = useCallback(() => {
+    setDraftSelected(new Set())
+  }, [])
+
+  const handleCancel = useCallback(() => {
+    setDraftSelected(null)
+    setOpen(false)
+  }, [])
+
+  const handleApply = useCallback(() => {
+    const nextSelected = draftSelected ?? appliedSelected
     if (isControlled) {
-      onColumnsChangeProp!(new Set())
-      return
+      onColumnsChangeProp!(nextSelected)
+    } else {
+      const hidden = new Set<string>()
+      for (const c of tableColumns) {
+        if (!nextSelected.has(c.id)) hidden.add(c.id)
+      }
+      setInternalHiddenCols(hidden)
+      applyVisibilityToTable(hidden)
+      localStorage.setItem(lsKey, JSON.stringify([...hidden]))
     }
-    const allHidden = new Set(tableColumns.map((c) => c.id))
-    setInternalHiddenCols(() => {
-      applyVisibilityToTable(allHidden)
-      localStorage.setItem(lsKey, JSON.stringify([...allHidden]))
-      return allHidden
-    })
-  }, [isControlled, onColumnsChangeProp, applyVisibilityToTable, tableColumns, lsKey])
+    setDraftSelected(null)
+    onApply?.(nextSelected)
+    setOpen(false)
+  }, [
+    draftSelected,
+    appliedSelected,
+    isControlled,
+    onColumnsChangeProp,
+    tableColumns,
+    applyVisibilityToTable,
+    lsKey,
+    onApply,
+  ])
+
+  const handleOpen = useCallback(() => {
+    setDraftSelected(new Set(appliedSelected))
+    setOpen(true)
+  }, [appliedSelected])
 
   return (
     <>
-      <Button type="default" iconName="columns-3" iconSize="md" onClick={() => setOpen(true)}>
+      <Button type="default" iconName="columns-3" iconSize="md" onClick={handleOpen}>
         Columns
       </Button>
 
       <Drawer
         title="Column settings"
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleCancel}
         size={360}
         styles={{ body: { padding: 0 } }}
       >
@@ -260,7 +291,7 @@ export function ColumnChooser<TData>({
               size="small"
             />
             <div className="flex items-center justify-between text-xs text-[var(--muted-fg)]">
-              <span>{visibleCount} visible</span>
+              <span>{visibleCount} visible{hasDraftChanges ? ' pending' : ''}</span>
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -283,7 +314,7 @@ export function ColumnChooser<TData>({
           <div className="flex-1 overflow-y-auto min-h-0 text-[var(--foreground)]">
             {filteredGroups.map((group) => {
               const isCollapsed = collapsedGroups.has(group.groupId) && !searchLower
-              const groupColsInTable = group.columns.filter((c) => tableColumnIds.has(c.id))
+              const groupColsInTable = isControlled ? group.columns : group.columns.filter((c) => tableColumnIds.has(c.id))
               const visibleInGroup = groupColsInTable.filter((c) => effectiveSelected.has(c.id)).length
               const totalInGroup = groupColsInTable.length
               if (totalInGroup === 0 && !searchLower) return null
@@ -308,7 +339,7 @@ export function ColumnChooser<TData>({
                   {!isCollapsed && (
                     <div className="pb-2">
                       {group.columns.map((col) => {
-                        if (!tableColumnIds.has(col.id)) return null
+                        if (!isControlled && !tableColumnIds.has(col.id)) return null
                         const isVisible = effectiveSelected.has(col.id)
                         return (
                           <div
@@ -372,6 +403,15 @@ export function ColumnChooser<TData>({
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--border)] px-3 py-3">
+            <Button type="default" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button type="primary" onClick={handleApply} disabled={!hasDraftChanges}>
+              Apply
+            </Button>
           </div>
         </div>
       </Drawer>

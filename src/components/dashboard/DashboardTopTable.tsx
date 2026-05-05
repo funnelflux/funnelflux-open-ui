@@ -7,6 +7,7 @@ import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { reportRowToCells } from "@/lib/reportRowCells"
 import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from "@/store/tableConfig"
 import type { ApiDateTimeRange, Report, ReportCell } from "@/types/stats"
+import { metricsForColumnIds } from "@/lib/drilldownMetrics"
 
 const EMPTY_CELL: ReportCell = { raw: "", formatted: "" }
 
@@ -22,6 +23,7 @@ const WIDGET_METRIC_ORDER = [
   "returnOnInvestment",
   "profitAndLoss",
 ] as const
+const WIDGET_API_METRICS = metricsForColumnIds(WIDGET_METRIC_ORDER) ?? undefined
 
 export interface DashboardTopTableFlatRow {
   _id: string
@@ -124,6 +126,7 @@ export function DashboardTopTable({
         sorting:
           sortParam ?? { sortingColumns: [{ columnName: "Entrances", order: "desc" }] },
         options: { viewType: "flat" },
+        ...(WIDGET_API_METRICS ? { metrics: WIDGET_API_METRICS } : {}),
       })
       setReport(data)
     } catch {

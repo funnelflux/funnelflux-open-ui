@@ -54,6 +54,8 @@ export function OfferSourcesPage() {
   const tableRef = useRef<Table<OfferSourceGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<OfferSourceGridRow> | null>(null)
 
+  const hideScopes = useMemo(() => new Set(['lander'] as const), [])
+
   const {
     filtered, reportColumns, totalsCells, isLoading, isFetching, refetch: reload,
     search, setSearch, archiveStatus, setArchiveStatus,
@@ -67,6 +69,9 @@ export function OfferSourcesPage() {
     groupBy: 'Third Parties: Offer Source',
     archiveListFilter: 'status',
     mapListToEntities: (items) => offerSourcesToListEntities(items as OfferSource[]),
+    metricStorageKey: 'offer-sources',
+    defaultVisibleColumnIds: defaultColIds,
+    metricHideScopes: hideScopes,
   })
 
   const { data: editSource } = useOfferSource(editId ?? '')
@@ -118,8 +123,8 @@ export function OfferSourcesPage() {
   }
 
   const statCols = useMemo(
-    () => buildColumnsFromReport<OfferSourceGridRow>(reportColumns, { hideScopes: new Set(['lander']) }),
-    [reportColumns],
+    () => buildColumnsFromReport<OfferSourceGridRow>(reportColumns, { hideScopes }),
+    [reportColumns, hideScopes],
   )
 
   const handleRequestDelete = useCallback((id: string) => setDeleteId(id), [setDeleteId])
@@ -173,7 +178,7 @@ export function OfferSourcesPage() {
   const gridColumnVisibility = useEntityGridColumnVisibility(
     columnDefs as ColumnDef<unknown, unknown>[],
     'offer-sources',
-    { defaultVisibleColumnIds: defaultColIds },
+    { defaultVisibleColumnIds: defaultColIds, hideScopes },
   )
 
   const handleBulkDeselectAllOfferSources = useCallback(() => setRowSelection({}), [setRowSelection])
@@ -233,7 +238,7 @@ export function OfferSourcesPage() {
             columns={columnDefs}
             table={tableForChooser}
             storageKey="offer-sources"
-            hideScopes={new Set(['lander'])}
+            hideScopes={hideScopes}
             defaultVisibleColumnIds={defaultColIds}
             selectedCols={gridColumnVisibility.selectedCols}
             onColumnsChange={gridColumnVisibility.onColumnsChange}

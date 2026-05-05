@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
-import { getColumnMeta } from '@/components/ui-kit/data-table/columnRegistry'
+import { buildChooserGroupsForPage, getColumnMeta, type MetricScope } from '@/components/ui-kit/data-table/columnRegistry'
 
 const ALWAYS_VISIBLE = new Set(['name', 'select'])
 
@@ -56,6 +56,7 @@ function readHiddenFromLs(lsKey: string): Set<string> | null {
 
 export interface UseEntityGridColumnVisibilityOptions {
   defaultVisibleColumnIds?: readonly string[]
+  hideScopes?: Set<MetricScope>
 }
 
 /**
@@ -72,6 +73,11 @@ export function useEntityGridColumnVisibility(
   const defaultVisibleColumnIds = options?.defaultVisibleColumnIds
 
   const tableColumns = useMemo(() => listToggleableColumns(columnDefs), [columnDefs])
+  const controlledColumnIds = useMemo(() => {
+    const ids = new Set(buildChooserGroupsForPage(options?.hideScopes).flatMap((g) => g.columns.map((c) => c.id)))
+    for (const c of tableColumns) ids.add(c.id)
+    return [...ids]
+  }, [options?.hideScopes, tableColumns])
 
   const hiddenCols = useMemo(() => {
     // Touch `bump` so this memo intentionally re-runs after localStorage writes.
@@ -79,20 +85,20 @@ export function useEntityGridColumnVisibility(
     const fromLs = readHiddenFromLs(lsKey)
     if (fromLs) return fromLs
     return computeFirstVisitHidden(
-      tableColumns.map((c) => c.id),
+      controlledColumnIds,
       defaultVisibleColumnIds,
     )
-  }, [lsKey, tableColumns, defaultVisibleColumnIds, bump])
+  }, [lsKey, controlledColumnIds, defaultVisibleColumnIds, bump])
 
   const columnVisibility = useMemo(
-    () => Object.fromEntries(tableColumns.map((c) => [c.id, !hiddenCols.has(c.id)])),
-    [tableColumns, hiddenCols],
+    () => Object.fromEntries(controlledColumnIds.map((id) => [id, !hiddenCols.has(id)])),
+    [controlledColumnIds, hiddenCols],
   )
 
   /** Toggleable column ids that are visible (shown in the table / “on” in the picker). */
   const selectedCols = useMemo(() => {
-    return new Set(tableColumns.map((c) => c.id).filter((id) => !hiddenCols.has(id)))
-  }, [tableColumns, hiddenCols])
+    return new Set(controlledColumnIds.filter((id) => !hiddenCols.has(id)))
+  }, [controlledColumnIds, hiddenCols])
 
   const persistHidden = useCallback(
     (hidden: Set<string>) => {
@@ -109,12 +115,12 @@ export function useEntityGridColumnVisibility(
   const onColumnsChange = useCallback(
     (nextSelected: Set<string>) => {
       const hidden = new Set<string>()
-      for (const c of tableColumns) {
-        if (!nextSelected.has(c.id)) hidden.add(c.id)
+      for (const id of controlledColumnIds) {
+        if (!nextSelected.has(id)) hidden.add(id)
       }
       persistHidden(hidden)
     },
-    [tableColumns, persistHidden],
+    [controlledColumnIds, persistHidden],
   )
 
   const onColumnVisibilityChange = useCallback(
@@ -122,14 +128,14 @@ export function useEntityGridColumnVisibility(
       const prev = columnVisibility
       const patch = typeof updater === 'function' ? updater(prev) : updater
       const hidden = new Set<string>()
-      for (const c of tableColumns) {
-        const v = patch[c.id]
-        const effective = v === undefined ? (prev[c.id] ?? true) : v
-        if (effective === false) hidden.add(c.id)
+      for (const id of controlledColumnIds) {
+        const v = patch[id]
+        const effective = v === undefined ? (prev[id] ?? true) : v
+        if (effective === false) hidden.add(id)
       }
       persistHidden(hidden)
     },
-    [columnVisibility, tableColumns, persistHidden],
+    [columnVisibility, controlledColumnIds, persistHidden],
   )
 
   return {

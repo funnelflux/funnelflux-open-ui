@@ -34,6 +34,7 @@ import {
 } from '@/lib/categoryStripSelection'
 import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
+import { visibleMetricColumnIdsFromHidden } from '@/lib/drilldownMetrics'
 import { useCategoryStripTableFlow } from '@/hooks/useCategoryStripTableFlow'
 import { selectedRowIds, getErrorMessage } from '@/lib/utils'
 import { PageForm } from '@/components/forms/PageForm'
@@ -114,6 +115,11 @@ export function PageEntitiesPage({
     () => ({ pageType, status: archiveStatus } as const),
     [pageType, archiveStatus],
   )
+  const hideScopes = useMemo(() => new Set([hideScope]), [hideScope])
+  const metricColumnIds = visibleMetricColumnIdsFromHidden(tableConfigKey, {
+    defaultVisibleColumnIds: defaultColIds,
+    hideScopes,
+  })
 
   const {
     mergedRows,
@@ -131,6 +137,7 @@ export function PageEntitiesPage({
     dateTo: dateRange.to,
     timezone: tz,
     mapListToEntities: (items) => pagesToListEntities(items as Page[]),
+    metricColumnIds,
   })
 
   const {
@@ -277,7 +284,6 @@ export function PageEntitiesPage({
     return row.id === '__totals__'
   }, [hideCategoryStripEditDelete])
 
-  const hideScopes = useMemo(() => new Set([hideScope]), [hideScope])
   const statCols = useMemo(
     () => mapStatColsForCategoryStrip(buildColumnsFromReport<PageGridRow>(reportColumns, { hideScopes })),
     [reportColumns, hideScopes],
@@ -377,7 +383,7 @@ export function PageEntitiesPage({
   const gridColumnVisibility = useEntityGridColumnVisibility(
     columnDefs as ColumnDef<unknown, unknown>[],
     tableConfigKey,
-    { defaultVisibleColumnIds: defaultColIds },
+    { defaultVisibleColumnIds: defaultColIds, hideScopes },
   )
 
   const handleBulkDeselectAll = useCallback(() => setRowSelection({}), [])
