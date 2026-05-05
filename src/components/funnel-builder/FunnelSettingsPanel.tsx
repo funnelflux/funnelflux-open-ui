@@ -1,6 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
-import { Icon } from '@/components/ui-kit/icons'
-import { Input, Select } from '@/components/ui-kit'
+import { Button, Field, Input, InputNumber, Select } from '@/components/ui-kit'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { useCampaignsList } from '@/api/hooks'
 import { FunnelAdvancedSettings } from '@/components/funnel-builder/FunnelAdvancedSettings'
@@ -23,51 +22,43 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <label htmlFor="funnel-settings-name" className="block text-sm font-medium text-foreground">
-          Funnel name <span className="text-destructive">*</span>
-        </label>
+      <Field title="Funnel name" htmlFor="funnel-settings-name" required>
         <Input
           id="funnel-settings-name"
-          size="middle"
-          className="h-10 max-w-3xl"
+          className="max-w-3xl"
           value={meta.funnelName}
           onChange={(e: ChangeEvent<HTMLInputElement>) => updateMeta({ funnelName: e.target.value })}
           placeholder="Funnel name"
           autoComplete="off"
         />
-      </div>
+      </Field>
 
       <div className="grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
-        <div className="space-y-2">
-          <label htmlFor="funnel-settings-cost" className="block text-sm font-medium text-foreground">
-            Default cost per entrance
-          </label>
-          <Input
+        <Field
+          title="Default cost per entrance"
+          htmlFor="funnel-settings-cost"
+          description="Optional baseline cost applied when traffic source cost is missing."
+        >
+          <InputNumber
             id="funnel-settings-cost"
-            type="number"
             step={0.001}
             min={0}
-            size="middle"
-            className="h-10"
             value={meta.defaultCostPerEntrance}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              updateMeta({ defaultCostPerEntrance: Number(e.target.value) })
-            }
+            onChange={(v) => updateMeta({ defaultCostPerEntrance: Number(v ?? 0) })}
+            className="w-full"
           />
-        </div>
-        <div className="space-y-2">
-          <span className="block text-sm font-medium text-foreground">Funnel ID</span>
-          <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 font-mono text-xs text-muted-foreground">
-            {meta.idFunnel || '—'}
-          </div>
-        </div>
+        </Field>
+        <Field title="Funnel ID" description={meta.idFunnel ? undefined : 'Saved funnels will show an ID.'}>
+          <Input
+            value={meta.idFunnel || '—'}
+            disabled
+            className="font-mono text-xs"
+            aria-label="Funnel ID"
+          />
+        </Field>
       </div>
 
-      <div className="space-y-2 max-w-3xl">
-        <label htmlFor="funnel-settings-notes" className="block text-sm font-medium text-foreground">
-          Notes
-        </label>
+      <Field title="Notes" htmlFor="funnel-settings-notes" className="max-w-3xl">
         <Input.TextArea
           id="funnel-settings-notes"
           className="min-h-[5.5rem] resize-y text-sm"
@@ -76,44 +67,43 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
           placeholder="Optional notes for this funnel…"
           autoSize={{ minRows: 3 }}
         />
-      </div>
+      </Field>
 
       <div className="grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
-        <div className="space-y-2">
-          <span className="block text-sm font-medium text-foreground">Campaign name</span>
+        <Field
+          title="Campaign name"
+          description={!isNew ? 'Campaign is fixed after the funnel is created.' : undefined}
+        >
           <Select
-            className="h-10 w-full"
+            className="w-full"
             value={meta.idCampaign || undefined}
             onChange={(v: string) => updateMeta({ idCampaign: v })}
             disabled={!isNew}
             placeholder="Select campaign…"
             options={campaignOptions}
           />
-          {!isNew && (
-            <p className="text-[11px] text-muted-foreground">Campaign is fixed after the funnel is created.</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <span className="block text-sm font-medium text-foreground">Campaign ID</span>
-          <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 font-mono text-xs text-muted-foreground">
-            {meta.idCampaign || '—'}
-          </div>
-        </div>
+        </Field>
+        <Field title="Campaign ID">
+          <Input
+            value={meta.idCampaign || '—'}
+            disabled
+            className="font-mono text-xs"
+            aria-label="Campaign ID"
+          />
+        </Field>
       </div>
 
       <div className="border-t pt-2">
-        <button
-          type="button"
+        <Button
+          htmlType="button"
+          type="text"
+          className="w-full justify-start px-0 font-medium"
           onClick={() => setAdvancedOpen((o) => !o)}
-          className="flex w-full items-center gap-2 rounded-md py-2 text-left text-sm font-medium text-foreground hover:bg-muted/50"
+          iconName={advancedOpen ? 'chevron-down' : 'chevron-right'}
+          iconSize="md"
         >
-          {advancedOpen ? (
-            <span className="shrink-0 text-muted-foreground"><Icon name="chevron-down" size="md" aria-hidden /></span>
-          ) : (
-            <span className="shrink-0 text-muted-foreground"><Icon name="chevron-right" size="md" aria-hidden /></span>
-          )}
-          <span>Advanced settings</span>
-        </button>
+          Advanced settings
+        </Button>
 
         {advancedOpen && (
           <div className="mt-3 rounded-lg border bg-muted/10 p-3">

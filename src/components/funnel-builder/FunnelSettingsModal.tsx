@@ -48,18 +48,11 @@ export function FunnelSettingsModal({
         footer: { marginTop: 0 },
       }}
       footer={
-        <div className="flex w-full flex-wrap justify-between gap-2">
+        <div className="flex w-full flex-wrap justify-end gap-2">
           <Button htmlType="button" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button
-            type="primary"
-            htmlType="button"
-            loading={isSaving}
-            uiVariant="default"
-            className="min-w-[120px]"
-            onClick={() => void onSave()}
-          >
+          <Button type="primary" htmlType="button" loading={isSaving} uiVariant="default" onClick={() => void onSave()}>
             Save Funnel
           </Button>
         </div>

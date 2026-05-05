@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import { Button, Input, Select } from '@/components/ui-kit'
+import { Button, Field, Input, Select } from '@/components/ui-kit'
 import type { FunnelKeyValuePair, FunnelPostbackOverrideRow } from '@/types/funnel'
 import { cn } from '@/lib/utils'
 
@@ -94,10 +94,11 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
 
       <div className="p-4 space-y-8">
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-2">
-            <label htmlFor="customTokens" className="text-xs font-medium text-foreground">
-              Custom tokens
-            </label>
+          <Field
+            title="Custom tokens"
+            htmlFor="customTokens"
+            description="One key=value per line."
+          >
             <Input.TextArea
               id="customTokens"
               rows={5}
@@ -106,12 +107,12 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
               value={customTokensText}
               onChange={(e) => setCustomTokensText(e.target.value)}
             />
-            <p className="text-[11px] text-muted-foreground">One <code className="font-mono">key=value</code> per line.</p>
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="accuParams" className="text-xs font-medium text-foreground">
-              Accumulate these URL params
-            </label>
+          </Field>
+          <Field
+            title="Accumulate these URL params"
+            htmlFor="accuParams"
+            description="Passed through on funnel links as query pairs."
+          >
             <Input.TextArea
               id="accuParams"
               rows={5}
@@ -120,14 +121,13 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
               value={accuParamsText}
               onChange={(e) => setAccuParamsText(e.target.value)}
             />
-            <p className="text-[11px] text-muted-foreground">Passed through on funnel links as query pairs.</p>
-          </div>
+          </Field>
         </div>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-foreground">Incoming traffic cost overrides</span>
-            <Button htmlType="button" type="default" size="small" iconName="plus" iconSize="sm" onClick={addCostRow}>
+            <Button htmlType="button" type="default" iconName="plus" iconSize="sm" onClick={addCostRow}>
               Add override
             </Button>
           </div>
@@ -153,7 +153,6 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                   htmlType="button"
                   type="text"
                   danger
-                  size="small"
                   className="shrink-0"
                   iconName="trash-2"
                   onClick={() => removeCostRow(i)}
@@ -166,7 +165,7 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-foreground">Traffic source postback overrides</span>
-            <Button htmlType="button" type="default" size="small" iconName="plus" iconSize="sm" onClick={addPbRow}>
+            <Button htmlType="button" type="default" iconName="plus" iconSize="sm" onClick={addPbRow}>
               Add postback
             </Button>
           </div>
@@ -177,18 +176,22 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
             {meta.postbackOverrides.map((row, i) => (
               <div key={i} className="rounded-md border bg-muted/30 p-3 space-y-2">
                 <div className="flex flex-wrap gap-2 items-end">
-                  <div className="flex-1 min-w-[160px] space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Traffic source ID</span>
+                  <div className="flex-1 min-w-[160px]">
+                    <span className="mb-1 block text-[10px] text-muted-foreground uppercase tracking-wide">
+                      Traffic source ID
+                    </span>
                     <Input
-                      className="font-mono text-xs h-8"
+                      className="font-mono text-xs"
                       value={row.idTrafficSource}
                       onChange={(e) => updatePbRow(i, { idTrafficSource: e.target.value })}
                     />
                   </div>
-                  <div className="w-44 space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Type</span>
+                  <div className="w-44">
+                    <span className="mb-1 block text-[10px] text-muted-foreground uppercase tracking-wide">
+                      Type
+                    </span>
                     <Select
-                      className="h-8 w-full min-w-0 text-xs"
+                      className="w-full min-w-0 text-xs"
                       value={row.postbackType}
                       onChange={(v) => updatePbRow(i, { postbackType: v })}
                       options={POSTBACK_TYPE_OPTIONS}
@@ -198,7 +201,6 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
                     htmlType="button"
                     type="text"
                     danger
-                    size="small"
                     iconName="trash-2"
                     onClick={() => removePbRow(i)}
                   />

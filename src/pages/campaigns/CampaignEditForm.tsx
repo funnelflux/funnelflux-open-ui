@@ -134,21 +134,17 @@ export function CampaignEditForm({
         </p>
 
         </div>
-        <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex gap-2">
-          <Button type="primary" htmlType="submit" disabled={isSubmitting} className="flex-1">
+        <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex flex-wrap justify-end gap-2">
+          <Button htmlType="button" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="primary" htmlType="submit" disabled={isSubmitting}>
             {isSubmitting && (
               <span className="mr-2 inline-flex">
                 <Icon name="loader-2" size="md" animation="spin" />
               </span>
             )}
             {initialData ? 'Save' : 'Create'}
-          </Button>
-          <Button
-            htmlType="button"
-            onClick={() => onOpenChange(false)}
-            className="flex-1"
-          >
-            Cancel
           </Button>
         </div>
       </form>

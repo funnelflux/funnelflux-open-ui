@@ -571,20 +571,19 @@ export function PageForm({
         )}
 
         </div>
-        <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex gap-2">
+        <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex flex-wrap justify-end gap-2">
+          <Button htmlType="button" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            Cancel
+          </Button>
           <Button
             type="primary"
             htmlType="submit"
             disabled={isSubmitting}
-            className="flex-1"
             iconName={isSubmitting ? 'loader-2' : undefined}
             iconAnimation={isSubmitting ? 'spin' : 'none'}
             iconSize="sm"
           >
             {initialData ? 'Save' : 'Create'}
-          </Button>
-          <Button htmlType="button" onClick={() => onOpenChange(false)} className="flex-1">
-            Cancel
           </Button>
         </div>
       </form>
