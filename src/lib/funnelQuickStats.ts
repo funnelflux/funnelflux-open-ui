@@ -4,7 +4,7 @@
  */
 
 import type { ApiTimeZone, DrilldownRequest, Grouping, Report, ReportCell, ReportRow } from '@/types/stats'
-import { toApiDateTimeRange } from '@/types/stats'
+import { toApiDateTimeRange } from '@/lib/statsDateRange'
 
 /**
  * V2 stats drilldown `groupBy` strings (FluxAPI\\v2\\Models\\Stats\\Grouping).

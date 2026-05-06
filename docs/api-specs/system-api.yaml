@@ -1,0 +1,545 @@
+swagger: '2.0'
+info:
+  title: FunnelFlux System API
+  description: API endpoints to manage System settings
+  version: "2.0.0"
+schemes:
+  - http
+  - https
+host: ff-domain.com
+basePath: /admin/api/v2
+consumes:
+  - application/json
+produces:
+  - application/json
+tags:
+  - name: settings
+    description: API endpoints to manage your settings
+  - name: domains
+    description: API endpoints to manage your additional domain names
+  - name: links
+    description: API endpoints to manage your links and pixels
+paths:
+  /system/settings/version/index.php:
+    get:
+      tags:
+        - settings
+      description: Get installed version number
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: The version number
+          schema:
+            type: string
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /system/links/entrance/index.php:
+    get:
+      tags:
+        - links
+      description: Get a tracking URL
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idTrafficSource
+          required: true
+          in: query
+          type: string
+          description: The id of the traffic source
+        - name: idFunnel
+          required: true
+          in: query
+          type: string
+          description: The id of the funnel
+        - name: idNode
+          required: false
+          in: query
+          type: string
+          description: The id of the node
+        - name: cost
+          required: false
+          in: query
+          type: string
+          description: The cost per entrance (or cost per action depending on the traffic source\'s type). This overrides the default cost specified in the traffic source. This can be a numeric value or a token used by your traffic source.
+        - name: domain
+          required: false
+          in: query
+          type: string
+          description: The domain to use instead of the regular tracker domain
+      responses:
+        200:
+          description: The tracking URL
+          schema:
+            type: string
+        403:
+          description: Not authorized
+        404:
+          description: idTrafficSource, idFunnel or idNode is invalid
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      tags:
+        - links
+      description: Get a tracking URL (POST variant — parameters in body)
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            type: object
+            required:
+              - idTrafficSource
+              - idFunnel
+            properties:
+              idTrafficSource:
+                type: string
+                description: The id of the traffic source
+              idFunnel:
+                type: string
+                description: The id of the funnel
+              idNode:
+                type: string
+                description: The id of the node
+              cost:
+                type: string
+                description: The cost per entrance (or cost per action depending on the traffic source's type). This overrides the default cost specified in the traffic source. This can be a numeric value or a token used by your traffic source.
+              domain:
+                type: string
+                description: The domain to use instead of the regular tracker domain
+      responses:
+        200:
+          description: The tracking URL
+          schema:
+            type: string
+        403:
+          description: Not authorized
+        404:
+          description: idTrafficSource, idFunnel or idNode is invalid
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /system/links/action/index.php:
+    get:
+      tags:
+        - links
+      description: Get an action click URL
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: actionNum
+          required: true
+          in: query
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 64
+          description: The action num
+        - name: idNode
+          required: false
+          in: query
+          type: string
+          description: The id of the default node to track action clicks from organic traffic
+        - name: domain
+          required: false
+          in: query
+          type: string
+          description: The domain to use instead of the regular tracker domain
+      responses:
+        200:
+          description: The tracking URL
+          schema:
+            type: string
+        403:
+          description: Not authorized
+        404:
+          description: idNode is invalid
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      tags:
+        - links
+      description: Get an action click URL (POST variant — parameters in body)
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            type: object
+            required:
+              - actionNum
+            properties:
+              actionNum:
+                type: integer
+                format: int32
+                minimum: 1
+                maximum: 64
+                description: The action num
+              idNode:
+                type: string
+                description: The id of the default node to track action clicks from organic traffic
+              domain:
+                type: string
+                description: The domain to use instead of the regular tracker domain
+      responses:
+        200:
+          description: The tracking URL
+          schema:
+            type: string
+        403:
+          description: Not authorized
+        404:
+          description: idNode is invalid
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /system/links/no-redirect-js/index.php:
+    get:
+      tags:
+        - links
+      description: Get the no-redirect JS script
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idFunnel
+          required: false
+          in: query
+          type: string
+          description: The id of the funnel on which the script is going to be used. This parameter is not required IF idNode is specified.
+        - name: idNode
+          required: false
+          in: query
+          type: string
+          description: The id of the node on which the script is going to be used. This parameter is not required IF idFunnel is specified.
+      responses:
+        200:
+          description: The JS script
+          schema:
+            type: string
+        403:
+          description: Not authorized
+        404:
+          description: Script cannot be generated - either idNode or idFunnel is invalid
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      tags:
+        - links
+      description: Get the no-redirect JS script (POST variant — parameters in body)
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            type: object
+            properties:
+              idFunnel:
+                type: string
+                description: The id of the funnel on which the script is going to be used. This parameter is not required IF idNode is specified.
+              idNode:
+                type: string
+                description: The id of the node on which the script is going to be used. This parameter is not required IF idFunnel is specified.
+      responses:
+        200:
+          description: The JS script
+          schema:
+            type: string
+        403:
+          description: Not authorized
+        404:
+          description: Script cannot be generated - either idNode or idFunnel is invalid
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /system/links/decode/index.php:
+    get:
+      tags:
+        - links
+      description: Decode a flux_fts parameter to get the funnel ID and traffic source ID
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: flux_fts
+          required: false
+          in: query
+          type: string
+          description: The raw flux_fts value to decode. Either this or url is required.
+        - name: url
+          required: false
+          in: query
+          type: string
+          description: A full tracking URL containing a flux_fts parameter. Either this or flux_fts is required.
+      responses:
+        200:
+          description: Decoded funnel and traffic source IDs
+          schema:
+            type: object
+            properties:
+              funnelId:
+                type: string
+                description: The funnel ID
+              trafficSourceId:
+                type: string
+                description: The traffic source ID
+        400:
+          description: Missing parameters or could not decode the flux_fts value
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      tags:
+        - links
+      description: Decode a flux_fts parameter to get the funnel ID and traffic source ID (POST variant — parameters in body)
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            type: object
+            properties:
+              flux_fts:
+                type: string
+                description: The raw flux_fts value to decode. Either this or url is required.
+              url:
+                type: string
+                description: A full tracking URL containing a flux_fts parameter. Either this or flux_fts is required.
+      responses:
+        200:
+          description: Decoded funnel and traffic source IDs
+          schema:
+            type: object
+            properties:
+              funnelId:
+                type: string
+                description: The funnel ID
+              trafficSourceId:
+                type: string
+                description: The traffic source ID
+        400:
+          description: Missing parameters or could not decode the flux_fts value
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /system/domain/save/index.php:
+    post:
+      tags:
+        - domains
+      description: Add a new domain name
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: domain
+          required: true
+          in: query
+          type: string
+          description: The domain name
+      responses:
+        200:
+          description: Domain name added successfully
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      tags:
+        - domains
+      description: Update an existing domain name
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: oldDomain
+          required: true
+          in: query
+          type: string
+          description: The domain name to change
+        - name: newDomain
+          required: true
+          in: query
+          type: string
+          description: The new domain name
+      responses:
+        200:
+          description: Domain name updated successfully
+        403:
+          description: Not authorized
+        404:
+          description: Domain name not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /system/domain/delete/index.php:
+    delete:
+      tags:
+        - domains
+      description: Delete the specified domain
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: domain
+          required: true
+          in: query
+          type: string
+          description: The domain name to delete
+      responses:
+        200:
+          description: Domain name deleted successfully
+        403:
+          description: Not authorized
+        404:
+          description: Domain name not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /system/domain/list/index.php:
+    get:
+      tags:
+        - domains
+      description: Get the list of all recorded domain names
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: List of domain names
+          schema:
+            type: array
+            items: {
+              type: string
+            }
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'            
+  /system/domain/default/index.php:
+    get:
+      tags:
+        - domains
+      description: Get the default domain name
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: Default domain name
+          schema:
+            type: string
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'            
+    put:
+      tags:
+        - domains
+      description: Set an existing domain name as the default one
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: domain
+          required: true
+          in: query
+          type: string
+          description: The domain name to set as default
+      responses:
+        200:
+          description: Domain name set as default successfully
+        403:
+          description: Not authorized
+        404:
+          description: Domain name not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+definitions:
+  Error:
+    type: object
+    required:
+      - code
+      - message
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string

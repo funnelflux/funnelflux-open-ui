@@ -33,6 +33,12 @@ tags:
     description: API endpoints to manage funnels' code snippets
   - name: trafficfilters
     description: API endpoints to manage traffic filters
+  - name: tags
+    description: API endpoints for visitor tags
+  - name: categories
+    description: API endpoints for page and traffic source categories
+  - name: templates
+    description: API endpoints for templates
 paths:
   /data/offersource/find/byId/index.php:
     get:
@@ -138,7 +144,7 @@ paths:
           required: true
           in: body
           schema:
-            $ref: '#/definitions/OfferSource'
+            $ref: '#/definitions/OfferSourceSaveRequest'
           description: The offer source definition
       responses:
         200:
@@ -163,7 +169,7 @@ paths:
           required: true
           in: body
           schema:
-            $ref: '#/definitions/OfferSource'
+            $ref: '#/definitions/OfferSourceSaveRequest'
           description: The offer source definition
       responses:
         200:
@@ -1733,6 +1739,954 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
+  # --- List endpoints ---
+  /data/campaign/list/index.php:
+    get:
+      tags:
+        - campaigns
+      description: Get a list of all campaigns as id/name pairs
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: archived
+          required: false
+          in: query
+          type: boolean
+          description: If true, include archived campaigns
+      responses:
+        200:
+          description: List of campaigns
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/campaign/funnel/list/index.php:
+    get:
+      tags:
+        - funnels
+      description: Get a list of all funnels as id/name pairs
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: archived
+          required: false
+          in: query
+          type: boolean
+          description: If true, include archived funnels
+        - name: prefixWithCampaignNames
+          required: false
+          in: query
+          type: boolean
+          description: If true, prefix funnel names with their campaign name
+        - name: idCampaign
+          required: false
+          in: query
+          type: string
+          description: Filter funnels by campaign id
+      responses:
+        200:
+          description: List of funnels
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/campaign/funnel/condition/list/index.php:
+    get:
+      tags:
+        - funnel-conditions
+      description: Get a list of all conditions as id/name pairs
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: List of conditions
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/campaign/funnel/codesnippet/list/index.php:
+    get:
+      tags:
+        - funnel-code-snippets
+      description: Get a list of all code snippets as id/name pairs
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: codeType
+          required: false
+          in: query
+          type: string
+          enum:
+            - javascript
+            - php
+          description: Filter by code type
+      responses:
+        200:
+          description: List of code snippets
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  # --- Clone endpoints ---
+  /data/campaign/clone/index.php:
+    post:
+      tags:
+        - campaigns
+      description: Clone an existing campaign
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idCampaign
+          required: true
+          in: query
+          type: string
+          description: The id of the campaign to clone
+      responses:
+        200:
+          description: The cloned campaign
+          schema:
+            $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        404:
+          description: Campaign not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/campaign/funnel/clone/index.php:
+    post:
+      tags:
+        - funnels
+      description: Clone an existing funnel
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idFunnel
+          required: true
+          in: query
+          type: string
+          description: The id of the funnel to clone
+      responses:
+        200:
+          description: The cloned funnel
+          schema:
+            $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        404:
+          description: Funnel not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/page/clone/index.php:
+    post:
+      tags:
+        - pages
+      description: Clone an existing page (lander or offer)
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idPage
+          required: true
+          in: query
+          type: string
+          description: The id of the page to clone
+      responses:
+        200:
+          description: The cloned page
+          schema:
+            $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        404:
+          description: Page not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/trafficsource/clone/index.php:
+    post:
+      tags:
+        - trafficsources
+      description: Clone an existing traffic source
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idTrafficSource
+          required: true
+          in: query
+          type: string
+          description: The id of the traffic source to clone
+      responses:
+        200:
+          description: The cloned traffic source
+          schema:
+            $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        404:
+          description: Traffic source not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  # --- Archive endpoints ---
+  /data/page/archive/index.php:
+    put:
+      tags:
+        - pages
+      description: Archive or unarchive pages in bulk
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/ArchiveRequest'
+      responses:
+        200:
+          description: Archive result
+          schema:
+            $ref: '#/definitions/BulkResult'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/trafficsource/archive/index.php:
+    put:
+      tags:
+        - trafficsources
+      description: Archive or unarchive traffic sources in bulk
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/ArchiveRequest'
+      responses:
+        200:
+          description: Archive result
+          schema:
+            $ref: '#/definitions/BulkResult'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  # --- Bulk delete endpoints ---
+  /data/page/deleteBulk/index.php:
+    delete:
+      tags:
+        - pages
+      description: Delete multiple pages in bulk
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/BulkIds'
+      responses:
+        200:
+          description: Bulk delete result
+          schema:
+            $ref: '#/definitions/BulkResult'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/trafficsource/deleteBulk/index.php:
+    delete:
+      tags:
+        - trafficsources
+      description: Delete multiple traffic sources in bulk
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/BulkIds'
+      responses:
+        200:
+          description: Bulk delete result
+          schema:
+            $ref: '#/definitions/BulkResult'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  # --- Funnel move ---
+  /data/campaign/funnel/move/index.php:
+    put:
+      tags:
+        - funnels
+      description: Move a funnel to a different campaign
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/FunnelMoveRequest'
+      responses:
+        200:
+          description: The moved funnel
+          schema:
+            $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        404:
+          description: Funnel or campaign not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  # --- Page category endpoints ---
+  /data/page/category/list/index.php:
+    get:
+      tags:
+        - categories
+      description: Get a list of page categories
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: archived
+          required: false
+          in: query
+          type: boolean
+          description: If true, include archived categories
+      responses:
+        200:
+          description: List of page categories
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Category'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/page/category/save/index.php:
+    post:
+      tags:
+        - categories
+      description: Create a new page category
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/Category'
+      responses:
+        200:
+          description: Category created successfully
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      tags:
+        - categories
+      description: Update an existing page category
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/Category'
+      responses:
+        200:
+          description: Category updated successfully
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/page/category/delete/index.php:
+    delete:
+      tags:
+        - categories
+      description: Delete a page category
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idCategory
+          required: true
+          in: query
+          type: string
+          description: The id of the category to delete
+      responses:
+        200:
+          description: Category deleted successfully
+        403:
+          description: Not authorized
+        404:
+          description: Category not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/page/category/assign/index.php:
+    put:
+      tags:
+        - categories
+      description: Assign pages to a category
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/PageCategoryAssignment'
+      responses:
+        200:
+          description: Pages assigned to category successfully
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  # --- Traffic source category endpoints ---
+  /data/trafficsource/category/list/index.php:
+    get:
+      tags:
+        - categories
+      description: Get a list of traffic source categories
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: archived
+          required: false
+          in: query
+          type: boolean
+          description: If true, include archived categories
+      responses:
+        200:
+          description: List of traffic source categories
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Category'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/trafficsource/category/save/index.php:
+    post:
+      tags:
+        - categories
+      description: Create a new traffic source category
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/Category'
+      responses:
+        200:
+          description: Category created successfully
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      tags:
+        - categories
+      description: Update an existing traffic source category
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/Category'
+      responses:
+        200:
+          description: Category updated successfully
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/trafficsource/category/delete/index.php:
+    delete:
+      tags:
+        - categories
+      description: Delete a traffic source category
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idCategory
+          required: true
+          in: query
+          type: string
+          description: The id of the category to delete
+      responses:
+        200:
+          description: Category deleted successfully
+        403:
+          description: Not authorized
+        404:
+          description: Category not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/trafficsource/category/assign/index.php:
+    put:
+      tags:
+        - categories
+      description: Assign traffic sources to a category
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/TrafficSourceCategoryAssignment'
+      responses:
+        200:
+          description: Traffic sources assigned to category successfully
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  # --- Template endpoints ---
+  /data/trafficsource/template/list/index.php:
+    get:
+      tags:
+        - templates
+      description: Get a list of available traffic source templates
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: List of template names
+          schema:
+            type: array
+            items:
+              type: string
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/trafficsource/template/load/index.php:
+    get:
+      tags:
+        - templates
+      description: Load a specific traffic source template
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: name
+          required: true
+          in: query
+          type: string
+          description: The template name to load
+      responses:
+        200:
+          description: The traffic source template definition
+          schema:
+            $ref: '#/definitions/TrafficSource'
+        403:
+          description: Not authorized
+        404:
+          description: Template not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/offersource/template/list/index.php:
+    get:
+      tags:
+        - templates
+      description: Get a list of available offer source templates
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: List of template names
+          schema:
+            type: array
+            items:
+              type: string
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/offersource/template/load/index.php:
+    get:
+      tags:
+        - templates
+      description: Load a specific offer source template
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: name
+          required: true
+          in: query
+          type: string
+          description: The template name to load
+      responses:
+        200:
+          description: The offer source template definition
+          schema:
+            $ref: '#/definitions/OfferSource'
+        403:
+          description: Not authorized
+        404:
+          description: Template not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/campaign/funnel/codesnippet/template/list/index.php:
+    get:
+      tags:
+        - templates
+      description: Get a list of available code snippet templates grouped by language
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: Template names grouped by language
+          schema:
+            $ref: '#/definitions/CodeSnippetTemplateList'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/campaign/funnel/codesnippet/template/load/index.php:
+    get:
+      tags:
+        - templates
+      description: Load a specific code snippet template
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: name
+          required: true
+          in: query
+          type: string
+          description: The template name to load
+        - name: language
+          required: true
+          in: query
+          type: string
+          enum:
+            - php
+            - javascript
+          description: The programming language of the template
+      responses:
+        200:
+          description: The code snippet template definition
+          schema:
+            $ref: '#/definitions/FunnelCodeSnippet'
+        403:
+          description: Not authorized
+        404:
+          description: Template not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  # --- Tag endpoints ---
+  /data/tag/list/index.php:
+    get:
+      tags:
+        - tags
+      description: Get a list of all visitor tags
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: List of tags
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/IdNamePair'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/tag/save/index.php:
+    post:
+      tags:
+        - tags
+      description: Create new visitor tags
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/TagCreateRequest'
+      responses:
+        200:
+          description: Tags created successfully
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/tag/update/index.php:
+    put:
+      tags:
+        - tags
+      description: Update an existing visitor tag
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/TagUpdateRequest'
+      responses:
+        200:
+          description: Tag updated successfully
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  # --- Other endpoints ---
+  /data/page/import/csv/index.php:
+    post:
+      tags:
+        - pages
+      description: Import pages from a CSV file
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: csvFile
+          required: true
+          in: formData
+          type: file
+          description: The CSV file to import
+        - name: type
+          required: true
+          in: query
+          type: integer
+          description: "Page type: 1 = lander, 2 = offer"
+          enum:
+            - 1
+            - 2
+      responses:
+        200:
+          description: Import result
+          schema:
+            $ref: '#/definitions/BulkResult'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /data/trafficfilter/applyRetroactively/index.php:
+    put:
+      tags:
+        - trafficfilters
+      description: Apply a traffic filter retroactively to existing visits
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/TrafficFilterApplyRequest'
+      responses:
+        200:
+          description: Filter applied retroactively
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
 definitions:
   TrafficFilter:
     type: object
@@ -1810,6 +2764,43 @@ definitions:
       isArchived:
         type: boolean
         default: false
+  OfferSourceSaveRequest:
+    type: object
+    required:
+      - idOfferSource
+      - offerSourceName
+    properties:
+      idOfferSource:
+        description: Caller-generated uint64 id for POST create (same pattern as other entities); required for PUT updates.
+        type: integer
+        format: int64
+        minimum: 1
+      offerSourceName:
+        description: Offer source's name. 255 characters max.
+        type: string
+      subId:
+        description: "Name of the parameter to pass unique hit ids to your offer source"
+        type: string
+        default: ''
+      querySeparator:
+        description: "Which character is used to separate an offer's base url from its query parameters"
+        type: string
+        default: '?'
+      postbackSubId:
+        description: "Name of the subid parameter your offer source sends back to FunnelFlux when a conversion occurs"
+        type: string
+        default: ''
+      postbackTxId:
+        description: "Name of the unique transaction id parameter your offer source sends back to FunnelFlux when a conversion occurs"
+        type: string
+        default: ''
+      postbackPayout:
+        description: "Name of the payout parameter your offer source sends back to FunnelFlux when a conversion occurs"
+        type: string
+        default: ''
+      isArchived:
+        type: boolean
+        default: false
   TrafficSource:
     type: object
     required:
@@ -1818,7 +2809,7 @@ definitions:
       - costType
     properties:
       idTrafficSouce:
-        description: 64 bits integer id of the traffic source
+        description: 64-bit traffic source id; caller-generated for POST create (same pattern as other entities).
         type: integer
         format: int64
         minimum: 1
@@ -2591,6 +3582,14 @@ definitions:
         type: number
         format: double
         default: 0.0
+      payoutType:
+        description: >-
+          Payout mode for the offer (legacy type param payout-type). perConversion = fixed per conversion; revShare = revenue share.
+        type: string
+        enum:
+          - perConversion
+          - revShare
+        default: perConversion
   CampaignsFunnelsAndNodes:
     type: object
     properties:
@@ -2610,7 +3609,7 @@ definitions:
       - url
     properties:
       idPage:
-        description: 64 bits integer id of the page
+        description: 64-bit page id; caller-generated for POST create (same pattern as other entities).
         type: integer
         format: int64
         minimum: 1
@@ -2643,6 +3642,11 @@ definitions:
         default: []
       notes:
         description: Optional notes for this page
+        type: string
+        default: ''
+      customFields:
+        description: >-
+          Optional custom field values stored in page type params (legacy customFields). Multiple values are separated by "-|" on the wire.
         type: string
         default: ''
       offerParams:
@@ -2689,6 +3693,138 @@ definitions:
         format: int32
         minimum: 0
         maximum: 59
+  IdNamePair:
+    type: object
+    properties:
+      id:
+        type: integer
+        format: int64
+      name:
+        type: string
+  BulkIds:
+    type: object
+    required:
+      - ids
+    properties:
+      ids:
+        type: array
+        items:
+          type: integer
+          format: int64
+  ArchiveRequest:
+    type: object
+    required:
+      - ids
+    properties:
+      ids:
+        type: array
+        items:
+          type: integer
+          format: int64
+      archive:
+        type: boolean
+        default: true
+  BulkResult:
+    type: object
+    properties:
+      success:
+        type: boolean
+      processed:
+        type: integer
+      errors:
+        type: array
+        items:
+          type: string
+  Category:
+    type: object
+    properties:
+      idCategory:
+        type: integer
+        format: int64
+      name:
+        type: string
+  PageCategoryAssignment:
+    type: object
+    required:
+      - pageIds
+    properties:
+      pageIds:
+        type: array
+        items:
+          type: integer
+          format: int64
+      idCategory:
+        type: integer
+        format: int64
+        description: Category ID. Null or omit to uncategorize.
+  TrafficSourceCategoryAssignment:
+    type: object
+    required:
+      - trafficSourceIds
+    properties:
+      trafficSourceIds:
+        type: array
+        items:
+          type: integer
+          format: int64
+      idCategory:
+        type: integer
+        format: int64
+        description: Category ID. Null or omit to uncategorize.
+  FunnelMoveRequest:
+    type: object
+    required:
+      - idFunnel
+      - idCampaign
+    properties:
+      idFunnel:
+        type: integer
+        format: int64
+      idCampaign:
+        type: integer
+        format: int64
+  TagCreateRequest:
+    type: object
+    required:
+      - tags
+    properties:
+      tags:
+        type: array
+        items:
+          type: string
+  TagUpdateRequest:
+    type: object
+    required:
+      - idTag
+      - name
+    properties:
+      idTag:
+        type: integer
+        format: int64
+      name:
+        type: string
+  TrafficFilterApplyRequest:
+    type: object
+    required:
+      - idFilter
+    properties:
+      idFilter:
+        type: integer
+        format: int64
+      apply:
+        type: boolean
+        default: true
+  CodeSnippetTemplateList:
+    type: object
+    properties:
+      php:
+        type: array
+        items:
+          type: string
+      javascript:
+        type: array
+        items:
+          type: string
   Error:
     type: object
     required:

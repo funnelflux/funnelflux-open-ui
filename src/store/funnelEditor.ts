@@ -11,7 +11,7 @@ import type {
 } from '@/types/funnel'
 import type { FunnelCondition, Page } from '@/types/entities'
 import { generateId } from '@/lib/id-generator'
-import { extractMetaFromRawFunnel, normalizeFunnelApiResponse } from '@/lib/funnelApiV2'
+import { extractMetaFromRawFunnel, normalizeFunnelApiResponse, computeFunnelEditorHydrationVersion } from '@/lib/funnelApiV2'
 import { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
 import { materializeRotatorWeights, reclassifyLoadedRotatorEdges } from '@/lib/rotatorWeights'
 import {
@@ -24,7 +24,13 @@ import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
 import { createDefaultEntranceFlowNode } from '@/lib/defaultNewFunnelNodes'
 import type { FunnelEditorMeta } from '@/types/funnel'
 
+import { validateFunnelGraph, type GraphIssue } from '@/lib/funnel-graph/validateGraph'
+
 export { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
+
+export type HydrateRequestResult =
+  | { applied: true; graphWarnings: GraphIssue[] }
+  | { applied: false; reason: 'sameVersion' | 'dirty' }
 
 // ── Helpers: API → React Flow ───────────────────────────────────────────────
 
@@ -165,6 +171,10 @@ const defaultMeta: FunnelMeta = {
 }
 
 interface FunnelEditorState {
+  /** Last server snapshot identity; null for client-only / new funnel. */
+  loadedFunnelId: string | null
+  loadedServerVersion: string | null
+
   // Data
   nodes: FunnelFlowNode[]
   edges: FunnelFlowEdge[]
@@ -176,8 +186,11 @@ interface FunnelEditorState {
   pendingConditionDrafts: Record<string, { condition: FunnelCondition; original?: FunnelCondition; isCreate?: boolean }>
 
   // Actions
-  hydrate: (funnel: ApiFunnel | unknown) => void
-  reset: () => void
+  /** Apply server funnel JSON and record `serverVersion` (from {@link computeFunnelEditorHydrationVersion}). */
+  hydrateFromServer: (funnel: ApiFunnel | unknown, serverVersion: string) => void
+  requestHydrate: (funnelInput: ApiFunnel | unknown, opts?: { force?: boolean }) => HydrateRequestResult
+  initializeNewFunnel: (args: { idCampaign: string; idFunnel: string }) => void
+  resetEditor: () => void
   serialize: () => ApiFunnel
 
   /** When `markDirty` is false, graph is updated without setting unsaved (e.g. RF measure/select, handle sync). */
@@ -208,6 +221,8 @@ interface FunnelEditorState {
 }
 
 export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
+  loadedFunnelId: null,
+  loadedServerVersion: null,
   nodes: [],
   edges: [],
   meta: { ...defaultMeta },
@@ -217,7 +232,7 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
   pendingPageDrafts: {},
   pendingConditionDrafts: {},
 
-  hydrate: (funnelInput) => {
+  hydrateFromServer: (funnelInput, serverVersion) => {
     const funnel = normalizeFunnelApiResponse(funnelInput)
     const v2Meta = extractMetaFromRawFunnel(funnelInput)
     const raw = funnelInput as Record<string, unknown>
@@ -238,10 +253,9 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
     )
 
     set({
+      loadedFunnelId: funnel.idFunnel,
+      loadedServerVersion: serverVersion,
       nodes: flowNodes,
-      // Hydrate marks every weighted edge as locked (server has no dirty bit). Re-classify
-      // groups whose stored weights are already an even split as unlocked so adding a new
-      // sibling rebalances automatically (e.g. 1×100 → add → 50/50; 50/50 → add → 33/33/33).
       edges: flowEdges,
       meta: {
         idFunnel: funnel.idFunnel,
@@ -260,8 +274,54 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
     })
   },
 
-  reset: () => {
+  requestHydrate: (funnelInput, opts) => {
+    const force = opts?.force === true
+    const version = computeFunnelEditorHydrationVersion(funnelInput)
+    const funnel = normalizeFunnelApiResponse(funnelInput)
+    const funnelId = funnel.idFunnel
+    const { isDirty, loadedServerVersion, loadedFunnelId } = get()
+
+    if (!force && version === loadedServerVersion && funnelId === loadedFunnelId) {
+      return { applied: false, reason: 'sameVersion' }
+    }
+    if (!force && isDirty) {
+      return { applied: false, reason: 'dirty' }
+    }
+
+    get().hydrateFromServer(funnelInput, version)
+    const { nodes, edges } = get()
+    const { warnings } = validateFunnelGraph(nodes, edges, { forSave: false })
+    return { applied: true, graphWarnings: warnings }
+  },
+
+  initializeNewFunnel: ({ idCampaign, idFunnel }) => {
+    const idNode = generateId()
     set({
+      loadedFunnelId: idFunnel,
+      loadedServerVersion: null,
+      nodes: [createDefaultEntranceFlowNode(idNode)],
+      edges: [],
+      meta: {
+        ...defaultMeta,
+        idCampaign,
+        idFunnel,
+        funnelName: '',
+        defaultCostPerEntrance: 0,
+        notes: '',
+        isArchived: false,
+      },
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      isDirty: false,
+      pendingPageDrafts: {},
+      pendingConditionDrafts: {},
+    })
+  },
+
+  resetEditor: () => {
+    set({
+      loadedFunnelId: null,
+      loadedServerVersion: null,
       nodes: [],
       edges: [],
       meta: { ...defaultMeta },
@@ -300,10 +360,13 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
   seedDefaultEntranceNode: () => {
     if (get().nodes.length > 0) return
     const idNode = generateId()
+    const { meta } = get()
     set({
       nodes: [createDefaultEntranceFlowNode(idNode)],
       edges: [],
       isDirty: false,
+      loadedFunnelId: meta.idFunnel || null,
+      loadedServerVersion: null,
     })
   },
 

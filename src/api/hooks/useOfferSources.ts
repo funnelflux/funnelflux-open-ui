@@ -3,9 +3,9 @@ import { api } from '@/api/client'
 import type { OfferSourceTemplateLoadResponse } from '@/api/offerSourceTemplateLoad'
 import { normalizeTemplateList } from '@/api/normalizeTemplateList'
 import { queryKeys } from '@/api/queryKeys'
+import { invalidateOfferSourceData } from '@/api/invalidations'
 import {
   applyOfferSourceArchiveToEntityGridCaches,
-  refreshOfferSourcesListQueries,
   removeOfferSourceFromEntityGridCaches,
   upsertClonedOfferSourceInEntityGridCaches,
   upsertOfferSourceInEntityGridCaches,
@@ -57,7 +57,7 @@ export function useSaveOfferSource() {
           queryKey: queryKeys.offerSources.detail(mergedOfferSource.idOfferSource),
         })
       }
-      refreshOfferSourcesListQueries(queryClient)
+      void invalidateOfferSourceData(queryClient)
     },
   })
 }
@@ -66,10 +66,10 @@ export function useDeleteOfferSource() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete('/data/offersource/delete/', { idOfferSource: id }),
-    onSuccess: (_, id) => {
+    onSuccess: async (_, id) => {
       removeOfferSourceFromEntityGridCaches(queryClient, id)
-      refreshOfferSourcesListQueries(queryClient)
       queryClient.removeQueries({ queryKey: queryKeys.offerSources.detail(id) })
+      await invalidateOfferSourceData(queryClient)
     },
   })
 }
@@ -79,12 +79,12 @@ export function useArchiveOfferSource() {
   return useMutation({
     mutationFn: ({ ids, archive }: { ids: string[]; archive: boolean }) =>
       api.put('/data/offersource/archive/', { ids, archive }),
-    onSuccess: (_, { ids, archive }) => {
+    onSuccess: async (_, { ids, archive }) => {
       applyOfferSourceArchiveToEntityGridCaches(queryClient, ids, archive)
-      refreshOfferSourcesListQueries(queryClient)
       for (const id of ids) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(id) })
       }
+      await invalidateOfferSourceData(queryClient)
     },
   })
 }
@@ -96,10 +96,10 @@ export function useCloneOfferSource() {
       api.post<OfferSourceCloneWireResponse>('/data/offersource/clone/', undefined, {
         idOfferSource: id,
       }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       upsertClonedOfferSourceInEntityGridCaches(queryClient, data)
-      refreshOfferSourcesListQueries(queryClient)
       void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(data.idOfferSource) })
+      await invalidateOfferSourceData(queryClient)
     },
   })
 }

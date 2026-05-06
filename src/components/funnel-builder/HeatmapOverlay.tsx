@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, useEffect, useRef, type ReactNode } from 'react'
 import { Icon } from '@/components/ui-kit/icons'
-import { useAllFlatDrilldownReport } from '@/api/hooks'
+import { useAllFlatDrilldownReportQuery } from '@/api/hooks'
 import { Button, Select, useToastApi } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/lib/funnelHeatmap'
 import { getPresetRange, type DateRange } from '@/lib/date-presets'
 import { getErrorMessage } from '@/lib/utils'
+import type { DrilldownRequest } from '@/types/stats'
 import { HeatmapContext } from './HeatmapContext'
 
 const HEATMAP_MODE_SELECT_OPTIONS = FUNNEL_HEATMAP_MODES.map((mode) => ({
@@ -44,35 +45,58 @@ export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, c
     preset: 'today',
   }))
 
-  const heatmapReport = useAllFlatDrilldownReport()
-  const fetchHeatmapReport = heatmapReport.mutate
+  const [heatmapRequest, setHeatmapRequest] = useState<DrilldownRequest | null>(null)
   const heatmapActive = active && enabled && !isNew
+  const heatmapQueryEnabled = heatmapActive && heatmapRequest != null && funnelId !== ''
+  const {
+    data: heatmapReportData,
+    isFetching: heatmapFetching,
+    isPending: heatmapPending,
+    isError: heatmapIsError,
+    error: heatmapError,
+    refetch: refetchHeatmapReport,
+  } = useAllFlatDrilldownReportQuery(heatmapRequest, heatmapQueryEnabled)
 
-  const fetchStats = useCallback((rangeOverride?: HeatmapDateRange) => {
-    if (!enabled || isNew || !funnelId) return
+  const heatmapLoading = heatmapQueryEnabled && (heatmapFetching || heatmapPending)
+  const lastHeatmapErrRef = useRef('')
 
-    const range = rangeOverride ?? dateRange
-    const request = buildFunnelHeatmapRequest({
-      campaignId,
-      funnelId,
-      dateFrom: range.from,
-      dateTo: range.to,
-      timeZone: { name: timezoneName },
-    })
+  useEffect(() => {
+    if (!heatmapReportData) return
+    setNodeStats(buildNodeHeatmapStatsFromReport(heatmapReportData))
+    setHasLoaded(true)
+  }, [heatmapReportData])
 
-    setHasLoaded(false)
-    fetchHeatmapReport(request, {
-      onSuccess: (report) => {
-        setNodeStats(buildNodeHeatmapStatsFromReport(report))
-        setHasLoaded(true)
-      },
-      onError: (err) => {
-        setNodeStats({})
-        setHasLoaded(true)
-        toast.error(getErrorMessage(err))
-      },
-    })
-  }, [campaignId, dateRange, enabled, fetchHeatmapReport, funnelId, isNew, timezoneName, toast])
+  useEffect(() => {
+    if (!heatmapIsError || heatmapError == null) {
+      lastHeatmapErrRef.current = ''
+      return
+    }
+    const msg = getErrorMessage(heatmapError)
+    if (lastHeatmapErrRef.current === msg) return
+    lastHeatmapErrRef.current = msg
+    setNodeStats({})
+    setHasLoaded(true)
+    toast.error(msg)
+  }, [heatmapIsError, heatmapError, toast])
+
+  const fetchStats = useCallback(
+    (rangeOverride?: HeatmapDateRange) => {
+      if (!enabled || isNew || !funnelId) return
+
+      const range = rangeOverride ?? dateRange
+      const request = buildFunnelHeatmapRequest({
+        campaignId,
+        funnelId,
+        dateFrom: range.from,
+        dateTo: range.to,
+        timeZone: { name: timezoneName },
+      })
+
+      setHasLoaded(false)
+      setHeatmapRequest(request)
+    },
+    [campaignId, dateRange, enabled, funnelId, isNew, timezoneName],
+  )
 
   const intensityMax = useMemo(
     () => getFunnelHeatmapIntensityMax(nodeStats, mode),
@@ -85,14 +109,15 @@ export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, c
       mode,
       nodeStats,
       intensityMax,
-      isLoading: heatmapReport.isPending,
+      isLoading: heatmapLoading,
     }),
-    [heatmapActive, heatmapReport.isPending, intensityMax, mode, nodeStats],
+    [heatmapActive, heatmapLoading, intensityMax, mode, nodeStats],
   )
 
   const handleToggle = useCallback(() => {
     if (active) {
       setActive(false)
+      setHeatmapRequest(null)
       setNodeStats({})
       setHasLoaded(false)
       return
@@ -104,6 +129,7 @@ export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, c
 
   const handleClose = useCallback(() => {
     setActive(false)
+    setHeatmapRequest(null)
     setNodeStats({})
     setHasLoaded(false)
   }, [])
@@ -120,8 +146,9 @@ export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, c
   }, [fetchStats, heatmapActive])
 
   const handleRefresh = useCallback(() => {
-    fetchStats()
-  }, [fetchStats])
+    if (heatmapRequest) void refetchHeatmapReport()
+    else fetchStats()
+  }, [fetchStats, heatmapRequest, refetchHeatmapReport])
 
   if (!enabled) {
     return (
@@ -184,9 +211,9 @@ export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, c
                     type="text"
                     size="small"
                     onClick={handleRefresh}
-                    disabled={heatmapReport.isPending}
+                    disabled={heatmapLoading}
                     iconName="refresh-cw"
-                    iconAnimation={heatmapReport.isPending ? 'spin' : 'none'}
+                    iconAnimation={heatmapLoading ? 'spin' : 'none'}
                     iconSize="sm"
                     aria-label="Refresh heatmap"
                   />
@@ -221,20 +248,20 @@ export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, c
                 />
               </div>
 
-              {heatmapReport.isPending ? (
+              {heatmapLoading ? (
                 <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
                   <Icon name="loader-2" size="sm" animation="spin" aria-hidden />
                   Loading node stats...
                 </div>
               ) : null}
 
-              {hasLoaded && !heatmapReport.isPending && Object.keys(nodeStats).length === 0 ? (
+              {hasLoaded && !heatmapLoading && Object.keys(nodeStats).length === 0 ? (
                 <div className="mt-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
                   No node stats found for this date range. Try a funnel with recent traffic or choose a wider range.
                 </div>
               ) : null}
 
-              {!heatmapReport.isPending && Object.keys(nodeStats).length > 0 ? (
+              {!heatmapLoading && Object.keys(nodeStats).length > 0 ? (
                 <div className="mt-3 flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2 text-xs">
                   <span className="text-muted-foreground">Nodes with stats</span>
                   <span className="font-semibold tabular-nums text-foreground">

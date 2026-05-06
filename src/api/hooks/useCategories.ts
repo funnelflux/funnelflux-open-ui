@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
+import { invalidateCategoryData } from '@/api/invalidations'
 
 export interface Category {
   idCategory: string
@@ -66,8 +67,8 @@ export function useSaveCategory() {
         ? api.post(save, { name })
         : api.put(save, { idCategory, name })
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.categories.all })
+    onSuccess: async (_, variables) => {
+      await invalidateCategoryData(qc, variables.entityType)
     },
   })
 }
@@ -80,8 +81,8 @@ export function useDeleteCategory() {
       const { delete: del } = categoryEndpoints(entityType)
       return api.delete(del, { idCategory })
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.categories.all })
+    onSuccess: async (_, variables) => {
+      await invalidateCategoryData(qc, variables.entityType)
     },
   })
 }

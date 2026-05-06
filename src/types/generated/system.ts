@@ -1,3 +1,3 @@
-// Auto-generated from admin/api/v2/system/definition.yaml -- do not edit manually
+// Auto-generated from docs/api-specs/system-api.yaml -- do not edit manually
 
 

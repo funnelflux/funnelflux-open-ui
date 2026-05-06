@@ -1,4 +1,4 @@
-// Auto-generated from admin/api/v2/data/definition.yaml -- do not edit manually
+// Auto-generated from docs/api-specs/data-api.yaml -- do not edit manually
 
 export interface TrafficFilter {
   idTrafficFilter: string;

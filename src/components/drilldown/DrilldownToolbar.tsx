@@ -37,11 +37,8 @@ import { getErrorMessage } from '@/lib/utils'
 import { DATE_PRESETS, getPresetRange, type DateRange } from '@/lib/date-presets'
 import { validateGroupingStackForRequest } from '@/lib/drilldownGroupings'
 import { buildTrackingFieldMappingsForRequest } from '@/lib/urlTrackingFieldGrouping'
-import {
-  toApiDateTime,
-  type CsvExportResponse,
-  type DrilldownRequest,
-} from '@/types/stats'
+import { toApiDateTime } from '@/lib/statsDateRange'
+import type { CsvExportResponse, DrilldownRequest } from '@/types/stats'
 import type { DrilldownTimeAttribution } from '@/store/drilldown'
 
 const TIME_ATTRIBUTION_OPTIONS = [

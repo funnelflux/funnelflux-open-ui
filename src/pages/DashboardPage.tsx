@@ -4,12 +4,13 @@ import { fetchAllFlatDrilldownRows } from "@/api/drilldown"
 import { useDashboardStore } from "@/store/dashboard"
 import { StatsCards, type DashboardSummaryStats } from "@/components/dashboard/StatsCards"
 import { DashboardChart } from "@/components/dashboard/DashboardChart"
-import { DashboardTopTable } from "@/components/dashboard/DashboardTopTable"
+import { DashboardTopTable, type DashboardTopTableProps } from "@/components/dashboard/DashboardTopTable"
+import { useLazySectionVisible } from "@/hooks/useLazySectionVisible"
 import { PageShell, TimezoneSelect } from "@/components/ui-kit"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
 import { Tag } from "@/components/ui-kit"
 import { Button } from "@/components/ui-kit"
-import { toApiDateTimeRange } from "@/types/stats"
+import { toApiDateTimeRange } from "@/lib/statsDateRange"
 import type { Report } from "@/types/stats"
 import { cellRaw } from "@/components/ui-kit/data-table"
 
@@ -115,6 +116,15 @@ function statsChanged(previous: DashboardSummaryStats | undefined, next: Dashboa
   if (!previous) return false
   return (Object.keys(next) as (keyof DashboardSummaryStats)[]).some(
     (key) => previous[key] !== next[key],
+  )
+}
+
+function DashboardTopTableLazySlot(props: Omit<DashboardTopTableProps, "fetchEnabled">) {
+  const { ref, isVisible } = useLazySectionVisible()
+  return (
+    <div ref={ref} className="min-h-[320px] min-w-0">
+      <DashboardTopTable {...props} fetchEnabled={isVisible} />
+    </div>
   )
 }
 
@@ -271,7 +281,7 @@ export function DashboardPage() {
 
       <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-2">
         {WIDGETS.map((widget) => (
-          <DashboardTopTable
+          <DashboardTopTableLazySlot
             key={widget.id}
             title={widget.title}
             groupBy={widget.groupBy}

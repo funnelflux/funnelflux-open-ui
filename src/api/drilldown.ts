@@ -1,5 +1,6 @@
 import { api } from '@/api/client'
 import type { DrilldownRequest, Report } from '@/types/stats'
+import { parseDrilldownReport } from '@/schemas/apiBoundaries'
 
 const DEFAULT_DRILLDOWN_PAGE_SIZE = 2000
 
@@ -20,11 +21,17 @@ function withPaging(
 
 export async function fetchAllFlatDrilldownRows(
   request: DrilldownRequest,
-  options?: { pageSize?: number },
+  options?: { pageSize?: number; signal?: AbortSignal },
 ): Promise<Report> {
   const pageSize = options?.pageSize ?? DEFAULT_DRILLDOWN_PAGE_SIZE
+  const signal = options?.signal
   const initialStart = request.paging?.start ?? 0
-  const firstPage = await api.postDrilldown<Report>(withPaging(request, initialStart, pageSize))
+  const firstPage = await api.postDrilldown<Report>(
+    withPaging(request, initialStart, pageSize),
+    undefined,
+    signal,
+  )
+  parseDrilldownReport(firstPage)
 
   const rows = [...(firstPage.rows ?? [])]
   let rowsTotal =
@@ -38,7 +45,15 @@ export async function fetchAllFlatDrilldownRows(
     lastPageSize === pageSize &&
     (rowsTotal === undefined || rows.length < rowsTotal)
   ) {
-    const page = await api.postDrilldown<Report>(withPaging(request, nextStart, pageSize))
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError')
+    }
+    const page = await api.postDrilldown<Report>(
+      withPaging(request, nextStart, pageSize),
+      undefined,
+      signal,
+    )
+    parseDrilldownReport(page)
     const pageRows = page.rows ?? []
     if (pageRows.length === 0) break
 

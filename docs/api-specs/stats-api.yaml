@@ -87,6 +87,8 @@ paths:
       responses:
         200:
           description: Background job created successfully
+          schema:
+            $ref: "#/definitions/BackgroundJobResponse"
         403:
           description: Not authorized
         default:
@@ -163,6 +165,35 @@ paths:
       responses:
         200:
           description: Background job created successfully
+          schema:
+            $ref: "#/definitions/BackgroundJobResponse"
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+  /stats/reporting/export/csv/index.php:
+    post:
+      tags:
+        - reporting
+      description: Export a drilldown report as CSV. Supports paginated export via offset/limit for large datasets.
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: "#/definitions/CsvExportRequest"
+      responses:
+        200:
+          description: CSV export result
+          schema:
+            $ref: "#/definitions/CsvExportResponse"
         403:
           description: Not authorized
         default:
@@ -242,6 +273,15 @@ definitions:
         default: null
       restrictToVisitorId:
         type: string
+        default: null
+      restrictToTrackingFields:
+        description: Map of tracking field name to value (or list of values). All conditions are AND-ed; multiple values per field are OR-ed.
+        type: object
+        additionalProperties:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
         default: null
   ConvertedHit:
     required:
@@ -715,22 +755,8 @@ definitions:
     properties:
       groupBy:
         type: string
-        description: >
-          Canonical grouping names as listed below. The server also accepts wire-only aliases
-          `__TRACKING_FIELD_1__` … `__TRACKING_FIELD_10__` (normalized to `URL Tracking Field`);
-          pair those with `trackingFieldMappings` on the drilldown request.
         enum:
           - "URL Tracking Field"
-          - "__TRACKING_FIELD_1__"
-          - "__TRACKING_FIELD_2__"
-          - "__TRACKING_FIELD_3__"
-          - "__TRACKING_FIELD_4__"
-          - "__TRACKING_FIELD_5__"
-          - "__TRACKING_FIELD_6__"
-          - "__TRACKING_FIELD_7__"
-          - "__TRACKING_FIELD_8__"
-          - "__TRACKING_FIELD_9__"
-          - "__TRACKING_FIELD_10__"
           - "Element: Campaign"
           - "Element: Funnel"
           - "Element: Lander"
@@ -789,13 +815,7 @@ definitions:
           - "Hash: User Agent Hash"
           - "Hash: Network Hash"
       whitelistFilters:
-        description: >
-          If not empty, then only rows where at least one of the specified filters is true will be returned.
-          For asset-related groupings like 'traffic source', 'campaign', 'lander' etc, a filter must be the asset's id.
-          For `URL Tracking Field` / `__TRACKING_FIELD_N__`, a filter is typically the URL parameter name
-          (e.g. `adgroup`) matching `trackingFieldMappings`, or `field$@$value` to restrict to a specific token/value
-          (server uses the `$@$` concatenator). Otherwise, for groupings like 'country', 'device type' etc, a filter is
-          a case-insensitive string. Filters can contain wildcards *.
+        description: "If not empty, then only rows where at least one of the specified filters is true will be returned. For asset-related groupings like 'traffic source', 'campaign', 'lander' etc, a filter must be the asset's id. Otherwise, for groupings like 'country', 'device type' etc, a filter is a case-insensitive string representing the data, like 'Malaysia', 'Smartphone' etc... Filters can contain wildcards *"
         type: array
         items: { type: string }
       blacklistFilters:
@@ -985,20 +1005,6 @@ definitions:
         $ref: "#/definitions/RequestSorting"
       options:
         $ref: "#/definitions/RequestOptions"
-      trackingFieldMappings:
-        description: >
-          Maps each `__TRACKING_FIELD_N__` slot to the traffic-source URL parameter name (`id`) used for that
-          grouping level. Sent with JSON body to `POST /stats/reporting/drilldown/`. The PHP handler normalizes
-          `groupBy` to `URL Tracking Field` and uses this object to resolve which parameter each level targets.
-        type: object
-        additionalProperties:
-          type: object
-          required:
-            - id
-          properties:
-            id:
-              type: string
-              description: URL tracking parameter key (e.g. adgroup, querystring, c1)
   ConfidenceRate:
     type: object
     properties:
@@ -1165,6 +1171,61 @@ definitions:
         type: string
       value:
         type: string
+  CsvExportRequest:
+    type: object
+    required:
+      - drilldownRequest
+    properties:
+      drilldownRequest:
+        $ref: "#/definitions/DrilldownRequest"
+      filename:
+        type: string
+        description: Optional filename for the exported CSV
+      offset:
+        type: integer
+        format: int32
+        default: 0
+        description: Row offset for paginated exports
+      limit:
+        type: integer
+        format: int32
+        default: 10000
+        description: Maximum number of rows to export per request
+      addHeader:
+        type: boolean
+        description: Whether to include a header row in the CSV output
+  CsvExportResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+      complete:
+        type: boolean
+        description: True if all rows have been exported
+      rowsWritten:
+        type: integer
+        format: int32
+      url:
+        type: string
+        description: URL to download the exported CSV file (present when complete)
+      nextOffset:
+        type: integer
+        format: int32
+        description: Offset to use for the next request (present when not complete)
+  BackgroundJobResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+      jobIds:
+        type: array
+        items:
+          type: string
+        description: Opaque string identifiers for the background jobs created
+      queuedAt:
+        type: string
+        format: date-time
+        description: ISO 8601 timestamp when the jobs were queued
   Error:
     type: object
     required:

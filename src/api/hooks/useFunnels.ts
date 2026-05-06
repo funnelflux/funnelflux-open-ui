@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
+import { parseFunnelWireEnvelope } from '@/schemas/apiBoundaries'
 import type { Funnel, IdName } from '@/types/entities'
 
 /** Use `create: true` when saving a new funnel that already has a client-generated `idFunnel`. */
@@ -26,8 +27,12 @@ export function useFunnels(campaignId?: string) {
   })
 }
 
-export function useFunnel(id: string, options?: { loadDependencies?: boolean }) {
+export function useFunnel(
+  id: string,
+  options?: { loadDependencies?: boolean; staticWhileMounted?: boolean },
+) {
   const loadDeps = options?.loadDependencies ?? false
+  const staticWhileMounted = options?.staticWhileMounted ?? false
   return useQuery({
     queryKey: [...queryKeys.funnels.detail(id), loadDeps] as const,
     queryFn: () => {
@@ -35,9 +40,16 @@ export function useFunnel(id: string, options?: { loadDependencies?: boolean }) 
       if (loadDeps) {
         params.loadDependencies = 'true'
       }
-      return api.get<Funnel>('/data/campaign/funnel/find/byId/', params)
+      return api
+        .get<unknown>('/data/campaign/funnel/find/byId/', params)
+        .then((raw) => {
+          parseFunnelWireEnvelope(raw)
+          return raw as Funnel
+        })
     },
     enabled: !!id,
+    refetchOnWindowFocus: !staticWhileMounted,
+    refetchOnReconnect: !staticWhileMounted,
   })
 }
 

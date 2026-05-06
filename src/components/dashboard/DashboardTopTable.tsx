@@ -76,6 +76,8 @@ export interface DashboardTopTableProps {
   timeRange: ApiDateTimeRange
   timezone: string
   dataVersion: number
+  /** When false, no drilldown request is sent (e.g. until the section scrolls into view). */
+  fetchEnabled?: boolean
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
@@ -98,6 +100,7 @@ export function DashboardTopTable({
   timeRange,
   timezone,
   dataVersion,
+  fetchEnabled = true,
 }: DashboardTopTableProps) {
   const setTableSorting = useTableConfigStore((s) => s.setSorting)
   const storedSorting = useTableConfigStore((s) => selectTableConfig(tableConfigKey)(s).sorting)
@@ -145,8 +148,9 @@ export function DashboardTopTable({
   ])
 
   useEffect(() => {
+    if (!fetchEnabled) return
     void fetchWidget()
-  }, [fetchWidget])
+  }, [fetchEnabled, fetchWidget])
 
   const flatData = useMemo(() => (report ? reportRowsToFlatData(report) : []), [report])
 
@@ -181,7 +185,7 @@ export function DashboardTopTable({
         maxHeight={280}
         data={flatData}
         columns={columnDefs}
-        loading={loading}
+        loading={!fetchEnabled || loading}
         getRowId={dashboardTopTableRowId}
         sorting={effectiveSorting}
         onSortingChange={handleSortingChange}

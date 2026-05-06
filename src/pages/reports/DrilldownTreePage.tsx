@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react"
+import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import type { ColumnDef, SortingState, ExpandedState, Table } from "@tanstack/react-table"
 import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
 import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
@@ -11,12 +11,13 @@ import {
   DrilldownToolbarReportActions,
   DrilldownToolbarGroupings,
 } from "@/components/drilldown/DrilldownToolbar"
-import { useDrilldownReport } from "@/api/hooks"
+import { useDrilldownReportQuery } from "@/api/hooks"
 import { api } from "@/api/client"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
 import { reportRowToCells } from "@/lib/reportRowCells"
 import { metricsForColumnIds, visibleMetricColumnIdsFromHidden, withSortingMetricIds } from "@/lib/drilldownMetrics"
+import { getErrorMessage } from "@/lib/utils"
 import type {
   DrilldownRequest,
   Grouping,
@@ -37,6 +38,8 @@ interface TreeRowData {
   ancestorKeys: string[]
   children?: TreeRowData[]
   loaded?: boolean
+  /** Lazy expand failed for this branch — surfaced in the tree instead of silent failure. */
+  expandError?: string
   _loadMore?: {
     parentTreePath: string
     parentKey: string
@@ -228,10 +231,24 @@ function deepestRows(rows: ReportRow[]): ReportRow[] {
   return result
 }
 
+function setRowExpandError(rows: TreeRowData[], treePath: string, message: string | null): TreeRowData[] {
+  return rows.map((r) => {
+    if (r.treePath === treePath) {
+      if (!message) {
+        const { expandError: _discard, ...rest } = r
+        return rest as TreeRowData
+      }
+      return { ...r, expandError: message }
+    }
+    if (r.children?.length) {
+      return { ...r, children: setRowExpandError(r.children, treePath, message) }
+    }
+    return r
+  })
+}
+
 export function DrilldownTreePage() {
-  const drilldownMutation = useDrilldownReport()
   const setTableSorting = useTableConfigStore((s) => s.setSorting)
-  const [report, setReport] = useState<Report | null>(null)
   const [treeData, setTreeData] = useState<TreeRowData[]>([])
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
   /** Full grouping stack from the toolbar (all levels); initial request uses only the first. */
@@ -245,22 +262,25 @@ export function DrilldownTreePage() {
   const [expanded, setExpanded] = useState<ExpandedState>({})
   const tableRef = useRef<Table<TreeRowData> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<TreeRowData> | null>(null)
+  const expandRequestId = useRef(0)
 
-  const runRequest = useCallback(
-    (request: DrilldownRequest) => {
-      setLastRequest(request)
-      drilldownMutation.mutate(request, {
-        onSuccess: (data) => {
-          setReport(data)
-          setTreeData(
-            reportRowsToTreeRows(data.rows, data.columns.length, 0, "", []),
-          )
-          setExpanded({})
-        },
-      })
-    },
-    [drilldownMutation],
-  )
+  const {
+    data: report,
+    isFetching,
+    isPending,
+  } = useDrilldownReportQuery(lastRequest, Boolean(lastRequest))
+  const reportLoading = isFetching || isPending
+
+  useEffect(() => {
+    if (!lastRequest) {
+      setTreeData([])
+      setExpanded({})
+      return
+    }
+    if (!report) return
+    setTreeData(reportRowsToTreeRows(report.rows, report.columns.length, 0, "", []))
+    setExpanded({})
+  }, [lastRequest, report])
 
   const handleApply = useCallback(
     (request: DrilldownRequest) => {
@@ -273,7 +293,7 @@ export function DrilldownTreePage() {
         visibleMetricColumnIdsFromHidden(DRILLDOWN_TREE_TABLE_KEY, { defaultVisibleColumnIds: defaultColIds }),
         sorting,
       ))
-      runRequest({
+      setLastRequest({
         ...request,
         options: { ...(request.options ?? {}), viewType: "tree" },
         groupings: initialGroupings,
@@ -283,7 +303,7 @@ export function DrilldownTreePage() {
         ...(metrics ? { metrics } : {}),
       })
     },
-    [runRequest, pageSize, sorting, report?.columns],
+    [pageSize, sorting, report?.columns],
   )
 
   const handleSortingChange = useCallback(
@@ -294,7 +314,7 @@ export function DrilldownTreePage() {
 
       if (!lastRequest) return
 
-      runRequest({
+      setLastRequest({
         ...lastRequest,
         sorting: drilldownSortParamFromReport(newSorting, report?.columns),
         paging: { start: 0, length: pageSize },
@@ -309,67 +329,85 @@ export function DrilldownTreePage() {
         } : { metrics: undefined }),
       })
     },
-    [lastRequest, runRequest, pageSize, report?.columns, setTableSorting],
+    [lastRequest, pageSize, report?.columns, setTableSorting],
   )
 
   const handleApplyColumns = useCallback((nextSelected: Set<string>) => {
     if (!lastRequest) return
     const metrics = metricsForColumnIds(withSortingMetricIds([...nextSelected], sorting))
-    runRequest({
+    setLastRequest({
       ...lastRequest,
       paging: { start: 0, length: pageSize },
       ...(metrics ? { metrics } : { metrics: undefined }),
     })
-  }, [lastRequest, pageSize, runRequest, sorting])
+  }, [lastRequest, pageSize, sorting])
 
   const handleExpandRow = useCallback(
     async (row: TreeRowData) => {
       if (!lastRequest) return
 
       if (row._loadMore) {
+        const token = ++expandRequestId.current
         const { parentTreePath, parentKey, nextOffset, groupings, depth, ancestorKeys } = row._loadMore
-        const childReport = await api.postDrilldown<Report>({
-          ...lastRequest,
-          groupings,
-          topLevelFilters: [],
-          paging: { start: nextOffset, length: CHILD_PAGE_SIZE },
-        })
+        setTreeData((prev) => setRowExpandError(prev, parentTreePath, null))
+        try {
+          const childReport = await api.postDrilldown<Report>({
+            ...lastRequest,
+            groupings,
+            topLevelFilters: [],
+            paging: { start: nextOffset, length: CHILD_PAGE_SIZE },
+          })
+          if (token !== expandRequestId.current) return
 
-        const leafRows = leafRowsForLazyExpand(childReport, ancestorKeys)
-        const childTreeRows = reportRowsToTreeRows(
-          leafRows,
-          childReport.columns.length,
-          depth,
-          parentTreePath,
-          ancestorKeys,
-        )
+          const leafRows = leafRowsForLazyExpand(childReport, ancestorKeys)
+          const childTreeRows = reportRowsToTreeRows(
+            leafRows,
+            childReport.columns.length,
+            depth,
+            parentTreePath,
+            ancestorKeys,
+          )
 
-        const hasMore = leafRows.length >= CHILD_PAGE_SIZE
-        const loadMoreRow: TreeRowData | null = hasMore ? {
-          _id: `load-more-${parentTreePath}-${nextOffset + CHILD_PAGE_SIZE}`,
-          treePath: `${parentTreePath}-loadmore`,
-          cells: [{ raw: '', formatted: `Load more rows...` }],
-          depth,
-          ancestorKeys,
-          _loadMore: { parentTreePath, parentKey, nextOffset: nextOffset + CHILD_PAGE_SIZE, groupings, depth, ancestorKeys },
-        } : null
-
-        setTreeData((prev) => {
-          const appendChildren = (rows: TreeRowData[]): TreeRowData[] =>
-            rows.map((r) => {
-              if (r.treePath === parentTreePath) {
-                const existingChildren = (r.children ?? []).filter((c) => !c._loadMore)
-                const newChildren = [...existingChildren, ...childTreeRows]
-                if (loadMoreRow) newChildren.push(loadMoreRow)
-                return { ...r, children: newChildren, loaded: !hasMore }
+          const hasMore = leafRows.length >= CHILD_PAGE_SIZE
+          const loadMoreRow: TreeRowData | null = hasMore
+            ? {
+                _id: `load-more-${parentTreePath}-${nextOffset + CHILD_PAGE_SIZE}`,
+                treePath: `${parentTreePath}-loadmore`,
+                cells: [{ raw: '', formatted: `Load more rows...` }],
+                depth,
+                ancestorKeys,
+                _loadMore: {
+                  parentTreePath,
+                  parentKey,
+                  nextOffset: nextOffset + CHILD_PAGE_SIZE,
+                  groupings,
+                  depth,
+                  ancestorKeys,
+                },
               }
-              if (r.children?.length) {
-                return { ...r, children: appendChildren(r.children) }
-              }
-              return r
-            })
-          return appendChildren(prev)
-        })
+            : null
+
+          setTreeData((prev) => {
+            const appendChildren = (rows: TreeRowData[]): TreeRowData[] =>
+              rows.map((r) => {
+                if (r.treePath === parentTreePath) {
+                  const { expandError: _discardErr, ...rest } = r
+                  const existingChildren = (rest.children ?? []).filter((c) => !c._loadMore)
+                  const newChildren = [...existingChildren, ...childTreeRows]
+                  if (loadMoreRow) newChildren.push(loadMoreRow)
+                  return { ...rest, children: newChildren, loaded: !hasMore }
+                }
+                if (r.children?.length) {
+                  return { ...r, children: appendChildren(r.children) }
+                }
+                return r
+              })
+            return appendChildren(prev)
+          })
+        } catch (err) {
+          if (token !== expandRequestId.current) return
+          setTreeData((prev) => setRowExpandError(prev, parentTreePath, getErrorMessage(err)))
+        }
         return
       }
 
@@ -396,64 +434,78 @@ export function DrilldownTreePage() {
         const levelKey = levelKeys[idx]
         return {
           groupBy: g.groupBy,
-          whitelistFilters: levelKey
-            ? [levelKey]
-            : [...(g.whitelistFilters ?? [])],
+          whitelistFilters: levelKey ? [levelKey] : [...(g.whitelistFilters ?? [])],
           blacklistFilters: [...(g.blacklistFilters ?? [])],
         }
       })
 
-      const childReport = await api.postDrilldown<Report>({
-        ...lastRequest,
-        groupings,
-        topLevelFilters: [],
-        paging: { start: 0, length: CHILD_PAGE_SIZE },
-      })
-
-      let leafRows = leafRowsForLazyExpand(childReport, [...row.ancestorKeys, parentKey])
-      if (leafRows.length === 0 && nextDepth >= plan.length) {
-        leafRows = deepestRows(childReport.rows)
-      }
-      const newAncestorKeys = [...row.ancestorKeys, parentKey]
-      const childTreeRows = reportRowsToTreeRows(
-        leafRows,
-        childReport.columns.length,
-        nextDepth,
-        row.treePath,
-        newAncestorKeys,
-      )
-
-      const hasMore = leafRows.length >= CHILD_PAGE_SIZE
-      if (hasMore) {
-        childTreeRows.push({
-          _id: `load-more-${row.treePath}-${CHILD_PAGE_SIZE}`,
-          treePath: `${row.treePath}-loadmore`,
-          cells: [{ raw: '', formatted: `Load more rows...` }],
-          depth: nextDepth,
-          ancestorKeys: newAncestorKeys,
-          _loadMore: { parentTreePath: row.treePath, parentKey, nextOffset: CHILD_PAGE_SIZE, groupings, depth: nextDepth, ancestorKeys: newAncestorKeys },
+      const token = ++expandRequestId.current
+      setTreeData((prev) => setRowExpandError(prev, row.treePath, null))
+      try {
+        const childReport = await api.postDrilldown<Report>({
+          ...lastRequest,
+          groupings,
+          topLevelFilters: [],
+          paging: { start: 0, length: CHILD_PAGE_SIZE },
         })
-      }
+        if (token !== expandRequestId.current) return
 
-      setTreeData((prev) => {
-        const updateChildren = (rows: TreeRowData[]): TreeRowData[] =>
-          rows.map((r) => {
-            if (r.treePath === row.treePath) {
-              return { ...r, children: childTreeRows, loaded: !hasMore }
-            }
-            if (r.children?.length) {
-              return { ...r, children: updateChildren(r.children) }
-            }
-            return r
+        let leafRows = leafRowsForLazyExpand(childReport, [...row.ancestorKeys, parentKey])
+        if (leafRows.length === 0 && nextDepth >= plan.length) {
+          leafRows = deepestRows(childReport.rows)
+        }
+        const newAncestorKeys = [...row.ancestorKeys, parentKey]
+        const childTreeRows = reportRowsToTreeRows(
+          leafRows,
+          childReport.columns.length,
+          nextDepth,
+          row.treePath,
+          newAncestorKeys,
+        )
+
+        const hasMore = leafRows.length >= CHILD_PAGE_SIZE
+        if (hasMore) {
+          childTreeRows.push({
+            _id: `load-more-${row.treePath}-${CHILD_PAGE_SIZE}`,
+            treePath: `${row.treePath}-loadmore`,
+            cells: [{ raw: '', formatted: `Load more rows...` }],
+            depth: nextDepth,
+            ancestorKeys: newAncestorKeys,
+            _loadMore: {
+              parentTreePath: row.treePath,
+              parentKey,
+              nextOffset: CHILD_PAGE_SIZE,
+              groupings,
+              depth: nextDepth,
+              ancestorKeys: newAncestorKeys,
+            },
           })
-        return updateChildren(prev)
-      })
-      setExpanded((prev) => {
-        const base: Record<string, boolean> =
-          prev === true || !prev ? {} : { ...(prev as Record<string, boolean>) }
-        base[row._id] = true
-        return base
-      })
+        }
+
+        setTreeData((prev) => {
+          const updateChildren = (rows: TreeRowData[]): TreeRowData[] =>
+            rows.map((r) => {
+              if (r.treePath === row.treePath) {
+                const { expandError: _discardErr, ...rest } = r
+                return { ...rest, children: childTreeRows, loaded: !hasMore }
+              }
+              if (r.children?.length) {
+                return { ...r, children: updateChildren(r.children) }
+              }
+              return r
+            })
+          return updateChildren(prev)
+        })
+        setExpanded((prev) => {
+          const base: Record<string, boolean> =
+            prev === true || !prev ? {} : { ...(prev as Record<string, boolean>) }
+          base[row._id] = true
+          return base
+        })
+      } catch (err) {
+        if (token !== expandRequestId.current) return
+        setTreeData((prev) => setRowExpandError(prev, row.treePath, getErrorMessage(err)))
+      }
     },
     [lastRequest, planGroupings],
   )
@@ -482,6 +534,9 @@ export function DrilldownTreePage() {
       meta: { flex: 1 },
       cell: (info) => {
         const row = info.row.original
+        if (row.expandError) {
+          return <span className="text-xs text-destructive">{row.expandError}</span>
+        }
         if (row._loadMore) {
           return <span className="text-primary text-xs cursor-pointer">Load more rows...</span>
         }
@@ -514,7 +569,7 @@ export function DrilldownTreePage() {
   return (
     <DrilldownToolbarProvider
       onApply={handleApply}
-      isLoading={drilldownMutation.isPending}
+      isLoading={reportLoading}
       viewType="tree"
       paging={{ start: page * pageSize, length: pageSize }}
     >
@@ -543,7 +598,7 @@ export function DrilldownTreePage() {
           <DataTable
             data={treeData}
             columns={columnDefs}
-            loading={drilldownMutation.isPending}
+            loading={reportLoading}
             getRowId={drilldownTreeRowId}
             sorting={sorting}
             onSortingChange={handleSortingChange}
@@ -561,7 +616,7 @@ export function DrilldownTreePage() {
             onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
           />
         ) : (
-          !drilldownMutation.isPending && (
+          !reportLoading && (
             <EmptyState message="Select your groupings and date range, then click Apply to generate a report." />
           )
         )}

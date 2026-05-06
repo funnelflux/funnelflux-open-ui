@@ -1,4 +1,4 @@
-// Auto-generated from admin/api/v2/ui/definition.yaml -- do not edit manually
+// Auto-generated from docs/api-specs/ui-api.yaml -- do not edit manually
 
 import type { KeyValuePair, KeyValuePairTreeItem, TrafficFilter } from './data';
 export type { KeyValuePair, KeyValuePairTreeItem, TrafficFilter } from './data';

@@ -55,6 +55,8 @@ tags:
     description: API endpoints for the reset stats page
   - name: session
     description: API endpoints for managing the logged in user's session
+  - name: auth
+    description: API endpoints for authentication and session management
   - name: misc
     description: API endpoints to manage misc data
 paths:
@@ -957,7 +959,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
   /ui/drilldowns/view/delete/index.php:
-    put:
+    delete:
       tags:
         - drilldowns
       description: Deletes the specified view.
@@ -967,7 +969,7 @@ paths:
           in: query
           type: string
           description: An authorized api key
-        - name: id
+        - name: idView
           required: true
           in: query
           type: string
@@ -1218,6 +1220,52 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
+  /ui/campaigns/hierarchy/index.php:
+    get:
+      tags:
+        - campaigns
+      description: >-
+        MySQL campaign→funnel tree (current structure). Pair with a flat
+        Element:Funnel drilldown so management UIs reflect funnel moves immediately
+        (drilldown trees otherwise follow historical ClickHouse campaign attribution).
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: Hierarchy loaded
+          schema:
+            $ref: '#/definitions/CampaignHierarchyResponse'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      tags:
+        - campaigns
+      description: Same as GET (session-friendly).
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+      responses:
+        200:
+          description: Hierarchy loaded
+          schema:
+            $ref: '#/definitions/CampaignHierarchyResponse'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
   /ui/campaigns/save/campaignsOptions/index.php:
     put:
       tags:
@@ -1270,61 +1318,82 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-  /ui/dashboard/save/currentPeriod/index.php:
-    put:
+  /ui/auth/session/index.php:
+    get:
       tags:
-        - dashboard
-      description: Saves dashboard's current period
+        - auth
+      description: Check the current authentication session. Returns session info if the user is authenticated via a PHP session. Does not accept apiKey — session-based auth only.
+      responses:
+        200:
+          description: Session info for the authenticated user
+          schema:
+            $ref: '#/definitions/SessionInfo'
+        401:
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/Error'
+        405:
+          description: Method not allowed (only GET is accepted)
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /ui/inbox/notifications/check/index.php:
+    get:
+      tags:
+        - inbox
+      description: Check for unread notifications and forced popups
       parameters:
         - name: apiKey
           required: true
           in: query
           type: string
           description: An authorized api key
-        - name: body
-          required: true
-          in: body
-          schema:
-            $ref: '#/definitions/CurrentPeriod'
       responses:
         200:
-          description: Period saved
+          description: Notification status
+          schema:
+            $ref: '#/definitions/NotificationCheck'
         403:
           description: Not authorized
         default:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-  /ui/dashboard/save/chartOptions/index.php:
-    put:
+  /ui/usermanagement/rights/index.php:
+    get:
       tags:
-        - dashboard
-      description: Saves dashboard's chart options
+        - usermanagement
+      description: Get access rights for a specific user
       parameters:
         - name: apiKey
           required: true
           in: query
           type: string
           description: An authorized api key
-        - name: body
+        - name: idUser
           required: true
-          in: body
-          schema:
-            $ref: '#/definitions/ChartOptions'
+          in: query
+          type: string
+          description: The id of the user
       responses:
         200:
-          description: Chart options saved
+          description: List of access rights for the user
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/AccessRight'
         403:
           description: Not authorized
         default:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-  /ui/dashboard/save/tableStats/index.php:
-    put:
+  /ui/usermanagement/copyRights/index.php:
+    post:
       tags:
-        - dashboard
-      description: Saves dashboard's TableStats options
+        - usermanagement
+      description: Copy access rights from one user to another
       parameters:
         - name: apiKey
           required: true
@@ -1335,10 +1404,24 @@ paths:
           required: true
           in: body
           schema:
-            $ref: '#/definitions/TableStatsOptions'
+            type: object
+            required:
+              - sourceUserId
+              - targetUserId
+            properties:
+              sourceUserId:
+                type: string
+                description: The user ID to copy rights from
+              targetUserId:
+                type: string
+                description: The user ID to copy rights to
       responses:
         200:
-          description: TableStats options saved
+          description: The copied access rights
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/AccessRight'
         403:
           description: Not authorized
         default:
@@ -1424,12 +1507,19 @@ definitions:
       - availableCountries
     properties:
       filters:
-        $ref: '#/definitions/TrafficFilter'
+        type: array
+        items: {
+          $ref: '#/definitions/TrafficFilter'
+        }
       availableCountries:
         type: array
         items: {
           $ref: '#/definitions/KeyValuePair'
         }
+      treeGrid:
+        description: Legacy grid formatter payload (Body rows are nested arrays). Prefer `filters` for flat lists.
+        type: object
+        additionalProperties: true
   UpdateCostPageData:
     type: object
     required:
@@ -2500,6 +2590,40 @@ definitions:
         $ref: '#/definitions/CampaignsOptions'
       report:
         $ref: '#/definitions/Report'
+  CampaignHierarchyItem:
+    type: object
+    required:
+      - id
+      - name
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+  CampaignHierarchyCampaign:
+    type: object
+    required:
+      - id
+      - name
+      - funnels
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      funnels:
+        type: array
+        items:
+          $ref: '#/definitions/CampaignHierarchyItem'
+  CampaignHierarchyResponse:
+    type: object
+    required:
+      - campaigns
+    properties:
+      campaigns:
+        type: array
+        items:
+          $ref: '#/definitions/CampaignHierarchyCampaign'
   DashboardElements:
     type: object
     required:
@@ -3374,6 +3498,37 @@ definitions:
         items: {
           type: string
         }
+  SessionInfo:
+    type: object
+    properties:
+      authenticated:
+        type: boolean
+      userId:
+        type: string
+      username:
+        type: string
+      isAdmin:
+        type: boolean
+  NotificationCheck:
+    type: object
+    properties:
+      unreadCount:
+        type: integer
+      forcePopup:
+        type: boolean
+      forcePopupMessage:
+        type: string
+      notification:
+        type: object
+  AccessRight:
+    type: object
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      granted:
+        type: boolean
   Error:
     type: object
     required:

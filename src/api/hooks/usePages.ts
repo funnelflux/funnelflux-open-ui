@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
+import { invalidatePageData, emptyBulkResult, type BulkResult } from '@/api/invalidations'
+import { errorToApiError } from '@/api/errors'
 import type { Page, PageType } from '@/types/entities'
 import {
   applyPageArchiveToEntityGridCaches,
-  refreshPagesListQueries,
   removePageFromEntityGridCaches,
   upsertClonedPageInEntityGridCaches,
   upsertPageInEntityGridCaches,
@@ -68,13 +69,13 @@ export function useSavePage() {
       isCreate
         ? api.post<Page>('/data/page/save/', page)
         : api.put<Page>('/data/page/save/', page),
-    onSuccess: (saveResponse, variables) => {
+    onSuccess: async (saveResponse, variables) => {
       const mergedPage = pageForEntityGridCache(saveResponse, variables.page)
       if (mergedPage) {
         upsertPageInEntityGridCaches(qc, mergedPage)
         void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(mergedPage.idPage) })
       }
-      refreshPagesListQueries(qc)
+      await invalidatePageData(qc)
     },
   })
 }
@@ -83,10 +84,37 @@ export function useDeletePage() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete('/data/page/delete/', { idPage: id }),
-    onSuccess: (_, idPage) => {
+    onSuccess: async (_, idPage) => {
       removePageFromEntityGridCaches(qc, idPage)
-      refreshPagesListQueries(qc)
       qc.removeQueries({ queryKey: queryKeys.pages.detail(idPage) })
+      await invalidatePageData(qc)
+    },
+  })
+}
+
+export function useBulkDeletePages() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]): Promise<BulkResult<string>> => {
+      const out = emptyBulkResult<string>()
+      for (const id of ids) {
+        try {
+          await api.delete('/data/page/delete/', { idPage: id })
+          out.succeeded.push(id)
+        } catch (e) {
+          out.failed.push({ id, error: errorToApiError(e) })
+        }
+      }
+      return out
+    },
+    onSuccess: async (result) => {
+      for (const id of result.succeeded) {
+        removePageFromEntityGridCaches(qc, id)
+        qc.removeQueries({ queryKey: queryKeys.pages.detail(id) })
+      }
+      if (result.succeeded.length > 0) {
+        await invalidatePageData(qc)
+      }
     },
   })
 }
@@ -96,14 +124,14 @@ export function useClonePage() {
   return useMutation({
     mutationFn: ({ idPage }: ClonePageVariables) =>
       api.post<PageCloneWireResponse>('/data/page/clone/', undefined, { idPage }),
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       upsertClonedPageInEntityGridCaches(qc, {
         ...data,
         pageType: variables.pageType,
         categoryId: variables.categoryId,
       })
-      refreshPagesListQueries(qc)
       void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(data.idPage) })
+      await invalidatePageData(qc)
     },
   })
 }
@@ -111,12 +139,68 @@ export function useClonePage() {
 export function useArchivePage() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, archive }: { id: string; archive: boolean }) =>
-      api.put('/data/page/archive/', { ids: [id], archive }),
-    onSuccess: (_, { id, archive }) => {
-      applyPageArchiveToEntityGridCaches(qc, id, archive)
-      refreshPagesListQueries(qc)
-      void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(id) })
+    mutationFn: ({ ids, archive }: { ids: string[]; archive: boolean }) =>
+      api.put('/data/page/archive/', { ids, archive }),
+    onSuccess: async (_, { ids, archive }) => {
+      for (const id of ids) {
+        applyPageArchiveToEntityGridCaches(qc, id, archive)
+      }
+      for (const id of ids) {
+        void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(id) })
+      }
+      await invalidatePageData(qc)
+    },
+  })
+}
+
+export type CsvPageImportVariables = {
+  rows: Record<string, string>[]
+  buildImportPayload: (row: Record<string, string>) => Record<string, unknown>
+}
+
+export function useImportPagesFromCsv() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      rows,
+      buildImportPayload,
+    }: CsvPageImportVariables): Promise<BulkResult<string>> => {
+      const out = emptyBulkResult<string>()
+      let rowIdx = 0
+      for (const row of rows) {
+        rowIdx += 1
+        try {
+          const created = await api.post<Page>('/data/page/save/', buildImportPayload(row))
+          out.succeeded.push(created.idPage)
+        } catch (e) {
+          out.failed.push({
+            id: `row-${rowIdx}`,
+            error: errorToApiError(e),
+          })
+        }
+      }
+      return out
+    },
+    onSuccess: async (result) => {
+      if (result.succeeded.length > 0) {
+        await invalidatePageData(qc)
+      }
+    },
+  })
+}
+
+export function useAssignPagesToCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      pageIds,
+      idCategory,
+    }: {
+      pageIds: string[]
+      idCategory: string
+    }) => api.put('/data/page/category/assign/', { pageIds, idCategory }),
+    onSuccess: async () => {
+      await invalidatePageData(qc)
     },
   })
 }

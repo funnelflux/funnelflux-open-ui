@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ENTITY_GRID_LIST_KEY } from '@/lib/entityGridQueryCache'
-import { toApiDateTimeRange } from '@/types/stats'
+import { toApiDateTimeRange } from '@/lib/statsDateRange'
 import type { DrilldownRequest, ReportCell } from '@/types/stats'
 import { buildMergedRows, buildTotalsRow } from '@/lib/entityGridUtils'
 import type { ListEntity, EntityGridRow } from '@/lib/entityGridUtils'

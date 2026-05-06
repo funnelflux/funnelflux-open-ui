@@ -1,4 +1,4 @@
-// Auto-generated from admin/api/v2/stats/definition.yaml -- do not edit manually
+// Auto-generated from docs/api-specs/stats-api.yaml -- do not edit manually
 
 import type { ApiDate, ApiTime, KeyValuePair } from './data';
 export type { ApiDate, ApiTime, KeyValuePair } from './data';

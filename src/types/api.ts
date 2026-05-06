@@ -47,7 +47,7 @@ export interface Permissions {
 }
 
 export interface UserProfile {
-  id: number;
+  id: string;
   login: string;
   firstname: string;
   lastname: string;

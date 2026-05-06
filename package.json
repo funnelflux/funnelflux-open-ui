@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate-types": "node scripts/generate-types.mjs"
+    "generate-types": "node scripts/generate-types.mjs",
+    "check-generated-types": "node scripts/generate-types.mjs && git diff --exit-code -- src/types/generated"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

@@ -1,3 +1,6 @@
+import type { DrilldownRequest } from '@/types/stats'
+import { stableStringify } from '@/lib/stableJson'
+
 export const queryKeys = {
   campaigns: {
     all: ['campaigns'] as const,
@@ -39,6 +42,11 @@ export const queryKeys = {
   drilldown: {
     all: ['drilldown'] as const,
     groupings: ['drilldown', 'groupings'] as const,
+    /** Full drilldown POST body as cache identity (see {@link stableStringify}). */
+    report: (request: DrilldownRequest) =>
+      [...queryKeys.drilldown.all, 'report', stableStringify(request)] as const,
+    flatAllReport: (request: DrilldownRequest) =>
+      [...queryKeys.drilldown.all, 'flatAll', stableStringify(request)] as const,
   },
   dashboard: {
     all: ['dashboard'] as const,

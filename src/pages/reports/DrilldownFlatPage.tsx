@@ -11,7 +11,7 @@ import {
   DrilldownToolbarReportActions,
   DrilldownToolbarGroupings,
 } from "@/components/drilldown/DrilldownToolbar"
-import { useDrilldownReport } from "@/api/hooks"
+import { useDrilldownReportQuery } from "@/api/hooks"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
 import { reportRowToCells } from "@/lib/reportRowCells"
@@ -40,10 +40,14 @@ function reportRowsToFlatData(report: Report): FlatRowData[] {
 }
 
 export function DrilldownFlatPage() {
-  const drilldownMutation = useDrilldownReport()
   const setTableSorting = useTableConfigStore((s) => s.setSorting)
-  const [report, setReport] = useState<Report | null>(null)
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
+  const {
+    data: report,
+    isFetching,
+    isPending,
+  } = useDrilldownReportQuery(lastRequest, Boolean(lastRequest))
+  const reportLoading = isFetching || isPending
   const [page, setPage] = useState(0)
   const pageSize = 100
   const [sorting, setSorting] = useState<SortingState>(() => {
@@ -69,11 +73,8 @@ export function DrilldownFlatPage() {
         ...(metrics ? { metrics } : {}),
       }
       setLastRequest(paginatedRequest)
-      drilldownMutation.mutate(paginatedRequest, {
-        onSuccess: (data) => setReport(data),
-      })
     },
-    [pageSize, sorting, drilldownMutation, report?.columns],
+    [pageSize, sorting, report?.columns],
   )
 
   const handleSortingChange = useCallback(
@@ -99,11 +100,8 @@ export function DrilldownFlatPage() {
         } : { metrics: undefined }),
       }
       setLastRequest(nextRequest)
-      drilldownMutation.mutate(nextRequest, {
-        onSuccess: (data) => setReport(data),
-      })
     },
-    [lastRequest, pageSize, drilldownMutation, report?.columns, setTableSorting],
+    [lastRequest, pageSize, report?.columns, setTableSorting],
   )
 
   const handleApplyColumns = useCallback((nextSelected: Set<string>) => {
@@ -115,10 +113,7 @@ export function DrilldownFlatPage() {
       ...(metrics ? { metrics } : { metrics: undefined }),
     }
     setLastRequest(nextRequest)
-    drilldownMutation.mutate(nextRequest, {
-      onSuccess: (data) => setReport(data),
-    })
-  }, [lastRequest, pageSize, drilldownMutation, sorting])
+  }, [lastRequest, pageSize, sorting])
 
   const flatData = useMemo(
     () => (report ? reportRowsToFlatData(report) : []),
@@ -156,7 +151,7 @@ export function DrilldownFlatPage() {
   return (
     <DrilldownToolbarProvider
       onApply={handleApply}
-      isLoading={drilldownMutation.isPending}
+      isLoading={reportLoading}
       viewType="flat"
       paging={{ start: page * pageSize, length: pageSize }}
     >
@@ -185,7 +180,7 @@ export function DrilldownFlatPage() {
           <DataTable
             data={flatData}
             columns={columnDefs}
-            loading={drilldownMutation.isPending}
+            loading={reportLoading}
             getRowId={drilldownFlatRowId}
             sorting={sorting}
             onSortingChange={handleSortingChange}
@@ -197,7 +192,7 @@ export function DrilldownFlatPage() {
             onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
           />
         ) : (
-          !drilldownMutation.isPending && (
+          !reportLoading && (
             <EmptyState message="Select your groupings and date range, then click Apply to generate a report." />
           )
         )}

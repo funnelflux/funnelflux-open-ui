@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildV2SavePayload,
+  FunnelHydrateError,
   normalizeFunnelApiResponse,
   type FunnelMetaForSave,
   type FunnelPersistExtras,
@@ -163,6 +164,49 @@ describe('normalizeFunnelApiResponse', () => {
         },
       ],
     })
+  })
+
+  it('throws FunnelHydrateError on unknown string nodeType', () => {
+    expect(() =>
+      normalizeFunnelApiResponse({
+        idFunnel: 'f',
+        idCampaign: 'c',
+        funnelName: 'x',
+        nodes: [
+          {
+            idNode: 'n',
+            idFunnel: 'f',
+            nodeName: 'bad',
+            nodeType: 'definitelyNotValid',
+            posX: 0,
+            posY: 0,
+          },
+        ],
+        connections: [],
+      }),
+    ).toThrow(FunnelHydrateError)
+  })
+
+  it('throws FunnelHydrateError on unknown numeric nodeType (legacy shape)', () => {
+    expect(() =>
+      normalizeFunnelApiResponse({
+        idFunnel: 'f',
+        idCampaign: 'c',
+        funnelName: 'x',
+        nodes: [
+          {
+            idNode: 'n',
+            idFunnel: 'f',
+            nodeName: 'bad',
+            nodeType: 99999,
+            percentPosX: 0,
+            percentPosY: 0,
+            nodeParams: {},
+          },
+        ],
+        connections: [],
+      }),
+    ).toThrow(FunnelHydrateError)
   })
 })
 

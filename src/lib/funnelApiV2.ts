@@ -17,6 +17,19 @@ import type {
 import { pixelToPercent } from '@/lib/funnelCoords'
 import { materializeRotatorWeights } from '@/lib/rotatorWeights'
 
+export class FunnelHydrateError extends Error {
+  readonly code = 'FUNNEL_HYDRATE' as const
+  readonly nodeId?: string
+  readonly nodeTypeRaw: string
+
+  constructor(message: string, opts: { nodeId?: string; nodeTypeRaw: string }) {
+    super(message)
+    this.name = 'FunnelHydrateError'
+    this.nodeId = opts.nodeId
+    this.nodeTypeRaw = opts.nodeTypeRaw
+  }
+}
+
 export type FunnelMetaForSave = FunnelEditorMeta
 
 const STRING_TO_TYPE: Record<string, NodeTypeValue> = {
@@ -116,13 +129,66 @@ export function extractMetaFromRawFunnel(raw: unknown): Omit<
   }
 }
 
+/**
+ * Deterministic snapshot of server funnel JSON for hydration deduping.
+ * When this string matches the last hydrated version, refetches must not reset the editor.
+ */
+export function computeFunnelEditorHydrationVersion(raw: unknown): string {
+  const normalized = normalizeFunnelApiResponse(raw)
+  const r = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const v2Meta = extractMetaFromRawFunnel(raw)
+  const payload = {
+    idFunnel: normalized.idFunnel,
+    idCampaign: normalized.idCampaign,
+    funnelName: normalized.funnelName,
+    defaultCostPerEntrance: normalized.defaultCostPerEntrance,
+    isArchived: normalized.isArchived,
+    notes: String(r.notes ?? ''),
+    canvasWidth: v2Meta.canvasWidth,
+    canvasHeight: v2Meta.canvasHeight,
+    customTokens: v2Meta.customTokens,
+    acculumatedUrlParams: v2Meta.acculumatedUrlParams,
+    incomingTrafficCostOverrides: v2Meta.incomingTrafficCostOverrides,
+    postbackOverrides: v2Meta.postbackOverrides,
+    nodes: normalized.nodes
+      .map((n) => ({
+        id: n.idNode,
+        t: n.nodeType,
+        x: n.percentPosX,
+        y: n.percentPosY,
+        name: n.nodeName,
+        p: n.nodeParams,
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    connections: normalized.connections
+      .map((c) => ({
+        id: c.idConnection,
+        s: c.idSourceNode,
+        t: c.idTargetNode,
+        w: c.weight,
+        sh: c.sourceHandle,
+        th: c.targetHandle,
+        ed: c.elementData,
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+  }
+  return JSON.stringify(payload)
+}
+
 function normalizeNode(node: Record<string, unknown>): ApiFunnelNode {
   if (!isV2Node(node) && node.percentPosX !== undefined && node.nodeParams !== undefined) {
+    const nodeTypeNum = Number(node.nodeType)
+    if (!Number.isFinite(nodeTypeNum) || TYPE_TO_STRING[nodeTypeNum as NodeTypeValue] === undefined) {
+      throw new FunnelHydrateError(`Unknown funnel node type id: ${String(node.nodeType)}`, {
+        nodeId: String(node.idNode),
+        nodeTypeRaw: String(node.nodeType),
+      })
+    }
     return {
       idNode: String(node.idNode),
       idFunnel: String(node.idFunnel),
       nodeName: String(node.nodeName ?? ''),
-      nodeType: Number(node.nodeType) as NodeTypeValue,
+      nodeType: nodeTypeNum as NodeTypeValue,
       nodeParams: (node.nodeParams ?? {}) as Record<string, unknown>,
       percentPosX: Number(node.percentPosX),
       percentPosY: Number(node.percentPosY),
@@ -130,8 +196,16 @@ function normalizeNode(node: Record<string, unknown>): ApiFunnelNode {
     }
   }
 
-  const ntKey = String(node.nodeType ?? 'root')
-  const nodeType = STRING_TO_TYPE[ntKey] ?? NODE_TYPES.root
+  const ntKey =
+    node.nodeType == null || node.nodeType === '' ? 'root' : String(node.nodeType)
+  // NODE_TYPES.root is 0 — must not use a truthy check on the map value.
+  if (STRING_TO_TYPE[ntKey] === undefined) {
+    throw new FunnelHydrateError(`Unknown funnel node type: ${ntKey}`, {
+      nodeId: String(node.idNode),
+      nodeTypeRaw: ntKey,
+    })
+  }
+  const nodeType = STRING_TO_TYPE[ntKey]
   const px = posToPercent(Number(node.posX))
   const py = posToPercent(Number(node.posY))
 

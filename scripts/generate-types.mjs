@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Generates TypeScript interfaces from the Swagger 2.0 definition.yaml files
- * in admin/api/v2/{data,stats,ui,system}/.
+ * Generates TypeScript interfaces from the Swagger 2.0 specs committed under
+ * docs/api-specs/ (hermetic — does not read the PHP tree).
  *
- * Usage: node scripts/generate-types.mjs
+ * Usage: pnpm run generate-types  (or: node scripts/generate-types.mjs)
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -13,13 +13,21 @@ import { parse as parseYaml } from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const API_ROOT = resolve(ROOT, '..', 'admin', 'api', 'v2');
+const SPECS_DIR = resolve(ROOT, 'docs', 'api-specs');
 const OUT_DIR = resolve(ROOT, 'src', 'types', 'generated');
 
 const LAYERS = ['data', 'stats', 'ui', 'system'];
 
-const HEADER = (layer) =>
-  `// Auto-generated from admin/api/v2/${layer}/definition.yaml -- do not edit manually\n`;
+/** Layer name → YAML filename in docs/api-specs/ */
+const LAYER_SPEC_FILE = {
+  data: 'data-api.yaml',
+  stats: 'stats-api.yaml',
+  ui: 'ui-api.yaml',
+  system: 'system-api.yaml',
+};
+
+const HEADER = (specFile) =>
+  `// Auto-generated from docs/api-specs/${specFile} -- do not edit manually\n`;
 
 // Rename definitions that clash with global JS types or need app-specific prefixes
 const RENAME_MAP = {
@@ -148,7 +156,8 @@ function generateInterface(name, schema, allDefs) {
 // ── Per-layer generation ────────────────────────────────────────────────────
 
 function generateLayer(layer) {
-  const yamlPath = resolve(API_ROOT, layer, 'definition.yaml');
+  const specFile = LAYER_SPEC_FILE[layer];
+  const yamlPath = resolve(SPECS_DIR, specFile);
   let content;
   try {
     content = readFileSync(yamlPath, 'utf-8');
@@ -189,7 +198,7 @@ function generateLayer(layer) {
   }
 
   // Build file content
-  let out = HEADER(layer) + '\n';
+  let out = HEADER(specFile) + '\n';
 
   // Collect which imported names are actually referenced in the emitted blocks
   const blocksText = blocks.join('\n');

@@ -8,7 +8,7 @@ import { DateRangePicker } from "@/components/shared/DateRangePicker"
 import { Card } from "@/components/ui-kit"
 import { Button } from "@/components/ui-kit"
 import { useDrilldownStore } from "@/store/drilldown"
-import { toApiDateTimeRange } from "@/types/stats"
+import { toApiDateTimeRange } from "@/lib/statsDateRange"
 import type { Report, ReportCell } from "@/types/stats"
 
 const REPORT_GROUPS = [

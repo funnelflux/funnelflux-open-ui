@@ -1,21 +1,27 @@
 import { api } from '@/api/client'
-import type { ApiError, SessionResponse, UserProfile } from '@/types/api'
+import { AuthExpiredError, NetworkError } from '@/api/errors'
+import { parseUserProfile } from '@/schemas/apiBoundaries'
+import type { SessionResponse, UserProfile } from '@/types/api'
 
 export async function bootstrapAuth(): Promise<UserProfile> {
-  let session: SessionResponse
   try {
-    session = await api.get<SessionResponse>('/auth/session/')
-  } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err && (err as ApiError).code === 401) {
+    const session = await api.get<SessionResponse>('/auth/session/')
+    if (!session.authenticated) {
       throw new Error('AUTH_REQUIRED')
+    }
+    const profile = await api.get<unknown>('/ui/userprofile/loggedin/load/')
+    return parseUserProfile(profile)
+  } catch (err) {
+    if (err instanceof Error && err.message === 'AUTH_REQUIRED') {
+      throw err
+    }
+    if (err instanceof AuthExpiredError) {
+      throw new Error('AUTH_REQUIRED')
+    }
+    if (err instanceof NetworkError) {
+      throw new Error(err.message)
     }
     const message = err instanceof Error ? err.message : 'Failed to verify session'
     throw new Error(message)
   }
-
-  if (!session.authenticated) {
-    throw new Error('AUTH_REQUIRED')
-  }
-
-  return api.get<UserProfile>('/ui/userprofile/loggedin/load/')
 }

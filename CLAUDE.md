@@ -48,6 +48,7 @@ pnpm run lint         # ESLint
 pnpm test             # vitest run (single pass)
 pnpm run test:watch   # vitest watch mode
 pnpm run generate-types  # node scripts/generate-types.mjs (regenerates types from OpenAPI specs in docs/api-specs/)
+pnpm run check-generated-types  # regen + fail if src/types/generated differs from git (CI hygiene)
 ```
 
 The dev server proxies `/admin/*` requests (PHP login + V2 API) to the backend so session cookies share the same origin. Backend must be running locally on port 8080 (Docker host) for the UI to function.
@@ -179,7 +180,8 @@ Utilities, theming, and pure helpers (most have unit tests):
 | `date-presets.ts` | Date range presets (Last 7d, MTD, etc.) |
 | `id-generator.ts` | Stable ID generation |
 | `sanitize.ts` | dompurify wrapper (with `sanitize.test.ts`) |
-| `routeAccess.ts` | `canViewDashboard`, `getDefaultAuthorizedPath`, `isAdminUser` permission helpers |
+| `routeAccess.ts` | `canViewDashboard`, `isAdminUser` permission helpers |
+| `routeRegistry.tsx` | Typed `ROUTE_ENTRIES`, nav builders, `getDefaultAuthorizedPath` |
 | `paginationConfig.ts` (+ test), `bulkActions.ts` (+ test) | Grid behavior |
 | `entityGridUtils.ts` (+ test), `entityGridSorting.ts` (+ test), `entityGridColumnVisibility.ts`, `entityPageDefaultColIds.ts` | Entity grid helpers |
 | `categoryStripSelection.ts`, `categoryStripTable.tsx`, `paginateCategorySegments.ts` | Category strip UI |

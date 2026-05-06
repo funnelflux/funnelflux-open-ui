@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef, RowSelectionState, Table, Updater } from '@tanstack/react-table'
-import { Button, ConfirmModal, DataTable, Input, Modal, PageShell, SearchToolbar, TimezoneSelect, useToastApi } from '@/components/ui-kit'
+import { Button, ConfirmModal, DataTable, Input, Modal, PageShell, SearchToolbar, TimezoneSelect, useToastApi, type PageShellBodyState } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
 import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
@@ -19,11 +18,9 @@ import {
   nameColumn,
   selectionColumn,
 } from '@/components/ui-kit/data-table'
-import { useArchivePage, useCategories, useClonePage, useDeleteCategory, useDeletePage, usePage, useSaveCategory, useSavePage } from '@/api/hooks'
+import { useArchivePage, useAssignPagesToCategory, useBulkDeletePages, useCategories, useClonePage, useDeleteCategory, useDeletePage, useImportPagesFromCsv, usePage, useSaveCategory, useSavePage } from '@/api/hooks'
 import { useEntityGrid, buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
 import { queryKeys } from '@/api/queryKeys'
-import { api } from '@/api/client'
-import { applyPageArchiveToEntityGridCaches, refreshPagesListQueries } from '@/lib/entityGridQueryCache'
 import { pagesToListEntities } from '@/lib/entityGridUtils'
 import { mapStatColsForCategoryStrip } from '@/lib/categoryStripTable'
 import {
@@ -69,6 +66,10 @@ interface PageEntitiesPageProps {
   buildImportPayload: (row: Record<string, string>) => Record<string, unknown>
 }
 
+/**
+ * Landers/offers lists with category strip, CSV import, and extended bulk actions.
+ * Bespoke layout per the escape hatch in `src/lib/entity-page/config.ts` (not the simple `EntityPage` runner).
+ */
 export function PageEntitiesPage({
   pageType,
   tableConfigKey,
@@ -79,7 +80,6 @@ export function PageEntitiesPage({
   csvFieldOptions,
   buildImportPayload,
 }: PageEntitiesPageProps) {
-  const queryClient = useQueryClient()
   const toast = useToastApi()
   const singularLower = singularLabel.toLowerCase()
   const pluralLower = `${singularLower}s`
@@ -110,6 +110,9 @@ export function PageEntitiesPage({
   const archiveMutation = useArchivePage()
   const saveCategoryMutation = useSaveCategory()
   const deleteCategoryMutation = useDeleteCategory()
+  const bulkDeletePagesMutation = useBulkDeletePages()
+  const importPagesCsvMutation = useImportPagesFromCsv()
+  const assignPagesCategoryMutation = useAssignPagesToCategory()
 
   const listParams = useMemo(
     () => ({ pageType, status: archiveStatus } as const),
@@ -128,6 +131,7 @@ export function PageEntitiesPage({
     isLoading,
     isFetching,
     refetch: reload,
+    error: gridError,
   } = useEntityGrid({
     queryKeyPrefix: queryKeys.pages.all,
     listEndpoint: '/data/page/find/byStatus/',
@@ -236,7 +240,7 @@ export function PageEntitiesPage({
   const archiveMutate = archiveMutation.mutate
   const handleArchive = useCallback((id: string, archive: boolean) => {
     archiveMutate(
-      { id, archive },
+      { ids: [id], archive },
       {
         onSuccess: () => {
           toast.success(archive ? 'Archived' : 'Restored')
@@ -258,12 +262,22 @@ export function PageEntitiesPage({
   }, [deleteId, deleteMutation, toast])
 
   const handleImport = useCallback(async (importRows: Record<string, string>[]) => {
-    for (const row of importRows) {
-      await api.post('/data/page/save/', buildImportPayload(row))
+    try {
+      const result = await importPagesCsvMutation.mutateAsync({
+        rows: importRows,
+        buildImportPayload,
+      })
+      if (result.failed.length > 0) {
+        toast.warning(
+          `Imported ${result.succeeded.length} row(s); ${result.failed.length} failed`,
+        )
+      } else {
+        toast.success('CSV import complete')
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err))
     }
-    toast.success('CSV import complete')
-    reload()
-  }, [buildImportPayload, toast, reload])
+  }, [buildImportPayload, importPagesCsvMutation, toast])
 
   const hideCategoryStripEditDelete = useCallback((row: PageGridRow) => {
     if (!row._isCategoryHeader) return false
@@ -329,12 +343,11 @@ export function PageEntitiesPage({
         onSuccess: () => {
           toast.success('Category renamed')
           setCategoryRename(null)
-          reload()
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [categoryRename, categoryRenameDraft, saveCategoryMutation, toast, reload])
+  }, [categoryRename, categoryRenameDraft, saveCategoryMutation, toast])
 
   const handleConfirmCategoryDelete = useCallback(() => {
     if (!categoryDeleteId) return
@@ -345,12 +358,11 @@ export function PageEntitiesPage({
           toast.success('Category deleted')
           setCategoryDeleteId(null)
           if (selectedCategoryId === categoryDeleteId) setSelectedCategoryId('')
-          reload()
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [categoryDeleteId, deleteCategoryMutation, toast, selectedCategoryId, reload])
+  }, [categoryDeleteId, deleteCategoryMutation, toast, selectedCategoryId])
 
   const columnDefs = useMemo<ColumnDef<PageGridRow, unknown>[]>(() => [
     selectionColumn<PageGridRow>(),
@@ -389,14 +401,14 @@ export function PageEntitiesPage({
   const handleBulkDeselectAll = useCallback(() => setRowSelection({}), [])
 
   const handleBulkArchive = useCallback(async () => {
-    await api.put('/data/page/archive/', { ids: entityIdsForBulk, archive: true })
-    for (const id of entityIdsForBulk) {
-      applyPageArchiveToEntityGridCaches(queryClient, id, true)
+    try {
+      await archiveMutation.mutateAsync({ ids: entityIdsForBulk, archive: true })
+      toast.success(`Selected ${pluralLower} archived`)
+      setRowSelection({})
+    } catch (e) {
+      toast.error(getErrorMessage(e))
     }
-    refreshPagesListQueries(queryClient)
-    toast.success(`Selected ${pluralLower} archived`)
-    setRowSelection({})
-  }, [entityIdsForBulk, pluralLower, queryClient, toast])
+  }, [archiveMutation, entityIdsForBulk, pluralLower, toast])
 
   const handleBulkDelete = useCallback(async () => {
     const categoryKeys = [
@@ -406,24 +418,36 @@ export function PageEntitiesPage({
           .filter((key): key is string => key != null && key !== ''),
       ),
     ]
-    for (const id of entityIdsForBulk) {
-      await deleteMutation.mutateAsync(id)
-    }
+    const pageResult = await bulkDeletePagesMutation.mutateAsync(entityIdsForBulk)
     for (const idCategory of categoryKeys) {
       await deleteCategoryMutation.mutateAsync({ entityType: PAGE_CATEGORY_ENTITY, idCategory })
     }
-    toast.success('Selected items deleted')
+    if (pageResult.failed.length > 0) {
+      toast.error(
+        `${pageResult.failed.length} ${pluralLower} could not be deleted`,
+      )
+    } else {
+      toast.success('Selected items deleted')
+    }
     setRowSelection({})
-  }, [selectedIds, entityIdsForBulk, deleteMutation, deleteCategoryMutation, toast])
+  }, [
+    selectedIds,
+    entityIdsForBulk,
+    bulkDeletePagesMutation,
+    deleteCategoryMutation,
+    toast,
+    pluralLower,
+  ])
 
   const handleBulkAssignCategory = useCallback(async (idCategory: string) => {
-    await api.put('/data/page/category/assign/', {
-      pageIds: entityIdsForBulk,
-      idCategory,
-    })
-    toast.success(`Selected ${pluralLower} moved`)
-    reload()
-  }, [entityIdsForBulk, pluralLower, toast, reload])
+    try {
+      await assignPagesCategoryMutation.mutateAsync({ pageIds: entityIdsForBulk, idCategory })
+      toast.success(`Selected ${pluralLower} moved`)
+      setRowSelection({})
+    } catch (e) {
+      toast.error(getErrorMessage(e))
+    }
+  }, [assignPagesCategoryMutation, entityIdsForBulk, pluralLower, toast, setRowSelection])
 
   const bulkMoveToCategory = useMemo(
     () => ({
@@ -444,10 +468,21 @@ export function PageEntitiesPage({
 
   const handleDismissDelete = useCallback(() => setDeleteId(null), [])
 
+  const pageBodyState: PageShellBodyState = gridError
+    ? {
+        status: 'error',
+        message: getErrorMessage(gridError),
+        onRetry: () => void reload(),
+      }
+    : isLoading && mergedRows.length === 0
+      ? { status: 'loading' }
+      : { status: 'ready' }
+
   return (
     <PageShell
       fillHeight
       title={title}
+      bodyState={pageBodyState}
       actions={
         <div className="flex items-center gap-2">
           <Button iconName="upload" onClick={() => setImportOpen(true)}>

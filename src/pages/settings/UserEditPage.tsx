@@ -9,9 +9,10 @@ import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { Permissions } from '@/types/api'
-import type { ManagedUser, UserManagementData, UserProfile } from '@/types/ui'
+import type { ManagedUser, UserManagementData } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 import { userEditSchema, type UserEditFormData } from '@/schemas/userEdit'
+import { parseUserProfile } from '@/schemas/apiBoundaries'
 
 const DEFAULT_PERMISSIONS: Permissions = {
   stats: { enabled: false, canView: false, canEditCustomViews: false },
@@ -139,8 +140,9 @@ export function UserEditPage() {
 
     setIsLoading(true)
     api
-      .get<UserProfile>('/ui/userprofile/load/', { id: userId })
-      .then((profile) => {
+      .get<unknown>('/ui/userprofile/load/', { id: userId })
+      .then((raw) => {
+        const profile = parseUserProfile(raw)
         form.reset({
           ...DEFAULT_USER_FORM_VALUES,
           id: String(profile.id),

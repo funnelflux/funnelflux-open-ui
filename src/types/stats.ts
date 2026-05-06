@@ -73,38 +73,6 @@ export interface Report {
   };
 }
 
-// App-only helper to build API date/time from JS Date
-export function toApiDateTime(d: Date): import('./generated/stats').ApiDateTime {
-  return {
-    date: {
-      year: d.getFullYear(),
-      month: d.getMonth() + 1,
-      day: d.getDate(),
-    },
-    time: {
-      hour: d.getHours(),
-      minutes: d.getMinutes(),
-    },
-  };
-}
-
-export function toApiDateTimeRange(
-  from: Date,
-  to: Date,
-): import('./generated/stats').ApiDateTimeRange {
-  return {
-    start: toApiDateTime(from),
-    end: {
-      date: {
-        year: to.getFullYear(),
-        month: to.getMonth() + 1,
-        day: to.getDate(),
-      },
-      time: { hour: 23, minutes: 59 },
-    },
-  };
-}
-
 // App-only tree grid type for UI rendering
 export interface TreeGridRow {
   id: string;

@@ -49,7 +49,7 @@ import {
 import { api } from '@/api/client'
 import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
 import { queryKeys } from '@/api/queryKeys'
-import { toApiDateTimeRange } from '@/types/stats'
+import { toApiDateTimeRange } from '@/lib/statsDateRange'
 import type { DrilldownRequest, ReportCell } from '@/types/stats'
 import type { CampaignFormData } from '@/schemas/campaign'
 import { getErrorMessage, selectedRowIds } from '@/lib/utils'

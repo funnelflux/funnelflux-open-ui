@@ -1,4 +1,5 @@
-import { toApiDateTimeRange, type ApiTimeZone, type DrilldownRequest, type Report, type ReportRow } from '@/types/stats'
+import { toApiDateTimeRangeForReporting } from '@/lib/statsDateRange'
+import type { ApiTimeZone, DrilldownRequest, Report, ReportRow } from '@/types/stats'
 
 export const FUNNEL_HEATMAP_GROUP_BY = {
   elementFunnel: 'Element: Funnel',
@@ -113,22 +114,18 @@ export function buildFunnelHeatmapRequest(args: {
   timeZone: ApiTimeZone
 }): DrilldownRequest {
   const { campaignId, funnelId, dateFrom, dateTo, timeZone } = args
+  const reportingZone = timeZone.name ?? 'UTC'
 
   return {
-    timeRange: toApiDateTimeRange(dateFrom, dateTo),
+    timeRange: toApiDateTimeRangeForReporting(dateFrom, dateTo, reportingZone),
     timeZone,
     groupings: [
       emptyGrouping(FUNNEL_HEATMAP_GROUP_BY.elementFunnel),
       emptyGrouping(FUNNEL_HEATMAP_GROUP_BY.elementNodeId),
       emptyGrouping(FUNNEL_HEATMAP_GROUP_BY.elementNodeName),
     ],
-    topLevelFilters: [
-      {
-        groupBy: FUNNEL_HEATMAP_GROUP_BY.elementFunnel,
-        whitelistFilters: [funnelId],
-        blacklistFilters: [],
-      },
-    ],
+    // Do not set topLevelFilters here: idFunnelFilter / idCampaignFilter already scope the query.
+    // Funnel whitelist in topLevelFilters plus node-level flat groupings was yielding zero rows in CH.
     paging: { start: 0, length: 2000 },
     sorting: {
       sortingColumns: [{ columnName: FUNNEL_HEATMAP_METRIC.nodeViews, order: 'desc' }],

@@ -348,27 +348,3 @@ export function applyOfferSourceArchiveToEntityGridCaches(
   )
 }
 
-function invalidatePagesSecondaryLists(queryClient: QueryClient): void {
-  void queryClient.invalidateQueries({ queryKey: [...queryKeys.pages.all, 'list'], exact: false })
-}
-
-function invalidateTrafficSecondaryLists(queryClient: QueryClient): void {
-  void queryClient.invalidateQueries({ queryKey: [...queryKeys.trafficSources.all, 'list'], exact: false })
-}
-
-function invalidateOfferSourcesSecondaryLists(queryClient: QueryClient): void {
-  void queryClient.invalidateQueries({ queryKey: [...queryKeys.offerSources.all, 'list'], exact: false })
-}
-
-/** After mutating entity-grid list cache: refetch non-grid page queries only. */
-export function refreshPagesListQueries(queryClient: QueryClient): void {
-  invalidatePagesSecondaryLists(queryClient)
-}
-
-export function refreshTrafficSourcesListQueries(queryClient: QueryClient): void {
-  invalidateTrafficSecondaryLists(queryClient)
-}
-
-export function refreshOfferSourcesListQueries(queryClient: QueryClient): void {
-  invalidateOfferSourcesSecondaryLists(queryClient)
-}
