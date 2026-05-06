@@ -134,6 +134,9 @@ export function MultiSelect({
     },
   })
 
+  // TanStack Virtual exposes methods on the returned virtualizer instance;
+  // React Compiler cannot safely memoize it, but this direct usage is expected.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: filteredRows.length,
     getScrollElement: () => listRef.current,

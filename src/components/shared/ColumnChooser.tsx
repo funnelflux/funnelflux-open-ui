@@ -198,6 +198,7 @@ export function ColumnChooser<TData>({
       : tableColumns.map((c) => c.id),
     [isControlled, groups, tableColumns],
   )
+  const chooserColumnIdSet = useMemo(() => new Set(chooserColumnIds), [chooserColumnIds])
 
   const ungroupedColumns = useMemo(() => {
     return tableColumns.filter((c) => !groupedIds.has(c.id))
@@ -221,13 +222,17 @@ export function ColumnChooser<TData>({
     return false
   }, [draftSelected, appliedSelected])
 
-  const showAll = useCallback(() => {
-    setDraftSelected(new Set(chooserColumnIds))
-  }, [chooserColumnIds])
-
-  const hideAll = useCallback(() => {
-    setDraftSelected(new Set())
-  }, [])
+  const setColumnsVisible = useCallback((columnIds: string[], visible: boolean) => {
+    setDraftSelected((prev) => {
+      const next = new Set(prev ?? appliedSelected)
+      for (const id of columnIds) {
+        if (!chooserColumnIdSet.has(id)) continue
+        if (visible) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+  }, [appliedSelected, chooserColumnIdSet])
 
   const handleCancel = useCallback(() => {
     setDraftSelected(null)
@@ -273,14 +278,21 @@ export function ColumnChooser<TData>({
       </Button>
 
       <Drawer
-        title="Column settings"
+        title={
+          <div className="flex items-center justify-between gap-3 pr-6">
+            <span>Column settings</span>
+            <span className="text-xs font-normal text-[var(--muted-fg)]">
+              {visibleCount} visible{hasDraftChanges ? ' pending' : ''}
+            </span>
+          </div>
+        }
         open={open}
         onClose={handleCancel}
         size={360}
         styles={{ body: { padding: 0 } }}
       >
         <div className="flex flex-col h-full bg-[var(--surface)]">
-          <div className="px-3 pt-3 pb-2 border-b border-[var(--border)] flex flex-col gap-2">
+          <div className="px-3 pt-3 pb-2 border-b border-[var(--border)]">
             <Input
               prefix={<span className="text-[var(--muted-fg)]"><Icon name="search" size="sm" aria-hidden /></span>}
               placeholder="Search columns..."
@@ -290,51 +302,51 @@ export function ColumnChooser<TData>({
               onClear={() => setSearch('')}
               size="small"
             />
-            <div className="flex items-center justify-between text-xs text-[var(--muted-fg)]">
-              <span>{visibleCount} visible{hasDraftChanges ? ' pending' : ''}</span>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  className="text-xs text-[var(--muted-fg)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-none p-0"
-                  onClick={showAll}
-                >
-                  Show all
-                </button>
-                <button
-                  type="button"
-                  className="text-xs text-[var(--muted-fg)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-none p-0"
-                  onClick={hideAll}
-                >
-                  Hide all
-                </button>
-              </div>
-            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto min-h-0 text-[var(--foreground)]">
             {filteredGroups.map((group) => {
               const isCollapsed = collapsedGroups.has(group.groupId) && !searchLower
               const groupColsInTable = isControlled ? group.columns : group.columns.filter((c) => tableColumnIds.has(c.id))
+              const groupColumnIds = groupColsInTable.map((c) => c.id)
               const visibleInGroup = groupColsInTable.filter((c) => effectiveSelected.has(c.id)).length
               const totalInGroup = groupColsInTable.length
               if (totalInGroup === 0 && !searchLower) return null
 
               return (
                 <div key={group.groupId} className="border-b border-[var(--border)] last:border-b-0">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 cursor-pointer select-none hover:bg-[var(--surface-hover)] text-left"
-                    onClick={() => toggleGroup(group.groupId)}
-                  >
-                    {isCollapsed
-                      ? <span className="text-[var(--muted-fg)] shrink-0"><Icon name="chevron-right" size="sm" aria-hidden /></span>
-                      : <span className="text-[var(--muted-fg)] shrink-0"><Icon name="chevron-down" size="sm" aria-hidden /></span>
-                    }
-                    <span className="text-sm font-medium">{group.groupLabel}</span>
-                    <span className="text-xs text-[var(--muted-fg)]">
-                      {visibleInGroup}/{totalInGroup}
-                    </span>
-                  </button>
+                  <div className="flex w-full items-center gap-2 px-3 py-2 select-none hover:bg-[var(--surface-hover)]">
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer bg-transparent border-none p-0 text-left text-[var(--foreground)]"
+                      onClick={() => toggleGroup(group.groupId)}
+                    >
+                      {isCollapsed
+                        ? <span className="text-[var(--muted-fg)] shrink-0"><Icon name="chevron-right" size="sm" aria-hidden /></span>
+                        : <span className="text-[var(--muted-fg)] shrink-0"><Icon name="chevron-down" size="sm" aria-hidden /></span>
+                      }
+                      <span className="text-sm font-medium truncate">{group.groupLabel}</span>
+                      <span className="text-xs text-[var(--muted-fg)] shrink-0">
+                        {visibleInGroup}/{totalInGroup}
+                      </span>
+                    </button>
+                    <div className="ml-auto flex shrink-0 items-center gap-3">
+                      <button
+                        type="button"
+                        className="text-xs text-[var(--muted-fg)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-none p-0"
+                        onClick={() => setColumnsVisible(groupColumnIds, true)}
+                      >
+                        Show all
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-[var(--muted-fg)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-none p-0"
+                        onClick={() => setColumnsVisible(groupColumnIds, false)}
+                      >
+                        Hide all
+                      </button>
+                    </div>
+                  </div>
 
                   {!isCollapsed && (
                     <div className="pb-2">
@@ -371,8 +383,27 @@ export function ColumnChooser<TData>({
 
             {filteredUngrouped.length > 0 && (
               <div className="border-b border-[var(--border)]">
-                <div className="px-3 py-2">
+                <div className="flex items-center gap-2 px-3 py-2">
                   <span className="text-sm font-medium">Other</span>
+                  <span className="text-xs text-[var(--muted-fg)]">
+                    {filteredUngrouped.filter((c) => effectiveSelected.has(c.id)).length}/{filteredUngrouped.length}
+                  </span>
+                  <div className="ml-auto flex shrink-0 items-center gap-3">
+                    <button
+                      type="button"
+                      className="text-xs text-[var(--muted-fg)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-none p-0"
+                      onClick={() => setColumnsVisible(filteredUngrouped.map((c) => c.id), true)}
+                    >
+                      Show all
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs text-[var(--muted-fg)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-none p-0"
+                      onClick={() => setColumnsVisible(filteredUngrouped.map((c) => c.id), false)}
+                    >
+                      Hide all
+                    </button>
+                  </div>
                 </div>
                 <div className="pb-2">
                   {filteredUngrouped.map((col) => {
