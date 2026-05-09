@@ -97,9 +97,9 @@ export function GlobalConditionsPage() {
         id: 'name',
         header: 'Name',
         accessorKey: 'conditionName',
-        size: 320,
-        minSize: 200,
-        maxSize: 560,
+        size: 420,
+        minSize: 280,
+        maxSize: 640,
         meta: { flex: 1 },
         cell: ({ row }) => (
           <span className="font-medium">{row.original.conditionName}</span>
@@ -109,9 +109,11 @@ export function GlobalConditionsPage() {
         id: 'id',
         header: 'ID',
         accessorKey: 'idCondition',
-        enableSorting: false,
+        size: 220,
+        minSize: 140,
+        maxSize: 320,
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">{row.original.idCondition}</span>
+          <span className="font-mono text-xs">{row.original.idCondition}</span>
         ),
       },
       editBtnColumn<ConditionListItem>(handleEditCondition),

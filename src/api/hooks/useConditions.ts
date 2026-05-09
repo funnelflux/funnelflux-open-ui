@@ -3,20 +3,42 @@ import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { FunnelCondition } from '@/types/entities'
 
-/** API returns id/name pairs; optional fields if the backend adds full `FunnelCondition` later. */
-export type ConditionListItem = Pick<FunnelCondition, 'idCondition' | 'conditionName'> &
-  Partial<Pick<FunnelCondition, 'restrictToFunnelId' | 'orTests'>>
+/**
+ * List row for global conditions — only fields returned by
+ * `GET /data/campaign/funnel/condition/list/` (OpenAPI `IdNamePair`: `id`, `name`).
+ */
+export type ConditionListItem = {
+  idCondition: string
+  conditionName: string
+}
 
-type ApiConditionListRow = { id: string | number; name: string } & Partial<FunnelCondition>
+/**
+ * Normalizes condition list payloads: raw `IdNamePair[]`, `{ rows: [...] }`, or alternate keys (`idCondition` / `conditionName`).
+ */
+export function normalizeConditionListResponse(raw: unknown): ConditionListItem[] {
+  const rows: unknown[] = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { rows?: unknown }).rows)
+      ? (raw as { rows: unknown[] }).rows
+      : []
+
+  return rows
+    .map((row): ConditionListItem | null => {
+      if (!row || typeof row !== 'object') return null
+      const r = row as Record<string, unknown>
+      const idRaw = r.id ?? r.idCondition
+      const id = idRaw !== undefined && idRaw !== null ? String(idRaw) : ''
+      const nameRaw = r.name ?? r.conditionName
+      const conditionName = nameRaw !== undefined && nameRaw !== null ? String(nameRaw) : ''
+      if (!id) return null
+      return { idCondition: id, conditionName }
+    })
+    .filter((x): x is ConditionListItem => x !== null)
+}
 
 async function fetchConditionList(): Promise<ConditionListItem[]> {
-  const rows = await api.get<ApiConditionListRow[]>('/data/campaign/funnel/condition/list/')
-  return rows.map((row) => ({
-    idCondition: String(row.id),
-    conditionName: row.name,
-    ...(row.restrictToFunnelId !== undefined ? { restrictToFunnelId: row.restrictToFunnelId } : {}),
-    ...(row.orTests !== undefined ? { orTests: row.orTests } : {}),
-  }))
+  const raw = await api.get<unknown>('/data/campaign/funnel/condition/list/')
+  return normalizeConditionListResponse(raw)
 }
 
 export function useConditions() {
