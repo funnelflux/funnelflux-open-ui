@@ -4,6 +4,22 @@ import { parseDrilldownReport } from '@/schemas/apiBoundaries'
 
 const DEFAULT_DRILLDOWN_PAGE_SIZE = 2000
 
+/**
+ * Prefer a positive rowsTotal from the report. If the API reports 0 or omits the total
+ * while returning a full page, treat total as unknown so we keep paging (avoids truncating
+ * large funnel lists when totals metadata is wrong or missing).
+ */
+function effectiveRowsTotal(report: Report): number | undefined {
+  if (report.rowsTotal > 0) {
+    return report.rowsTotal
+  }
+  const fromPaging = report.paging?.totalRecords
+  if (fromPaging !== undefined && fromPaging > 0) {
+    return fromPaging
+  }
+  return undefined
+}
+
 function withPaging(
   request: DrilldownRequest,
   start: number,
@@ -34,10 +50,7 @@ export async function fetchAllFlatDrilldownRows(
   parseDrilldownReport(firstPage)
 
   const rows = [...(firstPage.rows ?? [])]
-  let rowsTotal =
-    firstPage.rowsTotal > 0
-      ? firstPage.rowsTotal
-      : firstPage.paging?.totalRecords
+  let rowsTotal = effectiveRowsTotal(firstPage)
   let lastPageSize = rows.length
   let nextStart = initialStart + lastPageSize
 
@@ -62,8 +75,7 @@ export async function fetchAllFlatDrilldownRows(
     nextStart += pageRows.length
 
     if (rowsTotal === undefined) {
-      rowsTotal =
-        page.rowsTotal > 0 ? page.rowsTotal : page.paging?.totalRecords
+      rowsTotal = effectiveRowsTotal(page)
     }
   }
 

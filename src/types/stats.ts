@@ -33,7 +33,6 @@ export type {
 /** Backend accepts `trackingFieldMappings` on drilldown POST bodies even when omitted from OpenAPI. */
 export type DrilldownRequest = GeneratedDrilldownRequest & {
   trackingFieldMappings?: Record<string, { id: string }>
-  metrics?: string[]
 }
 
 export type { ApiDate, ApiTime } from './generated/data';

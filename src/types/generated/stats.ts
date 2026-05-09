@@ -103,6 +103,7 @@ export interface DrilldownRequest {
   paging?: RequestPaging;
   sorting?: RequestSorting;
   options?: RequestOptions;
+  metrics?: string[];
 }
 
 export interface ConfidenceRate {

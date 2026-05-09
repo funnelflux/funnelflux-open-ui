@@ -41,16 +41,11 @@ import { CampaignEditForm } from './CampaignEditForm'
 import { AddCampaignOrFunnelModal } from './AddCampaignOrFunnelModal'
 import { MoveFunnelModal, type MoveFunnelTarget } from './MoveFunnelModal'
 import type { Funnel } from '@/types/entities'
-import {
-  buildCampaignTreeFromMysqlAndFlatFunnelReport,
-  type CampaignTreeRow,
-  fetchCampaignHierarchyWire,
-} from './campaignTreeUtils'
+import type { CampaignTreeRow } from './campaignTreeUtils'
+import { loadCampaignPageData } from './campaignLoad'
 import { api } from '@/api/client'
-import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
 import { queryKeys } from '@/api/queryKeys'
-import { toApiDateTimeRange } from '@/lib/statsDateRange'
-import type { DrilldownRequest, ReportCell } from '@/types/stats'
+import type { ReportCell } from '@/types/stats'
 import type { CampaignFormData } from '@/schemas/campaign'
 import { getErrorMessage, selectedRowIds } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
@@ -141,31 +136,12 @@ export function CampaignsPage() {
   const deleteFunnel = useDeleteFunnel()
   const cloneFunnel = useCloneFunnel()
 
-  const loadCampaignData = useCallback(async () => {
-    const drilldownBody: DrilldownRequest = {
-      timeRange: toApiDateTimeRange(dateRange.from, dateRange.to),
-      timeZone: { name: tz },
-      groupings: [
-        { groupBy: 'Element: Funnel', whitelistFilters: [], blacklistFilters: [] },
-      ],
-      options: { viewType: 'flat' as const },
-      ...(reportMetrics ? { metrics: reportMetrics } : {}),
-    }
-
-    const [hierarchy, report] = await Promise.all([
-      fetchCampaignHierarchyWire(),
-      fetchAllFlatDrilldownRows(drilldownBody),
-    ])
-
-    return {
-      columns: report.columns ?? [],
-      treeData: buildCampaignTreeFromMysqlAndFlatFunnelReport(
-        hierarchy.campaigns ?? [],
-        report,
-      ),
-      totalsCells: report.totals?.cells ?? null,
-    }
-  }, [dateRange, tz, reportMetrics])
+  const loadCampaignData = useCallback(() => loadCampaignPageData({
+    dateFrom: dateRange.from,
+    dateTo: dateRange.to,
+    timezone: tz,
+    ...(reportMetrics ? { reportMetrics } : {}),
+  }), [dateRange.from, dateRange.to, tz, reportMetrics])
 
   const {
     data: campaignData,

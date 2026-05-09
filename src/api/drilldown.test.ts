@@ -58,4 +58,54 @@ describe('fetchAllFlatDrilldownRows', () => {
       paging: { start: 2, length: 2 },
     })
   })
+
+  it('continues paging when rowsTotal and totalRecords are zero but a full page was returned', async () => {
+    const fullPage = (start: number): Report => ({
+      columns: [
+        { name: 'Element: Funnel', type: 'grouping' },
+        { name: 'Entrances', type: 'metric' },
+      ],
+      rows: Array.from({ length: 2 }, (_, i) => ({
+        rowId: `row-${start + i}`,
+        cells: [
+          { raw: String(start + i), formatted: `Funnel ${start + i}` },
+          { raw: 1, formatted: '1' },
+        ],
+      })),
+      totals: { cells: [] },
+      rowsReturned: 2,
+      rowsTotal: 0,
+      paging: { start, length: 2, totalRecords: 0 },
+    })
+
+    vi.mocked(api.postDrilldown)
+      .mockResolvedValueOnce(fullPage(0))
+      .mockResolvedValueOnce({
+        ...fullPage(2),
+        rows: [
+          {
+            rowId: 'row-2',
+            cells: [
+              { raw: '2', formatted: 'Funnel 2' },
+              { raw: 1, formatted: '1' },
+            ],
+          },
+        ],
+        rowsReturned: 1,
+        rowsTotal: 3,
+        paging: { start: 2, length: 1, totalRecords: 3 },
+      })
+
+    const request: DrilldownRequest = {
+      timeRange: {} as DrilldownRequest['timeRange'],
+      timeZone: { name: 'UTC' },
+      groupings: [{ groupBy: 'Element: Funnel', whitelistFilters: [], blacklistFilters: [] }],
+      options: { viewType: 'flat' },
+    }
+
+    const merged = await fetchAllFlatDrilldownRows(request, { pageSize: 2 })
+
+    expect(api.postDrilldown).toHaveBeenCalledTimes(2)
+    expect(merged.rows).toHaveLength(3)
+  })
 })

@@ -1005,6 +1005,16 @@ definitions:
         $ref: "#/definitions/RequestSorting"
       options:
         $ref: "#/definitions/RequestOptions"
+      metrics:
+        type: array
+        description: >
+          Optional subset of standard metric names to include in columns/cells (same
+          strings as metric ReportColumn.name values, e.g. Entrances, Revenue, P/L).
+          Omitted or empty requests the full metric set for backward compatibility.
+          Derived metrics pull required base metrics server-side; response columns are
+          filtered to grouping columns plus requested metrics.
+        items:
+          type: string
   ConfidenceRate:
     type: object
     properties:
