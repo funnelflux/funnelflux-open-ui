@@ -10,6 +10,54 @@ export type SaveTrafficFilterInput = {
   isCreate: boolean
 }
 
+function normalizeTrafficFilter(filter: Partial<TrafficFilter>): TrafficFilter | null {
+  if (!filter.idTrafficFilter || !filter.trafficFilterName || !filter.filterType) return null
+  return {
+    idTrafficFilter: filter.idTrafficFilter,
+    trafficFilterName: filter.trafficFilterName,
+    filterType: filter.filterType,
+    filterEntries: filter.filterEntries ?? [],
+    redirectToURL: filter.redirectToURL ?? null,
+    isEnabled: filter.isEnabled ?? true,
+  }
+}
+
+function statusMatchesFilter(status: unknown, filter: TrafficFilter): boolean {
+  if (status === 'enabled') return Boolean(filter.isEnabled)
+  if (status === 'disabled') return !filter.isEnabled
+  return true
+}
+
+function upsertFilterInListData(
+  previous: TrafficFiltersData | undefined,
+  filter: TrafficFilter,
+  status: unknown,
+): TrafficFiltersData | undefined {
+  if (!previous) return previous
+  const withoutCurrent = previous.filters.filter((item) => item.idTrafficFilter !== filter.idTrafficFilter)
+  const nextFilters = statusMatchesFilter(status, filter) ? [filter, ...withoutCurrent] : withoutCurrent
+  return { ...previous, filters: nextFilters }
+}
+
+function removeFilterFromListData(
+  previous: TrafficFiltersData | undefined,
+  idTrafficFilter: string,
+): TrafficFiltersData | undefined {
+  if (!previous) return previous
+  return {
+    ...previous,
+    filters: previous.filters.filter((item) => item.idTrafficFilter !== idTrafficFilter),
+  }
+}
+
+type TrafficFilterListStatus = 'enabled' | 'disabled' | undefined
+
+const TRAFFIC_FILTER_LIST_STATUSES: readonly TrafficFilterListStatus[] = [undefined, 'enabled', 'disabled']
+
+function trafficFilterListParams(status: TrafficFilterListStatus): Record<string, string> {
+  return status ? { status } : {}
+}
+
 export function useTrafficFilters(status?: string) {
   const params: Record<string, string> = {}
   if (status && status !== 'all') params.status = status
@@ -17,13 +65,18 @@ export function useTrafficFilters(status?: string) {
     queryKey: queryKeys.trafficFilters.list(params),
     queryFn: async () => {
       if (status === 'enabled') {
-        return api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'enabled' })
+        const filters = await api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'enabled' })
+        return { filters, availableCountries: [] }
       }
       if (status === 'disabled') {
-        return api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'disabled' })
+        const filters = await api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'disabled' })
+        return { filters, availableCountries: [] }
       }
       const payload = await api.get<TrafficFiltersData>('/ui/trafficfilters/load/')
-      return Array.isArray(payload.filters) ? payload.filters : []
+      return {
+        filters: Array.isArray(payload.filters) ? payload.filters : [],
+        availableCountries: Array.isArray(payload.availableCountries) ? payload.availableCountries : [],
+      }
     },
   })
 }
@@ -44,14 +97,21 @@ export function useSaveTrafficFilter() {
       isCreate
         ? api.post<TrafficFilter>('/data/trafficfilter/save/', data)
         : api.put<TrafficFilter>('/data/trafficfilter/save/', data),
-    onSuccess: (saved: TrafficFilter) => {
-      void qc.invalidateQueries({
-        queryKey: queryKeys.trafficFilters.all,
-        predicate: (q) => (q.queryKey as unknown[])[1] === 'list',
-      })
-      const id = saved.idTrafficFilter
+    onSuccess: (_savedResponse, variables) => {
+      const optimisticSavedFilter = normalizeTrafficFilter(variables.data)
+      if (!optimisticSavedFilter) return
+
+      for (const listStatus of TRAFFIC_FILTER_LIST_STATUSES) {
+        const params = trafficFilterListParams(listStatus)
+        qc.setQueryData<TrafficFiltersData>(
+          queryKeys.trafficFilters.list(params),
+          (previous) => upsertFilterInListData(previous, optimisticSavedFilter, listStatus),
+        )
+      }
+
+      const id = optimisticSavedFilter.idTrafficFilter
       if (id) {
-        void qc.invalidateQueries({ queryKey: queryKeys.trafficFilters.detail(id) })
+        qc.setQueryData(queryKeys.trafficFilters.detail(id), optimisticSavedFilter)
       }
     },
   })
@@ -64,10 +124,13 @@ export function useDeleteTrafficFilter() {
       api.delete('/data/trafficfilter/delete/', { idTrafficFilter }),
     onSuccess: (_data, idTrafficFilter) => {
       qc.removeQueries({ queryKey: queryKeys.trafficFilters.detail(idTrafficFilter) })
-      void qc.invalidateQueries({
-        queryKey: queryKeys.trafficFilters.all,
-        predicate: (q) => (q.queryKey as unknown[])[1] === 'list',
-      })
+      for (const listStatus of TRAFFIC_FILTER_LIST_STATUSES) {
+        const params = trafficFilterListParams(listStatus)
+        qc.setQueryData<TrafficFiltersData>(
+          queryKeys.trafficFilters.list(params),
+          (previous) => removeFilterFromListData(previous, idTrafficFilter),
+        )
+      }
     },
   })
 }

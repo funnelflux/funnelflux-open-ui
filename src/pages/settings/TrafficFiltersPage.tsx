@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Button, Switch, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Button, Switch, PageShell, DataTable, ConfirmModal, useToastApi, type SelectOption } from '@/components/ui-kit'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import {
   useTrafficFilters,
@@ -12,7 +12,7 @@ import { TrafficFilterModal } from '@/components/forms/TrafficFilterModal'
 import { FILTER_TYPE_LABELS } from '@/lib/trafficFilterConstants'
 import type { TrafficFilterFormData } from '@/schemas/trafficFilter'
 import { getErrorMessage } from '@/lib/utils'
-import type { TrafficFilter } from '@/types/entities'
+import type { KeyValuePair, TrafficFilter } from '@/types/entities'
 
 function trafficFilterRowId(row: TrafficFilter): string {
   return row.idTrafficFilter
@@ -20,7 +20,7 @@ function trafficFilterRowId(row: TrafficFilter): string {
 
 export function TrafficFiltersPage() {
   const toast = useToastApi()
-  const { data: filters, isLoading } = useTrafficFilters()
+  const { data: trafficFiltersData, isLoading } = useTrafficFilters()
   const saveFilter = useSaveTrafficFilter()
   const deleteFilter = useDeleteTrafficFilter()
   const applyRetro = useApplyTrafficFilterRetroactively()
@@ -29,6 +29,16 @@ export function TrafficFiltersPage() {
   const [editingFilter, setEditingFilter] = useState<TrafficFilter | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<TrafficFilter | null>(null)
   const [retroTarget, setRetroTarget] = useState<TrafficFilter | null>(null)
+
+  const filters = trafficFiltersData?.filters ?? []
+  const countryOptions = useMemo<SelectOption[]>(
+    () =>
+      (trafficFiltersData?.availableCountries ?? []).flatMap((country: KeyValuePair) => {
+        if (!country?.key) return []
+        return [{ value: country.key, label: country.value ?? country.key }]
+      }),
+    [trafficFiltersData?.availableCountries],
+  )
 
   function openCreate() {
     setEditingFilter(undefined)
@@ -110,6 +120,10 @@ export function TrafficFiltersPage() {
         id: 'trafficFilterName',
         header: 'Name',
         accessorKey: 'trafficFilterName',
+        size: 360,
+        minSize: 280,
+        maxSize: 560,
+        meta: { flex: 1 },
         cell: ({ row }) => (
           <span className="font-medium">{row.original.trafficFilterName}</span>
         ),
@@ -123,6 +137,13 @@ export function TrafficFiltersPage() {
         accessorKey: 'filterType',
         cell: ({ row }) =>
           FILTER_TYPE_LABELS[row.original.filterType] ?? row.original.filterType,
+      },
+      {
+        id: 'actionType',
+        header: 'Action',
+        accessorFn: (row) => row.redirectToURL ?? '',
+        cell: ({ row }) =>
+          row.original.redirectToURL ? 'Hide & Redirect' : 'Hide from statistics',
       },
       {
         id: 'entriesCount',
@@ -165,7 +186,7 @@ export function TrafficFiltersPage() {
       }
     >
       <DataTable<TrafficFilter>
-        data={filters ?? []}
+        data={filters}
         columns={columns}
         getRowId={trafficFilterRowId}
         loading={isLoading}
@@ -181,6 +202,7 @@ export function TrafficFiltersPage() {
         initialData={editingFilter}
         onSubmit={handleSubmit}
         isSubmitting={saveFilter.isPending}
+        countryOptions={countryOptions}
       />
 
       <ConfirmModal

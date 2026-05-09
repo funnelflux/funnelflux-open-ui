@@ -14,6 +14,16 @@ export const trafficFilterSchema = z.object({
     .transform((entries) => entries.map((line) => line.trim()).filter((line) => line.length > 0)),
   redirectToURL: z.string().nullable(),
   isEnabled: z.boolean(),
+}).superRefine((value, ctx) => {
+  if (!value.redirectToURL) return
+  const parsed = z.url().safeParse(value.redirectToURL)
+  if (!parsed.success) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['redirectToURL'],
+      message: 'Redirect URL must be a valid URL (including http:// or https://).',
+    })
+  }
 })
 
 export type TrafficFilterFormData = z.infer<typeof trafficFilterSchema>
