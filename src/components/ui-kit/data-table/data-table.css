@@ -253,9 +253,11 @@
   background: transparent;
 }
 
-/* Category strip (group header row): dark band, no hover wash */
+/* Category strip (group header row): subtle neutral gray, no hover wash */
 .dt-row--category-strip {
-  background: color-mix(in srgb, var(--muted-fg) 12%, var(--surface));
+  background: var(--surface-secondary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   font-weight: 600;
 }
 

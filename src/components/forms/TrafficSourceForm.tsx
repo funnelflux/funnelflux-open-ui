@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormField, Modal, Button, Input, Select } from '@/components/ui-kit'
@@ -57,6 +57,7 @@ export function TrafficSourceForm({
   const { data: templates } = useTrafficSourceTemplates(open)
   const { data: categories } = useCategories('trafficsource')
   const loadTemplate = useLoadTrafficSourceTemplate()
+  const loadTemplateMutate = loadTemplate.mutate
   const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>()
 
   const {
@@ -110,10 +111,14 @@ export function TrafficSourceForm({
     }
   }, [open, initialData, categories, reset])
 
-  const handlePickTemplate = (templateName: string | null) => {
+  const handleClose = useCallback(() => onOpenChange(false), [onOpenChange])
+
+  const handleAfterClose = useCallback(() => setTemplateSelectValue(undefined), [])
+
+  const handlePickTemplate = useCallback((templateName: string | null) => {
     setTemplateSelectValue(templateName ?? undefined)
     if (!templateName) return
-    loadTemplate.mutate(templateName, {
+    loadTemplateMutate(templateName, {
       onSuccess: (data) => {
         setTemplateSelectValue(undefined)
         const draftId = getValues('idTrafficSource')
@@ -125,20 +130,43 @@ export function TrafficSourceForm({
         })
       },
     })
-  }
+  }, [getValues, loadTemplateMutate, reset])
+
+  const modalTitle = useMemo(() => {
+    const title = isEditing ? 'Edit Traffic Source' : 'Add Traffic Source'
+    if (isEditing || templateOptions.length === 0) return title
+
+    return (
+      <div className="flex flex-col gap-3 pr-10 sm:flex-row sm:items-center sm:justify-between">
+        <span>{title}</span>
+        <div className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
+          <span className="shrink-0">Use template</span>
+          <Select
+            allowClear
+            value={templateSelectValue}
+            placeholder="Select template"
+            className="w-52"
+            size="sm"
+            onChange={handlePickTemplate}
+            options={templateOptions}
+          />
+        </div>
+      </div>
+    )
+  }, [handlePickTemplate, isEditing, templateOptions, templateSelectValue])
 
   return (
     <Modal
       open={open}
-      onCancel={() => onOpenChange(false)}
-      afterClose={() => setTemplateSelectValue(undefined)}
-      title={isEditing ? 'Edit Traffic Source' : 'Add Traffic Source'}
+      onCancel={handleClose}
+      afterClose={handleAfterClose}
+      title={modalTitle}
       width={640}
       destroyOnHidden
       layoutVariant="form"
       footer={
-        <div className="flex justify-end gap-2 border-t border-border px-6 py-3">
-          <Button htmlType="button" onClick={() => onOpenChange(false)}>
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+          <Button htmlType="button" onClick={handleClose}>
             Cancel
           </Button>
           <Button
@@ -153,28 +181,11 @@ export function TrafficSourceForm({
       }
     >
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-4">
-          <p className="text-sm text-muted-foreground mb-4">
-            {isEditing ? 'Update the traffic source configuration.' : 'Create a new traffic source.'}
-          </p>
-
-          <form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-5 pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-3">
+          <form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-3">
             {isEditing && initialData?.idTrafficSource && (
               <FormField label="ID">
                 <Input value={initialData.idTrafficSource} disabled className="font-mono text-xs" />
-              </FormField>
-            )}
-
-            {!isEditing && templates && templates.length > 0 && (
-              <FormField label="Copy from Template">
-                <Select
-                  allowClear
-                  value={templateSelectValue}
-                  placeholder="Select a template"
-                  className="w-full"
-                  onChange={handlePickTemplate}
-                  options={templateOptions}
-                />
               </FormField>
             )}
 

@@ -379,6 +379,9 @@ export function PageEntitiesPage({
   const columnDefs = useMemo<ColumnDef<PageGridRow, unknown>[]>(() => [
     selectionColumn<PageGridRow>(),
     nameColumn<PageGridRow>({
+      size: 280,
+      minSize: 150,
+      maxSize: 560,
       cellContent: (row) => {
         if (row._isCategoryHeader) {
           return (
@@ -527,6 +530,7 @@ export function PageEntitiesPage({
               timezone={tz}
               onChange={handleDateRangeChange}
               density="compact"
+              className="[--ff-date-range-compact-max:236px]"
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>

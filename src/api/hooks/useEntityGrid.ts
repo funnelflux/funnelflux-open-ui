@@ -41,6 +41,7 @@ export function useEntityGrid(options: UseEntityGridOptions) {
       return mapListToEntities ? mapListToEntities(arr) : (arr as ListEntity[])
     },
     enabled,
+    placeholderData: (previousData) => previousData,
   })
 
   const statsQuery = useQuery({
@@ -65,6 +66,7 @@ export function useEntityGrid(options: UseEntityGridOptions) {
       return fetchAllFlatDrilldownRows(request)
     },
     enabled,
+    placeholderData: (previousData) => previousData,
   })
 
   const entities = useMemo(

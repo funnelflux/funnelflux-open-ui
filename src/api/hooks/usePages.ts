@@ -79,7 +79,7 @@ export function useSavePage() {
       const mergedPage = pageForEntityGridCache(saveResponse, variables.page)
       if (mergedPage) {
         upsertPageInEntityGridCaches(qc, mergedPage)
-        void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(mergedPage.idPage) })
+        qc.setQueryData(queryKeys.pages.detail(mergedPage.idPage), mergedPage)
       }
       await invalidatePageAuxiliaryAfterGridPatch(qc)
     },
@@ -136,7 +136,6 @@ export function useClonePage() {
         pageType: variables.pageType,
         categoryId: variables.categoryId,
       })
-      void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(data.idPage) })
       await invalidatePageAuxiliaryAfterGridPatch(qc)
     },
   })
@@ -150,9 +149,6 @@ export function useArchivePage() {
     onSuccess: async (_, { ids, archive }) => {
       for (const id of ids) {
         applyPageArchiveToEntityGridCaches(qc, id, archive)
-      }
-      for (const id of ids) {
-        void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(id) })
       }
       await invalidatePageAuxiliaryAfterGridPatch(qc)
     },

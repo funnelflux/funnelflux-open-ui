@@ -31,6 +31,7 @@ export async function invalidatePageSimpleListQueries(qc: QueryClient): Promise<
   await qc.invalidateQueries({
     queryKey: queryKeys.pages.all,
     predicate: (q) => segmentAt(q.queryKey, 1) === 'list',
+    refetchType: 'inactive',
   })
 }
 
@@ -50,9 +51,18 @@ export async function invalidatePageEntityGridStatsQueries(qc: QueryClient): Pro
 
 export async function invalidatePageGroupingAssets(qc: QueryClient): Promise<void> {
   await Promise.all([
-    qc.invalidateQueries({ queryKey: queryKeys.groupingFilterAssets.pageList('lander') }),
-    qc.invalidateQueries({ queryKey: queryKeys.groupingFilterAssets.pageList('offer') }),
-    qc.invalidateQueries({ queryKey: queryKeys.groupingFilterAssets.pageCategories() }),
+    qc.invalidateQueries({
+      queryKey: queryKeys.groupingFilterAssets.pageList('lander'),
+      refetchType: 'inactive',
+    }),
+    qc.invalidateQueries({
+      queryKey: queryKeys.groupingFilterAssets.pageList('offer'),
+      refetchType: 'inactive',
+    }),
+    qc.invalidateQueries({
+      queryKey: queryKeys.groupingFilterAssets.pageCategories(),
+      refetchType: 'inactive',
+    }),
   ])
 }
 
