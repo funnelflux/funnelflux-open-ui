@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { TZDate } from '@date-fns/tz'
 import { startOfDay } from 'date-fns'
-import { toApiDateTime, toApiDateTimeRangeForReporting } from './statsDateRange'
+import {
+  toApiDateTime,
+  toApiDateTimeForReportingZone,
+  toApiDateTimeRangeForReporting,
+} from './statsDateRange'
 
 describe('toApiDateTime', () => {
   it('uses getUTC* calendar and clock', () => {
@@ -9,6 +13,20 @@ describe('toApiDateTime', () => {
     expect(toApiDateTime(d)).toEqual({
       date: { year: 2026, month: 2, day: 5 },
       time: { hour: 20, minutes: 30 },
+    })
+  })
+})
+
+describe('toApiDateTimeForReportingZone', () => {
+  it('uses reporting-zone wall clock, not UTC (fixes cost / stats payloads vs picker)', () => {
+    const start = startOfDay(new TZDate(2026, 4, 4, 'Asia/Tehran'))
+    expect(toApiDateTime(start)).toEqual({
+      date: { year: 2026, month: 5, day: 3 },
+      time: { hour: 20, minutes: 30 },
+    })
+    expect(toApiDateTimeForReportingZone(start, 'Asia/Tehran')).toEqual({
+      date: { year: 2026, month: 5, day: 4 },
+      time: { hour: 0, minutes: 0 },
     })
   })
 })

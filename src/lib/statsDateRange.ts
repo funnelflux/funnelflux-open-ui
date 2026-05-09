@@ -36,6 +36,30 @@ export function toApiDateTimeRange(from: Date, to: Date): ApiDateTimeRange {
  * `timeRange` in that zone; using UTC getters here while sending e.g. `Asia/Tehran` shifts the window
  * and can return empty rows. Use `'UTC'` when the request timezone is UTC.
  */
+/**
+ * Calendar + clock in {@link reportingTimeZone} for absolute instant {@link d}.
+ *
+ * Use for cost upload / stats bodies where `timeZone.name` is an IANA id. The PHP
+ * {@code DateTime::getAsUnixTimestamp()} path applies `strtotime` on these components then subtracts
+ * the zone offset — so the wire values must be **wall time in the reporting zone**, not UTC
+ * (see {@link toApiDateTime}, which uses UTC getters and will not match the picker when the browser
+ * or reporting zone is not UTC).
+ */
+export function toApiDateTimeForReportingZone(d: Date, reportingTimeZone: string): ApiDateTime {
+  const z = new TZDate(d.getTime(), reportingTimeZone)
+  return {
+    date: {
+      year: z.getFullYear(),
+      month: z.getMonth() + 1,
+      day: z.getDate(),
+    },
+    time: {
+      hour: z.getHours(),
+      minutes: z.getMinutes(),
+    },
+  }
+}
+
 export function toApiDateTimeRangeForReporting(
   from: Date,
   to: Date,
