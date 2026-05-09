@@ -322,6 +322,8 @@ export function DashboardPage() {
 
   const handleOpenDashboardSettings = useCallback(() => setSettingsOpen(true), [])
 
+  const handleCloseDashboardSettings = useCallback(() => setSettingsOpen(false), [])
+
   const dashboardAutoRefreshSubtitle = useMemo(() => {
     if (autoRefreshIntervalSec <= 0) return 'Auto refresh off.'
     return `Auto refresh every ${autoRefreshIntervalSec}s · Next refresh in ${secondsUntilAutoRefresh}s`
@@ -345,13 +347,6 @@ export function DashboardPage() {
           <Button htmlType="button" type="default" onClick={bumpRefresh} iconName="refresh-cw" iconSize="sm">
             Refresh
           </Button>
-          <Select
-            alphabetical={false}
-            value={autoRefreshSelectValue}
-            options={AUTO_REFRESH_INTERVAL_OPTIONS}
-            onChange={handleAutoRefreshIntervalChange}
-            aria-label="Dashboard auto-refresh interval"
-          />
           <DateRangePicker
             value={dateRangePickerValue}
             timezone={tz}
@@ -365,11 +360,23 @@ export function DashboardPage() {
       <Modal
         title="Dashboard settings"
         open={settingsOpen}
-        onCancel={() => setSettingsOpen(false)}
+        onCancel={handleCloseDashboardSettings}
         footer={null}
         destroyOnClose
       >
         <div className="flex flex-col gap-6 py-2">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Auto-refresh interval
+            </span>
+            <Select
+              alphabetical={false}
+              value={autoRefreshSelectValue}
+              options={AUTO_REFRESH_INTERVAL_OPTIONS}
+              onChange={handleAutoRefreshIntervalChange}
+              aria-label="Dashboard auto-refresh interval"
+            />
+          </div>
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Rows per breakdown table
@@ -415,7 +422,6 @@ export function DashboardPage() {
             timezone={tz}
             dataVersion={dataVersion}
             pageSize={dashboardTablePageSize}
-            onPageSizeChange={setDashboardTablePageSize}
           />
         ))}
       </div>

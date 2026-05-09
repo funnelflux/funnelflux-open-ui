@@ -1,10 +1,12 @@
 export { DataTable } from './DataTable'
+export { DataTablePagination, buildDataTablePageTokens } from './DataTablePagination'
 
 export function entityRowId<T extends { id: string }>(row: T): string {
   return row.id
 }
 export type {
   DataTableProps,
+  DataTablePaginationPosition,
   ColumnDef,
   SortingState,
   VisibilityState,

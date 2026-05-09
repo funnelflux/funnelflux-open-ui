@@ -12,6 +12,8 @@ import type { ReactNode } from 'react'
 
 export type { ColumnDef, SortingState, VisibilityState, RowSelectionState, PaginationState, ExpandedState, Row, Table }
 
+export type DataTablePaginationPosition = 'top' | 'bottom' | 'none'
+
 export interface DataTableProps<TData> {
   data: TData[]
   columns: ColumnDef<TData, unknown>[]
@@ -109,10 +111,6 @@ export interface DataTableProps<TData> {
   /** Skeleton row placeholders during initial load when `data` is empty. Default 10. */
   loadingSkeletonRows?: number
 
-  /**
-   * When `manualPagination` is on, render the page-size + page controls in the table footer.
-   * Set false to mount your own controls (same `pagination` / `onPaginationChange` state).
-   * @default true
-   */
-  showPaginationFooter?: boolean
+  /** Pagination controls position when pagination is enabled. Use `'none'` to hide built-in controls. @default 'bottom' */
+  paginationPosition?: DataTablePaginationPosition
 }

@@ -13,6 +13,7 @@ import { useRef, useCallback, useEffect, useMemo, useState, memo } from 'react'
 import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import type { ColumnAlign } from './columnDefs'
+import { DataTablePagination, buildDataTablePageTokens } from './DataTablePagination'
 import type { DataTableProps, SortingState, VisibilityState, RowSelectionState, PaginationState, ExpandedState, Row } from './types'
 import { DEFAULT_TABLE_SORTING, useTableConfigStore, selectTableConfig } from '@/store/tableConfig'
 import './data-table.css'
@@ -68,7 +69,7 @@ function DataTableInner<TData>({
   onColumnSizingChange,
   loadingMinBodyHeight = 240,
   loadingSkeletonRows = 10,
-  showPaginationFooter = true,
+  paginationPosition = 'bottom',
 }: DataTableProps<TData>) {
   const fallbackDefault = defaultSorting ?? DEFAULT_TABLE_SORTING
   const [internalSorting, setInternalSorting] = useState<SortingState>(fallbackDefault)
@@ -390,29 +391,11 @@ function DataTableInner<TData>({
   }
 
   const totalRowCount = manualPagination ? (pageCount ?? 0) * pagination.pageSize : data.length
-  const effectiveTotalForPagination =
-    manualPagination && manualPaginationTotalRows != null
-      ? manualPaginationTotalRows
-      : manualPagination
-        ? totalRowCount
-        : data.length
-  const showPagination = usePagination && effectiveTotalForPagination > pagination.pageSize
-  const showPaginationControls = showPagination && showPaginationFooter
-
   const totalPages = table.getPageCount()
   const currentPage = pagination.pageIndex
 
   const pageNumbers = useMemo(() => {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i)
-    const pages: (number | 'ellipsis')[] = []
-    pages.push(0)
-    const start = Math.max(1, currentPage - 1)
-    const end = Math.min(totalPages - 2, currentPage + 1)
-    if (start > 1) pages.push('ellipsis')
-    for (let i = start; i <= end; i++) pages.push(i)
-    if (end < totalPages - 2) pages.push('ellipsis')
-    pages.push(totalPages - 1)
-    return pages
+    return buildDataTablePageTokens(totalPages, currentPage)
   }, [totalPages, currentPage])
 
   const wrapperStyle =
@@ -426,11 +409,56 @@ function DataTableInner<TData>({
       ? { ...wrapperStyle, ['--dt-loading-min-body-height' as string]: `${loadingMinBodyHeight}px` }
       : wrapperStyle
 
+  const paginationRangeLabel = manualPagination
+    ? manualPaginationTotalRows != null
+      ? `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min((pagination.pageIndex + 1) * pagination.pageSize, manualPaginationTotalRows)} of ${manualPaginationTotalRows.toLocaleString()}`
+      : `${totalRowCount.toLocaleString()} rows`
+    : `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min((pagination.pageIndex + 1) * pagination.pageSize, data.length)} of ${data.length.toLocaleString()}`
+
+  const handlePageSizeChange = useCallback(
+    (nextPageSize: number) => {
+      handlePaginationChange({ pageIndex: 0, pageSize: nextPageSize })
+    },
+    [handlePaginationChange],
+  )
+
+  const handlePreviousPage = useCallback(() => {
+    table.previousPage()
+  }, [table])
+
+  const handleNextPage = useCallback(() => {
+    table.nextPage()
+  }, [table])
+
+  const handlePageSelect = useCallback(
+    (pageIndex: number) => {
+      table.setPageIndex(pageIndex)
+    },
+    [table],
+  )
+
+  const paginationControls = usePagination ? (
+    <DataTablePagination
+      rangeLabel={paginationRangeLabel}
+      pageSize={pagination.pageSize}
+      pageSizeOptions={pageSizeOptions}
+      pageTokens={pageNumbers}
+      currentPage={currentPage}
+      canPreviousPage={table.getCanPreviousPage()}
+      canNextPage={table.getCanNextPage()}
+      onPageSizeChange={handlePageSizeChange}
+      onPreviousPage={handlePreviousPage}
+      onNextPage={handleNextPage}
+      onPageSelect={handlePageSelect}
+    />
+  ) : null
+
   return (
     <div
       className={cn('dt-wrapper', loadingEmpty && 'dt-wrapper--loading-empty', className)}
       style={wrapperStyleWithLoadingMin}
     >
+      {paginationPosition === 'top' ? paginationControls : null}
       <div className="dt-scroll-container" ref={scrollRef}>
         {loading && (
           <div className="dt-loading">
@@ -519,64 +547,7 @@ function DataTableInner<TData>({
         </div>
       </div>
 
-      {showPaginationControls && (
-        <div className="dt-footer">
-          <div className="dt-footer-info">
-            <span>
-              {manualPagination
-                ? manualPaginationTotalRows != null
-                  ? `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min((pagination.pageIndex + 1) * pagination.pageSize, manualPaginationTotalRows)} of ${manualPaginationTotalRows.toLocaleString()}`
-                  : `${totalRowCount.toLocaleString()} rows`
-                : `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min((pagination.pageIndex + 1) * pagination.pageSize, data.length)} of ${data.length.toLocaleString()}`}
-            </span>
-            <select
-              className="dt-page-size-select"
-              value={pagination.pageSize}
-              onChange={(e) => {
-                const next = Number(e.target.value)
-                handlePaginationChange({ pageIndex: 0, pageSize: next })
-              }}
-            >
-              {pageSizeOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s} / page
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="dt-footer-nav">
-            <button
-              className="dt-page-btn"
-              disabled={!table.getCanPreviousPage()}
-              onClick={() => table.previousPage()}
-              aria-label="Previous page"
-            >
-              <Icon name="chevron-left" size="sm" />
-            </button>
-            {pageNumbers.map((p, i) =>
-              p === 'ellipsis' ? (
-                <span key={`e${i}`} className="dt-page-btn" style={{ border: 'none', cursor: 'default', opacity: 0.5 }}>…</span>
-              ) : (
-                <button
-                  key={p}
-                  className={`dt-page-btn${p === currentPage ? ' dt-page-btn--active' : ''}`}
-                  onClick={() => table.setPageIndex(p)}
-                >
-                  {p + 1}
-                </button>
-              ),
-            )}
-            <button
-              className="dt-page-btn"
-              disabled={!table.getCanNextPage()}
-              onClick={() => table.nextPage()}
-              aria-label="Next page"
-            >
-              <Icon name="chevron-right" size="sm" />
-            </button>
-          </div>
-        </div>
-      )}
+      {paginationPosition === 'bottom' ? paginationControls : null}
     </div>
   )
 }

@@ -110,6 +110,30 @@ describe('DataTable contracts', () => {
     expect(screen.getByText('r4')).toBeInTheDocument()
   })
 
+  it('manual pagination: footer stays visible when all rows fit on one page (page size remains reachable)', () => {
+    const all: Row[] = [{ id: '1', name: 'only', value: 1 }]
+    function SinglePageManualFixture() {
+      const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 })
+      return (
+        <DataTable
+          data={all}
+          columns={baseColumns}
+          virtualizeThreshold={1000}
+          manualPagination
+          pageCount={1}
+          manualPaginationTotalRows={1}
+          pagination={pagination}
+          onPaginationChange={setPagination}
+        />
+      )
+    }
+    render(<SinglePageManualFixture />)
+    expect(document.querySelector('.dt-footer')).toBeTruthy()
+    expect(document.querySelector('.dt-page-size-select')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+  })
+
   it('tree mode: expanding a parent reveals child rows (paginateExpandedRows with pagination)', async () => {
     const user = userEvent.setup()
     const treeData: TreeRow[] = [

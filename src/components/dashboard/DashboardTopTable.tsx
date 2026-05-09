@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
 import { api } from '@/api/client'
-import { DataTable, Icon } from '@/components/ui-kit'
-import { buildColumnsFromReport } from '@/components/ui-kit/data-table'
+import { DataTable } from '@/components/ui-kit'
+import { buildColumnsFromReport, buildDataTablePageTokens, DataTablePagination } from '@/components/ui-kit/data-table'
 import { drilldownSortParamFromReport } from '@/lib/drilldownTableSort'
 import { reportRowToCells } from '@/lib/reportRowCells'
 import { friendlyDashboardGroupingColumnHeader } from '@/lib/dashboardLabels'
@@ -83,7 +83,6 @@ export interface DashboardTopTableProps {
   dataVersion: number
   /** Page size from dashboard settings (persisted). */
   pageSize: number
-  onPageSizeChange?: (pageSize: number) => void
   /** When false, no drilldown request is sent (e.g. until the section scrolls into view). */
   fetchEnabled?: boolean
 }
@@ -113,7 +112,6 @@ export function DashboardTopTable({
   timezone,
   dataVersion,
   pageSize,
-  onPageSizeChange,
   fetchEnabled = true,
 }: DashboardTopTableProps) {
   const setTableSorting = useTableConfigStore((s) => s.setSorting)
@@ -193,6 +191,10 @@ export function DashboardTopTable({
 
   const rowsTotal = report?.rowsTotal ?? 0
   const pageCount = Math.max(1, Math.ceil(rowsTotal / pagination.pageSize))
+  const hasMultiplePages = rowsTotal > pagination.pageSize
+  const showPagination = fetchEnabled && (rowsTotal > 0 || !loading)
+  const totalPages = pageCount
+  const currentPage = pagination.pageIndex
 
   const handleSortingChange = useCallback(
     (next: SortingState) => {
@@ -202,102 +204,55 @@ export function DashboardTopTable({
     [setTableSorting, tableConfigKey],
   )
 
-  const showPagination = rowsTotal > pagination.pageSize
-
-  const handlePaginationSizeSelect = useCallback(
-    (event: React.ChangeEvent<HTMLSelectElement>) => {
-      const next = Number(event.target.value)
-      onPageSizeChange?.(next)
-      setPagination({ pageIndex: 0, pageSize: next })
-    },
-    [onPageSizeChange],
-  )
-
-  const handlePageIndex = useCallback((nextIndex: number) => {
-    setPagination((p) => ({ ...p, pageIndex: nextIndex }))
+  const handlePaginationSizeSelect = useCallback((nextPageSize: number) => {
+    setPagination({ pageIndex: 0, pageSize: nextPageSize })
   }, [])
 
-  const totalPages = pageCount
-  const currentPage = pagination.pageIndex
+  const handlePrevPage = useCallback(() => {
+    setPagination((previous) => ({ ...previous, pageIndex: Math.max(0, previous.pageIndex - 1) }))
+  }, [])
+
+  const handleNextPage = useCallback(() => {
+    setPagination((previous) => ({
+      ...previous,
+      pageIndex: Math.min(totalPages - 1, previous.pageIndex + 1),
+    }))
+  }, [totalPages])
+
+  const handlePageIndexSelect = useCallback((nextIndex: number) => {
+    setPagination((previous) => ({ ...previous, pageIndex: nextIndex }))
+  }, [])
 
   const pageNumbers = useMemo(() => {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i)
-    const pages: (number | 'ellipsis')[] = []
-    pages.push(0)
-    const start = Math.max(1, currentPage - 1)
-    const end = Math.min(totalPages - 2, currentPage + 1)
-    if (start > 1) pages.push('ellipsis')
-    for (let i = start; i <= end; i++) pages.push(i)
-    if (end < totalPages - 2) pages.push('ellipsis')
-    pages.push(totalPages - 1)
-    return pages
+    return buildDataTablePageTokens(totalPages, currentPage)
   }, [totalPages, currentPage])
+
+  const paginationRangeLabel = `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
+    (pagination.pageIndex + 1) * pagination.pageSize,
+    rowsTotal,
+  )} of ${rowsTotal.toLocaleString()}`
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-2">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-medium text-foreground">{title}</h3>
         {showPagination ? (
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            <span>
-              {`${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
-                (pagination.pageIndex + 1) * pagination.pageSize,
-                rowsTotal,
-              )} of ${rowsTotal.toLocaleString()}`}
-            </span>
-            <select
-              className="dt-page-size-select"
-              value={pagination.pageSize}
-              onChange={handlePaginationSizeSelect}
-              aria-label={`${title} rows per page`}
-            >
-              {PAGE_SIZE_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s} / page
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-0.5">
-              <button
-                type="button"
-                className="dt-page-btn"
-                disabled={currentPage <= 0}
-                onClick={() => handlePageIndex(currentPage - 1)}
-                aria-label="Previous page"
-              >
-                <Icon name="chevron-left" size="sm" />
-              </button>
-              {pageNumbers.map((pageOrEllipsis, ellipsisIndex) =>
-                pageOrEllipsis === 'ellipsis' ? (
-                  <span
-                    key={`ellipsis-${ellipsisIndex}`}
-                    className="dt-page-btn"
-                    style={{ border: 'none', cursor: 'default', opacity: 0.5 }}
-                  >
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={pageOrEllipsis}
-                    type="button"
-                    className={`dt-page-btn${pageOrEllipsis === currentPage ? ' dt-page-btn--active' : ''}`}
-                    onClick={() => handlePageIndex(pageOrEllipsis)}
-                  >
-                    {pageOrEllipsis + 1}
-                  </button>
-                ),
-              )}
-              <button
-                type="button"
-                className="dt-page-btn"
-                disabled={currentPage >= totalPages - 1}
-                onClick={() => handlePageIndex(currentPage + 1)}
-                aria-label="Next page"
-              >
-                <Icon name="chevron-right" size="sm" />
-              </button>
-            </div>
-          </div>
+          <DataTablePagination
+            className="border-0 bg-transparent p-0 text-xs"
+            rangeLabel={paginationRangeLabel}
+            pageSize={pagination.pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            pageTokens={pageNumbers}
+            currentPage={currentPage}
+            canPreviousPage={currentPage > 0}
+            canNextPage={currentPage < totalPages - 1}
+            onPageSizeChange={handlePaginationSizeSelect}
+            onPreviousPage={handlePrevPage}
+            onNextPage={handleNextPage}
+            onPageSelect={handlePageIndexSelect}
+            showNavigation={hasMultiplePages}
+            pageSizeAriaLabel={`${title} rows per page`}
+          />
         ) : null}
       </div>
       <DataTable<DashboardTopTableFlatRow>
@@ -320,7 +275,7 @@ export function DashboardTopTable({
         tableConfigKey={tableConfigKey}
         defaultSorting={DEFAULT_TABLE_SORTING}
         emptyMessage="No data for the selected period."
-        showPaginationFooter={false}
+        paginationPosition="none"
       />
     </div>
   )
