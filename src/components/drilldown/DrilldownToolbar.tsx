@@ -443,7 +443,7 @@ export function DrilldownToolbarHeaderFilters() {
     useDrilldownToolbarContext()
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2">
       <DateTimeRangePicker
         showTime
         value={dateTimeRangeValue}

@@ -71,7 +71,7 @@ export function PageShell({
           )}
         </div>
         {actions && (
-          <div className="flex flex-wrap items-center justify-end gap-2 min-w-0">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
             {actions}
           </div>
         )}

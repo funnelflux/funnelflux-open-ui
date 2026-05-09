@@ -9,6 +9,7 @@ import { useLazySectionVisible } from '@/hooks/useLazySectionVisible'
 import { PageShell, TimezoneSelect, Button, Modal, Select, type SelectOption } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { toApiDateTimeRange } from '@/lib/statsDateRange'
+import type { DateRange } from '@/lib/date-presets'
 import type { Report } from '@/types/stats'
 import { cellRaw } from '@/components/ui-kit/data-table'
 import { getErrorMessage } from '@/lib/utils'
@@ -143,6 +144,16 @@ const TABLE_PAGE_OPTIONS: SelectOption[] = [
   { value: '100', label: '100 rows' },
 ]
 
+/** Dashboard-only: 0 = off. Summary, chart, and top tables share `dataVersion`. */
+const AUTO_REFRESH_INTERVAL_OPTIONS: SelectOption[] = [
+  { value: '0', label: 'Auto refresh off' },
+  { value: '30', label: 'Every 30 seconds' },
+  { value: '60', label: 'Every 60 seconds' },
+  { value: '120', label: 'Every 120 seconds' },
+]
+
+const DEFAULT_DASHBOARD_AUTO_REFRESH_SEC = 120
+
 export function DashboardPage() {
   const {
     chartMetric,
@@ -158,6 +169,8 @@ export function DashboardPage() {
   }))
   const [pulseStats, setPulseStats] = useState(false)
   const [dataVersion, setDataVersion] = useState(0)
+  const [autoRefreshIntervalSec, setAutoRefreshIntervalSec] = useState(DEFAULT_DASHBOARD_AUTO_REFRESH_SEC)
+  const [secondsUntilAutoRefresh, setSecondsUntilAutoRefresh] = useState(DEFAULT_DASHBOARD_AUTO_REFRESH_SEC)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const [stats, setStats] = useState<DashboardSummaryStats | undefined>(undefined)
@@ -234,9 +247,66 @@ export function DashboardPage() {
     }
   }, [reloadKey, dataVersion, triggerPulse])
 
-  const bumpRefresh = useCallback(() => {
+  const advanceDashboardDataVersion = useCallback(() => {
     setDataVersion((version) => version + 1)
   }, [])
+
+  const advanceDashboardDataVersionRef = useRef(advanceDashboardDataVersion)
+  advanceDashboardDataVersionRef.current = advanceDashboardDataVersion
+
+  const autoRefreshIntervalSecRef = useRef(autoRefreshIntervalSec)
+  autoRefreshIntervalSecRef.current = autoRefreshIntervalSec
+
+  useEffect(() => {
+    const interval = autoRefreshIntervalSecRef.current
+    if (interval > 0) {
+      setSecondsUntilAutoRefresh(interval)
+    }
+  }, [reloadKey])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      const periodSec = autoRefreshIntervalSecRef.current
+      if (periodSec <= 0) return
+      setSecondsUntilAutoRefresh((secondsLeft) => {
+        if (secondsLeft <= 1) {
+          advanceDashboardDataVersionRef.current()
+          return periodSec
+        }
+        return secondsLeft - 1
+      })
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const handleAutoRefreshIntervalChange = useCallback((next: unknown) => {
+    const parsed = typeof next === 'string' ? Number(next) : Number(next ?? 0)
+    if (!Number.isFinite(parsed) || parsed < 0) return
+    const rounded = Math.trunc(parsed)
+    setAutoRefreshIntervalSec(rounded)
+    setSecondsUntilAutoRefresh(rounded > 0 ? rounded : 0)
+  }, [])
+
+  const bumpRefresh = useCallback(() => {
+    if (autoRefreshIntervalSec > 0) {
+      setSecondsUntilAutoRefresh(autoRefreshIntervalSec)
+    }
+    advanceDashboardDataVersion()
+  }, [advanceDashboardDataVersion, autoRefreshIntervalSec])
+
+  const autoRefreshSelectValue = String(autoRefreshIntervalSec)
+
+  const handleDashboardDateRangeChange = useCallback((range: DateRange & { preset: string | null }) => {
+    if (range.from && range.to) {
+      setDateRange({ from: range.from, to: range.to })
+    }
+  }, [])
+
+  const dateRangePickerValue = useMemo<DateRange & { preset: string | null }>(
+    () => ({ from: dateRange.from, to: dateRange.to, preset: 'last30' }),
+    [dateRange.from, dateRange.to],
+  )
 
   const handleSettingsPageSize = useCallback(
     (next: unknown) => {
@@ -252,11 +322,17 @@ export function DashboardPage() {
 
   const handleOpenDashboardSettings = useCallback(() => setSettingsOpen(true), [])
 
+  const dashboardAutoRefreshSubtitle = useMemo(() => {
+    if (autoRefreshIntervalSec <= 0) return 'Auto refresh off.'
+    return `Auto refresh every ${autoRefreshIntervalSec}s · Next refresh in ${secondsUntilAutoRefresh}s`
+  }, [autoRefreshIntervalSec, secondsUntilAutoRefresh])
+
   return (
     <PageShell
       title="Dashboard"
+      subtitle={dashboardAutoRefreshSubtitle}
       actions={
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2">
           <Button
             htmlType="button"
             type="default"
@@ -269,15 +345,18 @@ export function DashboardPage() {
           <Button htmlType="button" type="default" onClick={bumpRefresh} iconName="refresh-cw" iconSize="sm">
             Refresh
           </Button>
+          <Select
+            alphabetical={false}
+            value={autoRefreshSelectValue}
+            options={AUTO_REFRESH_INTERVAL_OPTIONS}
+            onChange={handleAutoRefreshIntervalChange}
+            aria-label="Dashboard auto-refresh interval"
+          />
           <DateRangePicker
-            value={{ from: dateRange.from, to: dateRange.to, preset: 'last30' }}
+            value={dateRangePickerValue}
             timezone={tz}
             density="compact"
-            onChange={(value) => {
-              if (value.from && value.to) {
-                setDateRange({ from: value.from, to: value.to })
-              }
-            }}
+            onChange={handleDashboardDateRangeChange}
           />
           <TimezoneSelect value={tz} onChange={setTz} />
         </div>

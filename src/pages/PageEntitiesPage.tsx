@@ -496,7 +496,7 @@ export function PageEntitiesPage({
       title={title}
       bodyState={pageBodyState}
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2">
           <Button iconName="upload" onClick={() => setImportOpen(true)}>
             Import CSV
           </Button>
