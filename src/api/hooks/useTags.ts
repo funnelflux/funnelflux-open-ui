@@ -11,10 +11,32 @@ export function parseTagNamesInput(input: string): string[] {
     .filter((name) => name.length > 0)
 }
 
+/** Normalizes tag list wire shapes: array of IdNamePair or `{ rows: [...] }`. */
+export function normalizeTagListResponse(raw: unknown): Tag[] {
+  const rows: unknown[] = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { rows?: unknown }).rows)
+      ? ((raw as { rows: unknown[] }).rows)
+      : []
+
+  return rows.map((row): Tag => {
+    if (!row || typeof row !== 'object') {
+      return { id: '', name: '' }
+    }
+    const r = row as Record<string, unknown>
+    const id = String(r.id ?? r.idTag ?? '')
+    const name = String(r.name ?? '')
+    return { id, name }
+  }).filter((t) => t.id.length > 0)
+}
+
 export function useTags(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.tags.list(),
-    queryFn: () => api.get<Tag[]>('/data/tag/list/'),
+    queryFn: async () => {
+      const raw = await api.get<unknown>('/data/tag/list/')
+      return normalizeTagListResponse(raw)
+    },
     enabled: options?.enabled ?? true,
   })
 }

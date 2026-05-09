@@ -224,7 +224,15 @@ export function Navbar() {
 
   return (
     <nav className="ff-navbar bg-nav-bg h-14 px-4 flex items-center gap-2 sticky top-0 z-50 min-w-0">
-      <Link to="/" className="ff-navbar-brand font-bold text-lg shrink-0">
+      <Link to="/" className="ff-navbar-brand flex shrink-0 items-center gap-2 font-bold text-lg no-underline text-inherit">
+        <img
+          src={`${import.meta.env.BASE_URL}favicon.svg`}
+          alt=""
+          width={28}
+          height={28}
+          className="h-7 w-7 shrink-0 rounded-sm"
+          decoding="async"
+        />
         FunnelFlux
       </Link>
 

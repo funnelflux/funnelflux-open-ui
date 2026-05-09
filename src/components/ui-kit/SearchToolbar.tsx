@@ -66,7 +66,7 @@ export function SearchToolbar({
       />
       {filters && <div className="flex items-center gap-2">{filters}</div>}
       {endBar ? (
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto mr-[12px] flex shrink-0 items-center gap-2">
           {onRefresh ? (
             <Tooltip title="Refresh">
               <Button

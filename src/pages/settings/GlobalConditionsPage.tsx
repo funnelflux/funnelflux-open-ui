@@ -10,7 +10,6 @@ import {
 import { Button, PageShell, DataTable, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
-import { Tag } from '@/components/ui-kit'
 import { getErrorMessage } from '@/lib/utils'
 import type { FunnelCondition } from '@/types/entities'
 
@@ -98,69 +97,25 @@ export function GlobalConditionsPage() {
         id: 'name',
         header: 'Name',
         accessorKey: 'conditionName',
+        size: 320,
+        minSize: 200,
+        maxSize: 560,
+        meta: { flex: 1 },
         cell: ({ row }) => (
           <span className="font-medium">{row.original.conditionName}</span>
         ),
-      },
-      editBtnColumn<ConditionListItem>(handleEditCondition),
-      deleteBtnColumn<ConditionListItem>(handleDeleteClick),
-      {
-        id: 'scope',
-        header: 'Scope',
-        accessorFn: (row) => {
-          const r = row.restrictToFunnelId
-          if (r === undefined) return ''
-          return r !== '' && r !== '0' ? 'funnel' : 'global'
-        },
-        cell: ({ row }) => {
-          const r = row.original.restrictToFunnelId
-          if (r === undefined) {
-            return <span className="text-muted-foreground text-sm">—</span>
-          }
-          return r !== '' && r !== '0' ? (
-            <Tag className="text-xs capitalize">funnel</Tag>
-          ) : (
-            <Tag className="text-xs capitalize">global</Tag>
-          )
-        },
-      },
-      {
-        id: 'rules',
-        header: 'Rules',
-        accessorFn: (row) =>
-          (row.orTests ?? []).reduce((sum, block) => sum + (block.andTests?.length ?? 0), 0),
-        cell: ({ getValue }) => {
-          const n = getValue() as number
-          return (
-            <span className="text-muted-foreground text-sm">
-              {n} rule{n !== 1 ? 's' : ''}
-            </span>
-          )
-        },
-      },
-      {
-        id: 'blocks',
-        header: 'Blocks',
-        accessorFn: (row) => row.orTests?.length ?? 0,
-        cell: ({ row, getValue }) => {
-          const n = getValue() as number
-          const op = (row.original.orTests?.length ?? 0) > 1 ? 'OR' : 'AND'
-          return (
-            <span className="text-muted-foreground text-sm">
-              {n}
-              {n > 0 ? ` (${op})` : ''}
-            </span>
-          )
-        },
       },
       {
         id: 'id',
         header: 'ID',
         accessorKey: 'idCondition',
+        enableSorting: false,
         cell: ({ row }) => (
           <span className="font-mono text-xs text-muted-foreground">{row.original.idCondition}</span>
         ),
       },
+      editBtnColumn<ConditionListItem>(handleEditCondition),
+      deleteBtnColumn<ConditionListItem>(handleDeleteClick),
     ],
     [handleDeleteClick, handleEditCondition],
   )

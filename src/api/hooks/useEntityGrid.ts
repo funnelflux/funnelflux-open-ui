@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ENTITY_GRID_LIST_KEY } from '@/lib/entityGridQueryCache'
+import { ENTITY_GRID_LIST_KEY, ENTITY_GRID_STATS_KEY } from '@/lib/entityGridQueryCache'
 import { toApiDateTimeRange } from '@/lib/statsDateRange'
 import type { DrilldownRequest, ReportCell } from '@/types/stats'
 import { buildMergedRows, buildTotalsRow } from '@/lib/entityGridUtils'
@@ -46,7 +46,7 @@ export function useEntityGrid(options: UseEntityGridOptions) {
   const statsQuery = useQuery({
     queryKey: [
       ...queryKeyPrefix,
-      'entityGridStats',
+      ENTITY_GRID_STATS_KEY,
       groupBy,
       dateFrom.toISOString(),
       dateTo.toISOString(),
@@ -101,9 +101,35 @@ export function useEntityGrid(options: UseEntityGridOptions) {
     [entities, statsById, reportColumns],
   )
 
+  const prefixLen = queryKeyPrefix.length
+
+  const refetchLists = useCallback(
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeyPrefix,
+        predicate: (q) => {
+          const k = q.queryKey as unknown[]
+          return Array.isArray(k) && k[prefixLen] === ENTITY_GRID_LIST_KEY
+        },
+      }),
+    [queryClient, queryKeyPrefix, prefixLen],
+  )
+
+  const refetchStats = useCallback(
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeyPrefix,
+        predicate: (q) => {
+          const k = q.queryKey as unknown[]
+          return Array.isArray(k) && k[prefixLen] === ENTITY_GRID_STATS_KEY
+        },
+      }),
+    [queryClient, queryKeyPrefix, prefixLen],
+  )
+
   const refetch = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: queryKeyPrefix })
-  }, [queryClient, queryKeyPrefix])
+    void Promise.all([refetchLists(), refetchStats()])
+  }, [refetchLists, refetchStats])
 
   return {
     entities,
@@ -114,5 +140,7 @@ export function useEntityGrid(options: UseEntityGridOptions) {
     isFetching: listQuery.isFetching || statsQuery.isFetching,
     error: listQuery.error || statsQuery.error,
     refetch,
+    refetchLists,
+    refetchStats,
   }
 }

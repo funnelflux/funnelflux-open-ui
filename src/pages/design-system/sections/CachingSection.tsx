@@ -45,9 +45,12 @@ export function CachingSection() {
               </thead>
               <tbody className="text-muted-foreground">
                 <tr className="border-b border-border">
-                  <td className="py-2 pr-4 text-foreground">Entity lists</td>
-                  <td className="py-2 pr-4 font-mono">30s</td>
-                  <td className="py-2">Users navigate between pages frequently. Keep stale briefly.</td>
+                  <td className="py-2 pr-4 text-foreground">Default (entity lists, most pages)</td>
+                  <td className="py-2 pr-4 font-mono">Infinity</td>
+                  <td className="py-2">
+                    Global <code className="text-xs">QueryClient</code>: no background refetch on focus
+                    or reconnect. Use Refresh / mutations / <code className="text-xs">invalidateQueries</code>.
+                  </td>
                 </tr>
                 <tr className="border-b border-border">
                   <td className="py-2 pr-4 text-foreground">Report data</td>
@@ -104,7 +107,7 @@ queryClient.invalidateQueries({ queryKey: ['report'] })`}</pre>
   const { data, isLoading } = useQuery({
     queryKey: ['offers'],
     queryFn: api.offers.list,
-    staleTime: 30_000,
+    // Inherits global staleTime (Infinity) unless overridden
   })
 
   return (

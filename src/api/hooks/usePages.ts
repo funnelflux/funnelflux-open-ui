@@ -1,7 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import { invalidatePageData, emptyBulkResult, type BulkResult } from '@/api/invalidations'
+import {
+  invalidatePageAuxiliaryAfterGridPatch,
+  invalidatePageData,
+  invalidatePageDataAfterCategoryChange,
+  emptyBulkResult,
+  type BulkResult,
+} from '@/api/invalidations'
 import { errorToApiError } from '@/api/errors'
 import type { Page, PageType } from '@/types/entities'
 import {
@@ -75,7 +81,7 @@ export function useSavePage() {
         upsertPageInEntityGridCaches(qc, mergedPage)
         void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(mergedPage.idPage) })
       }
-      await invalidatePageData(qc)
+      await invalidatePageAuxiliaryAfterGridPatch(qc)
     },
   })
 }
@@ -87,7 +93,7 @@ export function useDeletePage() {
     onSuccess: async (_, idPage) => {
       removePageFromEntityGridCaches(qc, idPage)
       qc.removeQueries({ queryKey: queryKeys.pages.detail(idPage) })
-      await invalidatePageData(qc)
+      await invalidatePageAuxiliaryAfterGridPatch(qc)
     },
   })
 }
@@ -113,7 +119,7 @@ export function useBulkDeletePages() {
         qc.removeQueries({ queryKey: queryKeys.pages.detail(id) })
       }
       if (result.succeeded.length > 0) {
-        await invalidatePageData(qc)
+        await invalidatePageAuxiliaryAfterGridPatch(qc)
       }
     },
   })
@@ -131,7 +137,7 @@ export function useClonePage() {
         categoryId: variables.categoryId,
       })
       void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(data.idPage) })
-      await invalidatePageData(qc)
+      await invalidatePageAuxiliaryAfterGridPatch(qc)
     },
   })
 }
@@ -148,7 +154,7 @@ export function useArchivePage() {
       for (const id of ids) {
         void qc.invalidateQueries({ queryKey: queryKeys.pages.detail(id) })
       }
-      await invalidatePageData(qc)
+      await invalidatePageAuxiliaryAfterGridPatch(qc)
     },
   })
 }
@@ -200,7 +206,7 @@ export function useAssignPagesToCategory() {
       idCategory: string
     }) => api.put('/data/page/category/assign/', { pageIds, idCategory }),
     onSuccess: async () => {
-      await invalidatePageData(qc)
+      await invalidatePageDataAfterCategoryChange(qc)
     },
   })
 }

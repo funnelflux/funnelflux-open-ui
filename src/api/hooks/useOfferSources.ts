@@ -3,7 +3,7 @@ import { api } from '@/api/client'
 import type { OfferSourceTemplateLoadResponse } from '@/api/offerSourceTemplateLoad'
 import { normalizeTemplateList } from '@/api/normalizeTemplateList'
 import { queryKeys } from '@/api/queryKeys'
-import { invalidateOfferSourceData } from '@/api/invalidations'
+import { invalidateOfferSourceAuxiliaryAfterGridPatch } from '@/api/invalidations'
 import {
   applyOfferSourceArchiveToEntityGridCaches,
   removeOfferSourceFromEntityGridCaches,
@@ -57,7 +57,7 @@ export function useSaveOfferSource() {
           queryKey: queryKeys.offerSources.detail(mergedOfferSource.idOfferSource),
         })
       }
-      void invalidateOfferSourceData(queryClient)
+      void invalidateOfferSourceAuxiliaryAfterGridPatch(queryClient)
     },
   })
 }
@@ -69,7 +69,7 @@ export function useDeleteOfferSource() {
     onSuccess: async (_, id) => {
       removeOfferSourceFromEntityGridCaches(queryClient, id)
       queryClient.removeQueries({ queryKey: queryKeys.offerSources.detail(id) })
-      await invalidateOfferSourceData(queryClient)
+      await invalidateOfferSourceAuxiliaryAfterGridPatch(queryClient)
     },
   })
 }
@@ -84,7 +84,7 @@ export function useArchiveOfferSource() {
       for (const id of ids) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(id) })
       }
-      await invalidateOfferSourceData(queryClient)
+      await invalidateOfferSourceAuxiliaryAfterGridPatch(queryClient)
     },
   })
 }
@@ -99,7 +99,7 @@ export function useCloneOfferSource() {
     onSuccess: async (data) => {
       upsertClonedOfferSourceInEntityGridCaches(queryClient, data)
       void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(data.idOfferSource) })
-      await invalidateOfferSourceData(queryClient)
+      await invalidateOfferSourceAuxiliaryAfterGridPatch(queryClient)
     },
   })
 }

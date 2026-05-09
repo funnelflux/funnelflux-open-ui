@@ -11,6 +11,7 @@ import {
 import { TrafficFilterModal } from '@/components/forms/TrafficFilterModal'
 import { FILTER_TYPE_LABELS } from '@/lib/trafficFilterConstants'
 import type { TrafficFilterFormData } from '@/schemas/trafficFilter'
+import { getErrorMessage } from '@/lib/utils'
 import type { TrafficFilter } from '@/types/entities'
 
 function trafficFilterRowId(row: TrafficFilter): string {
@@ -27,6 +28,7 @@ export function TrafficFiltersPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingFilter, setEditingFilter] = useState<TrafficFilter | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<TrafficFilter | null>(null)
+  const [retroTarget, setRetroTarget] = useState<TrafficFilter | null>(null)
 
   function openCreate() {
     setEditingFilter(undefined)
@@ -40,15 +42,21 @@ export function TrafficFiltersPage() {
 
   const applyRetroMutate = applyRetro.mutate
   const handleApplyRetroactively = useCallback((filter: TrafficFilter) => {
-    applyRetroMutate(filter.idTrafficFilter, {
+    setRetroTarget(filter)
+  }, [])
+
+  const runApplyRetroactively = useCallback(() => {
+    if (!retroTarget) return
+    applyRetroMutate(retroTarget.idTrafficFilter, {
       onSuccess: () => {
-        toast.success(`Filter "${filter.trafficFilterName}" applied retroactively`)
+        toast.success(`Filter "${retroTarget.trafficFilterName}" applied retroactively`)
+        setRetroTarget(null)
       },
       onError: (err) => {
-        toast.error(`Failed to apply filter: ${(err as Error).message}`)
+        toast.error(getErrorMessage(err))
       },
     })
-  }, [applyRetroMutate, toast])
+  }, [applyRetroMutate, retroTarget, toast])
 
   const saveFilterMutate = saveFilter.mutate
   const handleToggleEnabled = useCallback((filter: TrafficFilter) => {
@@ -61,7 +69,7 @@ export function TrafficFiltersPage() {
           )
         },
         onError: (err) => {
-          toast.error(`Failed to update filter: ${(err as Error).message}`)
+          toast.error(getErrorMessage(err))
         },
       },
     )
@@ -75,7 +83,7 @@ export function TrafficFiltersPage() {
         setDeleteTarget(null)
       },
       onError: (err) => {
-        toast.error(`Failed to delete filter: ${(err as Error).message}`)
+        toast.error(getErrorMessage(err))
         setDeleteTarget(null)
       },
     })
@@ -90,7 +98,7 @@ export function TrafficFiltersPage() {
           setSheetOpen(false)
         },
         onError: (err) => {
-          toast.error(`Failed to save filter: ${(err as Error).message}`)
+          toast.error(getErrorMessage(err))
         },
       },
     )
@@ -183,6 +191,22 @@ export function TrafficFiltersPage() {
         danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
+        loading={deleteFilter.isPending}
+      />
+
+      <ConfirmModal
+        open={!!retroTarget}
+        title="Apply filter retroactively"
+        description={
+          retroTarget
+            ? `Apply "${retroTarget.trafficFilterName}" to historical stats? This is a destructive data operation similar to Reset Stats.`
+            : ''
+        }
+        confirmText="Apply"
+        danger
+        loading={applyRetro.isPending}
+        onConfirm={runApplyRetroactively}
+        onCancel={() => setRetroTarget(null)}
       />
     </PageShell>
   )

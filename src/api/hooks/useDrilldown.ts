@@ -27,6 +27,7 @@ export function useDrilldownReportQuery(request: DrilldownRequest | null, enable
     queryKey: request && enabled ? queryKeys.drilldown.report(request) : DRILLDOWN_QUERY_DISABLED,
     queryFn: ({ signal }) => api.postDrilldown<Report>(request!, undefined, signal),
     enabled: Boolean(request) && enabled,
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
@@ -37,6 +38,7 @@ export function useAllFlatDrilldownReportQuery(request: DrilldownRequest | null,
     queryKey: request && enabled ? queryKeys.drilldown.flatAllReport(request) : DRILLDOWN_QUERY_DISABLED,
     queryFn: ({ signal }) => fetchAllFlatDrilldownRows(request!, { signal }),
     enabled: Boolean(request) && enabled,
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })

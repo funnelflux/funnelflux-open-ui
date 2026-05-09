@@ -4,6 +4,8 @@ import { persist } from 'zustand/middleware'
 interface DashboardState {
   chartMetric: string
   setChartMetric: (m: string) => void
+  dashboardTablePageSize: number
+  setDashboardTablePageSize: (n: number) => void
 }
 
 export const useDashboardStore = create<DashboardState>()(
@@ -11,7 +13,16 @@ export const useDashboardStore = create<DashboardState>()(
     (set) => ({
       chartMetric: 'visits',
       setChartMetric: (chartMetric) => set({ chartMetric }),
+      dashboardTablePageSize: 10,
+      setDashboardTablePageSize: (dashboardTablePageSize) =>
+        set({ dashboardTablePageSize }),
     }),
-    { name: 'ff-dashboard' },
+    {
+      name: 'ff-dashboard-settings',
+      partialize: (state) => ({
+        chartMetric: state.chartMetric,
+        dashboardTablePageSize: state.dashboardTablePageSize,
+      }),
+    },
   ),
 )

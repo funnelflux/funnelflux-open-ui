@@ -9,10 +9,10 @@ import {
   Field,
   PageShell,
   ConfirmModal,
-  Select,
   Spin,
   TimezoneSelect,
   useToastApi,
+  VirtualizedMultiSelect,
 } from '@/components/ui-kit'
 import type { ReportingDayMeta, SelectOption } from '@/components/ui-kit'
 import { api } from '@/api/client'
@@ -43,8 +43,8 @@ function buildResetStatsBody(
   dateFromDay: ReportingDayMeta,
   dateToDay: ReportingDayMeta,
   timezone: string,
-  idCampaign: string,
-  idTrafficSource: string,
+  campaignIds: string[],
+  trafficSourceIds: string[],
 ): ResetStatsRequestBody {
   const currentPeriod: CurrentPeriod = {
     timeRange: {
@@ -54,8 +54,8 @@ function buildResetStatsBody(
     timeZone: { name: timezone, offset: 0 },
   }
   const body: ResetStatsRequestBody = { currentPeriod }
-  if (idCampaign && idCampaign !== '__none__') body.idCampaign = idCampaign
-  if (idTrafficSource && idTrafficSource !== '__none__') body.idTrafficSource = idTrafficSource
+  if (campaignIds.length === 1) body.idCampaign = campaignIds[0]
+  if (trafficSourceIds.length === 1) body.idTrafficSource = trafficSourceIds[0]
   return body
 }
 
@@ -86,29 +86,26 @@ export function ResetStatsPage() {
         searchId: value,
       })
     }
-    return [{ label: 'All campaigns', value: '__none__' }, ...rows]
+    return rows
   }, [pageData])
 
   const trafficSourceOptions: SelectOption[] = useMemo(() => {
     const rows = pageData?.availableTrafficSources ?? []
-    return [
-      { label: 'All traffic sources', value: '__none__' },
-      ...rows
-        .filter((ts) => ts.id)
-        .map((ts) => ({
-          label: ts.name?.trim() || `Traffic source ${ts.id}`,
-          value: ts.id,
-          searchId: ts.id,
-        })),
-    ]
+    return rows
+      .filter((ts) => ts.id)
+      .map((ts) => ({
+        label: ts.name?.trim() || `Traffic source ${ts.id}`,
+        value: ts.id,
+        searchId: ts.id,
+      }))
   }, [pageData])
 
   const formLocked = pageLoading || pageError
   const noTrafficSources =
-    pageSuccess && !pageLoading && trafficSourceOptions.length <= 1
+    pageSuccess && !pageLoading && trafficSourceOptions.length === 0
 
-  const [idCampaign, setIdCampaign] = useState('')
-  const [idTrafficSource, setIdTrafficSource] = useState('')
+  const [campaignIds, setCampaignIds] = useState<string[]>([])
+  const [trafficSourceIds, setTrafficSourceIds] = useState<string[]>([])
   const [dateFromDay, setDateFromDay] = useState(() => localCalendarReportingDay())
   const [dateToDay, setDateToDay] = useState(() => localCalendarReportingDay())
   const [timezone, setTimezone] = useState(
@@ -123,7 +120,13 @@ export function ResetStatsPage() {
   function getRequestBody(): ResetStatsRequestBody | null {
     if (dateFromDay.ymd > dateToDay.ymd) return null
     try {
-      return buildResetStatsBody(dateFromDay, dateToDay, timezone, idCampaign, idTrafficSource)
+      return buildResetStatsBody(
+        dateFromDay,
+        dateToDay,
+        timezone,
+        campaignIds,
+        trafficSourceIds,
+      )
     } catch {
       return null
     }
@@ -206,32 +209,40 @@ export function ResetStatsPage() {
             <Field
               title="Campaign"
               htmlFor="reset-stats-campaign"
-              description="Optional. Restrict deletion to stats for one campaign."
+              description="Optional. Only a single chosen campaign narrows deletion; leave empty or select several for unrestricted scope."
             >
-              <Select
+              <VirtualizedMultiSelect
                 id="reset-stats-campaign"
                 options={campaignOptions}
-                value={idCampaign || undefined}
-                onChange={setIdCampaign}
-                placeholder={pageLoading ? 'Loading…' : 'All campaigns'}
+                value={campaignIds}
+                onChange={setCampaignIds}
+                placeholder={
+                  pageLoading ? 'Loading…' : 'Search campaigns (optional)'
+                }
                 className="w-full"
                 disabled={formLocked}
+                selectAll
               />
             </Field>
 
             <Field
               title="Traffic source"
               htmlFor="reset-stats-traffic-source"
-              description="Optional. Further narrow by traffic source."
+              description="Optional. Only one chosen traffic source narrows deletion; leave empty or select several for unrestricted scope."
             >
-              <Select
+              <VirtualizedMultiSelect
                 id="reset-stats-traffic-source"
                 options={trafficSourceOptions}
-                value={idTrafficSource || undefined}
-                onChange={setIdTrafficSource}
-                placeholder={pageLoading ? 'Loading…' : 'All traffic sources'}
+                value={trafficSourceIds}
+                onChange={setTrafficSourceIds}
+                placeholder={
+                  pageLoading
+                    ? 'Loading…'
+                    : 'Search traffic sources (optional)'
+                }
                 className="w-full"
                 disabled={formLocked || noTrafficSources}
+                selectAll
               />
             </Field>
 

@@ -1,4 +1,5 @@
 import type { Report, ReportCell } from '@/types/stats'
+import { api } from '@/api/client'
 import {
   cellRaw,
   getColumnMeta,
@@ -163,4 +164,18 @@ export function buildCampaignTreeFromMysqlAndFlatFunnelReport(
   }
 
   return out
+}
+
+/**
+ * Load MySQL campaign→funnel tree; GET first, POST fallback (session route variants).
+ */
+export async function fetchCampaignHierarchyWire(): Promise<CampaignHierarchyResponse> {
+  let raw: CampaignHierarchyResponse
+  try {
+    raw = await api.get<CampaignHierarchyResponse>('/ui/campaigns/hierarchy/')
+  } catch {
+    raw = await api.post<CampaignHierarchyResponse>('/ui/campaigns/hierarchy/', undefined)
+  }
+  const campaigns = Array.isArray(raw?.campaigns) ? raw.campaigns : []
+  return { campaigns }
 }

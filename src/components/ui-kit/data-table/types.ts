@@ -100,4 +100,19 @@ export interface DataTableProps<TData> {
   /** Controlled column sizing state (column id → pixel width). */
   columnSizing?: Record<string, number>
   onColumnSizingChange?: (sizing: Record<string, number>) => void
+
+  /**
+   * When loading with no rows yet, reserve at least this scroll-inner min-height (px) so the grid
+   * does not collapse (reduces scrollbar flicker). Default 240.
+   */
+  loadingMinBodyHeight?: number
+  /** Skeleton row placeholders during initial load when `data` is empty. Default 10. */
+  loadingSkeletonRows?: number
+
+  /**
+   * When `manualPagination` is on, render the page-size + page controls in the table footer.
+   * Set false to mount your own controls (same `pagination` / `onPaginationChange` state).
+   * @default true
+   */
+  showPaginationFooter?: boolean
 }

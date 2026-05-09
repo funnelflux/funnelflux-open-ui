@@ -44,8 +44,15 @@ export function useSaveTrafficFilter() {
       isCreate
         ? api.post<TrafficFilter>('/data/trafficfilter/save/', data)
         : api.put<TrafficFilter>('/data/trafficfilter/save/', data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.trafficFilters.all })
+    onSuccess: (saved: TrafficFilter) => {
+      void qc.invalidateQueries({
+        queryKey: queryKeys.trafficFilters.all,
+        predicate: (q) => (q.queryKey as unknown[])[1] === 'list',
+      })
+      const id = saved.idTrafficFilter
+      if (id) {
+        void qc.invalidateQueries({ queryKey: queryKeys.trafficFilters.detail(id) })
+      }
     },
   })
 }
@@ -55,8 +62,12 @@ export function useDeleteTrafficFilter() {
   return useMutation({
     mutationFn: (idTrafficFilter: string) =>
       api.delete('/data/trafficfilter/delete/', { idTrafficFilter }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.trafficFilters.all })
+    onSuccess: (_data, idTrafficFilter) => {
+      qc.removeQueries({ queryKey: queryKeys.trafficFilters.detail(idTrafficFilter) })
+      void qc.invalidateQueries({
+        queryKey: queryKeys.trafficFilters.all,
+        predicate: (q) => (q.queryKey as unknown[])[1] === 'list',
+      })
     },
   })
 }

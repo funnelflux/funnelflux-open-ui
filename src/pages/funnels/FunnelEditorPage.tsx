@@ -41,7 +41,6 @@ export function FunnelEditorPage() {
   const isNew = funnelId === 'new'
   const { data: funnel, isLoading } = useFunnel(isNew ? '' : funnelId ?? '', {
     loadDependencies: true,
-    staticWhileMounted: true,
   })
 
   const requestHydrate = useFunnelEditorStore((s) => s.requestHydrate)

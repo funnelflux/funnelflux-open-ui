@@ -18,6 +18,16 @@ export interface SelectOption {
 
 const DISPLAY_LIMIT = 200
 
+/** Synthetic dropdown value for “Select All” in {@link VirtualizedMultiSelect}. */
+const VIRTUAL_MULTI_ROW_SELECT_ALL = '__ff_vm_select_all__'
+/** Synthetic dropdown value for “Deselect All” in {@link VirtualizedMultiSelect}. */
+const VIRTUAL_MULTI_ROW_DESELECT_ALL = '__ff_vm_deselect_all__'
+
+const virtualMultiBulkSentinels = new Set([
+  VIRTUAL_MULTI_ROW_SELECT_ALL,
+  VIRTUAL_MULTI_ROW_DESELECT_ALL,
+])
+
 function useFilteredOptions(
   options: SelectOption[],
   searchValue: string,
@@ -228,18 +238,14 @@ function mergeSelectedIntoDropdownOptions(
 export interface VirtualizedMultiSelectProps
   extends Omit<AntdSelectProps<string[]>, 'options' | 'filterOption' | 'mode' | 'size'> {
   options: SelectOption[]
-  /** Sort options alphabetically (default: true). */
   alphabetical?: boolean
   maxTagCount?: number
   size?: UiSelectSize
-  /** Viewport height of the dropdown list in px (virtualized). */
   listHeight?: number
+  /** Prepends one bulk row: **Select All** when not everything is chosen, otherwise **Deselect All**. */
+  selectAll?: boolean
 }
 
-/**
- * Multi-select with client-side search over the **full** `options` array and a virtualized dropdown
- * (antd/rc-select). Selected values stay visible as tags even when filtered out of the current search.
- */
 function mergeSelectedSingleIntoDropdownOptions(
   allOptions: SelectOption[],
   filtered: SelectOption[],
@@ -327,11 +333,13 @@ export function VirtualizedMultiSelect({
   options,
   alphabetical = true,
   maxTagCount = 3,
+  selectAll = false,
   size = 'md',
   listHeight = 280,
   value,
   onOpenChange,
   className,
+  onChange: onChangeProp,
   ...rest
 }: VirtualizedMultiSelectProps) {
   const [search, setSearch] = useState('')
@@ -340,14 +348,49 @@ export function VirtualizedMultiSelect({
     [alphabetical, options, search],
   )
 
+  const allValues = useMemo(
+    () => options.map((o) => String(o?.value ?? '')).filter(Boolean),
+    [options],
+  )
+
   const selectedValues = useMemo(() => {
     if (value === undefined || value === null) return []
     return Array.isArray(value) ? value : []
   }, [value])
 
-  const selectOptions = useMemo(
-    () => mergeSelectedIntoDropdownOptions(options, filtered, selectedValues),
-    [filtered, options, selectedValues],
+  const selectedForMerge = useMemo(
+    () => selectedValues.filter((v) => !virtualMultiBulkSentinels.has(v)),
+    [selectedValues],
+  )
+
+  const allOptionsSelected = useMemo(() => {
+    if (allValues.length === 0) return false
+    const selected = new Set(selectedForMerge)
+    return allValues.every((id) => selected.has(id))
+  }, [allValues, selectedForMerge])
+
+  const selectOptions = useMemo(() => {
+    const merged = mergeSelectedIntoDropdownOptions(options, filtered, selectedForMerge)
+    if (!selectAll || allValues.length === 0) return merged
+    const bulk = allOptionsSelected
+      ? { label: 'Deselect All', value: VIRTUAL_MULTI_ROW_DESELECT_ALL }
+      : { label: 'Select All', value: VIRTUAL_MULTI_ROW_SELECT_ALL }
+    return [bulk, ...merged]
+  }, [allOptionsSelected, allValues.length, filtered, options, selectAll, selectedForMerge])
+
+  const handleChange = useCallback(
+    (next: string[]) => {
+      if (selectAll && next.includes(VIRTUAL_MULTI_ROW_DESELECT_ALL)) {
+        onChangeProp?.([])
+        return
+      }
+      if (selectAll && next.includes(VIRTUAL_MULTI_ROW_SELECT_ALL)) {
+        onChangeProp?.([...allValues])
+        return
+      }
+      onChangeProp?.(next.filter((v) => !virtualMultiBulkSentinels.has(v)))
+    },
+    [selectAll, allValues, onChangeProp],
   )
 
   const handleOpenChange = useCallback(
@@ -360,6 +403,7 @@ export function VirtualizedMultiSelect({
 
   return (
     <SelectPrimitive
+      {...rest}
       mode="multiple"
       virtual
       listHeight={listHeight}
@@ -375,7 +419,7 @@ export function VirtualizedMultiSelect({
         <Tag className="m-0">+{omitted.length}</Tag>
       )}
       value={value}
-      {...rest}
+      onChange={handleChange}
     />
   )
 }

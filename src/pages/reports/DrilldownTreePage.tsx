@@ -235,7 +235,8 @@ function setRowExpandError(rows: TreeRowData[], treePath: string, message: strin
   return rows.map((r) => {
     if (r.treePath === treePath) {
       if (!message) {
-        const { expandError: _discard, ...rest } = r
+        const { expandError, ...rest } = r
+        void expandError
         return rest as TreeRowData
       }
       return { ...r, expandError: message }
@@ -266,10 +267,8 @@ export function DrilldownTreePage() {
 
   const {
     data: report,
-    isFetching,
-    isPending,
+    isLoading: reportLoading,
   } = useDrilldownReportQuery(lastRequest, Boolean(lastRequest))
-  const reportLoading = isFetching || isPending
 
   useEffect(() => {
     if (!lastRequest) {
@@ -391,7 +390,8 @@ export function DrilldownTreePage() {
             const appendChildren = (rows: TreeRowData[]): TreeRowData[] =>
               rows.map((r) => {
                 if (r.treePath === parentTreePath) {
-                  const { expandError: _discardErr, ...rest } = r
+                  const { expandError, ...rest } = r
+                  void expandError
                   const existingChildren = (rest.children ?? []).filter((c) => !c._loadMore)
                   const newChildren = [...existingChildren, ...childTreeRows]
                   if (loadMoreRow) newChildren.push(loadMoreRow)
@@ -486,7 +486,8 @@ export function DrilldownTreePage() {
           const updateChildren = (rows: TreeRowData[]): TreeRowData[] =>
             rows.map((r) => {
               if (r.treePath === row.treePath) {
-                const { expandError: _discardErr, ...rest } = r
+                const { expandError, ...rest } = r
+                void expandError
                 return { ...rest, children: childTreeRows, loaded: !hasMore }
               }
               if (r.children?.length) {

@@ -3,7 +3,12 @@ import { api } from '@/api/client'
 import { normalizeTemplateList } from '@/api/normalizeTemplateList'
 import type { TrafficSourceTemplateLoadResponse } from '@/api/trafficSourceTemplateLoad'
 import { queryKeys } from '@/api/queryKeys'
-import { invalidateTrafficSourceData, emptyBulkResult, type BulkResult } from '@/api/invalidations'
+import {
+  invalidateTrafficSourceAuxiliaryAfterGridPatch,
+  invalidateTrafficSourceDataAfterCategoryChange,
+  emptyBulkResult,
+  type BulkResult,
+} from '@/api/invalidations'
 import { errorToApiError } from '@/api/errors'
 import {
   applyTrafficSourceArchiveToEntityGridCaches,
@@ -73,7 +78,7 @@ export function useSaveTrafficSource() {
           queryKey: queryKeys.trafficSources.detail(mergedTrafficSource.idTrafficSource),
         })
       }
-      await invalidateTrafficSourceData(qc)
+      await invalidateTrafficSourceAuxiliaryAfterGridPatch(qc)
     },
   })
 }
@@ -85,7 +90,7 @@ export function useDeleteTrafficSource() {
     onSuccess: async (_, id) => {
       removeTrafficSourceFromEntityGridCaches(qc, id)
       qc.removeQueries({ queryKey: queryKeys.trafficSources.detail(id) })
-      await invalidateTrafficSourceData(qc)
+      await invalidateTrafficSourceAuxiliaryAfterGridPatch(qc)
     },
   })
 }
@@ -112,7 +117,7 @@ export function useBulkDeleteTrafficSources() {
         qc.removeQueries({ queryKey: queryKeys.trafficSources.detail(id) })
       }
       if (result.succeeded.length > 0) {
-        await invalidateTrafficSourceData(qc)
+        await invalidateTrafficSourceAuxiliaryAfterGridPatch(qc)
       }
     },
   })
@@ -138,7 +143,7 @@ export function useCloneTrafficSource() {
         categoryId: data.categoryId,
       })
       void qc.invalidateQueries({ queryKey: queryKeys.trafficSources.detail(data.idTrafficSource) })
-      await invalidateTrafficSourceData(qc)
+      await invalidateTrafficSourceAuxiliaryAfterGridPatch(qc)
     },
   })
 }
@@ -155,7 +160,7 @@ export function useArchiveTrafficSource() {
       for (const id of ids) {
         void qc.invalidateQueries({ queryKey: queryKeys.trafficSources.detail(id) })
       }
-      await invalidateTrafficSourceData(qc)
+      await invalidateTrafficSourceAuxiliaryAfterGridPatch(qc)
     },
   })
 }
@@ -172,7 +177,7 @@ export function useAssignTrafficSourcesToCategory() {
     }) =>
       api.put('/data/trafficsource/category/assign/', { trafficSourceIds, idCategory }),
     onSuccess: async () => {
-      await invalidateTrafficSourceData(qc)
+      await invalidateTrafficSourceDataAfterCategoryChange(qc)
     },
   })
 }

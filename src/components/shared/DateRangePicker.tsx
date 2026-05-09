@@ -19,6 +19,11 @@ interface DateRangePickerProps {
   className?: string
   /** md | lg (`sm`/`small` map to md). */
   size?: ControlSize | LegacyAntdControlSize
+  /**
+   * `compact` limits width for entity list toolbars; `comfortable` for dashboard/reports.
+   * @default 'comfortable'
+   */
+  density?: 'compact' | 'comfortable'
   /** Accessible name for the range control (toolbar layouts often omit a visible label). */
   'aria-label'?: string
 }
@@ -38,11 +43,17 @@ export function DateRangePicker({
   onChange,
   className,
   size = 'md',
+  density = 'comfortable',
   'aria-label': ariaLabel,
 }: DateRangePickerProps) {
   const tier = normalizePickerControlTier(size)
   const antdSize = controlSizeToAntdSize(tier)
   const heightClass = tier === 'lg' ? 'h-control-lg' : 'h-control-md'
+
+  const densityClass =
+    density === 'compact'
+      ? 'max-w-[min(100%,var(--ff-date-range-compact-max,280px))] w-[min(100%,var(--ff-date-range-compact-max,280px))] shrink-0'
+      : 'max-w-full'
 
   return (
     <RangePicker
@@ -63,6 +74,7 @@ export function DateRangePicker({
       aria-label={ariaLabel ?? 'Date range'}
       className={cn(
         heightClass,
+        densityClass,
         'ff-date-range-picker box-border !rounded-md !border-input !bg-background !px-2.5 !text-sm !shadow-[0_1px_2px_rgba(15,23,42,0.04)]',
         '[&_.ant-picker-input>input]:text-foreground [&_.ant-picker-input>input]:placeholder:text-muted-foreground',
         '[&_.ant-picker-separator]:text-muted-foreground [&_.ant-picker-suffix]:text-muted-foreground',

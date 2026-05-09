@@ -94,6 +94,7 @@ export function PageEntitiesPage({
   const [importOpen, setImportOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; archive: boolean } | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [tz, setTz] = useState('UTC')
@@ -238,17 +239,28 @@ export function PageEntitiesPage({
   }, [cloneMutate, listFiltered, toast, singularLabel, pageType])
 
   const archiveMutate = archiveMutation.mutate
-  const handleArchive = useCallback((id: string, archive: boolean) => {
+  const handleArchiveConfirmedRow = useCallback(
+    (row: PageGridRow, archive: boolean) => {
+      if (row._isCategoryHeader || row.id === '__totals__') return
+      setArchiveConfirm({ id: row.id, archive })
+    },
+    [],
+  )
+
+  const handleConfirmArchiveDialog = useCallback(() => {
+    if (!archiveConfirm) return
+    const { id, archive } = archiveConfirm
     archiveMutate(
       { ids: [id], archive },
       {
         onSuccess: () => {
           toast.success(archive ? 'Archived' : 'Restored')
+          setArchiveConfirm(null)
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [archiveMutate, toast])
+  }, [archiveConfirm, archiveMutate, toast])
 
   const handleDelete = useCallback(() => {
     if (!deleteId) return
@@ -381,7 +393,7 @@ export function PageEntitiesPage({
     editBtnColumn<PageGridRow>((row) => handleEditOrCategory(row), { hidden: hideEditButton }),
     cloneBtnColumn<PageGridRow>((row) => handleClone(row.id), { hidden: hideCloneArchive }),
     archiveBtnColumn<PageGridRow>(
-      (row, archive) => handleArchive(row.id, archive),
+      (row, archive) => handleArchiveConfirmedRow(row, archive),
       {
         hidden: hideCloneArchive,
         isArchived: (row) => row.isArchived === true,
@@ -390,7 +402,7 @@ export function PageEntitiesPage({
     deleteBtnColumn<PageGridRow>((row) => handleDeleteOrCategory(row), { hidden: hideDeleteButton }),
     idColumn<PageGridRow>({ hideIdForRow: (row) => !!row._isCategoryHeader }),
     ...statCols,
-  ], [statCols, handleEditOrCategory, handleClone, handleArchive, handleDeleteOrCategory, hideEditButton, hideCloneArchive, hideDeleteButton])
+  ], [statCols, handleEditOrCategory, handleClone, handleArchiveConfirmedRow, handleDeleteOrCategory, hideEditButton, hideCloneArchive, hideDeleteButton])
 
   const gridColumnVisibility = useEntityGridColumnVisibility(
     columnDefs as ColumnDef<unknown, unknown>[],
@@ -514,6 +526,7 @@ export function PageEntitiesPage({
               value={{ from: dateRange.from, to: dateRange.to, preset: null }}
               timezone={tz}
               onChange={handleDateRangeChange}
+              density="compact"
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>
@@ -593,6 +606,20 @@ export function PageEntitiesPage({
         onConfirm={handleDelete}
         loading={deleteMutation.isPending}
         danger
+      />
+
+      <ConfirmModal
+        open={!!archiveConfirm}
+        onCancel={() => setArchiveConfirm(null)}
+        title={archiveConfirm?.archive ? `Archive ${singularLabel}` : `Restore ${singularLabel}`}
+        description={
+          archiveConfirm?.archive
+            ? `Archive this ${singularLower}? Archived items are hidden from the default Active view.`
+            : `Restore this ${singularLower} to the active list?`
+        }
+        onConfirm={() => void handleConfirmArchiveDialog()}
+        loading={archiveMutation.isPending}
+        danger={!!archiveConfirm?.archive}
       />
 
       <Modal

@@ -29,10 +29,9 @@ export function useFunnels(campaignId?: string) {
 
 export function useFunnel(
   id: string,
-  options?: { loadDependencies?: boolean; staticWhileMounted?: boolean },
+  options?: { loadDependencies?: boolean },
 ) {
   const loadDeps = options?.loadDependencies ?? false
-  const staticWhileMounted = options?.staticWhileMounted ?? false
   return useQuery({
     queryKey: [...queryKeys.funnels.detail(id), loadDeps] as const,
     queryFn: () => {
@@ -48,8 +47,6 @@ export function useFunnel(
         })
     },
     enabled: !!id,
-    refetchOnWindowFocus: !staticWhileMounted,
-    refetchOnReconnect: !staticWhileMounted,
   })
 }
 

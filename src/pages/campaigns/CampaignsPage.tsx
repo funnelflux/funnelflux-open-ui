@@ -43,8 +43,8 @@ import { MoveFunnelModal, type MoveFunnelTarget } from './MoveFunnelModal'
 import type { Funnel } from '@/types/entities'
 import {
   buildCampaignTreeFromMysqlAndFlatFunnelReport,
-  type CampaignHierarchyResponse,
   type CampaignTreeRow,
+  fetchCampaignHierarchyWire,
 } from './campaignTreeUtils'
 import { api } from '@/api/client'
 import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
@@ -153,7 +153,7 @@ export function CampaignsPage() {
     }
 
     const [hierarchy, report] = await Promise.all([
-      api.get<CampaignHierarchyResponse>('/ui/campaigns/hierarchy/'),
+      fetchCampaignHierarchyWire(),
       fetchAllFlatDrilldownRows(drilldownBody),
     ])
 
@@ -502,6 +502,7 @@ export function CampaignsPage() {
               value={{ from: dateRange.from, to: dateRange.to, preset: null }}
               timezone={tz}
               onChange={handleCampaignDateRangeChange}
+              density="compact"
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>

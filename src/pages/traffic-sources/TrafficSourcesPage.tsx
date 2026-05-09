@@ -503,6 +503,7 @@ export function TrafficSourcesPage() {
               value={{ from: dateRange.from, to: dateRange.to, preset: null }}
               timezone={tz}
               onChange={handleTrafficSourcesDateRangeChange}
+              density="compact"
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>

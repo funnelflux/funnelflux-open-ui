@@ -298,6 +298,7 @@ export function EntityPage({ metricHideScopes }: EntityPageProps) {
               value={{ from: dateRange.from, to: dateRange.to, preset: null }}
               timezone={tz}
               onChange={handleOfferSourcesDateRangeChange}
+              density="compact"
             />
             <TimezoneSelect value={tz} onChange={setTz} />
           </>

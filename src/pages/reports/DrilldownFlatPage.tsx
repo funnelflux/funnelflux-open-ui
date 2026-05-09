@@ -44,10 +44,8 @@ export function DrilldownFlatPage() {
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
   const {
     data: report,
-    isFetching,
-    isPending,
+    isLoading: reportLoading,
   } = useDrilldownReportQuery(lastRequest, Boolean(lastRequest))
-  const reportLoading = isFetching || isPending
   const [page, setPage] = useState(0)
   const pageSize = 100
   const [sorting, setSorting] = useState<SortingState>(() => {

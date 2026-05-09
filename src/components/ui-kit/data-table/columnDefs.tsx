@@ -282,8 +282,9 @@ export function nameColumn<T extends HasName>(opts?: NameColumnOpts<T>): ColumnD
     id: 'name',
     header: opts?.headerName ?? 'Name',
     accessorFn: (row) => row.name,
-    size: opts?.size ?? 250,
-    minSize: opts?.minSize ?? 180,
+    size: opts?.size ?? 300,
+    minSize: opts?.minSize ?? 200,
+    maxSize: opts?.maxSize ?? 560,
     enableSorting: opts?.enableSorting ?? true,
     meta: { flex: 1, ...(opts?.align ? { align: opts.align } : {}) },
     cell: (info) => {

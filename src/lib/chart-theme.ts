@@ -4,10 +4,26 @@
  * For dark mode, components read the current theme from useThemeStore.
  */
 
-export const CHART_COLORS = [
-  '#3B82F6', '#8B5CF6', '#06B6D4', '#F97316', '#22C55E',
-  '#EC4899', '#EAB308', '#6366F1', '#14B8A6', '#F43F5E',
-] as const
+/** Default series colors for dashboard chart metric toggles (centralized hex for Recharts). */
+export const DASHBOARD_METRIC_STROKE: Record<string, string> = {
+  visits: '#3B82F6',
+  clicks: '#F97316',
+  conversions: '#A855F7',
+  revenue: '#22C55E',
+  cost: '#EC4899',
+  roi: '#64748B',
+}
+
+/** Default categorical palette for demo charts and stroke fallbacks (aligned with dashboard metrics). */
+export const CHART_COLORS: readonly string[] = [
+  DASHBOARD_METRIC_STROKE.visits,
+  DASHBOARD_METRIC_STROKE.clicks,
+  DASHBOARD_METRIC_STROKE.conversions,
+  DASHBOARD_METRIC_STROKE.cost,
+  DASHBOARD_METRIC_STROKE.revenue,
+  DASHBOARD_METRIC_STROKE.roi,
+  '#6366F1',
+]
 
 export const PROFIT_COLOR = '#16A34A'
 export const LOSS_COLOR = '#DC2626'

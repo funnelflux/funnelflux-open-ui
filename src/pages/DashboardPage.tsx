@@ -1,29 +1,28 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react"
-import { subDays } from "date-fns"
-import { fetchAllFlatDrilldownRows } from "@/api/drilldown"
-import { useDashboardStore } from "@/store/dashboard"
-import { StatsCards, type DashboardSummaryStats } from "@/components/dashboard/StatsCards"
-import { DashboardChart } from "@/components/dashboard/DashboardChart"
-import { DashboardTopTable, type DashboardTopTableProps } from "@/components/dashboard/DashboardTopTable"
-import { useLazySectionVisible } from "@/hooks/useLazySectionVisible"
-import { PageShell, TimezoneSelect } from "@/components/ui-kit"
-import { DateRangePicker } from "@/components/shared/DateRangePicker"
-import { Tag } from "@/components/ui-kit"
-import { Button } from "@/components/ui-kit"
-import { toApiDateTimeRange } from "@/lib/statsDateRange"
-import type { Report } from "@/types/stats"
-import { cellRaw } from "@/components/ui-kit/data-table"
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { subDays } from 'date-fns'
+import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
+import { useDashboardStore } from '@/store/dashboard'
+import { StatsCards, type DashboardSummaryStats } from '@/components/dashboard/StatsCards'
+import { DashboardChart } from '@/components/dashboard/DashboardChart'
+import { DashboardTopTable, type DashboardTopTableProps } from '@/components/dashboard/DashboardTopTable'
+import { useLazySectionVisible } from '@/hooks/useLazySectionVisible'
+import { PageShell, TimezoneSelect, Button, Modal, Select, type SelectOption } from '@/components/ui-kit'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { toApiDateTimeRange } from '@/lib/statsDateRange'
+import type { Report } from '@/types/stats'
+import { cellRaw } from '@/components/ui-kit/data-table'
+import { getErrorMessage } from '@/lib/utils'
 
 const DASHBOARD_SUMMARY_METRICS = [
-  "Entrances",
-  "Lander Views",
-  "Offer Views",
-  "Lander Clicks",
-  "Offer Clicks",
-  "Conv.",
-  "Revenue",
-  "Cost",
-  "ROI",
+  'Entrances',
+  'Lander Views',
+  'Offer Views',
+  'Lander Clicks',
+  'Offer Clicks',
+  'Conv.',
+  'Revenue',
+  'Cost',
+  'ROI',
 ] as const
 
 const ZERO_STATS: DashboardSummaryStats = {
@@ -35,14 +34,18 @@ const ZERO_STATS: DashboardSummaryStats = {
   revenue: 0,
   cost: 0,
   net: 0,
-  roi: "N/A",
+  roi: 'N/A',
 }
 
 const WIDGETS = [
-  { id: "dashboard-widget-top-funnels", title: "Top Funnels", groupBy: "Element: Funnel" },
-  { id: "dashboard-widget-top-traffic-sources", title: "Top Traffic Sources", groupBy: "Third Parties: Traffic Source" },
-  { id: "dashboard-widget-top-landers", title: "Top Landers", groupBy: "Element: Lander" },
-  { id: "dashboard-widget-top-offers", title: "Top Offers", groupBy: "Element: Offer" },
+  { id: 'dashboard-widget-top-funnels', title: 'Funnels', groupBy: 'Element: Funnel' },
+  {
+    id: 'dashboard-widget-top-traffic-sources',
+    title: 'Traffic Sources',
+    groupBy: 'Third Parties: Traffic Source',
+  },
+  { id: 'dashboard-widget-top-landers', title: 'Landers', groupBy: 'Element: Lander' },
+  { id: 'dashboard-widget-top-offers', title: 'Offers', groupBy: 'Element: Offer' },
 ] as const
 
 interface ChartPoint {
@@ -57,7 +60,7 @@ interface ChartPoint {
 
 function buildColMap(report: Report): Map<string, number> {
   const map = new Map<string, number>()
-  report.columns?.forEach((column, index) => map.set(column.name?.toLowerCase() ?? "", index))
+  report.columns?.forEach((column, index) => map.set(column.name?.toLowerCase() ?? '', index))
   return map
 }
 
@@ -68,16 +71,16 @@ function extractStats(report: Report): DashboardSummaryStats {
   const map = buildColMap(report)
   const get = (name: string) => cellRaw(cells[map.get(name) ?? -1])
 
-  const visits = get("entrances")
-  const landerViews = get("lander views")
-  const offerViews = get("offer views")
-  const landerClicks = get("lander clicks")
-  const offerClicks = get("offer clicks")
-  const conversions = get("conversions")
-  const revenue = get("revenue")
-  const cost = get("cost")
-  const roiCell = cells[map.get("roi") ?? -1]
-  const roi = roiCell?.formatted ?? "N/A"
+  const visits = get('entrances')
+  const landerViews = get('lander views')
+  const offerViews = get('offer views')
+  const landerClicks = get('lander clicks')
+  const offerClicks = get('offer clicks')
+  const conversions = get('conversions')
+  const revenue = get('revenue')
+  const cost = get('cost')
+  const roiCell = cells[map.get('roi') ?? -1]
+  const roi = roiCell?.formatted ?? 'N/A'
 
   return {
     visits,
@@ -101,13 +104,13 @@ function extractChartData(report: Report): ChartPoint[] {
     const get = (name: string) => cellRaw(cells[map.get(name) ?? -1])
 
     return {
-      date: cells[0]?.formatted ?? "",
-      visits: get("entrances"),
-      clicks: get("lander clicks") + get("offer clicks"),
-      conversions: get("conversions"),
-      revenue: get("revenue"),
-      cost: get("cost"),
-      roi: get("roi"),
+      date: cells[0]?.formatted ?? '',
+      visits: get('entrances'),
+      clicks: get('lander clicks') + get('offer clicks'),
+      conversions: get('conversions'),
+      revenue: get('revenue'),
+      cost: get('cost'),
+      roi: get('roi'),
     }
   })
 }
@@ -119,30 +122,46 @@ function statsChanged(previous: DashboardSummaryStats | undefined, next: Dashboa
   )
 }
 
-function DashboardTopTableLazySlot(props: Omit<DashboardTopTableProps, "fetchEnabled">) {
+function DashboardTopTableLazySlot(
+  props: Omit<DashboardTopTableProps, 'fetchEnabled'> & {
+    fetchEnabled?: boolean
+  },
+) {
   const { ref, isVisible } = useLazySectionVisible()
+  const { fetchEnabled: fe, ...rest } = props
   return (
     <div ref={ref} className="min-h-[320px] min-w-0">
-      <DashboardTopTable {...props} fetchEnabled={isVisible} />
+      <DashboardTopTable {...rest} fetchEnabled={fe ?? isVisible} />
     </div>
   )
 }
 
+const TABLE_PAGE_OPTIONS: SelectOption[] = [
+  { value: '10', label: '10 rows' },
+  { value: '25', label: '25 rows' },
+  { value: '50', label: '50 rows' },
+  { value: '100', label: '100 rows' },
+]
+
 export function DashboardPage() {
-  const { chartMetric, setChartMetric } = useDashboardStore()
+  const {
+    chartMetric,
+    setChartMetric,
+    dashboardTablePageSize,
+    setDashboardTablePageSize,
+  } = useDashboardStore()
+
   const [tz, setTz] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone)
   const [dateRange, setDateRange] = useState(() => ({
     from: subDays(new Date(), 30),
     to: new Date(),
   }))
-  const [isAutoRefresh, setIsAutoRefresh] = useState(true)
   const [pulseStats, setPulseStats] = useState(false)
   const [dataVersion, setDataVersion] = useState(0)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const [stats, setStats] = useState<DashboardSummaryStats | undefined>(undefined)
   const [chartPoints, setChartPoints] = useState<ChartPoint[]>([])
-  const [statsLoaded, setStatsLoaded] = useState(false)
-  const [chartLoaded, setChartLoaded] = useState(false)
 
   const previousStatsRef = useRef<DashboardSummaryStats | undefined>(undefined)
   const pulseTimerRef = useRef<number | undefined>(undefined)
@@ -182,18 +201,15 @@ export function DashboardPage() {
     const tr = toApiDateTimeRange(from, to)
     const timeZone = { name: tzRef.current }
 
-    setStatsLoaded(false)
-    setChartLoaded(false)
-
     let cancelled = false
 
     fetchAllFlatDrilldownRows({
-        timeRange: tr,
-        timeZone,
-        groupings: [{ groupBy: "Time: Date", whitelistFilters: [], blacklistFilters: [] }],
-        options: { viewType: "flat" },
-        metrics: [...DASHBOARD_SUMMARY_METRICS],
-      })
+      timeRange: tr,
+      timeZone,
+      groupings: [{ groupBy: 'Time: Date', whitelistFilters: [], blacklistFilters: [] }],
+      options: { viewType: 'flat' },
+      metrics: [...DASHBOARD_SUMMARY_METRICS],
+    })
       .then((report) => {
         if (cancelled) return
         const nextStats = extractStats(report)
@@ -202,16 +218,15 @@ export function DashboardPage() {
         }
         previousStatsRef.current = nextStats
         setStats(nextStats)
-        setStatsLoaded(true)
         setChartPoints(extractChartData(report))
-        setChartLoaded(true)
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (cancelled) return
+        const msg = getErrorMessage(err)
+        console.error('dashboard summary load failed:', msg)
+        previousStatsRef.current = ZERO_STATS
         setStats(ZERO_STATS)
-        setStatsLoaded(true)
         setChartPoints([])
-        setChartLoaded(true)
       })
 
     return () => {
@@ -219,42 +234,45 @@ export function DashboardPage() {
     }
   }, [reloadKey, dataVersion, triggerPulse])
 
-  useEffect(() => {
-    if (!isAutoRefresh) return
-
-    const intervalId = window.setInterval(() => {
-      setDataVersion((v) => v + 1)
-    }, 30_000)
-
-    return () => window.clearInterval(intervalId)
-  }, [isAutoRefresh])
-
   const bumpRefresh = useCallback(() => {
-    setDataVersion((v) => v + 1)
+    setDataVersion((version) => version + 1)
   }, [])
+
+  const handleSettingsPageSize = useCallback(
+    (next: unknown) => {
+      const parsed = typeof next === 'string' ? Number(next) : Number(next ?? 10)
+      if (Number.isFinite(parsed) && parsed > 0) {
+        setDashboardTablePageSize(parsed)
+      }
+    },
+    [setDashboardTablePageSize],
+  )
+
+  const tablePageSelectValue = String(dashboardTablePageSize)
+
+  const handleOpenDashboardSettings = useCallback(() => setSettingsOpen(true), [])
 
   return (
     <PageShell
       title="Dashboard"
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          {isAutoRefresh && <Tag>Live</Tag>}
           <Button
             htmlType="button"
-            type={isAutoRefresh ? "primary" : "default"}
-            onClick={() => setIsAutoRefresh((current) => !current)}
-            iconName="timer"
+            type="default"
+            onClick={handleOpenDashboardSettings}
+            iconName="settings"
             iconSize="sm"
-            iconAnimation={isAutoRefresh ? 'pulse' : 'none'}
           >
-            Auto-refresh
+            Settings
           </Button>
           <Button htmlType="button" type="default" onClick={bumpRefresh} iconName="refresh-cw" iconSize="sm">
             Refresh
           </Button>
           <DateRangePicker
-            value={{ from: dateRange.from, to: dateRange.to, preset: "last30" }}
+            value={{ from: dateRange.from, to: dateRange.to, preset: 'last30' }}
             timezone={tz}
+            density="compact"
             onChange={(value) => {
               if (value.from && value.to) {
                 setDateRange({ from: value.from, to: value.to })
@@ -265,17 +283,45 @@ export function DashboardPage() {
         </div>
       }
     >
+      <Modal
+        title="Dashboard settings"
+        open={settingsOpen}
+        onCancel={() => setSettingsOpen(false)}
+        footer={null}
+        destroyOnClose
+      >
+        <div className="flex flex-col gap-6 py-2">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Rows per breakdown table
+            </span>
+            <Select
+              alphabetical={false}
+              value={tablePageSelectValue}
+              options={TABLE_PAGE_OPTIONS}
+              onChange={handleSettingsPageSize}
+              aria-label="Dashboard table page size"
+            />
+          </div>
+        </div>
+      </Modal>
+
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch lg:gap-4">
         <DashboardChart
           className="min-h-0 min-w-0 shadow-sm"
           data={chartPoints}
           metric={chartMetric}
           onMetricChange={setChartMetric}
-          isLoading={!chartLoaded}
+          isLoading={stats === undefined && chartPoints.length === 0}
           chartHeight={260}
         />
-        <div className={pulseStats ? "min-h-0 animate-pulse" : "min-h-0"}>
-          <StatsCards stats={stats} isLoading={!statsLoaded} layout="dashboard" className="h-full min-h-[280px]" />
+        <div className={pulseStats ? 'min-h-0 animate-pulse' : 'min-h-0'}>
+          <StatsCards
+            stats={stats}
+            isLoading={stats === undefined}
+            layout="dashboard"
+            className="h-full min-h-[280px]"
+          />
         </div>
       </section>
 
@@ -289,6 +335,8 @@ export function DashboardPage() {
             timeRange={timeRange}
             timezone={tz}
             dataVersion={dataVersion}
+            pageSize={dashboardTablePageSize}
+            onPageSizeChange={setDashboardTablePageSize}
           />
         ))}
       </div>

@@ -11,6 +11,9 @@ import type { OfferSource, Page, PageType, TrafficSource } from '@/types/entitie
 /** Segment at `queryKey[prefixLength]` for entity grid list queries — must match {@link useEntityGrid}. */
 export const ENTITY_GRID_LIST_KEY = 'entityGridList' as const
 
+/** Segment at `queryKey[prefixLength]` for entity-grid stats (drilldown) queries — must match {@link useEntityGrid}. */
+export const ENTITY_GRID_STATS_KEY = 'entityGridStats' as const
+
 function isPlainParams(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }

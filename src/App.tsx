@@ -38,8 +38,11 @@ function createQueryClient() {
     }),
     defaultOptions: {
       queries: {
-        staleTime: 30_000,
+        /** No automatic refetch on timer, tab focus, or reconnect — explicit invalidate / Refresh only. */
+        staleTime: Number.POSITIVE_INFINITY,
         retry: 1,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
       },
     },
   })

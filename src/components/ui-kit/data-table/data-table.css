@@ -166,6 +166,60 @@
 }
 
 /* ---- Body ---- */
+/* Initial load: keep scroll area height stable (empty data + loading) */
+.dt-wrapper--loading-empty .dt-scroll-inner {
+  min-height: var(--dt-loading-min-body-height, 240px);
+}
+
+.dt-loading-skeleton-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.dt-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dt-skeleton-bar {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+  animation: dt-skeleton-shimmer 1.1s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--muted-fg) 22%, transparent) 0%,
+    color-mix(in srgb, var(--muted-fg) 10%, transparent) 50%,
+    color-mix(in srgb, var(--muted-fg) 22%, transparent) 100%
+  );
+  background-size: 200% 100%;
+}
+
+.dt-skeleton-bar--primary {
+  flex: 1 1 52%;
+  max-width: 360px;
+}
+
+.dt-skeleton-bar--muted {
+  flex: 0 0 96px;
+}
+
+@keyframes dt-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .dt-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -201,12 +255,12 @@
 
 /* Category strip (group header row): dark band, no hover wash */
 .dt-row--category-strip {
-  background: color-mix(in srgb, var(--foreground) 8%, var(--surface));
+  background: color-mix(in srgb, var(--muted-fg) 12%, var(--surface));
   font-weight: 600;
 }
 
 .dt-row--category-strip:hover {
-  background: color-mix(in srgb, var(--foreground) 10%, var(--surface));
+  background: color-mix(in srgb, var(--muted-fg) 16%, var(--surface));
 }
 
 /* ---- Cell ---- */

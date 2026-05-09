@@ -13,6 +13,9 @@ import {
   CHART_GRID_STYLE,
   CHART_AXIS_STYLE,
   CHART_TOOLTIP_STYLE,
+  DASHBOARD_METRIC_STROKE,
+  PROFIT_COLOR,
+  LOSS_COLOR,
 } from '@/lib/chart-theme'
 import { useThemeStore } from '@/store/theme'
 
@@ -80,6 +83,13 @@ export function DashboardChart({
   const gridStyle = CHART_GRID_STYLE[mode]
   const axisStyle = CHART_AXIS_STYLE[mode]
 
+  const lastRoi = data.length > 0 ? data[data.length - 1]!.roi : 0
+  const roiStroke = lastRoi >= 0 ? PROFIT_COLOR : LOSS_COLOR
+
+  const lineStroke = metric === 'roi'
+    ? roiStroke
+    : (DASHBOARD_METRIC_STROKE[metric] ?? CHART_COLORS[0])
+
   return (
     <Card
       className={className}
@@ -127,7 +137,7 @@ export function DashboardChart({
               <Line
                 type="monotone"
                 dataKey={metric}
-                stroke={CHART_COLORS[0]}
+                stroke={lineStroke}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}

@@ -66,6 +66,9 @@ function DataTableInner<TData>({
   enableColumnResizing = true,
   columnSizing: controlledSizing,
   onColumnSizingChange,
+  loadingMinBodyHeight = 240,
+  loadingSkeletonRows = 10,
+  showPaginationFooter = true,
 }: DataTableProps<TData>) {
   const fallbackDefault = defaultSorting ?? DEFAULT_TABLE_SORTING
   const [internalSorting, setInternalSorting] = useState<SortingState>(fallbackDefault)
@@ -394,6 +397,7 @@ function DataTableInner<TData>({
         ? totalRowCount
         : data.length
   const showPagination = usePagination && effectiveTotalForPagination > pagination.pageSize
+  const showPaginationControls = showPagination && showPaginationFooter
 
   const totalPages = table.getPageCount()
   const currentPage = pagination.pageIndex
@@ -416,8 +420,17 @@ function DataTableInner<TData>({
       ? { ...(maxHeight != null ? { maxHeight } : {}), ...(height != null ? { height } : {}) }
       : undefined
 
+  const loadingEmpty = loading && tableRows.length === 0
+  const wrapperStyleWithLoadingMin =
+    loadingEmpty && loadingMinBodyHeight > 0
+      ? { ...wrapperStyle, ['--dt-loading-min-body-height' as string]: `${loadingMinBodyHeight}px` }
+      : wrapperStyle
+
   return (
-    <div className={cn('dt-wrapper', className)} style={wrapperStyle}>
+    <div
+      className={cn('dt-wrapper', loadingEmpty && 'dt-wrapper--loading-empty', className)}
+      style={wrapperStyleWithLoadingMin}
+    >
       <div className="dt-scroll-container" ref={scrollRef}>
         {loading && (
           <div className="dt-loading">
@@ -467,7 +480,23 @@ function DataTableInner<TData>({
 
           {/* Body — grows when few rows so pinned totals stay at bottom of the scroll area */}
           <div className="dt-body">
-            {!loading && tableRows.length === 0 ? (
+            {loadingEmpty ? (
+              <div
+                className="dt-loading-skeleton-wrap"
+                aria-busy="true"
+                aria-label="Loading"
+              >
+                {Array.from({ length: loadingSkeletonRows }, (_, skeletonRowIndex) => (
+                  <div
+                    key={`sk-${skeletonRowIndex}`}
+                    className="dt-skeleton-row"
+                  >
+                    <span className="dt-skeleton-bar dt-skeleton-bar--primary" />
+                    <span className="dt-skeleton-bar dt-skeleton-bar--muted" />
+                  </div>
+                ))}
+              </div>
+            ) : !loading && tableRows.length === 0 ? (
               <div className="dt-empty">{emptyMessage}</div>
             ) : shouldVirtualize ? (
               <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
@@ -490,7 +519,7 @@ function DataTableInner<TData>({
         </div>
       </div>
 
-      {showPagination && (
+      {showPaginationControls && (
         <div className="dt-footer">
           <div className="dt-footer-info">
             <span>
