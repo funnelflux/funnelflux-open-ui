@@ -2624,6 +2624,32 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
+  /data/tag/delete/index.php:
+    delete:
+      tags:
+        - tags
+      description: Delete a visitor tag and remove it from funnel visitor-tag nodes
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idTag
+          required: true
+          in: query
+          type: string
+      responses:
+        200:
+          description: Tag deleted successfully
+        403:
+          description: Not authorized
+        404:
+          description: Tag not found
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
   # --- Other endpoints ---
   /data/page/import/csv/index.php:
     post:

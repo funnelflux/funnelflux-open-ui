@@ -1,156 +1,152 @@
-import { useState, useRef, useEffect } from 'react'
-import { Icon } from '@/components/ui-kit/icons'
-import {
-  Button,
-  EmptyState,
-  Input,
-  PageShell,
-  Tag,
-  useToastApi,
-  type InputRef,
-} from '@/components/ui-kit'
-import { useTags, useSaveTag, useUpdateTag } from '@/api/hooks/useTags'
+import { useState, useCallback, useMemo } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Button, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
+import { useTags, useSaveTag, useUpdateTag, useDeleteTag } from '@/api/hooks/useTags'
+import { TagModal } from '@/components/forms/TagModal'
 import { getErrorMessage } from '@/lib/utils'
+import type { Tag } from '@/types/entities'
+
+function visitorTagRowId(row: Tag): string {
+  return row.id
+}
 
 export function TagsPage() {
   const toast = useToastApi()
-  const { data: tags, isLoading } = useTags()
+  const { data: tags, isLoading, isError, error } = useTags()
   const saveTag = useSaveTag()
   const updateTag = useUpdateTag()
+  const deleteTag = useDeleteTag()
 
-  const [inputValue, setInputValue] = useState('')
-  const [editingTagId, setEditingTagId] = useState<string | null>(null)
-  const [editingValue, setEditingValue] = useState('')
-  const editInputRef = useRef<InputRef>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [editingTag, setEditingTag] = useState<Tag | undefined>()
+  const [deleteTarget, setDeleteTarget] = useState<Tag | null>(null)
 
-  useEffect(() => {
-    if (editingTagId && editInputRef.current) {
-      editInputRef.current.focus()
-      editInputRef.current.select()
-    }
-  }, [editingTagId])
+  function openCreate() {
+    setEditingTag(undefined)
+    setSheetOpen(true)
+  }
 
-  function handleAddTags() {
-    const trimmed = inputValue.trim()
-    if (!trimmed) return
+  const openEdit = useCallback((tag: Tag) => {
+    setEditingTag(tag)
+    setSheetOpen(true)
+  }, [])
 
-    saveTag.mutate(trimmed, {
+  const handleCreate = useCallback(
+    (input: string) => {
+      saveTag.mutate(input, {
+        onSuccess: () => {
+          toast.success('Tags added')
+          setSheetOpen(false)
+        },
+        onError: (err) => {
+          toast.error(getErrorMessage(err))
+        },
+      })
+    },
+    [saveTag, toast],
+  )
+
+  const handleUpdate = useCallback(
+    (idTag: string, name: string) => {
+      updateTag.mutate(
+        { idTag, name },
+        {
+          onSuccess: () => {
+            toast.success('Tag updated')
+            setSheetOpen(false)
+          },
+          onError: (err) => {
+            toast.error(getErrorMessage(err))
+          },
+        },
+      )
+    },
+    [toast, updateTag],
+  )
+
+  function confirmDelete() {
+    if (!deleteTarget) return
+    deleteTag.mutate(deleteTarget.id, {
       onSuccess: () => {
-        toast.success('Tags added')
-        setInputValue('')
+        toast.success(`Tag "${deleteTarget.name}" deleted`)
+        setDeleteTarget(null)
       },
       onError: (err) => {
-        toast.error(`Failed to add tags: ${getErrorMessage(err)}`)
+        toast.error(getErrorMessage(err))
+        setDeleteTarget(null)
       },
     })
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleAddTags()
-    }
-  }
-
-  function startEditing(id: string, name: string) {
-    setEditingTagId(id)
-    setEditingValue(name)
-  }
-
-  function commitEdit() {
-    if (!editingTagId) return
-    const trimmed = editingValue.trim()
-    if (!trimmed) {
-      setEditingTagId(null)
-      return
-    }
-
-    updateTag.mutate(
-      { idTag: editingTagId, name: trimmed },
+  const columns = useMemo<ColumnDef<Tag, unknown>[]>(
+    () => [
       {
-        onSuccess: () => {
-          toast.success('Tag renamed')
-        },
-        onError: (err) => {
-          toast.error(`Failed to rename tag: ${getErrorMessage(err)}`)
-        },
+        id: 'name',
+        header: 'Tag name',
+        accessorKey: 'name',
+        size: 420,
+        minSize: 280,
+        maxSize: 640,
+        meta: { flex: 1 },
+        cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
       },
-    )
-    setEditingTagId(null)
-  }
-
-  function handleEditKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      commitEdit()
-    }
-    if (e.key === 'Escape') {
-      setEditingTagId(null)
-    }
-  }
+      editBtnColumn<Tag>((row) => openEdit(row)),
+      deleteBtnColumn<Tag>((row) => setDeleteTarget(row)),
+      {
+        id: 'id',
+        header: 'ID',
+        accessorKey: 'id',
+        cell: ({ row }) => <span className="font-mono text-xs">{row.original.id}</span>,
+      },
+    ],
+    [openEdit],
+  )
 
   return (
-    <PageShell title="Tags">
-      <div className="flex items-center gap-2">
-        <Input
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Enter tag names (comma-separated)"
-          className="max-w-md"
-        />
-        <Button
-          type="primary"
-          onClick={handleAddTags}
-          disabled={!inputValue.trim() || saveTag.isPending}
-        >
-          <span className="mr-1 inline-flex">
-            <Icon name="plus" size="md" />
-          </span>
-          Add
+    <PageShell
+      title="Visitor Tags"
+      fillHeight
+      actions={
+        <Button type="primary" iconName="plus" onClick={openCreate}>
+          Add Tags
         </Button>
-      </div>
+      }
+    >
+      <DataTable<Tag>
+        data={tags ?? []}
+        columns={columns}
+        getRowId={visitorTagRowId}
+        loading={isLoading}
+        tableConfigKey="settings-visitor-tags"
+        defaultSorting={[{ id: 'name', desc: false }]}
+        noPagination
+        emptyMessage={isError ? `Failed to load tags: ${getErrorMessage(error)}` : 'No tags yet. Add some with the button above.'}
+      />
 
-      {isLoading && (
-        <p className="text-sm text-muted-foreground">Loading tags...</p>
-      )}
+      <TagModal
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        editingTag={editingTag}
+        onCreate={handleCreate}
+        onUpdate={handleUpdate}
+        isSubmitting={saveTag.isPending || updateTag.isPending}
+      />
 
-      {!isLoading && (!tags || tags.length === 0) && (
-        <EmptyState
-          icon={
-            <span className="inline-flex [&>svg]:h-10 [&>svg]:w-10">
-              <Icon name="tags" size="lg" />
-            </span>
-          }
-          message="No tags yet. Add some above."
-        />
-      )}
-
-      {tags && tags.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {tags.map((tag) => (
-            <div key={tag.id}>
-              {editingTagId === tag.id ? (
-                <Input
-                  ref={editInputRef}
-                  value={editingValue}
-                  onChange={(e) => setEditingValue(e.target.value)}
-                  onBlur={commitEdit}
-                  onKeyDown={handleEditKeyDown}
-                  className="h-7 w-32 text-xs"
-                />
-              ) : (
-                <Tag
-                  className="cursor-pointer hover:bg-secondary/60 text-sm py-1 px-3"
-                  onClick={() => startEditing(tag.id, tag.name)}
-                >
-                  {tag.name}
-                </Tag>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Visitor Tag"
+        description={
+          deleteTarget
+            ? `Delete "${deleteTarget.name}"? This removes the tag from the catalog and funnel visitor-tag nodes. Visitor assignment rows for this tag are cleared. Historical stats are not rewritten.`
+            : ''
+        }
+        confirmText="Delete"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleteTag.isPending}
+      />
     </PageShell>
   )
 }
