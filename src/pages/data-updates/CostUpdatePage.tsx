@@ -80,7 +80,6 @@ function funnelOptionsFromCampaignTree(tree: KeyValuePairTreeItem[]): SelectOpti
       })
     }
   }
-  out.sort((a, b) => a.label.localeCompare(b.label))
   return out
 }
 
@@ -150,9 +149,17 @@ export function CostUpdatePage() {
     (dates: [Dayjs | null, Dayjs | null] | null) => {
       const start = dates?.[0]
       const end = dates?.[1]
-      if (start?.isValid() && end?.isValid()) {
-        setRangeDayjs([start, end])
+      if (!start?.isValid() || !end?.isValid()) return
+
+      let endAdjusted = end
+      if (
+        start.isSame(end, 'minute') &&
+        start.hour() === 0 &&
+        start.minute() === 0
+      ) {
+        endAdjusted = start.hour(23).minute(59).second(59).millisecond(999)
       }
+      setRangeDayjs([start, endAdjusted])
     },
     [],
   )
@@ -321,11 +328,12 @@ export function CostUpdatePage() {
                     title="From — to"
                     required
                     htmlFor="cost-update-datetime-range"
-                    description="Inclusive range with date and time (same control as drilldown reports)."
+                    description="Inclusive range with date and time. Presets apply in one step; if you pick dates in the calendar, confirm with OK. (Auto-advance is off here so presets stay reliable.)"
                     className="mt-4"
                   >
                     <DateTimeRangePicker
                       showTime
+                      autoConfirmCalendarSteps={false}
                       allowClear={false}
                       value={rangeDayjs}
                       onChange={handleRangeChange}

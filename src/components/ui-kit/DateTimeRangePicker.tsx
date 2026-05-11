@@ -14,6 +14,13 @@ interface DateTimeRangePickerProps {
   onChange?: (dates: RangeValue | null, dateStrings: [string, string]) => void
   /** Enable time selection (default: false = date-only) */
   showTime?: boolean
+  /**
+   * When `showTime` is true: auto-click the popup OK after each calendar cell pick to advance start→end.
+   * Leave **true** for manual two-step picking (e.g. drilldown). Set **false** when using **presets** —
+   * otherwise `onCalendarChange` + synthetic OK can race with preset application and collapse the range
+   * (e.g. both ends at 00:00).
+   */
+  autoConfirmCalendarSteps?: boolean
   className?: string
   style?: React.CSSProperties
   /** md | lg (`sm`/`small` map to md) */
@@ -27,15 +34,15 @@ interface DateTimeRangePickerProps {
  *
  * Date-only: standard RangePicker behavior.
  *
- * DateTime (showTime): clicking a date cell auto-clicks the OK button,
- * advancing from start → end panel without manual confirmation.
- * Time defaults to 00:00 (start) and 23:59 (end).
- * To change time: reopen, adjust time, click OK.
+ * DateTime (showTime) with `autoConfirmCalendarSteps` (default): clicking a date cell auto-clicks OK,
+ * advancing start → end. Preset-heavy UIs should set `autoConfirmCalendarSteps={false}` and press OK
+ * manually when changing dates. Time defaults to 00:00 (start) and 23:59 (end) for new cells.
  */
 export function DateTimeRangePicker({
   value,
   onChange,
   showTime = false,
+  autoConfirmCalendarSteps = true,
   className,
   style,
   size = 'md',
@@ -60,27 +67,30 @@ export function DateTimeRangePicker({
     )
   }
 
-  // When a date cell is clicked, auto-click the OK button to advance panels.
-  // The OK button is inside the popup dropdown, not the picker wrapper,
-  // so we search from document.
-  const handleCalendarChange = () => {
-    // Small delay to let antd render the OK button in the footer
-    setTimeout(() => {
-      // The popup is appended to document.body. Find the visible one.
-      const popup = document.querySelector(
-        '.ant-picker-dropdown:not(.ant-picker-dropdown-hidden)',
-      )
-      const okBtn = popup?.querySelector('.ant-picker-ok button') as HTMLButtonElement | null
-      okBtn?.click()
-    }, 80)
-  }
+  // Presets + synthetic OK clicks can race; only wire auto-confirm when enabled.
+  const autoConfirmCalendarProps = autoConfirmCalendarSteps
+    ? {
+        onCalendarChange: () => {
+          setTimeout(() => {
+            const popup = document.querySelector(
+              '.ant-picker-dropdown:not(.ant-picker-dropdown-hidden)',
+            )
+            const okBtn = popup?.querySelector('.ant-picker-ok button') as
+              | HTMLButtonElement
+              | undefined
+              | null
+            okBtn?.click()
+          }, 80)
+        },
+      }
+    : {}
 
   return (
     <div ref={wrapRef}>
       <RangePicker
         value={value}
         onChange={onChange}
-        onCalendarChange={handleCalendarChange}
+        {...autoConfirmCalendarProps}
         showTime={{
           defaultValue: [
             dayjs().hour(0).minute(0).second(0),

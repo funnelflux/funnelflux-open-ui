@@ -1,62 +1,88 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import type { Dayjs } from 'dayjs'
+import dayjs from 'dayjs'
 import { Icon } from '@/components/ui-kit/icons'
 import {
   Alert,
   Button,
   Card,
-  DatePicker,
+  DateTimeRangePicker,
   Field,
   PageShell,
   ConfirmModal,
+  Select,
   Spin,
   TimezoneSelect,
   useToastApi,
-  VirtualizedMultiSelect,
 } from '@/components/ui-kit'
-import type { ReportingDayMeta, SelectOption } from '@/components/ui-kit'
+import type { SelectOption } from '@/components/ui-kit'
 import { api } from '@/api/client'
+import { useTrafficSources } from '@/api/hooks/useTrafficSources'
 import { queryKeys } from '@/api/queryKeys'
+import { DATE_PRESETS, getPresetRange } from '@/lib/date-presets'
+import { toApiDateTimeForReportingZone } from '@/lib/statsDateRange'
 import type { CurrentPeriod, ResetStatsPageData } from '@/types/generated/ui'
 import type { IntegerValue } from '@/types/stats'
 import { cn, getErrorMessage } from '@/lib/utils'
 
-const DATE_FMT = 'YYYY-MM-DD'
-
-function localCalendarReportingDay(): ReportingDayMeta {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = d.getMonth() + 1
-  const dayN = d.getDate()
-  const ymd = `${y}-${String(m).padStart(2, '0')}-${String(dayN).padStart(2, '0')}`
-  return { ymd, apiDate: { year: y, month: m, day: dayN } }
-}
-
 /** Matches PHP `ResetStatsOptions` (includes `idCampaign` used by the server; omitted from OpenAPI stub). */
 type ResetStatsRequestBody = {
   currentPeriod: CurrentPeriod
+  idFunnel: string
   idCampaign?: string
   idTrafficSource?: string
 }
 
 function buildResetStatsBody(
-  dateFromDay: ReportingDayMeta,
-  dateToDay: ReportingDayMeta,
+  dateFrom: Date,
+  dateTo: Date,
   timezone: string,
-  campaignIds: string[],
-  trafficSourceIds: string[],
+  idFunnel: string,
+  idCampaign: string,
+  idTrafficSource: string,
 ): ResetStatsRequestBody {
   const currentPeriod: CurrentPeriod = {
     timeRange: {
-      start: { date: dateFromDay.apiDate, time: { hour: 0, minutes: 0 } },
-      end: { date: dateToDay.apiDate, time: { hour: 23, minutes: 59 } },
+      start: toApiDateTimeForReportingZone(dateFrom, timezone),
+      end: toApiDateTimeForReportingZone(dateTo, timezone),
     },
     timeZone: { name: timezone, offset: 0 },
   }
-  const body: ResetStatsRequestBody = { currentPeriod }
-  if (campaignIds.length === 1) body.idCampaign = campaignIds[0]
-  if (trafficSourceIds.length === 1) body.idTrafficSource = trafficSourceIds[0]
+  const body: ResetStatsRequestBody = { currentPeriod, idFunnel }
+  if (idCampaign) body.idCampaign = idCampaign
+  if (idTrafficSource) body.idTrafficSource = idTrafficSource
   return body
+}
+
+function initialRangeForTimezone(timezone: string): [Dayjs, Dayjs] {
+  const range = getPresetRange('today', timezone)
+  return [dayjs(range.from), dayjs(range.to)]
+}
+
+function presetRangesDayjs(tz: string): { label: string; value: [Dayjs, Dayjs] }[] {
+  return DATE_PRESETS.map((preset) => {
+    const range = getPresetRange(preset.value, tz)
+    return {
+      label: preset.label,
+      value: [dayjs(range.from), dayjs(range.to)],
+    }
+  })
+}
+
+function normalizeTrafficSourceRow(row: Record<string, unknown>): {
+  id: string
+  name: string
+} | null {
+  const rawId = row.id ?? row.idTrafficSource
+  const id = rawId !== undefined && rawId !== null ? String(rawId).trim() : ''
+  if (!id) return null
+  const rawName = row.name
+  const name =
+    typeof rawName === 'string' && rawName.trim() !== ''
+      ? rawName.trim()
+      : `Traffic source ${id}`
+  return { id, name }
 }
 
 export function ResetStatsPage() {
@@ -71,8 +97,9 @@ export function ResetStatsPage() {
     queryKey: queryKeys.dataUpdates.resetStatsPage(),
     queryFn: () => api.get<ResetStatsPageData>('/ui/resetstats/load/'),
   })
+  const { data: trafficSourcesFromDataApi } = useTrafficSources()
 
-  const campaignOptions: SelectOption[] = useMemo(() => {
+  const campaignOptions = useMemo(() => {
     const tree = pageData?.availableCampaignsAndFunnels ?? []
     const rows: SelectOption[] = []
     for (const c of tree) {
@@ -89,43 +116,130 @@ export function ResetStatsPage() {
     return rows
   }, [pageData])
 
-  const trafficSourceOptions: SelectOption[] = useMemo(() => {
-    const rows = pageData?.availableTrafficSources ?? []
-    return rows
-      .filter((ts) => ts.id)
-      .map((ts) => ({
-        label: ts.name?.trim() || `Traffic source ${ts.id}`,
-        value: ts.id,
-        searchId: ts.id,
-      }))
+  const funnelOptionsByCampaign = useMemo(() => {
+    const tree = pageData?.availableCampaignsAndFunnels ?? []
+    const byCampaign = new Map<string, SelectOption[]>()
+    const allFunnels: SelectOption[] = []
+    for (const campaign of tree) {
+      const campaignIdRaw = campaign.item?.key
+      if (campaignIdRaw === undefined || campaignIdRaw === null || campaignIdRaw === '') {
+        continue
+      }
+      const campaignId = String(campaignIdRaw)
+      const campaignName = String(campaign.item?.value ?? '').trim()
+      const campaignFunnels: SelectOption[] = []
+      for (const funnel of campaign.children ?? []) {
+        const funnelIdRaw = funnel.item?.key
+        if (funnelIdRaw === undefined || funnelIdRaw === null || funnelIdRaw === '') {
+          continue
+        }
+        const funnelId = String(funnelIdRaw)
+        const funnelName = String(funnel.item?.value ?? '').trim()
+        const option: SelectOption = {
+          label: funnelName || `Funnel ${funnelId}`,
+          value: funnelId,
+          searchId: `${funnelId} ${campaignName}`,
+        }
+        campaignFunnels.push(option)
+        allFunnels.push(option)
+      }
+      byCampaign.set(campaignId, campaignFunnels)
+    }
+    return { byCampaign, allFunnels }
   }, [pageData])
+
+  const trafficSourceOptions: SelectOption[] = useMemo(() => {
+    const byId = new Map<string, SelectOption>()
+    for (const row of pageData?.availableTrafficSources ?? []) {
+      const normalized = normalizeTrafficSourceRow(row as unknown as Record<string, unknown>)
+      if (!normalized) continue
+      byId.set(normalized.id, {
+        label: normalized.name,
+        value: normalized.id,
+        searchId: normalized.id,
+      })
+    }
+    for (const row of trafficSourcesFromDataApi ?? []) {
+      const id = row.idTrafficSource?.trim()
+      if (!id || byId.has(id)) continue
+      const name = row.trafficSourceName?.trim() || `Traffic source ${id}`
+      byId.set(id, {
+        label: name,
+        value: id,
+        searchId: id,
+      })
+    }
+    return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label))
+  }, [pageData, trafficSourcesFromDataApi])
 
   const formLocked = pageLoading || pageError
   const noTrafficSources =
     pageSuccess && !pageLoading && trafficSourceOptions.length === 0
 
-  const [campaignIds, setCampaignIds] = useState<string[]>([])
-  const [trafficSourceIds, setTrafficSourceIds] = useState<string[]>([])
-  const [dateFromDay, setDateFromDay] = useState(() => localCalendarReportingDay())
-  const [dateToDay, setDateToDay] = useState(() => localCalendarReportingDay())
+  const [idCampaign, setIdCampaign] = useState('')
+  const [idFunnel, setIdFunnel] = useState('')
+  const [idTrafficSource, setIdTrafficSource] = useState('')
   const [timezone, setTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   )
+  const [rangeDayjs, setRangeDayjs] = useState<[Dayjs, Dayjs]>(() =>
+    initialRangeForTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone),
+  )
+  const rangePresets = useMemo(() => presetRangesDayjs(timezone), [timezone])
 
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
+  const funnelOptions = useMemo(() => {
+    if (!idCampaign) return funnelOptionsByCampaign.allFunnels
+    return funnelOptionsByCampaign.byCampaign.get(idCampaign) ?? []
+  }, [idCampaign, funnelOptionsByCampaign])
+
+  const handleCampaignChange = useCallback(
+    (nextCampaignId: string) => {
+      setIdCampaign(nextCampaignId)
+      if (!nextCampaignId) return
+      const allowedFunnels = funnelOptionsByCampaign.byCampaign.get(nextCampaignId) ?? []
+      if (allowedFunnels.every((option) => option.value !== idFunnel)) {
+        setIdFunnel('')
+      }
+    },
+    [funnelOptionsByCampaign, idFunnel],
+  )
+
+  const handleRangeChange = useCallback(
+    (dates: [Dayjs | null, Dayjs | null] | null) => {
+      const start = dates?.[0]
+      const end = dates?.[1]
+      if (!start?.isValid() || !end?.isValid()) return
+      setRangeDayjs([start, end])
+    },
+    [],
+  )
+
+  const openConfirmModal = useCallback(() => {
+    setConfirmOpen(true)
+  }, [])
+
+  const closeConfirmModal = useCallback(() => {
+    setConfirmOpen(false)
+  }, [])
+
   function getRequestBody(): ResetStatsRequestBody | null {
-    if (dateFromDay.ymd > dateToDay.ymd) return null
+    if (!idFunnel) return null
+    const dateFrom = rangeDayjs[0]?.toDate()
+    const dateTo = rangeDayjs[1]?.toDate()
+    if (!dateFrom || !dateTo || dateFrom.getTime() > dateTo.getTime()) return null
     try {
       return buildResetStatsBody(
-        dateFromDay,
-        dateToDay,
+        dateFrom,
+        dateTo,
         timezone,
-        campaignIds,
-        trafficSourceIds,
+        idFunnel,
+        idCampaign,
+        idTrafficSource,
       )
     } catch {
       return null
@@ -133,8 +247,8 @@ export function ResetStatsPage() {
   }
 
   async function handleCalculate() {
-    if (dateFromDay.ymd > dateToDay.ymd) {
-      toast.error('Date from must be on or before date to')
+    if (!idFunnel) {
+      toast.error('Please select a funnel')
       return
     }
     const body = getRequestBody()
@@ -157,8 +271,8 @@ export function ResetStatsPage() {
   }
 
   async function handleReset() {
-    if (dateFromDay.ymd > dateToDay.ymd) {
-      toast.error('Date from must be on or before date to')
+    if (!idFunnel) {
+      toast.error('Please select a funnel')
       return
     }
     const body = getRequestBody()
@@ -171,7 +285,7 @@ export function ResetStatsPage() {
       await api.delete('/ui/resetstats/delete/', undefined, body)
       toast.success('Stats reset successfully')
       setPreviewCount(null)
-      setConfirmOpen(false)
+      closeConfirmModal()
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
@@ -182,7 +296,7 @@ export function ResetStatsPage() {
   return (
     <PageShell
       title="Reset Stats"
-      subtitle="Delete statistics data for a date range. Optional filters limit the scope."
+      subtitle="Delete statistics data for a date-time range. Funnel is required; other filters narrow scope."
     >
       <Card className="max-w-lg border-border" styles={{ body: { padding: 24 } }}>
         {pageError && (
@@ -209,81 +323,74 @@ export function ResetStatsPage() {
             <Field
               title="Campaign"
               htmlFor="reset-stats-campaign"
-              description="Optional. Only a single chosen campaign narrows deletion; leave empty or select several for unrestricted scope."
+              description="Optional. Narrow available funnels and scope by campaign."
             >
-              <VirtualizedMultiSelect
+              <Select
                 id="reset-stats-campaign"
                 options={campaignOptions}
-                value={campaignIds}
-                onChange={setCampaignIds}
-                placeholder={
-                  pageLoading ? 'Loading…' : 'Search campaigns (optional)'
-                }
+                value={idCampaign || undefined}
+                onChange={handleCampaignChange}
+                placeholder={pageLoading ? 'Loading…' : 'All campaigns'}
                 className="w-full"
                 disabled={formLocked}
-                selectAll
+                allowClear
+              />
+            </Field>
+
+            <Field
+              title="Funnel"
+              required
+              htmlFor="reset-stats-funnel"
+              description="Required. Select the funnel to reset stats for."
+            >
+              <Select
+                id="reset-stats-funnel"
+                options={funnelOptions}
+                value={idFunnel || undefined}
+                onChange={setIdFunnel}
+                placeholder={pageLoading ? 'Loading…' : 'Select funnel'}
+                className="w-full"
+                disabled={formLocked || funnelOptions.length === 0}
               />
             </Field>
 
             <Field
               title="Traffic source"
               htmlFor="reset-stats-traffic-source"
-              description="Optional. Only one chosen traffic source narrows deletion; leave empty or select several for unrestricted scope."
+              description="Optional. Limit to one traffic source."
             >
-              <VirtualizedMultiSelect
+              <Select
                 id="reset-stats-traffic-source"
                 options={trafficSourceOptions}
-                value={trafficSourceIds}
-                onChange={setTrafficSourceIds}
+                value={idTrafficSource || undefined}
+                onChange={setIdTrafficSource}
                 placeholder={
                   pageLoading
                     ? 'Loading…'
-                    : 'Search traffic sources (optional)'
+                    : 'All traffic sources'
                 }
                 className="w-full"
                 disabled={formLocked || noTrafficSources}
-                selectAll
+                allowClear
               />
             </Field>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field
-                title="Date from"
-                required
-                htmlFor="reset-stats-date-from"
-                description="Start of range (inclusive)."
-              >
-                <DatePicker
-                  id="reset-stats-date-from"
-                  className={cn('w-full h-control-md')}
-                  format={DATE_FMT}
-                  reportingValue={dateFromDay}
-                  onChange={(_d, _s, reporting) => {
-                    if (reporting) setDateFromDay(reporting)
-                  }}
-                  allowClear={false}
-                  disabled={formLocked}
-                />
-              </Field>
-              <Field
-                title="Date to"
-                required
-                htmlFor="reset-stats-date-to"
-                description="End of range (inclusive)."
-              >
-                <DatePicker
-                  id="reset-stats-date-to"
-                  className={cn('w-full h-control-md')}
-                  format={DATE_FMT}
-                  reportingValue={dateToDay}
-                  onChange={(_d, _s, reporting) => {
-                    if (reporting) setDateToDay(reporting)
-                  }}
-                  allowClear={false}
-                  disabled={formLocked}
-                />
-              </Field>
-            </div>
+            <Field
+              title="Date-time range"
+              required
+              htmlFor="reset-stats-datetime-range"
+              description="Start and end are interpreted in the selected timezone."
+            >
+              <DateTimeRangePicker
+                showTime
+                autoConfirmCalendarSteps={false}
+                allowClear={false}
+                value={rangeDayjs}
+                onChange={handleRangeChange}
+                presets={rangePresets}
+                className={cn('w-full [&_.ant-picker]:w-full', 'h-control-md')}
+              />
+            </Field>
 
             <Field
               title="Timezone"
@@ -312,8 +419,8 @@ export function ResetStatsPage() {
               <Button
                 danger
                 type="primary"
-                onClick={() => setConfirmOpen(true)}
-                disabled={previewCount === null || previewCount === 0 || formLocked}
+                onClick={openConfirmModal}
+                disabled={previewCount === null || previewCount === 0 || formLocked || !idFunnel}
               >
                 Reset stats
               </Button>
@@ -333,7 +440,7 @@ export function ResetStatsPage() {
 
       <ConfirmModal
         open={confirmOpen}
-        onCancel={() => setConfirmOpen(false)}
+        onCancel={closeConfirmModal}
         title="Reset statistics"
         description={`This will permanently delete ${previewCount?.toLocaleString() ?? 0} record(s). This action cannot be undone.`}
         confirmText="Delete records"
