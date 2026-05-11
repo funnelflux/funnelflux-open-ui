@@ -43,6 +43,7 @@ export {
   disableBtnColumn,
   registryStatColumn,
   buildColumnsFromReport,
+  countLeadingGroupingColumns,
   resolveApiColumnId,
 } from './columnDefs'
 

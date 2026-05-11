@@ -4,6 +4,12 @@ import { buildChooserGroupsForPage, getColumnMeta, type MetricScope } from '@/co
 
 const ALWAYS_VISIBLE = new Set(['name', 'select'])
 
+function isPinnedVisibleColumnId(id: string | undefined): boolean {
+  if (!id) return false
+  if (ALWAYS_VISIBLE.has(id)) return true
+  return id.startsWith('grouping-')
+}
+
 function isActionBtnColumn(col: ColumnDef<unknown, unknown>): boolean {
   return !!col.id?.startsWith('btn_') || !!(col.meta as Record<string, unknown> | undefined)?.actionBtn
 }
@@ -15,7 +21,7 @@ export interface ToggleableColumn {
 
 export function listToggleableColumns(columnDefs: ColumnDef<unknown, unknown>[]): ToggleableColumn[] {
   return columnDefs
-    .filter((c) => c.id && !ALWAYS_VISIBLE.has(c.id) && !isActionBtnColumn(c))
+    .filter((c) => c.id && !isPinnedVisibleColumnId(c.id) && !isActionBtnColumn(c))
     .map((c) => ({
       id: c.id!,
       headerName: typeof c.header === 'string' ? c.header : c.id!,

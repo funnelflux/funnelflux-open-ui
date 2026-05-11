@@ -1,5 +1,5 @@
 import type { SortingState } from '@tanstack/react-table'
-import { resolveApiColumnId } from '@/components/ui-kit/data-table'
+import { countLeadingGroupingColumns, resolveApiColumnId } from '@/components/ui-kit/data-table'
 import type { DrilldownRequest, Report, RequestSorting } from '@/types/stats'
 
 /** API metric key used by PHP `MetricNames::ENTRANCES` (Visits column in the UI registry maps here). */
@@ -24,11 +24,16 @@ export function drilldownSortParamFromReport(
   const desc = !!sortCol.desc
 
   if (reportColumns?.length) {
-    const columnIds = [
-      'name',
-      ...reportColumns.slice(1).map((col, i) => resolveApiColumnId(col.name) ?? `col-${i + 1}`),
-    ]
-    const idx = columnIds.findIndex((id) => String(id) === String(sortCol.id))
+    const leading = countLeadingGroupingColumns(reportColumns)
+    const sortColId = String(sortCol.id)
+    const normalizedSortId = sortColId === 'name' ? 'grouping-0' : sortColId
+    const columnIds = reportColumns.map((col, i) => {
+      if (i < leading) {
+        return `grouping-${i}`
+      }
+      return resolveApiColumnId(col.name) ?? `col-${i}`
+    })
+    const idx = columnIds.findIndex((id) => String(id) === normalizedSortId)
     if (idx >= 0) {
       const col = reportColumns[idx]
       if (col?.name) {

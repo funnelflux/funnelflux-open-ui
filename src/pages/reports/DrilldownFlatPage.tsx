@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from "react"
 import type { ColumnDef, SortingState, Table } from "@tanstack/react-table"
 import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
-import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
+import { buildColumnsFromReport, countLeadingGroupingColumns } from "@/components/ui-kit/data-table"
 import { ColumnChooser } from "@/components/shared/ColumnChooser"
 import { defaultColIds } from "@/lib/entityPageDefaultColIds"
 import { useEntityGridColumnVisibility } from "@/lib/entityGridColumnVisibility"
@@ -15,6 +15,7 @@ import { useDrilldownReportQuery } from "@/api/hooks"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
 import { reportRowToCells } from "@/lib/reportRowCells"
+import { drilldownGroupingShortLabel } from "@/lib/drilldownGroupings"
 import { metricsForColumnIds, visibleMetricColumnIdsFromHidden, withSortingMetricIds } from "@/lib/drilldownMetrics"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
 
@@ -29,11 +30,20 @@ function drilldownFlatRowId(row: FlatRowData): string {
   return row._id
 }
 
+function drilldownFlatGroupingCell(info: { getValue: () => unknown }) {
+  return <span className="font-medium">{String(info.getValue())}</span>
+}
+
 function reportRowsToFlatData(report: Report): FlatRowData[] {
+  const leading = countLeadingGroupingColumns(report.columns)
   return report.rows.map((row, index) => {
     const cells = reportRowToCells(row, report.columns.length)
+    const fallbackKey = cells
+      .slice(0, Math.max(leading, 1))
+      .map((c) => String(c?.raw ?? ""))
+      .join("|")
     return {
-      _id: `row-${index}-${String(cells[0]?.raw ?? index)}`,
+      _id: row.rowId || `row-${index}-${fallbackKey}`,
       cells,
     }
   })
@@ -120,16 +130,21 @@ export function DrilldownFlatPage() {
 
   const columnDefs: ColumnDef<FlatRowData, unknown>[] = useMemo(() => {
     if (!report) return []
-    const groupingCol: ColumnDef<FlatRowData, unknown> = {
-      id: 'name',
-      header: 'Name',
-      accessorFn: (row: FlatRowData) => row.cells[0]?.formatted ?? '',
-      enableSorting: true,
-      size: 250,
-      meta: { flex: 1 },
-      cell: (info: { getValue: () => unknown }) => <span className="font-medium">{String(info.getValue())}</span>,
+    const leading = countLeadingGroupingColumns(report.columns)
+    const groupingCols: ColumnDef<FlatRowData, unknown>[] = []
+    for (let i = 0; i < leading; i++) {
+      groupingCols.push({
+        id: `grouping-${i}`,
+        header: drilldownGroupingShortLabel(report.columns[i]?.name ?? ""),
+        accessorFn: (row: FlatRowData) => row.cells[i]?.formatted ?? "",
+        enableSorting: true,
+        size: i === leading - 1 ? 280 : 200,
+        minSize: 120,
+        meta: i === leading - 1 ? { flex: 1 } : {},
+        cell: drilldownFlatGroupingCell,
+      })
     }
-    return [groupingCol, ...buildColumnsFromReport<FlatRowData>(report.columns)]
+    return [...groupingCols, ...buildColumnsFromReport<FlatRowData>(report.columns)]
   }, [report])
 
   const gridColumnVisibility = useEntityGridColumnVisibility(

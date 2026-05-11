@@ -192,8 +192,29 @@ export interface BuildColumnsFromReportOptions {
 }
 
 /**
+ * Number of leading dimensions before metrics (flat drilldown uses one cell per grouping level).
+ * Typed responses use {@link ReportColumn.type}; legacy rows without any `type` assume a single leading grouping.
+ */
+export function countLeadingGroupingColumns(apiColumns: { type?: string }[]): number {
+  if (apiColumns.length === 0) return 0
+  const anyTyped = apiColumns.some((c) => c.type === 'grouping' || c.type === 'metric')
+  if (!anyTyped) {
+    return 1
+  }
+  let n = 0
+  for (const col of apiColumns) {
+    if (col.type === 'grouping') {
+      n++
+    } else {
+      break
+    }
+  }
+  return n
+}
+
+/**
  * Build TanStack column defs for every metric column returned by the API.
- * Skips the first column (index 0) which is the grouping/name column.
+ * Skips all leading grouping columns (`type: grouping`), then emits stat columns for metrics.
  * Columns that match the registry get proper sizing/colorize; unknown columns
  * get a generic stat column with the API name as header.
  * Cell indices always match the API row `cells[i]` even when columns are filtered out.
@@ -204,7 +225,8 @@ export function buildColumnsFromReport<T extends HasCells>(
 ): ColumnDef<T, unknown>[] {
   const cols: ColumnDef<T, unknown>[] = []
   const hideScopes = options?.hideScopes
-  for (let i = 1; i < apiColumns.length; i++) {
+  const start = countLeadingGroupingColumns(apiColumns)
+  for (let i = start; i < apiColumns.length; i++) {
     const apiCol = apiColumns[i]
     const registryId = resolveApiColumnId(apiCol.name)
     const meta = registryId ? getColumnMeta(registryId) : undefined
