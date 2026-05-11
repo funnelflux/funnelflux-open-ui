@@ -25,6 +25,7 @@ import type {
   ReportCell,
   ReportRow,
 } from "@/types/stats"
+import { isLastDrilldownGroupingDepth } from "@/pages/reports/drilldownTreeDepth"
 
 const DRILLDOWN_TREE_TABLE_KEY = "reports-drilldown-tree"
 const CHILD_PAGE_SIZE = 500
@@ -425,7 +426,7 @@ export function DrilldownTreePage() {
       if (plan.length === 0) return
       if (isFinalTrackingFieldRow(row, lastRequest, plan)) return
       const nextDepth = row.depth + 1
-      if (row.depth >= plan.length) return
+      if (isLastDrilldownGroupingDepth(row.depth, plan.length)) return
       const parentKey = row.groupIds?.[0]
       if (!parentKey) return
 
@@ -451,7 +452,7 @@ export function DrilldownTreePage() {
         if (token !== expandRequestId.current) return
 
         let leafRows = leafRowsForLazyExpand(childReport, [...row.ancestorKeys, parentKey])
-        if (leafRows.length === 0 && nextDepth >= plan.length) {
+        if (leafRows.length === 0 && isLastDrilldownGroupingDepth(nextDepth, plan.length)) {
           leafRows = deepestRows(childReport.rows)
         }
         const newAncestorKeys = [...row.ancestorKeys, parentKey]
@@ -516,7 +517,7 @@ export function DrilldownTreePage() {
       if (row._loadMore) return true
       if (planGroupings.length === 0) return false
       if (isFinalTrackingFieldRow(row, lastRequest, planGroupings)) return false
-      if (row.depth >= planGroupings.length) return false
+      if (isLastDrilldownGroupingDepth(row.depth, planGroupings.length)) return false
       if (row.loaded) return false
       if (row.children?.length) return false
       return Boolean(row.groupIds?.[0])

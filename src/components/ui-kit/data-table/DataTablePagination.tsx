@@ -3,6 +3,10 @@ import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import type { DataTablePageToken } from './DataTablePaginationTokens'
 
+/** Re-exported for backward compatibility (older imports from this module). Canonical: {@link ./DataTablePaginationTokens}. */
+// eslint-disable-next-line react-refresh/only-export-components -- thin re-export only; real impl is in DataTablePaginationTokens.ts
+export { buildDataTablePageTokens } from './DataTablePaginationTokens'
+
 export interface DataTablePaginationProps {
   rangeLabel: string
   pageSize: number
