@@ -11,6 +11,9 @@ import type {
 } from '@/types/entities'
 import { generateEntityId } from '@/lib/id-generator'
 
+/** Same as `\Condition::SEPARATOR` — used to join multiple comparison tokens for one test. */
+const CONDITION_TOKEN_SEPARATOR = ',,'
+
 /** Labels the PHP API uses that are missing from the generated OpenAPI string union. */
 type WireConditionTestExtra = 'Visitor Tag(s)' | 'Connection: Type'
 type WireConditionTest = FunnelConditionTest['test'] | WireConditionTestExtra
@@ -114,12 +117,22 @@ function uiRuleToApiTest(rule: ConditionRule): FunnelConditionTest {
   if (rule.field === 'queryParam' || rule.field === 'customField') {
     const trackingField = String(rule.extraKey ?? '').trim()
     if (!trackingField) throw new Error('Tracking / custom field name is required.')
-    const values = Array.isArray(rule.value) ? rule.value.map(String) : [String(rule.value ?? '')]
-    return {
-      test: 'Tracking Field',
-      operator: op,
-      testAgainstTrackingFieldParams: { trackingField, values: values.filter(Boolean) },
+    const rawValues = Array.isArray(rule.value) ? rule.value.map(String) : [String(rule.value ?? '')]
+    const compareVals = rawValues.map(String).filter((v) => v !== '')
+    if (compareVals.length === 0 && op !== 'IS NOT') {
+      throw new Error('Value is required for this rule.')
     }
+    // Runtime `Condition` stores AND_VALUE = value(s) to match, AND_VALUE_2 = tracking field id.
+    // API wire uses `testAgainstGenericParams.values` as [compareTokens..., fieldId] where multiple
+    // tokens are merged with CONDITION_TOKEN_SEPARATOR inside slot 0 when saving (see PHP case).
+    const comparePart =
+      compareVals.length === 0 ? '' : compareVals.length === 1 ? compareVals[0]! : compareVals.join(CONDITION_TOKEN_SEPARATOR)
+    return asFunnelConditionTest('Tracking Field', {
+      operator: op,
+      testAgainstGenericParams: {
+        values: [comparePart, trackingField],
+      },
+    })
   }
 
   const testLabel = CONDITION_FIELD_TO_API_TEST[rule.field]
@@ -176,14 +189,70 @@ function apiTestToRule(test: FunnelConditionTest): ConditionRule | null {
   const operator = API_OPERATOR_TO_UI[test.operator] ?? 'equals'
   const testName = test.test as WireConditionTest
 
-  if (test.test === 'Tracking Field' && test.testAgainstTrackingFieldParams) {
-    const { trackingField, values } = test.testAgainstTrackingFieldParams
-    return {
-      field: 'queryParam',
-      operator,
-      extraKey: trackingField,
-      value: values.length <= 1 ? (values[0] ?? '') : values,
+  // Tracking field: OpenAPI may include testAgainstTrackingFieldParams; DB/API round-trip uses
+  // testAgainstGenericParams [compare, fieldId] matching `Condition::AND_VALUE` / `AND_VALUE_2`.
+  // Older UI sent [fieldId, compare] then PHP imploded both into AND_VALUE only — recover via split.
+  if (test.test === 'Tracking Field') {
+    const tfParams = test.testAgainstTrackingFieldParams
+    if (tfParams) {
+      const trackingField = String(tfParams.trackingField ?? '').trim()
+      const values = tfParams.values ?? []
+      return {
+        field: 'queryParam',
+        operator,
+        extraKey: trackingField,
+        value: values.length <= 1 ? (values[0] ?? '') : values,
+      }
     }
+    const rawGeneric = test.testAgainstGenericParams?.values
+    if (rawGeneric && rawGeneric.length > 0) {
+      let genericVals = rawGeneric.filter((v) => v !== null && v !== undefined).map((v) => String(v))
+      // PHP `fromConditionBlock` may produce [merged AND_VALUE, ""] when AND_VALUE_2 was missing.
+      if (genericVals.length >= 2 && genericVals[genericVals.length - 1]!.trim() === '') {
+        genericVals = [genericVals[0]!]
+      }
+      if (genericVals.length >= 2) {
+        const first = genericVals[0]!.trim()
+        const second = genericVals[1]!.trim()
+        const firstLooksLikeFieldId = /^\d+$/.test(first)
+        const secondLooksLikeFieldId = /^\d+$/.test(second)
+        // Wrong order from an earlier Open UI save: [fieldId, compare, ...]
+        if (firstLooksLikeFieldId && !secondLooksLikeFieldId) {
+          const compareJoined = genericVals.slice(1).join(CONDITION_TOKEN_SEPARATOR)
+          return {
+            field: 'queryParam',
+            operator,
+            extraKey: first,
+            value: compareJoined,
+          }
+        }
+        const fieldId = genericVals[genericVals.length - 1]!.trim()
+        const compareJoined = genericVals.slice(0, -1).join(CONDITION_TOKEN_SEPARATOR)
+        return {
+          field: 'queryParam',
+          operator,
+          extraKey: fieldId,
+          value: compareJoined,
+        }
+      }
+      if (genericVals.length === 1) {
+        const parts = genericVals[0]!.split(CONDITION_TOKEN_SEPARATOR)
+        if (parts.length >= 2) {
+          const head = parts[0]!.trim()
+          const rest = parts.slice(1).join(CONDITION_TOKEN_SEPARATOR)
+          const headLooksLikeFieldId = /^\d+$/.test(head)
+          if (headLooksLikeFieldId) {
+            return {
+              field: 'queryParam',
+              operator,
+              extraKey: head,
+              value: rest,
+            }
+          }
+        }
+      }
+    }
+    return null
   }
 
   if (testName === 'Visitor Tag(s)' && test.testAgainstGenericParams?.values?.length) {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useToastApi } from '@/components/ui-kit'
-import { ConditionEditor } from '@/components/funnel-builder/ConditionEditor'
+import { ConditionEditor } from '@/components/forms/ConditionEditor'
 import { useCondition } from '@/api/hooks'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import type { FunnelCondition } from '@/types/entities'

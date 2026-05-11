@@ -7,7 +7,7 @@ import type { ConditionBlock as ConditionBlockType } from '@/types/funnel'
 import type { FunnelCondition } from '@/types/entities'
 import { conditionSchema, type ConditionFormValues } from '@/schemas/condition'
 import { formDraftToFunnelCondition, funnelConditionToFormDraft } from '@/lib/funnelConditionFormBridge'
-import { ConditionBlock } from './ConditionBlock'
+import { ConditionBlock } from '@/components/Condition'
 import { useCondition, useConditions } from '@/api/hooks'
 
 interface ConditionEditorProps {
@@ -63,6 +63,7 @@ export function ConditionEditor({
   const {
     control,
     setValue,
+    getValues,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -83,13 +84,7 @@ export function ConditionEditor({
   const { data: conditionList } = useConditions()
   const globalConditionOptions = useMemo(() => {
     const rows = conditionList ?? []
-    return rows
-      .filter((c) => {
-        const r = c.restrictToFunnelId
-        if (r === undefined) return true
-        return r === '' || r === '0'
-      })
-      .map((c) => ({ value: c.idCondition, label: c.conditionName }))
+    return rows.map((c) => ({ value: c.idCondition, label: c.conditionName }))
   }, [conditionList])
 
   const [copyFromConditionId, setCopyFromConditionId] = useState<string | null>(null)
@@ -115,8 +110,32 @@ export function ConditionEditor({
         },
         { keepDirty: true, keepTouched: true },
       )
+      setCopyFromConditionId(null)
     })
   }, [copyFromConditionId, copyFromQuery.data, initialDraft, isNew, reset])
+
+  const modalTitle = useMemo(() => {
+    const title = isNew ? 'New Condition' : 'Edit Condition'
+    if (!isNew || globalConditionOptions.length === 0) return title
+
+    return (
+      <div className="flex flex-col gap-3 pr-10 sm:flex-row sm:items-center sm:justify-between">
+        <span>{title}</span>
+        <div className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
+          <span className="shrink-0">Use template</span>
+          <Select
+            allowClear
+            value={copyFromConditionId ?? undefined}
+            placeholder="Select template"
+            className="w-52"
+            size="sm"
+            onChange={handleCopyFromSelect}
+            options={globalConditionOptions}
+          />
+        </div>
+      </div>
+    )
+  }, [copyFromConditionId, globalConditionOptions, handleCopyFromSelect, isNew])
 
   const handleScopeToggle = useCallback(
     (checked: boolean) => {
@@ -138,21 +157,27 @@ export function ConditionEditor({
 
   const handleBlockRemove = useCallback(
     (index: number) => {
-      if ((blocks?.length ?? 0) <= 1) return
-      const next = (blocks ?? []).filter((_, i) => i !== index)
-      setValue('blocks', next as ConditionBlockType[], { shouldDirty: true })
+      // Use getValues so we never drop in-flight edits in other blocks (useWatch can lag setValue).
+      const current = (getValues('blocks') ?? []) as ConditionBlockType[]
+      if (current.length <= 1) return
+      const next = current.filter((_, i) => i !== index)
+      setValue('blocks', next, { shouldDirty: true })
     },
-    [blocks, setValue],
+    [getValues, setValue],
   )
 
   const handleAddBlock = useCallback(() => {
-    const next = [...(blocks ?? []), createEmptyBlock()]
-    setValue('blocks', next as ConditionBlockType[], { shouldDirty: true })
-  }, [blocks, setValue])
+    const current = (getValues('blocks') ?? []) as ConditionBlockType[]
+    setValue('blocks', [...current, createEmptyBlock()], { shouldDirty: true })
+  }, [getValues, setValue])
 
   const handleCancel = useCallback(() => {
     onClose()
   }, [onClose])
+
+  const handleAfterClose = useCallback(() => {
+    setCopyFromConditionId(null)
+  }, [])
 
   const handleValidSubmit = useCallback(
     (values: ConditionFormValues) => {
@@ -176,7 +201,8 @@ export function ConditionEditor({
     <Modal
       open={open}
       onCancel={handleCancel}
-      title={isNew ? 'New Condition' : 'Edit Condition'}
+      afterClose={handleAfterClose}
+      title={modalTitle}
       width={720}
       footer={null}
       destroyOnHidden
@@ -195,25 +221,6 @@ export function ConditionEditor({
 
       {isNew || !detailLoading ? (
       <div className="space-y-6">
-        {isNew && (
-          <Field
-            title="Copy from Global Condition"
-            htmlFor="copyFromGlobalCondition"
-            description="Selecting a condition will copy its blocks and rules into this new condition."
-          >
-            <Select
-              id="copyFromGlobalCondition"
-              value={copyFromConditionId ?? undefined}
-              onChange={handleCopyFromSelect}
-              allowClear
-              showSearch
-              placeholder="Select a global condition to copy"
-              options={globalConditionOptions}
-              className="w-full"
-            />
-          </Field>
-        )}
-
         <Controller
           control={control}
           name="conditionName"
