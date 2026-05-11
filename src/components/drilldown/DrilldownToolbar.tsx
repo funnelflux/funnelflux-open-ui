@@ -8,7 +8,6 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react'
-import dayjs, { type Dayjs } from 'dayjs'
 import {
   Button,
   Drawer,
@@ -85,19 +84,19 @@ function useDatePickerState(timezone: string) {
   return [value, handleChange] as const
 }
 
-function presetRangesDayjs(tz: string): { label: string; value: [Dayjs, Dayjs] }[] {
+function presetRanges(tz: string): { label: string; value: [Date, Date] }[] {
   return DATE_PRESETS.map((p) => {
     const range = getPresetRange(p.value, tz)
     return {
       label: p.label,
-      value: [dayjs(range.from), dayjs(range.to)] as [Dayjs, Dayjs],
+      value: [range.from, range.to],
     }
   })
 }
 
 interface DrilldownToolbarContextValue {
-  dateTimeRangeValue: [Dayjs, Dayjs]
-  onDateTimeRangeChange: (dates: [Dayjs, Dayjs] | null) => void
+  dateTimeRangeValue: [Date, Date]
+  onDateTimeRangeChange: (dates: [Date, Date] | null) => void
   timezone: string
   setTimezone: (tz: string) => void
   selectedViewId: string
@@ -200,16 +199,16 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
   }, [])
 
   const dateTimeRangeValue = useMemo(
-    (): [Dayjs, Dayjs] => [dayjs(datePickerValue.from), dayjs(datePickerValue.to)],
+    (): [Date, Date] => [datePickerValue.from, datePickerValue.to],
     [datePickerValue.from, datePickerValue.to],
   )
 
   const onDateTimeRangeChange = useCallback(
-    (dates: [Dayjs, Dayjs] | null) => {
+    (dates: [Date, Date] | null) => {
       if (dates?.[0] && dates?.[1]) {
         setDatePickerValue({
-          from: dates[0].toDate(),
-          to: dates[1].toDate(),
+          from: dates[0],
+          to: dates[1],
           preset: null,
         })
       }
@@ -454,7 +453,7 @@ export function DrilldownToolbarHeaderFilters() {
             onDateTimeRangeChange([a, b])
           }
         }}
-        presets={presetRangesDayjs(timezone)}
+        presets={presetRanges(timezone)}
         allowClear={false}
         className="ff-drilldown-datetime-range [&_.ant-picker-input>input]:text-xs"
       />

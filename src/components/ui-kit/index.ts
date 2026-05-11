@@ -101,23 +101,3 @@ export { Descriptions } from './Descriptions'
 export type { DescriptionsProps } from './Descriptions'
 export { Popover } from './Popover'
 export type { PopoverProps } from './Popover'
-
-// New TanStack-based DataTable & column helpers
-export { DataTable } from './data-table'
-export type { DataTableProps, ColumnDef, SortingState, VisibilityState, RowSelectionState, Table } from './data-table'
-export {
-  cellRaw,
-  cellFmt,
-  nameColumn,
-  visitsColumn,
-  clicksColumn,
-  ctrColumn,
-  convColumn,
-  revenueColumn,
-  costColumn,
-  plColumn,
-  roiColumn,
-  idColumn,
-  actionsColumn,
-  selectionColumn,
-} from './data-table'

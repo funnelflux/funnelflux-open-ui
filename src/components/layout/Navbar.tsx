@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
-import { Dropdown, Icon, type MenuProps } from '@/components/ui-kit'
+import { Dropdown, type MenuProps } from '@/components/ui-kit/Dropdown'
+import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import {
   ChevronDown,

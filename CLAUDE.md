@@ -254,6 +254,8 @@ Utilities, theming, and pure helpers (most have unit tests):
 ## UI / Styling Rules
 
 - Import design-system primitives from `@/components/ui-kit` (do NOT add shadcn/ui, MUI, or other libraries).
+- Import `DataTable` and related column helpers from `@/components/ui-kit/data-table` (not from the ui-kit barrel).
+- Performance-critical bootstrap/layout files may import specific ui-kit modules directly (for example `@/components/ui-kit/ConfigProvider`) to keep shared chunks small.
 - Use Tailwind utilities for layout. Use CSS vars from `src/styles/design-tokens.css` for colors/spacing — no hardcoded hex outside token files.
 - Compose conditional classes with `clsx` or `tailwind-merge`.
 - All dates: `date-fns` (+ `@date-fns/tz`). `dayjs` is transitively present for AntD's DatePicker only — do NOT import it in app code.

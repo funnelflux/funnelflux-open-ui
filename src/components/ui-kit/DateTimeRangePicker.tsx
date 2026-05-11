@@ -7,11 +7,13 @@ import { controlTierToAntdSize, normalizePickerControlTier } from '@/lib/control
 
 const { RangePicker } = DatePicker
 
-type RangeValue = [Dayjs | null, Dayjs | null]
+type DateRangeValue = [Date | null, Date | null]
+type DateRangePresetValue = [Date, Date]
+type DayjsRangeValue = [Dayjs | null, Dayjs | null]
 
 interface DateTimeRangePickerProps {
-  value?: RangeValue | null
-  onChange?: (dates: RangeValue | null, dateStrings: [string, string]) => void
+  value?: DateRangeValue | null
+  onChange?: (dates: DateRangeValue | null, dateStrings: [string, string]) => void
   /** Enable time selection (default: false = date-only) */
   showTime?: boolean
   /**
@@ -23,10 +25,21 @@ interface DateTimeRangePickerProps {
   autoConfirmCalendarSteps?: boolean
   className?: string
   style?: React.CSSProperties
+  variant?: 'outlined' | 'borderless' | 'filled' | 'underlined'
   /** md | lg (`sm`/`small` map to md) */
   size?: ControlSize | LegacyAntdControlSize
   allowClear?: boolean
-  presets?: { label: string; value: RangeValue }[]
+  presets?: { label: string; value: DateRangePresetValue }[]
+}
+
+function toDayjsRange(value: DateRangeValue | null | undefined): DayjsRangeValue | null {
+  if (!value) return null
+  return [value[0] ? dayjs(value[0]) : null, value[1] ? dayjs(value[1]) : null]
+}
+
+function toDateRange(value: DayjsRangeValue | null): DateRangeValue | null {
+  if (!value) return null
+  return [value[0]?.toDate() ?? null, value[1]?.toDate() ?? null]
 }
 
 /**
@@ -45,23 +58,34 @@ export function DateTimeRangePicker({
   autoConfirmCalendarSteps = true,
   className,
   style,
+  variant,
   size = 'md',
   allowClear = false,
   presets,
 }: DateTimeRangePickerProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const antdSize = controlTierToAntdSize(normalizePickerControlTier(size))
+  const pickerValue = toDayjsRange(value)
+  const pickerPresets = presets?.map((preset) => ({
+    ...preset,
+    value: [dayjs(preset.value[0]), dayjs(preset.value[1])] as [Dayjs, Dayjs],
+  }))
+
+  const handleChange = (dates: DayjsRangeValue | null, dateStrings: [string, string]) => {
+    onChange?.(toDateRange(dates), dateStrings)
+  }
 
   if (!showTime) {
     return (
       <RangePicker
-        value={value}
-        onChange={onChange}
+        value={pickerValue}
+        onChange={handleChange}
         className={className}
         style={style}
+        variant={variant}
         size={antdSize}
         allowClear={allowClear}
-        presets={presets}
+        presets={pickerPresets}
         format="YYYY-MM-DD"
       />
     )
@@ -88,8 +112,8 @@ export function DateTimeRangePicker({
   return (
     <div ref={wrapRef}>
       <RangePicker
-        value={value}
-        onChange={onChange}
+        value={pickerValue}
+        onChange={handleChange}
         {...autoConfirmCalendarProps}
         showTime={{
           defaultValue: [
@@ -99,9 +123,10 @@ export function DateTimeRangePicker({
         }}
         className={className}
         style={style}
+        variant={variant}
         size={antdSize}
         allowClear={allowClear}
-        presets={presets}
+        presets={pickerPresets}
         format="YYYY-MM-DD HH:mm"
       />
     </div>

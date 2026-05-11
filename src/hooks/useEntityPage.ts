@@ -1,12 +1,14 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useMemo, useState } from 'react'
 import { selectedRowIds } from '@/lib/utils'
-import { subDays } from 'date-fns'
 import type { RowSelectionState } from '@tanstack/react-table'
 import { useEntityGrid } from '@/api/hooks/useEntityGrid'
 import type { ListEntity, EntityGridRow } from '@/lib/entityGridUtils'
-import type { ArchiveStatus } from '@/components/shared/ArchiveToggle'
 import { visibleMetricColumnIdsFromHidden } from '@/lib/drilldownMetrics'
 import type { MetricScope } from '@/components/ui-kit/data-table'
+import { useEntityArchiveTab } from '@/hooks/entity-page/useEntityArchiveTab'
+import { useEntityDateRange } from '@/hooks/entity-page/useEntityDateRange'
+import { useEntityModals } from '@/hooks/entity-page/useEntityModals'
+import { useEntitySearch } from '@/hooks/entity-page/useEntitySearch'
 
 interface UseEntityPageOptions {
   queryKeyPrefix: readonly unknown[]
@@ -39,32 +41,28 @@ export function useEntityPage(options: UseEntityPageOptions) {
     metricHideScopes,
   } = options
 
-  const [search, setSearch] = useState('')
-  const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
+  const {
+    archiveStatus,
+    setArchiveStatus,
+    listParamsForQuery,
+    skipArchiveFilter,
+  } = useEntityArchiveTab({
+    archiveListFilter,
+    staticListParams,
+  })
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [tz, setTz] = useState('UTC')
-  const [dateRange, setDateRange] = useState(() => ({
-    from: subDays(new Date(), 365),
-    to: new Date(),
-  }))
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-
-  const listParamsForQuery = useMemo((): Record<string, string> | undefined => {
-    const base = staticListParams ? { ...staticListParams } : {}
-    if (!archiveListFilter) {
-      return Object.keys(base).length > 0 ? base : undefined
-    }
-    if (archiveListFilter === 'trafficsource') {
-      if (archiveStatus === 'all') {
-        return Object.keys(base).length > 0 ? base : undefined
-      }
-      return { ...base, archived: archiveStatus === 'archived' ? 'true' : 'false' }
-    }
-    return { ...base, status: archiveStatus }
-  }, [staticListParams, archiveListFilter, archiveStatus])
+  const { tz, setTz, dateRange, setDateRange } = useEntityDateRange()
+  const {
+    sheetOpen,
+    setSheetOpen,
+    editId,
+    setEditId,
+    deleteId,
+    setDeleteId,
+    handleCreate,
+    handleEdit,
+  } = useEntityModals()
 
   const metricColumnIds = metricStorageKey
     ? visibleMetricColumnIdsFromHidden(metricStorageKey, { defaultVisibleColumnIds, hideScopes: metricHideScopes })
@@ -82,24 +80,14 @@ export function useEntityPage(options: UseEntityPageOptions) {
     metricColumnIds,
   })
 
-  const filtered = useMemo(() => {
-    const searchText = search.toLowerCase()
-    const skipClientArchive = !!archiveListFilter
-    return grid.mergedRows.filter((row: EntityGridRow) => {
-      const matchesSearch = !searchText || row.name.toLowerCase().includes(searchText)
-      const matchesCategory = !selectedCategoryId || row.categoryId === selectedCategoryId
-      const matchesArchive =
-        skipClientArchive ||
-        archiveStatus === 'all' ||
-        (archiveStatus === 'archived' ? row.isArchived === true : row.isArchived !== true)
-      return matchesSearch && matchesCategory && matchesArchive
-    })
-  }, [archiveListFilter, archiveStatus, grid.mergedRows, search, selectedCategoryId])
+  const { search, setSearch, filtered } = useEntitySearch({
+    rows: grid.mergedRows as EntityGridRow[],
+    selectedCategoryId,
+    archiveStatus,
+    skipArchiveFilter,
+  })
 
   const selectedIds = useMemo(() => selectedRowIds(rowSelection), [rowSelection])
-
-  const handleCreate = useCallback(() => { setEditId(null); setSheetOpen(true) }, [])
-  const handleEdit = useCallback((id: string) => { setEditId(id); setSheetOpen(true) }, [])
 
   return {
     ...grid,

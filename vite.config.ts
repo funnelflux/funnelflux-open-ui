@@ -25,5 +25,45 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            if (id.includes('/src/components/ui-kit/data-table/')) return 'data-table'
+            if (id.includes('/src/components/ui-kit/')) return 'ui-kit'
+            return undefined
+          }
+
+          if (id.includes('/node_modules/react/') || id.includes('/node_modules/react-dom/')) {
+            return 'react-vendor'
+          }
+          if (id.includes('/node_modules/react-router')) return 'router-vendor'
+          if (id.includes('/node_modules/@tanstack/react-query')) return 'query-vendor'
+          if (
+            id.includes('/node_modules/@tanstack/react-table') ||
+            id.includes('/node_modules/@tanstack/react-virtual')
+          ) {
+            return 'table-vendor'
+          }
+          if (id.includes('/node_modules/@xyflow/react')) return 'xyflow-vendor'
+          if (id.includes('/node_modules/recharts')) return 'chart-vendor'
+          if (
+            id.includes('/node_modules/antd/') ||
+            id.includes('/node_modules/@ant-design/') ||
+            id.includes('/node_modules/rc-')
+          ) {
+            return 'antd-vendor'
+          }
+          if (
+            id.includes('/node_modules/@uiw/') ||
+            id.includes('/node_modules/@codemirror/') ||
+            id.includes('/node_modules/codemirror/')
+          ) {
+            return 'codemirror-vendor'
+          }
+          return undefined
+        },
+      },
+    },
   },
 })

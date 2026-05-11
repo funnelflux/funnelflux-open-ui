@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui-kit'
-import { PlusOutlined, ReloadOutlined, FilterOutlined } from '@ant-design/icons'
 import { PageShell, StatCard, SearchToolbar, TimezoneSelect, DateTimeRangePicker } from '@/components/ui-kit'
+import { Icon } from '@/components/ui-kit/icons'
 import { useState } from 'react'
 
 export function LayoutSection() {
@@ -36,7 +36,7 @@ export function LayoutSection() {
                 title="Offers"
                 subtitle="Manage your offer pages"
                 actions={
-                  <Button type="primary" icon={<PlusOutlined />}>
+                  <Button type="primary" icon={<Icon name="plus" size="sm" />}>
                     New Offer
                   </Button>
                 }
@@ -52,8 +52,8 @@ export function LayoutSection() {
                   <div className="flex items-center gap-2 ml-auto">
                     <DateTimeRangePicker />
                     <TimezoneSelect />
-                    <Button icon={<FilterOutlined />}>Filters</Button>
-                    <Button icon={<ReloadOutlined />} />
+                    <Button icon={<Icon name="filter" size="sm" />}>Filters</Button>
+                    <Button icon={<Icon name="refresh-cw" size="sm" />} />
                   </div>
                 </div>
 

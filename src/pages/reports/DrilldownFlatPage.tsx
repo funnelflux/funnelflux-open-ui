@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from "react"
 import type { ColumnDef, SortingState, Table } from "@tanstack/react-table"
-import { PageShell, EmptyState, DataTable } from "@/components/ui-kit"
+import { PageShell, EmptyState } from "@/components/ui-kit"
+import { DataTable } from "@/components/ui-kit/data-table"
 import { buildColumnsFromReport, countLeadingGroupingColumns } from "@/components/ui-kit/data-table"
 import { ColumnChooser } from "@/components/shared/ColumnChooser"
 import { defaultColIds } from "@/lib/entityPageDefaultColIds"

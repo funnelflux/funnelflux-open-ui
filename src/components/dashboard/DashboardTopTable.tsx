@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
 import { api } from '@/api/client'
-import { DataTable } from '@/components/ui-kit'
+import { DataTable } from '@/components/ui-kit/data-table'
 import { buildColumnsFromReport, buildDataTablePageTokens, DataTablePagination } from '@/components/ui-kit/data-table'
 import { drilldownSortParamFromReport } from '@/lib/drilldownTableSort'
 import { reportRowToCells } from '@/lib/reportRowCells'

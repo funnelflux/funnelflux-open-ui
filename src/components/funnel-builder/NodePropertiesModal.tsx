@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { Form } from '@/components/ui-kit'
 import { Input, Modal } from '@/components/ui-kit'
 import {
@@ -9,12 +9,37 @@ import {
   type NodeTypeValue,
 } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import { LanderNodeEditModal } from './LanderNodeEditModal'
-import { OfferNodeEditModal } from './OfferNodeEditModal'
-import { RotatorNodeEditModal } from './RotatorNodeEditModal'
-import { ConditionNodeEditDrawer } from './ConditionNodeEditDrawer'
-import { VisitorTagNodeEditModal } from './VisitorTagNodeEditModal'
-import { CodeNodeEditModal } from './CodeNodeEditModal'
+
+const LanderNodeEditModal = lazy(() =>
+  import('./LanderNodeEditModal').then((module) => ({
+    default: module.LanderNodeEditModal,
+  })),
+)
+const OfferNodeEditModal = lazy(() =>
+  import('./OfferNodeEditModal').then((module) => ({
+    default: module.OfferNodeEditModal,
+  })),
+)
+const RotatorNodeEditModal = lazy(() =>
+  import('./RotatorNodeEditModal').then((module) => ({
+    default: module.RotatorNodeEditModal,
+  })),
+)
+const ConditionNodeEditDrawer = lazy(() =>
+  import('./ConditionNodeEditDrawer').then((module) => ({
+    default: module.ConditionNodeEditDrawer,
+  })),
+)
+const VisitorTagNodeEditModal = lazy(() =>
+  import('./VisitorTagNodeEditModal').then((module) => ({
+    default: module.VisitorTagNodeEditModal,
+  })),
+)
+const CodeNodeEditModal = lazy(() =>
+  import('./CodeNodeEditModal').then((module) => ({
+    default: module.CodeNodeEditModal,
+  })),
+)
 
 interface NodePropertiesModalProps {
   nodeId: string | null
@@ -93,49 +118,54 @@ export function NodePropertiesModal({ nodeId, open, onClose }: NodePropertiesMod
   if (!node) return null
 
   const nt = node.data.nodeType
+  const withFallback = (element: ReactNode) => (
+    <Suspense fallback={null}>{element}</Suspense>
+  )
 
   if (nt === NODE_TYPES.condition) {
-    return <ConditionNodeEditDrawer nodeId={nodeId ?? node.id} open={open} onClose={onClose} />
+    return withFallback(
+      <ConditionNodeEditDrawer nodeId={nodeId ?? node.id} open={open} onClose={onClose} />,
+    )
   }
 
   if (nt === NODE_TYPES.lander) {
-    return <LanderNodeEditModal nodeId={nodeId} open={open} onClose={onClose} />
+    return withFallback(<LanderNodeEditModal nodeId={nodeId} open={open} onClose={onClose} />)
   }
 
   if (nt === NODE_TYPES.offer) {
-    return <OfferNodeEditModal nodeId={nodeId} open={open} onClose={onClose} />
+    return withFallback(<OfferNodeEditModal nodeId={nodeId} open={open} onClose={onClose} />)
   }
 
   if (nt === NODE_TYPES.visitorTag) {
-    return (
+    return withFallback(
       <VisitorTagNodeEditModal
         key={nodeId ?? node.id}
         nodeId={nodeId ?? node.id}
         open={open}
         onClose={onClose}
-      />
+      />,
     )
   }
 
   if (nt === NODE_TYPES.rotator) {
-    return (
+    return withFallback(
       <RotatorNodeEditModal
         key={nodeId ?? node.id}
         nodeId={nodeId}
         open={open}
         onClose={onClose}
-      />
+      />,
     )
   }
 
   if (nt === NODE_TYPES.jsCode) {
-    return (
+    return withFallback(
       <CodeNodeEditModal nodeId={nodeId ?? node.id} codeType="javascript" open={open} onClose={onClose} />
     )
   }
 
   if (nt === NODE_TYPES.phpCode) {
-    return (
+    return withFallback(
       <CodeNodeEditModal nodeId={nodeId ?? node.id} codeType="php" open={open} onClose={onClose} />
     )
   }

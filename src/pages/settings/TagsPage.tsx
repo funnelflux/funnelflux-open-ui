@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Button, PageShell, DataTable, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Button, PageShell, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { DataTable } from '@/components/ui-kit/data-table'
 import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import { useTags, useSaveTag, useUpdateTag, useDeleteTag } from '@/api/hooks/useTags'
 import { TagModal } from '@/components/forms/TagModal'

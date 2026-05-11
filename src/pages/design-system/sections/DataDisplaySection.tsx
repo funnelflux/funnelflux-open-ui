@@ -1,6 +1,6 @@
 import { Avatar, Badge, Card, Descriptions, Space, Tag, Tooltip } from '@/components/ui-kit'
-import { UserOutlined, SettingOutlined } from '@ant-design/icons'
 import { EmptyState } from '@/components/ui-kit'
+import { Icon } from '@/components/ui-kit/icons'
 
 export function DataDisplaySection() {
   return (
@@ -73,17 +73,17 @@ export function DataDisplaySection() {
           <Space size="large">
             <Badge count={5}>
               <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                <SettingOutlined />
+                <Icon name="settings" size="sm" />
               </div>
             </Badge>
             <Badge count={0} showZero>
               <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                <SettingOutlined />
+                <Icon name="settings" size="sm" />
               </div>
             </Badge>
             <Badge dot>
               <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                <SettingOutlined />
+                <Icon name="settings" size="sm" />
               </div>
             </Badge>
             <Badge status="success" text="Active" />
@@ -99,7 +99,7 @@ export function DataDisplaySection() {
             <Tooltip title="This is a tooltip">
               <span className="text-sm underline decoration-dashed cursor-help">Hover me</span>
             </Tooltip>
-            <Avatar icon={<UserOutlined />} />
+            <Avatar icon={<Icon name="user" size="sm" />} />
             <Avatar style={{ backgroundColor: '#2563EB' }}>JD</Avatar>
             <Avatar.Group max={{ count: 3 }}>
               <Avatar style={{ backgroundColor: '#3B82F6' }}>A</Avatar>

@@ -1,7 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { Dayjs } from 'dayjs'
-import dayjs from 'dayjs'
 import { Icon } from '@/components/ui-kit/icons'
 import {
   Alert,
@@ -55,17 +53,17 @@ function buildResetStatsBody(
   return body
 }
 
-function initialRangeForTimezone(timezone: string): [Dayjs, Dayjs] {
+function initialRangeForTimezone(timezone: string): [Date, Date] {
   const range = getPresetRange('today', timezone)
-  return [dayjs(range.from), dayjs(range.to)]
+  return [range.from, range.to]
 }
 
-function presetRangesDayjs(tz: string): { label: string; value: [Dayjs, Dayjs] }[] {
+function presetRanges(tz: string): { label: string; value: [Date, Date] }[] {
   return DATE_PRESETS.map((preset) => {
     const range = getPresetRange(preset.value, tz)
     return {
       label: preset.label,
-      value: [dayjs(range.from), dayjs(range.to)],
+      value: [range.from, range.to],
     }
   })
 }
@@ -182,10 +180,10 @@ export function ResetStatsPage() {
   const [timezone, setTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   )
-  const [rangeDayjs, setRangeDayjs] = useState<[Dayjs, Dayjs]>(() =>
+  const [range, setRange] = useState<[Date, Date]>(() =>
     initialRangeForTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone),
   )
-  const rangePresets = useMemo(() => presetRangesDayjs(timezone), [timezone])
+  const rangePresets = useMemo(() => presetRanges(timezone), [timezone])
 
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
@@ -210,11 +208,11 @@ export function ResetStatsPage() {
   )
 
   const handleRangeChange = useCallback(
-    (dates: [Dayjs | null, Dayjs | null] | null) => {
+    (dates: [Date | null, Date | null] | null) => {
       const start = dates?.[0]
       const end = dates?.[1]
-      if (!start?.isValid() || !end?.isValid()) return
-      setRangeDayjs([start, end])
+      if (!start || !end) return
+      setRange([start, end])
     },
     [],
   )
@@ -229,8 +227,8 @@ export function ResetStatsPage() {
 
   function getRequestBody(): ResetStatsRequestBody | null {
     if (!idFunnel) return null
-    const dateFrom = rangeDayjs[0]?.toDate()
-    const dateTo = rangeDayjs[1]?.toDate()
+    const dateFrom = range[0]
+    const dateTo = range[1]
     if (!dateFrom || !dateTo || dateFrom.getTime() > dateTo.getTime()) return null
     try {
       return buildResetStatsBody(
@@ -385,7 +383,7 @@ export function ResetStatsPage() {
                 showTime
                 autoConfirmCalendarSteps={false}
                 allowClear={false}
-                value={rangeDayjs}
+                value={range}
                 onChange={handleRangeChange}
                 presets={rangePresets}
                 className={cn('w-full [&_.ant-picker]:w-full', 'h-control-md')}

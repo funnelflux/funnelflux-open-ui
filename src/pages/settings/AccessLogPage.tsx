@@ -4,7 +4,8 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import { PageShell, DataTable } from '@/components/ui-kit'
+import { PageShell } from '@/components/ui-kit'
+import { DataTable } from '@/components/ui-kit/data-table'
 import type { AccessLogData, AccessLogEntry } from '@/types/ui'
 
 /** Composite key; API rows have no `id`. */

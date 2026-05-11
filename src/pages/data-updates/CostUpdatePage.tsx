@@ -1,7 +1,14 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { Dayjs } from 'dayjs'
-import dayjs from 'dayjs'
+import {
+  getHours,
+  getMinutes,
+  isSameMinute,
+  setHours,
+  setMilliseconds,
+  setMinutes,
+  setSeconds,
+} from 'date-fns'
 import { Icon } from '@/components/ui-kit/icons'
 import {
   Alert,
@@ -32,19 +39,19 @@ import type { TrafficSourceInfo, UpdateCostPageData } from '@/types/generated/ui
 
 type CostMode = 'total' | 'perEntrance'
 
-function presetRangesDayjs(tz: string): { label: string; value: [Dayjs, Dayjs] }[] {
+function presetRanges(tz: string): { label: string; value: [Date, Date] }[] {
   return DATE_PRESETS.map((preset) => {
     const range = getPresetRange(preset.value, tz)
     return {
       label: preset.label,
-      value: [dayjs(range.from), dayjs(range.to)] as [Dayjs, Dayjs],
+      value: [range.from, range.to],
     }
   })
 }
 
-function initialRangeForTimezone(tz: string): [Dayjs, Dayjs] {
+function initialRangeForTimezone(tz: string): [Date, Date] {
   const range = getPresetRange('today', tz)
-  return [dayjs(range.from), dayjs(range.to)]
+  return [range.from, range.to]
 }
 
 /** Traffic sources from BFF may be empty or keys may vary; merge with data API list. */
@@ -132,34 +139,34 @@ export function CostUpdatePage() {
   const [idTrafficSource, setIdTrafficSource] = useState('')
   const [idFunnel, setIdFunnel] = useState('')
   const [timezone, setTimezone] = useState(defaultTz)
-  const [rangeDayjs, setRangeDayjs] = useState<[Dayjs, Dayjs]>(() =>
+  const [range, setRange] = useState<[Date, Date]>(() =>
     initialRangeForTimezone(defaultTz),
   )
   const [costMode, setCostMode] = useState<CostMode>('total')
   const [costAmountRaw, setCostAmountRaw] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const rangePresets = useMemo(() => presetRangesDayjs(timezone), [timezone])
+  const rangePresets = useMemo(() => presetRanges(timezone), [timezone])
 
   const handleTimezoneChange = useCallback((nextTz: string) => {
     setTimezone(nextTz)
   }, [])
 
   const handleRangeChange = useCallback(
-    (dates: [Dayjs | null, Dayjs | null] | null) => {
+    (dates: [Date | null, Date | null] | null) => {
       const start = dates?.[0]
       const end = dates?.[1]
-      if (!start?.isValid() || !end?.isValid()) return
+      if (!start || !end) return
 
       let endAdjusted = end
       if (
-        start.isSame(end, 'minute') &&
-        start.hour() === 0 &&
-        start.minute() === 0
+        isSameMinute(start, end) &&
+        getHours(start) === 0 &&
+        getMinutes(start) === 0
       ) {
-        endAdjusted = start.hour(23).minute(59).second(59).millisecond(999)
+        endAdjusted = setMilliseconds(setSeconds(setMinutes(setHours(start, 23), 59), 59), 999)
       }
-      setRangeDayjs([start, endAdjusted])
+      setRange([start, endAdjusted])
     },
     [],
   )
@@ -188,15 +195,14 @@ export function CostUpdatePage() {
       return
     }
 
-    const startMs = rangeDayjs[0].valueOf()
-    const endMs = rangeDayjs[1].valueOf()
+    const startMs = range[0].getTime()
+    const endMs = range[1].getTime()
     if (startMs > endMs) {
       toast.error('Start must be on or before end')
       return
     }
 
-    const fromDate = rangeDayjs[0].toDate()
-    const toDate = rangeDayjs[1].toDate()
+    const [fromDate, toDate] = range
     const timeRange = {
       start: toApiDateTimeForReportingZone(fromDate, timezone),
       end: toApiDateTimeForReportingZone(toDate, timezone),
@@ -335,7 +341,7 @@ export function CostUpdatePage() {
                       showTime
                       autoConfirmCalendarSteps={false}
                       allowClear={false}
-                      value={rangeDayjs}
+                      value={range}
                       onChange={handleRangeChange}
                       presets={rangePresets}
                       className={cn('w-full [&_.ant-picker]:w-full', 'h-control-md')}

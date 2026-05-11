@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Button, Switch, PageShell, DataTable, ConfirmModal, useToastApi, type SelectOption } from '@/components/ui-kit'
+import { Button, Switch, PageShell, ConfirmModal, useToastApi, type SelectOption } from '@/components/ui-kit'
+import { DataTable } from '@/components/ui-kit/data-table'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import {
   useTrafficFilters,

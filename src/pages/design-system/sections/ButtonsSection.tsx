@@ -1,5 +1,5 @@
 import { Button, Space } from '@/components/ui-kit'
-import { PlusOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Icon } from '@/components/ui-kit/icons'
 
 export function ButtonsSection() {
   return (
@@ -46,9 +46,9 @@ export function ButtonsSection() {
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">With Icons</h3>
           <Space wrap>
-            <Button type="primary" icon={<PlusOutlined />}>Create</Button>
-            <Button icon={<DownloadOutlined />}>Export</Button>
-            <Button type="text" danger icon={<DeleteOutlined />} />
+            <Button type="primary" icon={<Icon name="plus" size="sm" />}>Create</Button>
+            <Button icon={<Icon name="download" size="sm" />}>Export</Button>
+            <Button type="text" danger icon={<Icon name="trash-2" size="sm" />} />
           </Space>
         </div>
 

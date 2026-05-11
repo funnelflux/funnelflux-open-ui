@@ -32,6 +32,36 @@ export default defineConfig([
     },
   },
   {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/components/ui-kit/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'dayjs',
+              message:
+                'Use date-fns in app code. dayjs is restricted to ui-kit DatePicker wrappers only.',
+            },
+            {
+              name: 'antd',
+              message:
+                'Import UI primitives from "@/components/ui-kit" instead of importing Ant Design directly.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['antd/*'],
+              message:
+                'Import UI primitives from "@/components/ui-kit" instead of importing Ant Design modules directly.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['src/components/ui-kit/DatePicker.tsx'],
     rules: {
       // Object.assign(DatePicker, { RangePicker }) mirrors antd’s static API, not a second component.

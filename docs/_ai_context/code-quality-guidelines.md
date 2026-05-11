@@ -14,7 +14,9 @@ Project-specific conventions and patterns for the FunnelFlux React UI.
 ## Import Conventions
 
 - Always use `@/` alias for src-relative imports: `import { DataGrid } from '@/components/ui-kit'`
-- UI kit components: import from barrel `@/components/ui-kit` (not individual files)
+- UI kit primitives/components: import from barrel `@/components/ui-kit`
+- Data table system (`DataTable`, column helpers, registry): import from `@/components/ui-kit/data-table`
+- Exception: performance-critical bootstrap/layout files may import specific ui-kit modules directly (for example `@/components/ui-kit/ConfigProvider`) to avoid broad barrel coupling
 - App code should use ui-kit wrappers; raw AntD imports are only for ui-kit implementation files
 - Types: use `import type` for type-only imports
 
@@ -88,7 +90,8 @@ Follow the pattern in `src/store/funnelEditor.ts`:
 - Creating helper utilities used only once
 - Adding comments that restate what the code does
 - Hardcoding colors/spacing instead of using design tokens
-- Importing from individual ui-kit files instead of the barrel
+- Importing `DataTable` or data-table helpers from `@/components/ui-kit` instead of `@/components/ui-kit/data-table`
+- Importing raw AntD components in app code instead of ui-kit wrappers
 - Mixing Ant Design component props with Tailwind styling when the token system already covers it
 - Reintroducing `createEntityHooks`-style local key factories that diverge from `queryKeys.ts`
 - Calling `api.post('/stats/reporting/drilldown/', ...)` directly instead of `api.postDrilldown(...)`

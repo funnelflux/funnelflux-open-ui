@@ -1,5 +1,4 @@
-import { DatePicker } from '@/components/ui-kit'
-import dayjs from 'dayjs'
+import { DateTimeRangePicker } from '@/components/ui-kit'
 import type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
 import { normalizePickerControlTier } from '@/lib/controlSize'
 import { controlSizeToAntdSize } from '@/lib/controlSize'
@@ -9,8 +8,6 @@ import {
   type DateRange,
 } from '@/lib/date-presets'
 import { cn } from '@/lib/utils'
-
-const { RangePicker } = DatePicker
 
 interface DateRangePickerProps {
   value: DateRange & { preset: string | null }
@@ -33,7 +30,7 @@ const presetRanges = (tz: string) =>
     const range = getPresetRange(p.value, tz)
     return {
       label: p.label,
-      value: [dayjs(range.from), dayjs(range.to)] as [dayjs.Dayjs, dayjs.Dayjs],
+      value: [range.from, range.to] as [Date, Date],
     }
   })
 
@@ -56,13 +53,13 @@ export function DateRangePicker({
       : 'max-w-full'
 
   return (
-    <RangePicker
-      value={[dayjs(value.from), dayjs(value.to)]}
+    <DateTimeRangePicker
+      value={[value.from, value.to]}
       onChange={(dates) => {
         if (dates && dates[0] && dates[1]) {
           onChange({
-            from: dates[0].toDate(),
-            to: dates[1].toDate(),
+            from: dates[0],
+            to: dates[1],
             preset: null,
           })
         }

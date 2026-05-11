@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@ant-design/icons':
-        specifier: ^6.1.0
-        version: 6.1.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@codemirror/lang-javascript':
         specifier: ^6.2.5
         version: 6.2.5

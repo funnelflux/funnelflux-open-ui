@@ -7,7 +7,8 @@ import {
   useDeleteCondition,
   type ConditionListItem,
 } from '@/api/hooks'
-import { Button, PageShell, DataTable, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Button, PageShell, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { DataTable } from '@/components/ui-kit/data-table'
 import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import { ConditionEditor } from '@/components/forms/ConditionEditor'
 import { getErrorMessage } from '@/lib/utils'

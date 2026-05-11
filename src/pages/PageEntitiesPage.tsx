@@ -1,70 +1,20 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
-import type { ColumnDef, RowSelectionState, Table, Updater } from '@tanstack/react-table'
-import { Button, ConfirmModal, DataTable, Input, Modal, PageShell, SearchToolbar, TimezoneSelect, useToastApi, type PageShellBodyState } from '@/components/ui-kit'
+import { Button, TimezoneSelect } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
-import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
-import { ArchiveToggle, type ArchiveStatus } from '@/components/shared/ArchiveToggle'
-import {
-  archiveBtnColumn,
-  buildColumnsFromReport,
-  cloneBtnColumn,
-  deleteBtnColumn,
-  editBtnColumn,
-  entityRowId,
-  idColumn,
-  nameColumn,
-  selectionColumn,
-} from '@/components/ui-kit/data-table'
-import { useArchivePage, useAssignPagesToCategory, useBulkDeletePages, useCategories, useClonePage, useDeleteCategory, useDeletePage, useImportPagesFromCsv, usePage, useSaveCategory, useSavePage } from '@/api/hooks'
-import { useEntityGrid, buildTotalsRow, type EntityGridRow } from '@/api/hooks/useEntityGrid'
-import { queryKeys } from '@/api/queryKeys'
-import { pagesToListEntities } from '@/lib/entityGridUtils'
-import { mapStatColsForCategoryStrip } from '@/lib/categoryStripTable'
-import {
-  categoryKeyFromStripRowId,
-  deletableCategoryStripRowIds,
-  entityRowIdsFromSelection,
-  syncCategoryStripRowSelection,
-} from '@/lib/categoryStripSelection'
+import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
+import { entityRowId } from '@/components/ui-kit/data-table'
 import { defaultColIds } from '@/lib/entityPageDefaultColIds'
-import { useEntityGridColumnVisibility } from '@/lib/entityGridColumnVisibility'
-import { visibleMetricColumnIdsFromHidden } from '@/lib/drilldownMetrics'
-import { useCategoryStripTableFlow } from '@/hooks/useCategoryStripTableFlow'
-import { selectedRowIds, getErrorMessage } from '@/lib/utils'
-import { PageForm } from '@/components/forms/PageForm'
-import type { DateRange } from '@/lib/date-presets'
-import type { Page } from '@/types/entities'
-import type { PageFormData } from '@/schemas/page'
-
-const PAGE_CATEGORY_ENTITY = 'page' as const
-
-type PageGridRow = EntityGridRow & {
-  _isCategoryHeader?: boolean
-  _categoryId?: string
-} & Record<string, unknown>
+import { getErrorMessage } from '@/lib/utils'
+import type { PageEntitiesPageProps, PageGridRow } from '@/pages/page-entities/types'
+import { usePageEntitiesController } from '@/pages/page-entities/usePageEntitiesController'
+import { usePageEntitiesColumns } from '@/pages/page-entities/usePageEntitiesColumns'
+import { PageEntitiesDialogs } from '@/pages/page-entities/PageEntitiesDialogs'
+import { EntityPage } from '@/lib/entity-page/EntityPage'
 
 const canSelectRow = (row: { original: PageGridRow }) => row.original.id !== '__totals__'
-const categoryRowClassName = (row: PageGridRow) =>
-  row._isCategoryHeader ? 'dt-row--category-strip' : undefined
-
-interface CsvFieldOption {
-  value: string
-  label: string
-}
-
-interface PageEntitiesPageProps {
-  pageType: 'offer' | 'lander'
-  tableConfigKey: 'offers' | 'landers'
-  title: string
-  singularLabel: string
-  groupBy: string
-  hideScope: 'offer' | 'lander'
-  csvFieldOptions: CsvFieldOption[]
-  buildImportPayload: (row: Record<string, string>) => Record<string, unknown>
-}
+const categoryRowClassName = (row: PageGridRow) => row._isCategoryHeader ? 'dt-row--category-strip' : undefined
 
 /**
  * Landers/offers lists with category strip, CSV import, and extended bulk actions.
@@ -80,581 +30,166 @@ export function PageEntitiesPage({
   csvFieldOptions,
   buildImportPayload,
 }: PageEntitiesPageProps) {
-  const toast = useToastApi()
-  const singularLower = singularLabel.toLowerCase()
-  const pluralLower = `${singularLower}s`
-  const tableRef = useRef<Table<PageGridRow> | null>(null)
-  const [tableForChooser, setTableForChooser] = useState<Table<PageGridRow> | null>(null)
-  const [categoryRename, setCategoryRename] = useState<{ idCategory: string; name: string } | null>(null)
-  const [categoryRenameDraft, setCategoryRenameDraft] = useState('')
-  const [categoryDeleteId, setCategoryDeleteId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus>('active')
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; archive: boolean } | null>(null)
-  const [selectedCategoryId, setSelectedCategoryId] = useState('')
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [tz, setTz] = useState('UTC')
-  const [dateRange, setDateRange] = useState(() => ({
-    from: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
-    to: new Date(),
-  }))
-
-  const { data: categories } = useCategories(PAGE_CATEGORY_ENTITY)
-  const { data: editPage } = usePage(editId ?? '')
-  const saveMutation = useSavePage()
-  const deleteMutation = useDeletePage()
-  const cloneMutation = useClonePage()
-  const archiveMutation = useArchivePage()
-  const saveCategoryMutation = useSaveCategory()
-  const deleteCategoryMutation = useDeleteCategory()
-  const bulkDeletePagesMutation = useBulkDeletePages()
-  const importPagesCsvMutation = useImportPagesFromCsv()
-  const assignPagesCategoryMutation = useAssignPagesToCategory()
-
-  const listParams = useMemo(
-    () => ({ pageType, status: archiveStatus } as const),
-    [pageType, archiveStatus],
-  )
-  const hideScopes = useMemo(() => new Set([hideScope]), [hideScope])
-  const metricColumnIds = visibleMetricColumnIdsFromHidden(tableConfigKey, {
-    defaultVisibleColumnIds: defaultColIds,
-    hideScopes,
-  })
-
-  const {
-    mergedRows,
-    reportColumns,
-    totalsCells,
-    isLoading,
-    isFetching,
-    refetch: reload,
-    error: gridError,
-  } = useEntityGrid({
-    queryKeyPrefix: queryKeys.pages.all,
-    listEndpoint: '/data/page/find/byStatus/',
-    listParams,
+  const controller = usePageEntitiesController({
+    pageType,
+    tableConfigKey,
+    singularLabel,
     groupBy,
-    dateFrom: dateRange.from,
-    dateTo: dateRange.to,
-    timezone: tz,
-    mapListToEntities: (items) => pagesToListEntities(items as Page[]),
-    metricColumnIds,
+    hideScope,
+    buildImportPayload,
   })
 
-  const {
-    listFiltered,
-    hasMetricRows,
-    pageRows,
-    pageCount,
-    totalDataCount,
-    pagination,
-    setPagination,
-    effectiveSorting,
-    handleSortingChange,
-  } = useCategoryStripTableFlow<PageGridRow>({
+  const { columnDefs, gridColumnVisibility } = usePageEntitiesColumns({
     tableConfigKey,
-    rows: mergedRows as PageGridRow[],
-    reportColumns,
-    categories,
-    search,
-    selectedCategoryId,
-    resetDeps: [archiveStatus],
+    statCols: controller.statCols,
+    hideScopes: controller.hideScopes,
+    onEditEntity: controller.handleEdit,
+    onCloneEntity: controller.handleClone,
+    onArchiveEntity: controller.handleArchiveConfirmedRow,
+    onDeleteEntity: controller.setDeleteId,
+    onOpenCategoryRename: controller.openCategoryRename,
+    onRequestCategoryDelete: controller.setCategoryDeleteId,
   })
 
-  const pinnedBottomRows = useMemo(() => {
-    if (!hasMetricRows) return undefined
-    const row = buildTotalsRow(totalsCells)
-    return row ? [row as PageGridRow] : undefined
-  }, [totalsCells, hasMetricRows])
-
-  const selectedIds = useMemo(() => selectedRowIds(rowSelection), [rowSelection])
-
-  const handleRowSelectionChange = useCallback(
-    (updater: Updater<RowSelectionState>) => {
-      setRowSelection((prev) => {
-        const next = typeof updater === 'function' ? updater(prev) : updater
-        return syncCategoryStripRowSelection(prev, next, listFiltered as PageGridRow[])
-      })
-    },
-    [listFiltered],
-  )
-
-  const entityIdsForBulk = useMemo(() => entityRowIdsFromSelection(selectedIds), [selectedIds])
-
-  const bulkDeleteConfirmCopy = useMemo(() => {
-    const catStrips = deletableCategoryStripRowIds(selectedIds)
-    if (catStrips.length === 0 || entityIdsForBulk.length === 0) return null
-    return {
-      title: `Delete categories and ${pluralLower}?`,
-      description: `This will delete ${entityIdsForBulk.length} ${singularLower}(s) and remove ${catStrips.length} categor${catStrips.length === 1 ? 'y' : 'ies'}. This cannot be undone.`,
-    }
-  }, [selectedIds, entityIdsForBulk, pluralLower, singularLower])
-
-  const handleCreate = useCallback(() => {
-    setEditId(null)
-    setSheetOpen(true)
-  }, [])
-
-  const handleEdit = useCallback((id: string) => {
-    setEditId(id)
-    setSheetOpen(true)
-  }, [])
-
-  const handleSubmit = useCallback((data: PageFormData) => {
-    saveMutation.mutate(
-      { page: data as Partial<Page>, isCreate: !editId },
-      {
-        onSuccess: () => {
-          toast.success(editId ? `${singularLabel} updated` : `${singularLabel} created`)
-          setSheetOpen(false)
-          setEditId(null)
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      },
-    )
-  }, [saveMutation, editId, toast, singularLabel])
-
-  const cloneMutate = cloneMutation.mutate
-  const handleClone = useCallback((idPage: string) => {
-    const sourceRow = listFiltered.find(
-      (row): row is PageGridRow => !row._isCategoryHeader && row.id === idPage,
-    )
-    const categoryIdFromSource =
-      sourceRow?.categoryId != null && String(sourceRow.categoryId) !== ''
-        ? String(sourceRow.categoryId)
-        : undefined
-    cloneMutate(
-      { idPage, pageType, categoryId: categoryIdFromSource },
-      {
-        onSuccess: () => {
-          toast.success(`${singularLabel} cloned`)
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      },
-    )
-  }, [cloneMutate, listFiltered, toast, singularLabel, pageType])
-
-  const archiveMutate = archiveMutation.mutate
-  const handleArchiveConfirmedRow = useCallback(
-    (row: PageGridRow, archive: boolean) => {
-      if (row._isCategoryHeader || row.id === '__totals__') return
-      setArchiveConfirm({ id: row.id, archive })
-    },
-    [],
-  )
-
-  const handleConfirmArchiveDialog = useCallback(() => {
-    if (!archiveConfirm) return
-    const { id, archive } = archiveConfirm
-    archiveMutate(
-      { ids: [id], archive },
-      {
-        onSuccess: () => {
-          toast.success(archive ? 'Archived' : 'Restored')
-          setArchiveConfirm(null)
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      },
-    )
-  }, [archiveConfirm, archiveMutate, toast])
-
-  const handleDelete = useCallback(() => {
-    if (!deleteId) return
-    deleteMutation.mutate(deleteId, {
-      onSuccess: () => {
-        toast.success('Deleted')
-        setDeleteId(null)
-      },
-      onError: (err) => toast.error(getErrorMessage(err)),
-    })
-  }, [deleteId, deleteMutation, toast])
-
-  const handleImport = useCallback(async (importRows: Record<string, string>[]) => {
-    try {
-      const result = await importPagesCsvMutation.mutateAsync({
-        rows: importRows,
-        buildImportPayload,
-      })
-      if (result.failed.length > 0) {
-        toast.warning(
-          `Imported ${result.succeeded.length} row(s); ${result.failed.length} failed`,
-        )
-      } else {
-        toast.success('CSV import complete')
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err))
-    }
-  }, [buildImportPayload, importPagesCsvMutation, toast])
-
-  const hideCategoryStripEditDelete = useCallback((row: PageGridRow) => {
-    if (!row._isCategoryHeader) return false
-    return (row._categoryId ?? '') === ''
-  }, [])
-
-  const hideEditButton = useCallback((row: PageGridRow) => {
-    if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
-    return row.id === '__totals__'
-  }, [hideCategoryStripEditDelete])
-
-  const hideCloneArchive = useCallback((row: PageGridRow) =>
-    !!row._isCategoryHeader || row.id === '__totals__'
-  , [])
-
-  const hideDeleteButton = useCallback((row: PageGridRow) => {
-    if (row._isCategoryHeader) return hideCategoryStripEditDelete(row)
-    return row.id === '__totals__'
-  }, [hideCategoryStripEditDelete])
-
-  const statCols = useMemo(
-    () => mapStatColsForCategoryStrip(buildColumnsFromReport<PageGridRow>(reportColumns, { hideScopes })),
-    [reportColumns, hideScopes],
-  )
-
-  const handleRequestDelete = useCallback((id: string) => setDeleteId(id), [])
-
-  const openCategoryRename = useCallback((row: PageGridRow) => {
-    const idCategory = row._categoryId ?? ''
-    if (!idCategory) return
-    setCategoryRename({ idCategory, name: row.name })
-    setCategoryRenameDraft(row.name)
-  }, [])
-
-  const handleEditOrCategory = useCallback(
-    (row: PageGridRow) => {
-      if (row._isCategoryHeader) openCategoryRename(row)
-      else handleEdit(row.id)
-    },
-    [handleEdit, openCategoryRename],
-  )
-
-  const handleDeleteOrCategory = useCallback(
-    (row: PageGridRow) => {
-      const categoryId = row._categoryId ?? ''
-      if (row._isCategoryHeader) {
-        if (!categoryId) return
-        setCategoryDeleteId(categoryId)
-        return
-      }
-      handleRequestDelete(row.id)
-    },
-    [handleRequestDelete],
-  )
-
-  const handleConfirmCategoryRename = useCallback(() => {
-    if (!categoryRename) return
-    const name = categoryRenameDraft.trim()
-    if (!name) return
-    saveCategoryMutation.mutate(
-      { entityType: PAGE_CATEGORY_ENTITY, idCategory: categoryRename.idCategory, name },
-      {
-        onSuccess: () => {
-          toast.success('Category renamed')
-          setCategoryRename(null)
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      },
-    )
-  }, [categoryRename, categoryRenameDraft, saveCategoryMutation, toast])
-
-  const handleConfirmCategoryDelete = useCallback(() => {
-    if (!categoryDeleteId) return
-    deleteCategoryMutation.mutate(
-      { entityType: PAGE_CATEGORY_ENTITY, idCategory: categoryDeleteId },
-      {
-        onSuccess: () => {
-          toast.success('Category deleted')
-          setCategoryDeleteId(null)
-          if (selectedCategoryId === categoryDeleteId) setSelectedCategoryId('')
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      },
-    )
-  }, [categoryDeleteId, deleteCategoryMutation, toast, selectedCategoryId])
-
-  const columnDefs = useMemo<ColumnDef<PageGridRow, unknown>[]>(() => [
-    selectionColumn<PageGridRow>(),
-    nameColumn<PageGridRow>({
-      size: 280,
-      minSize: 150,
-      maxSize: 560,
-      cellContent: (row) => {
-        if (row._isCategoryHeader) {
-          return (
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {row.name}
-            </span>
-          )
-        }
-        return <span className="truncate">{row.name}</span>
-      },
-    }),
-    editBtnColumn<PageGridRow>((row) => handleEditOrCategory(row), { hidden: hideEditButton }),
-    cloneBtnColumn<PageGridRow>((row) => handleClone(row.id), { hidden: hideCloneArchive }),
-    archiveBtnColumn<PageGridRow>(
-      (row, archive) => handleArchiveConfirmedRow(row, archive),
-      {
-        hidden: hideCloneArchive,
-        isArchived: (row) => row.isArchived === true,
-      },
-    ),
-    deleteBtnColumn<PageGridRow>((row) => handleDeleteOrCategory(row), { hidden: hideDeleteButton }),
-    idColumn<PageGridRow>({ hideIdForRow: (row) => !!row._isCategoryHeader }),
-    ...statCols,
-  ], [statCols, handleEditOrCategory, handleClone, handleArchiveConfirmedRow, handleDeleteOrCategory, hideEditButton, hideCloneArchive, hideDeleteButton])
-
-  const gridColumnVisibility = useEntityGridColumnVisibility(
-    columnDefs as ColumnDef<unknown, unknown>[],
-    tableConfigKey,
-    { defaultVisibleColumnIds: defaultColIds, hideScopes },
-  )
-
-  const handleBulkDeselectAll = useCallback(() => setRowSelection({}), [])
-
-  const handleBulkArchive = useCallback(async () => {
-    try {
-      await archiveMutation.mutateAsync({ ids: entityIdsForBulk, archive: true })
-      toast.success(`Selected ${pluralLower} archived`)
-      setRowSelection({})
-    } catch (e) {
-      toast.error(getErrorMessage(e))
-    }
-  }, [archiveMutation, entityIdsForBulk, pluralLower, toast])
-
-  const handleBulkDelete = useCallback(async () => {
-    const categoryKeys = [
-      ...new Set(
-        deletableCategoryStripRowIds(selectedIds)
-          .map((id) => categoryKeyFromStripRowId(id))
-          .filter((key): key is string => key != null && key !== ''),
-      ),
-    ]
-    const pageResult = await bulkDeletePagesMutation.mutateAsync(entityIdsForBulk)
-    for (const idCategory of categoryKeys) {
-      await deleteCategoryMutation.mutateAsync({ entityType: PAGE_CATEGORY_ENTITY, idCategory })
-    }
-    if (pageResult.failed.length > 0) {
-      toast.error(
-        `${pageResult.failed.length} ${pluralLower} could not be deleted`,
-      )
-    } else {
-      toast.success('Selected items deleted')
-    }
-    setRowSelection({})
-  }, [
-    selectedIds,
-    entityIdsForBulk,
-    bulkDeletePagesMutation,
-    deleteCategoryMutation,
-    toast,
-    pluralLower,
-  ])
-
-  const handleBulkAssignCategory = useCallback(async (idCategory: string) => {
-    try {
-      await assignPagesCategoryMutation.mutateAsync({ pageIds: entityIdsForBulk, idCategory })
-      toast.success(`Selected ${pluralLower} moved`)
-      setRowSelection({})
-    } catch (e) {
-      toast.error(getErrorMessage(e))
-    }
-  }, [assignPagesCategoryMutation, entityIdsForBulk, pluralLower, toast, setRowSelection])
-
-  const bulkMoveToCategory = useMemo(
-    () => ({
-      categories: categories ?? [],
-      onMove: handleBulkAssignCategory,
-    }),
-    [categories, handleBulkAssignCategory],
-  )
-
-  const handleDateRangeChange = useCallback((value: DateRange & { preset: string | null }) => {
-    if (value.from && value.to) setDateRange({ from: value.from, to: value.to })
-  }, [])
-
-  const handleFormOpenChange = useCallback((open: boolean) => {
-    setSheetOpen(open)
-    if (!open) setEditId(null)
-  }, [])
-
-  const handleDismissDelete = useCallback(() => setDeleteId(null), [])
-
-  const pageBodyState: PageShellBodyState = gridError
+  const pageBodyState = controller.gridError
     ? {
-        status: 'error',
-        message: getErrorMessage(gridError),
-        onRetry: () => void reload(),
+        status: 'error' as const,
+        message: getErrorMessage(controller.gridError),
+        onRetry: () => void controller.reload(),
       }
-    : isLoading && mergedRows.length === 0
-      ? { status: 'loading' }
-      : { status: 'ready' }
+    : controller.isLoading && controller.mergedRows.length === 0
+      ? { status: 'loading' as const }
+      : { status: 'ready' as const }
 
   return (
-    <PageShell
-      fillHeight
+    <EntityPage<PageGridRow>
       title={title}
       bodyState={pageBodyState}
-      actions={
+      headerActions={(
         <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2">
-          <Button iconName="upload" onClick={() => setImportOpen(true)}>
+          <Button iconName="upload" onClick={() => controller.setImportOpen(true)}>
             Import CSV
           </Button>
-          <Button type="primary" onClick={handleCreate}>{`Add ${singularLabel}`}</Button>
+          <Button type="primary" onClick={controller.handleCreate}>
+            {`Add ${singularLabel}`}
+          </Button>
         </div>
-      }
-    >
-      <SearchToolbar
-        value={search}
-        onChange={setSearch}
-        placeholder={`Search ${pluralLower}...`}
-        onRefresh={reload}
-        refreshLoading={isFetching}
-        filters={
+      )}
+      searchToolbarProps={{
+        value: controller.search,
+        onChange: controller.setSearch,
+        placeholder: `Search ${controller.pluralLower}...`,
+        onRefresh: controller.reload,
+        refreshLoading: controller.isFetching,
+        filters: (
           <>
-            <ArchiveToggle value={archiveStatus} onChange={setArchiveStatus} />
+            <ArchiveToggle value={controller.archiveStatus} onChange={controller.setArchiveStatus} />
             <CategoryManager
-              entityType={PAGE_CATEGORY_ENTITY}
-              selectedCategoryId={selectedCategoryId}
-              onSelectCategory={setSelectedCategoryId}
+              entityType="page"
+              selectedCategoryId={controller.selectedCategoryId}
+              onSelectCategory={controller.setSelectedCategoryId}
             />
           </>
-        }
-        trailing={
+        ),
+        trailing: (
           <>
             <DateRangePicker
-              value={{ from: dateRange.from, to: dateRange.to, preset: null }}
-              timezone={tz}
-              onChange={handleDateRangeChange}
+              value={{ from: controller.dateRange.from, to: controller.dateRange.to, preset: null }}
+              timezone={controller.tz}
+              onChange={controller.handleDateRangeChange}
               density="compact"
               className="[--ff-date-range-compact-max:236px]"
             />
-            <TimezoneSelect value={tz} onChange={setTz} />
+            <TimezoneSelect value={controller.tz} onChange={controller.setTz} />
           </>
-        }
-        actions={tableForChooser ? (
+        ),
+        actions: controller.tableForChooser ? (
           <ColumnChooser
             columns={columnDefs}
-            table={tableForChooser}
+            table={controller.tableForChooser}
             storageKey={tableConfigKey}
-            hideScopes={hideScopes}
+            hideScopes={controller.hideScopes}
             defaultVisibleColumnIds={defaultColIds}
             selectedCols={gridColumnVisibility.selectedCols}
             onColumnsChange={gridColumnVisibility.onColumnsChange}
           />
-        ) : null}
-      />
-
-      <DataTable<PageGridRow>
-        data={pageRows}
-        columns={columnDefs}
-        loading={isLoading}
-        getRowId={entityRowId}
-        tableConfigKey={tableConfigKey}
-        pinnedBottomRows={pinnedBottomRows}
-        enableRowSelection={canSelectRow}
-        rowSelection={rowSelection}
-        onRowSelectionChange={handleRowSelectionChange}
-        rowClassName={categoryRowClassName}
-        tableRef={tableRef}
-        onTableInstance={setTableForChooser}
-        emptyMessage={search || selectedCategoryId ? `No ${pluralLower} match your filters.` : `No ${pluralLower} found.`}
-        manualPagination
-        manualSorting
-        sorting={effectiveSorting}
-        onSortingChange={handleSortingChange}
-        pageCount={pageCount}
-        manualPaginationTotalRows={totalDataCount}
-        pagination={pagination}
-        onPaginationChange={setPagination}
-        columnVisibility={gridColumnVisibility.columnVisibility}
-        onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
-      />
-
-      <BulkActionsBar
-        count={selectedIds.length}
-        onDeselectAll={handleBulkDeselectAll}
-        onArchive={handleBulkArchive}
-        onDelete={handleBulkDelete}
-        onMoveToCategory={bulkMoveToCategory}
-        deleteConfirmTitle={bulkDeleteConfirmCopy?.title}
-        deleteConfirmDescription={bulkDeleteConfirmCopy?.description}
-      />
-
-      <CsvImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        title={`Import ${title}`}
-        description="Upload a CSV file, map the columns, then import the rows."
-        fieldOptions={csvFieldOptions}
-        onImport={handleImport}
-      />
-
-      <PageForm
-        open={sheetOpen}
-        onOpenChange={handleFormOpenChange}
-        pageType={pageType}
-        initialData={editId ? editPage : undefined}
-        onSubmit={handleSubmit}
-        isSubmitting={saveMutation.isPending}
-      />
-
-      <ConfirmModal
-        open={!!deleteId}
-        onCancel={handleDismissDelete}
-        title={`Delete ${singularLabel}`}
-        description="Are you sure? This cannot be undone."
-        onConfirm={handleDelete}
-        loading={deleteMutation.isPending}
-        danger
-      />
-
-      <ConfirmModal
-        open={!!archiveConfirm}
-        onCancel={() => setArchiveConfirm(null)}
-        title={archiveConfirm?.archive ? `Archive ${singularLabel}` : `Restore ${singularLabel}`}
-        description={
-          archiveConfirm?.archive
-            ? `Archive this ${singularLower}? Archived items are hidden from the default Active view.`
-            : `Restore this ${singularLower} to the active list?`
-        }
-        onConfirm={() => void handleConfirmArchiveDialog()}
-        loading={archiveMutation.isPending}
-        danger={!!archiveConfirm?.archive}
-      />
-
-      <Modal
-        open={!!categoryRename}
-        title="Rename category"
-        onCancel={() => setCategoryRename(null)}
-        onOk={() => void handleConfirmCategoryRename()}
-        okText="Save"
-        confirmLoading={saveCategoryMutation.isPending}
-        okButtonProps={{ disabled: !categoryRenameDraft.trim() }}
-        destroyOnHidden
-      >
-        <div className="py-4">
-          <Input
-            value={categoryRenameDraft}
-            onChange={(event) => setCategoryRenameDraft(event.target.value)}
-            placeholder="Category name"
-            onPressEnter={() => void handleConfirmCategoryRename()}
-          />
-        </div>
-      </Modal>
-
-      <ConfirmModal
-        open={!!categoryDeleteId}
-        onCancel={() => setCategoryDeleteId(null)}
-        title="Delete category"
-        description={`Delete this category? ${title} in it will become uncategorized.`}
-        onConfirm={() => void handleConfirmCategoryDelete()}
-        loading={deleteCategoryMutation.isPending}
-        danger
-      />
-    </PageShell>
+        ) : null,
+      }}
+      tableProps={{
+        data: controller.pageRows,
+        columns: columnDefs,
+        loading: controller.isLoading,
+        getRowId: entityRowId,
+        tableConfigKey,
+        pinnedBottomRows: controller.pinnedBottomRows,
+        enableRowSelection: canSelectRow,
+        rowSelection: controller.rowSelection,
+        onRowSelectionChange: controller.handleRowSelectionChange,
+        rowClassName: categoryRowClassName,
+        tableRef: controller.tableRef,
+        onTableInstance: controller.setTableForChooser,
+        emptyMessage:
+          controller.search || controller.selectedCategoryId
+            ? `No ${controller.pluralLower} match your filters.`
+            : `No ${controller.pluralLower} found.`,
+        manualPagination: true,
+        manualSorting: true,
+        sorting: controller.effectiveSorting,
+        onSortingChange: controller.handleSortingChange,
+        pageCount: controller.pageCount,
+        manualPaginationTotalRows: controller.totalDataCount,
+        pagination: controller.pagination,
+        onPaginationChange: controller.setPagination,
+        columnVisibility: gridColumnVisibility.columnVisibility,
+        onColumnVisibilityChange: gridColumnVisibility.onColumnVisibilityChange,
+      }}
+      bulkActions={(
+        <BulkActionsBar
+          count={controller.selectedIds.length}
+          onDeselectAll={controller.handleBulkDeselectAll}
+          onArchive={controller.handleBulkArchive}
+          onDelete={controller.handleBulkDelete}
+          onMoveToCategory={controller.bulkMoveToCategory}
+          deleteConfirmTitle={controller.bulkDeleteConfirmCopy?.title}
+          deleteConfirmDescription={controller.bulkDeleteConfirmCopy?.description}
+        />
+      )}
+      overlays={(
+        <PageEntitiesDialogs
+          title={title}
+          singularLabel={singularLabel}
+          pageType={pageType}
+          csvFieldOptions={csvFieldOptions}
+          importOpen={controller.importOpen}
+          onImportOpenChange={controller.setImportOpen}
+          onImport={controller.handleImport}
+          sheetOpen={controller.sheetOpen}
+          onFormOpenChange={controller.handleFormOpenChange}
+          editId={controller.editId}
+          editPage={controller.editPage}
+          onSubmit={controller.handleSubmit}
+          isSubmitting={controller.saveMutation.isPending}
+          deleteId={controller.deleteId}
+          onDeleteDismiss={controller.handleDismissDelete}
+          onDeleteConfirm={controller.handleDelete}
+          deletePending={controller.deleteMutation.isPending}
+          archiveConfirm={controller.archiveConfirm}
+          onArchiveConfirmDismiss={() => controller.setArchiveConfirm(null)}
+          onArchiveConfirm={() => void controller.handleConfirmArchiveDialog()}
+          archivePending={controller.archiveMutation.isPending}
+          singularLower={controller.singularLower}
+          categoryRename={controller.categoryRename}
+          categoryRenameDraft={controller.categoryRenameDraft}
+          onCategoryRenameDraftChange={controller.setCategoryRenameDraft}
+          onCategoryRenameDismiss={() => controller.setCategoryRename(null)}
+          onCategoryRenameConfirm={() => void controller.handleConfirmCategoryRename()}
+          categoryRenamePending={controller.saveCategoryMutation.isPending}
+          categoryDeleteId={controller.categoryDeleteId}
+          onCategoryDeleteDismiss={() => controller.setCategoryDeleteId(null)}
+          onCategoryDeleteConfirm={() => void controller.handleConfirmCategoryDelete()}
+          categoryDeletePending={controller.deleteCategoryMutation.isPending}
+        />
+      )}
+    />
   )
 }

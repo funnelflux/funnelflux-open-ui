@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useCallback, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -6,8 +6,6 @@ import { useFunnel } from '@/api/hooks'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import { FunnelSettingsModal } from '@/components/funnel-builder/FunnelSettingsModal'
-import { FunnelQuickStatsModal } from '@/components/funnel-builder/FunnelQuickStatsModal'
 import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
 import { HeatmapOverlay } from '@/components/funnel-builder/HeatmapOverlay'
 import { useToastApi, ConfirmModal } from '@/components/ui-kit'
@@ -23,6 +21,17 @@ import {
 import { generateId } from '@/lib/id-generator'
 import { validateFunnelGraph } from '@/lib/funnel-graph/validateGraph'
 import type { FunnelCondition, Page } from '@/types/entities'
+
+const FunnelSettingsModal = lazy(() =>
+  import('@/components/funnel-builder/FunnelSettingsModal').then((module) => ({
+    default: module.FunnelSettingsModal,
+  })),
+)
+const FunnelQuickStatsModal = lazy(() =>
+  import('@/components/funnel-builder/FunnelQuickStatsModal').then((module) => ({
+    default: module.FunnelQuickStatsModal,
+  })),
+)
 
 export function FunnelEditorPage() {
   const { campaignId, funnelId } = useParams<{ campaignId: string; funnelId: string }>()
@@ -375,23 +384,29 @@ export function FunnelEditorPage() {
         </div>
       </ReactFlowProvider>
 
-      <FunnelSettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        isNew={isNew}
-        titleName={titleName}
-        onSave={handleSave}
-        isSaving={isSaving}
-      />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <FunnelSettingsModal
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            isNew={isNew}
+            titleName={titleName}
+            onSave={handleSave}
+            isSaving={isSaving}
+          />
+        </Suspense>
+      )}
 
-      {!isNew && campaignId && funnelId && (
-        <FunnelQuickStatsModal
-          open={quickStatsOpen}
-          onClose={() => setQuickStatsOpen(false)}
-          campaignId={campaignId}
-          funnelId={funnelId}
-          funnelName={titleName}
-        />
+      {!isNew && campaignId && funnelId && quickStatsOpen && (
+        <Suspense fallback={null}>
+          <FunnelQuickStatsModal
+            open={quickStatsOpen}
+            onClose={() => setQuickStatsOpen(false)}
+            campaignId={campaignId}
+            funnelId={funnelId}
+            funnelName={titleName}
+          />
+        </Suspense>
       )}
 
       <ConfirmModal

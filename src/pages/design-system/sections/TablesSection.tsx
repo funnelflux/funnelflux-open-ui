@@ -46,7 +46,7 @@ export function TablesSection() {
     <section id="tables">
       <h2 className="text-xl font-semibold text-foreground mb-6">Tables (DataTable)</h2>
       <p className="text-sm text-muted-foreground mb-4">
-        Import: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{'import { DataTable } from "@/components/ui-kit"'}</code>
+        Import: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{'import { DataTable } from "@/components/ui-kit/data-table"'}</code>
       </p>
 
       <div className="mb-4 p-3 bg-muted rounded-lg">
