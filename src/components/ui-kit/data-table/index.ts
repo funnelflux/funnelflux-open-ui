@@ -1,5 +1,7 @@
 export { DataTable } from './DataTable'
-export { DataTablePagination, buildDataTablePageTokens } from './DataTablePagination'
+export { DataTablePagination } from './DataTablePagination'
+export { buildDataTablePageTokens } from './DataTablePaginationTokens'
+export type { DataTablePageToken } from './DataTablePaginationTokens'
 
 export function entityRowId<T extends { id: string }>(row: T): string {
   return row.id

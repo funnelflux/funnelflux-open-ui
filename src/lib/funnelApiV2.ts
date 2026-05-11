@@ -16,6 +16,10 @@ import type {
 } from '@/types/funnel'
 import { pixelToPercent } from '@/lib/funnelCoords'
 import { materializeRotatorWeights } from '@/lib/rotatorWeights'
+import {
+  FUNNEL_NODE_API_NAME_BY_TYPE,
+  FUNNEL_NODE_TYPE_BY_API_NAME,
+} from '@/lib/funnelNodeTypeMaps'
 
 export class FunnelHydrateError extends Error {
   readonly code = 'FUNNEL_HYDRATE' as const
@@ -31,30 +35,6 @@ export class FunnelHydrateError extends Error {
 }
 
 export type FunnelMetaForSave = FunnelEditorMeta
-
-const STRING_TO_TYPE: Record<string, NodeTypeValue> = {
-  root: NODE_TYPES.root,
-  rotator: NODE_TYPES.rotator,
-  lander: NODE_TYPES.lander,
-  offer: NODE_TYPES.offer,
-  externalUrl: NODE_TYPES.externalUrl,
-  condition: NODE_TYPES.condition,
-  jsCode: NODE_TYPES.jsCode,
-  phpCode: NODE_TYPES.phpCode,
-  visitorTag: NODE_TYPES.visitorTag,
-}
-
-const TYPE_TO_STRING: Record<number, string> = {
-  [NODE_TYPES.root]: 'root',
-  [NODE_TYPES.rotator]: 'rotator',
-  [NODE_TYPES.lander]: 'lander',
-  [NODE_TYPES.offer]: 'offer',
-  [NODE_TYPES.externalUrl]: 'externalUrl',
-  [NODE_TYPES.condition]: 'condition',
-  [NODE_TYPES.jsCode]: 'jsCode',
-  [NODE_TYPES.phpCode]: 'phpCode',
-  [NODE_TYPES.visitorTag]: 'visitorTag',
-}
 
 function posToPercent(pos: number): number {
   if (typeof pos !== 'number' || Number.isNaN(pos)) return 0
@@ -178,7 +158,7 @@ export function computeFunnelEditorHydrationVersion(raw: unknown): string {
 function normalizeNode(node: Record<string, unknown>): ApiFunnelNode {
   if (!isV2Node(node) && node.percentPosX !== undefined && node.nodeParams !== undefined) {
     const nodeTypeNum = Number(node.nodeType)
-    if (!Number.isFinite(nodeTypeNum) || TYPE_TO_STRING[nodeTypeNum as NodeTypeValue] === undefined) {
+    if (!Number.isFinite(nodeTypeNum) || FUNNEL_NODE_API_NAME_BY_TYPE[nodeTypeNum as NodeTypeValue] === undefined) {
       throw new FunnelHydrateError(`Unknown funnel node type id: ${String(node.nodeType)}`, {
         nodeId: String(node.idNode),
         nodeTypeRaw: String(node.nodeType),
@@ -199,13 +179,13 @@ function normalizeNode(node: Record<string, unknown>): ApiFunnelNode {
   const ntKey =
     node.nodeType == null || node.nodeType === '' ? 'root' : String(node.nodeType)
   // NODE_TYPES.root is 0 — must not use a truthy check on the map value.
-  if (STRING_TO_TYPE[ntKey] === undefined) {
+  if (FUNNEL_NODE_TYPE_BY_API_NAME[ntKey] === undefined) {
     throw new FunnelHydrateError(`Unknown funnel node type: ${ntKey}`, {
       nodeId: String(node.idNode),
       nodeTypeRaw: ntKey,
     })
   }
-  const nodeType = STRING_TO_TYPE[ntKey]
+  const nodeType = FUNNEL_NODE_TYPE_BY_API_NAME[ntKey]
   const px = posToPercent(Number(node.posX))
   const py = posToPercent(Number(node.posY))
 
@@ -371,7 +351,7 @@ function flowNodeToV2(node: FunnelFlowNode, idFunnel: string): Record<string, un
   const posX = percentToV2Pos(pct.percentPosX)
   const posY = percentToV2Pos(pct.percentPosY)
   const editorNodeType = node.data.nodeType
-  const typeStr = TYPE_TO_STRING[editorNodeType] ?? 'root'
+  const typeStr = FUNNEL_NODE_API_NAME_BY_TYPE[editorNodeType] ?? 'root'
   const editorParams = node.data.params as Record<string, unknown>
 
   const base: Record<string, unknown> = {

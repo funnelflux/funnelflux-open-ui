@@ -20,12 +20,15 @@ describe('invalidations', () => {
     expect(qc.invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.pages.all })
     expect(qc.invalidateQueries).toHaveBeenCalledWith({
       queryKey: queryKeys.groupingFilterAssets.pageList('lander'),
+      refetchType: 'inactive',
     })
     expect(qc.invalidateQueries).toHaveBeenCalledWith({
       queryKey: queryKeys.groupingFilterAssets.pageList('offer'),
+      refetchType: 'inactive',
     })
     expect(qc.invalidateQueries).toHaveBeenCalledWith({
       queryKey: queryKeys.groupingFilterAssets.pageCategories(),
+      refetchType: 'inactive',
     })
   })
 

@@ -28,20 +28,20 @@ export function forEachEntityGridListQuery(
   const prefixLen = queryKeyPrefix.length
   const queries = queryClient.getQueryCache().findAll({
     predicate: (q) => {
-      const k = q.queryKey as unknown[]
-      if (!Array.isArray(k) || k.length < prefixLen + 3) return false
+      const queryKey = q.queryKey as unknown[]
+      if (!Array.isArray(queryKey) || queryKey.length < prefixLen + 3) return false
       for (let i = 0; i < prefixLen; i++) {
-        if (k[i] !== queryKeyPrefix[i]) return false
+        if (queryKey[i] !== queryKeyPrefix[i]) return false
       }
-      if (k[prefixLen] !== ENTITY_GRID_LIST_KEY) return false
-      if (k[prefixLen + 1] !== listEndpoint) return false
+      if (queryKey[prefixLen] !== ENTITY_GRID_LIST_KEY) return false
+      if (queryKey[prefixLen + 1] !== listEndpoint) return false
       return true
     },
   })
 
   for (const query of queries) {
-    const k = query.queryKey as unknown[]
-    const tail = k[prefixLen + 2]
+    const queryKey = query.queryKey as unknown[]
+    const tail = queryKey[prefixLen + 2]
     const listParams: Record<string, string> | undefined = isPlainParams(tail)
       ? Object.fromEntries(Object.entries(tail).map(([key, val]) => [key, String(val ?? '')]))
       : undefined
@@ -50,39 +50,117 @@ export function forEachEntityGridListQuery(
   }
 }
 
+interface EntityGridCacheTarget {
+  queryKeyPrefix: readonly unknown[]
+  listEndpoint: string
+}
+
+const PAGE_GRID: EntityGridCacheTarget = {
+  queryKeyPrefix: queryKeys.pages.all,
+  listEndpoint: '/data/page/find/byStatus/',
+}
+
+const TRAFFIC_SOURCE_GRID: EntityGridCacheTarget = {
+  queryKeyPrefix: queryKeys.trafficSources.all,
+  listEndpoint: '/data/trafficsource/list/',
+}
+
+const OFFER_SOURCE_GRID: EntityGridCacheTarget = {
+  queryKeyPrefix: queryKeys.offerSources.all,
+  listEndpoint: '/data/offersource/find/byStatus/',
+}
+
+function upsertListEntity(entities: ListEntity[], entity: ListEntity, include: boolean): ListEntity[] {
+  const idx = entities.findIndex((row) => row.id === entity.id)
+  if (!include) {
+    return idx >= 0 ? entities.filter((row) => row.id !== entity.id) : entities
+  }
+  if (idx >= 0) {
+    const next = [...entities]
+    next[idx] = { ...next[idx], ...entity }
+    return next
+  }
+  return [entity, ...entities]
+}
+
+function upsertEntityInCaches(
+  queryClient: QueryClient,
+  target: EntityGridCacheTarget,
+  entity: ListEntity,
+  belongsInCachedList: (listParams: Record<string, string> | undefined) => boolean,
+): void {
+  forEachEntityGridListQuery(
+    queryClient,
+    target.queryKeyPrefix,
+    target.listEndpoint,
+    (listParams, entities) => upsertListEntity(entities, entity, belongsInCachedList(listParams)),
+  )
+}
+
+function removeIdsFromCaches(
+  queryClient: QueryClient,
+  target: EntityGridCacheTarget,
+  ids: Iterable<string>,
+): void {
+  const drop = new Set(ids)
+  if (drop.size === 0) return
+  forEachEntityGridListQuery(
+    queryClient,
+    target.queryKeyPrefix,
+    target.listEndpoint,
+    (_listParams, entities) => entities.filter((row) => !drop.has(row.id)),
+  )
+}
+
+function applyArchiveToCachedRows(
+  queryClient: QueryClient,
+  target: EntityGridCacheTarget,
+  ids: Iterable<string>,
+  archive: boolean,
+  shouldKeepArchivedRow: (listParams: Record<string, string> | undefined, archive: boolean) => boolean,
+): void {
+  const idSet = new Set(ids)
+  if (idSet.size === 0) return
+  forEachEntityGridListQuery(
+    queryClient,
+    target.queryKeyPrefix,
+    target.listEndpoint,
+    (listParams, entities) => {
+      const shouldKeep = shouldKeepArchivedRow(listParams, archive)
+      return entities
+        .map((row) => idSet.has(row.id) ? { ...row, isArchived: archive } : row)
+        .filter((row) => !idSet.has(row.id) || shouldKeep)
+    },
+  )
+}
+
+function statusParamAllowsArchived(
+  listParams: Record<string, string> | undefined,
+  archived: boolean,
+): boolean {
+  const status = listParams?.status ?? 'active'
+  if (status === 'all') return true
+  if (status === 'active') return !archived
+  if (status === 'archived') return archived
+  return true
+}
+
 function pageBelongsInCachedList(page: Page, listParams: Record<string, string> | undefined): boolean {
   if (!listParams) return true
-  const pt = listParams.pageType
-  if (pt && page.pageType !== pt) return false
-  const st = listParams.status ?? 'active'
-  const archived = page.isArchived === true
-  if (st === 'all') return true
-  if (st === 'active') return !archived
-  if (st === 'archived') return archived
-  return true
+  const pageType = listParams.pageType
+  if (pageType && page.pageType !== pageType) return false
+  return statusParamAllowsArchived(listParams, page.isArchived === true)
 }
 
 export function upsertPageInEntityGridCaches(queryClient: QueryClient, page: Page): void {
   const entity = pagesToListEntities([page])[0]
   if (!entity) return
 
-  forEachEntityGridListQuery(
+  upsertEntityInCaches(
     queryClient,
-    queryKeys.pages.all,
-    '/data/page/find/byStatus/',
-    (lp, entities) => {
-      const include = pageBelongsInCachedList(page, lp)
-      const idx = entities.findIndex((row) => row.id === entity.id)
-      if (!include) {
-        return idx >= 0 ? entities.filter((row) => row.id !== entity.id) : entities
-      }
-      if (idx >= 0) {
-        const next = [...entities]
-        next[idx] = { ...next[idx], ...entity }
-        return next
-      }
-      return [entity, ...entities]
-    },
+    PAGE_GRID,
+    entity,
+    (listParams) => pageBelongsInCachedList(page, listParams),
   )
 }
 
@@ -109,12 +187,7 @@ export function upsertClonedPageInEntityGridCaches(
 }
 
 export function removePageFromEntityGridCaches(queryClient: QueryClient, idPage: string): void {
-  forEachEntityGridListQuery(
-    queryClient,
-    queryKeys.pages.all,
-    '/data/page/find/byStatus/',
-    (_lp, entities) => entities.filter((row) => row.id !== idPage),
-  )
+  removeIdsFromCaches(queryClient, PAGE_GRID, [idPage])
 }
 
 export function applyPageArchiveToEntityGridCaches(
@@ -122,60 +195,33 @@ export function applyPageArchiveToEntityGridCaches(
   idPage: string,
   archive: boolean,
 ): void {
-  forEachEntityGridListQuery(
+  applyArchiveToCachedRows(
     queryClient,
-    queryKeys.pages.all,
-    '/data/page/find/byStatus/',
-    (lp, entities) => {
-      const idx = entities.findIndex((row) => row.id === idPage)
-      if (idx < 0) return entities
-      const st = lp?.status ?? 'active'
-      const next = [...entities]
-      const row = { ...next[idx], isArchived: archive }
-      const shouldKeep =
-        st === 'all' ||
-        (st === 'active' && !archive) ||
-        (st === 'archived' && archive)
-      if (!shouldKeep) {
-        next.splice(idx, 1)
-        return next
-      }
-      next[idx] = row
-      return next
-    },
+    PAGE_GRID,
+    [idPage],
+    archive,
+    statusParamAllowsArchived,
   )
 }
 
-function trafficSourceBelongsInCachedList(ts: TrafficSource, listParams: Record<string, string> | undefined): boolean {
+function trafficSourceBelongsInCachedList(trafficSource: TrafficSource, listParams: Record<string, string> | undefined): boolean {
   if (!listParams || !Object.prototype.hasOwnProperty.call(listParams, 'archived')) {
     return true
   }
   const wantArchived = listParams.archived === 'true'
-  const archived = ts.isArchived === true
+  const archived = trafficSource.isArchived === true
   return archived === wantArchived
 }
 
-export function upsertTrafficSourceInEntityGridCaches(queryClient: QueryClient, ts: TrafficSource): void {
-  const entity = trafficSourceToListEntity(ts)
+export function upsertTrafficSourceInEntityGridCaches(queryClient: QueryClient, trafficSource: TrafficSource): void {
+  const entity = trafficSourceToListEntity(trafficSource)
   if (!entity.id) return
 
-  forEachEntityGridListQuery(
+  upsertEntityInCaches(
     queryClient,
-    queryKeys.trafficSources.all,
-    '/data/trafficsource/list/',
-    (lp, entities) => {
-      const include = trafficSourceBelongsInCachedList(ts, lp)
-      const idx = entities.findIndex((row) => row.id === entity.id)
-      if (!include) {
-        return idx >= 0 ? entities.filter((row) => row.id !== entity.id) : entities
-      }
-      if (idx >= 0) {
-        const next = [...entities]
-        next[idx] = { ...next[idx], ...entity }
-        return next
-      }
-      return [entity, ...entities]
-    },
+    TRAFFIC_SOURCE_GRID,
+    entity,
+    (listParams) => trafficSourceBelongsInCachedList(trafficSource, listParams),
   )
 }
 
@@ -196,31 +242,16 @@ export function upsertClonedTrafficSourceInEntityGridCaches(
       ? { categoryId: payload.categoryId }
       : {}),
   } satisfies ListEntity
-  forEachEntityGridListQuery(
+  upsertEntityInCaches(
     queryClient,
-    queryKeys.trafficSources.all,
-    '/data/trafficsource/list/',
-    (lp, entities) => {
-      const include = trafficSourceBelongsInCachedList({ isArchived: false } as TrafficSource, lp)
-      if (!include) return entities
-      const idx = entities.findIndex((row) => row.id === synthetic.id)
-      if (idx >= 0) {
-        const next = [...entities]
-        next[idx] = { ...next[idx], ...synthetic }
-        return next
-      }
-      return [synthetic, ...entities]
-    },
+    TRAFFIC_SOURCE_GRID,
+    synthetic,
+    (listParams) => trafficSourceBelongsInCachedList({ isArchived: false } as TrafficSource, listParams),
   )
 }
 
 export function removeTrafficSourceFromEntityGridCaches(queryClient: QueryClient, id: string): void {
-  forEachEntityGridListQuery(
-    queryClient,
-    queryKeys.trafficSources.all,
-    '/data/trafficsource/list/',
-    (_lp, entities) => entities.filter((row) => row.id !== id),
-  )
+  removeIdsFromCaches(queryClient, TRAFFIC_SOURCE_GRID, [id])
 }
 
 export function applyTrafficSourceArchiveToEntityGridCaches(
@@ -228,60 +259,32 @@ export function applyTrafficSourceArchiveToEntityGridCaches(
   id: string,
   archive: boolean,
 ): void {
-  forEachEntityGridListQuery(
+  applyArchiveToCachedRows(
     queryClient,
-    queryKeys.trafficSources.all,
-    '/data/trafficsource/list/',
-    (lp, entities) => {
-      const idx = entities.findIndex((row) => row.id === id)
-      if (idx < 0) return entities
-      const hasArchivedParam = lp != null && Object.prototype.hasOwnProperty.call(lp, 'archived')
-      const next = [...entities]
-      const row = { ...next[idx], isArchived: archive }
-      if (hasArchivedParam) {
-        const wantArchived = lp!.archived === 'true'
-        const shouldKeep = archive === wantArchived
-        if (!shouldKeep) {
-          next.splice(idx, 1)
-          return next
-        }
-      }
-      next[idx] = row
-      return next
+    TRAFFIC_SOURCE_GRID,
+    [id],
+    archive,
+    (listParams, nextArchive) => {
+      const hasArchivedParam = listParams != null && Object.prototype.hasOwnProperty.call(listParams, 'archived')
+      if (!hasArchivedParam) return true
+      return nextArchive === (listParams!.archived === 'true')
     },
   )
 }
 
-function offerSourceBelongsInCachedList(os: OfferSource, listParams: Record<string, string> | undefined): boolean {
-  const st = listParams?.status ?? 'active'
-  const archived = os.isArchived === true
-  if (st === 'all') return true
-  if (st === 'active') return !archived
-  if (st === 'archived') return archived
-  return true
+function offerSourceBelongsInCachedList(offerSource: OfferSource, listParams: Record<string, string> | undefined): boolean {
+  return statusParamAllowsArchived(listParams, offerSource.isArchived === true)
 }
 
-export function upsertOfferSourceInEntityGridCaches(queryClient: QueryClient, os: OfferSource): void {
-  const entity = offerSourcesToListEntities([os])[0]
+export function upsertOfferSourceInEntityGridCaches(queryClient: QueryClient, offerSource: OfferSource): void {
+  const entity = offerSourcesToListEntities([offerSource])[0]
   if (!entity) return
 
-  forEachEntityGridListQuery(
+  upsertEntityInCaches(
     queryClient,
-    queryKeys.offerSources.all,
-    '/data/offersource/find/byStatus/',
-    (lp, entities) => {
-      const include = offerSourceBelongsInCachedList(os, lp)
-      const idx = entities.findIndex((row) => row.id === entity.id)
-      if (!include) {
-        return idx >= 0 ? entities.filter((row) => row.id !== entity.id) : entities
-      }
-      if (idx >= 0) {
-        const next = [...entities]
-        next[idx] = { ...next[idx], ...entity }
-        return next
-      }
-      return [entity, ...entities]
-    },
+    OFFER_SOURCE_GRID,
+    entity,
+    (listParams) => offerSourceBelongsInCachedList(offerSource, listParams),
   )
 }
 
@@ -302,23 +305,11 @@ export function upsertClonedOfferSourceInEntityGridCaches(
 }
 
 export function removeOfferSourceFromEntityGridCaches(queryClient: QueryClient, id: string): void {
-  forEachEntityGridListQuery(
-    queryClient,
-    queryKeys.offerSources.all,
-    '/data/offersource/find/byStatus/',
-    (_lp, entities) => entities.filter((row) => row.id !== id),
-  )
+  removeIdsFromCaches(queryClient, OFFER_SOURCE_GRID, [id])
 }
 
 export function removeOfferSourcesFromEntityGridCaches(queryClient: QueryClient, ids: string[]): void {
-  if (ids.length === 0) return
-  const drop = new Set(ids)
-  forEachEntityGridListQuery(
-    queryClient,
-    queryKeys.offerSources.all,
-    '/data/offersource/find/byStatus/',
-    (_lp, entities) => entities.filter((row) => !drop.has(row.id)),
-  )
+  removeIdsFromCaches(queryClient, OFFER_SOURCE_GRID, ids)
 }
 
 export function applyOfferSourceArchiveToEntityGridCaches(
@@ -326,28 +317,12 @@ export function applyOfferSourceArchiveToEntityGridCaches(
   ids: string[],
   archive: boolean,
 ): void {
-  if (ids.length === 0) return
-  const idSet = new Set(ids)
-  forEachEntityGridListQuery(
+  applyArchiveToCachedRows(
     queryClient,
-    queryKeys.offerSources.all,
-    '/data/offersource/find/byStatus/',
-    (lp, entities) => {
-      const st = lp?.status ?? 'active'
-      return entities
-        .map((row) => {
-          if (!idSet.has(row.id)) return row
-          return { ...row, isArchived: archive }
-        })
-        .filter((row) => {
-          if (!idSet.has(row.id)) return true
-          const archived = archive
-          if (st === 'all') return true
-          if (st === 'active') return !archived
-          if (st === 'archived') return archived
-          return true
-        })
-    },
+    OFFER_SOURCE_GRID,
+    ids,
+    archive,
+    statusParamAllowsArchived,
   )
 }
 

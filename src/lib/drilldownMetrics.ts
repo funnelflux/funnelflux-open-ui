@@ -1,5 +1,6 @@
 import { getColumnMeta, getDefaultVisibleIds, buildChooserGroupsForPage, type MetricScope } from '@/components/ui-kit/data-table/columnRegistry'
 import type { SortingState, VisibilityState } from '@tanstack/react-table'
+import { readHiddenColumnIds } from '@/lib/entityGridColumnStorage'
 
 const NON_METRIC_COLUMN_IDS = new Set(['name', 'select', 'id'])
 
@@ -233,17 +234,7 @@ export function visibleMetricColumnIdsFromHidden(
 ): string[] {
   const allIds = metricColumnIdsForScope(options?.hideScopes)
   const defaultVisible = new Set(options?.defaultVisibleColumnIds ?? getDefaultVisibleIds())
-  let hidden: Set<string> | null = null
-
-  try {
-    const raw = localStorage.getItem(`ff_columns_${storageKey}`)
-    if (raw) {
-      const parsed = JSON.parse(raw) as unknown
-      if (Array.isArray(parsed)) hidden = new Set(parsed as string[])
-    }
-  } catch {
-    hidden = null
-  }
+  const hidden = readHiddenColumnIds(storageKey)
 
   return allIds.filter((id) => hidden ? !hidden.has(id) : defaultVisible.has(id))
 }

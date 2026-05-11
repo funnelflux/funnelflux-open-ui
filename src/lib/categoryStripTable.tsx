@@ -1,4 +1,4 @@
-import { flexRender, type ColumnDef } from '@tanstack/react-table'
+import { flexRender, type CellContext, type ColumnDef } from '@tanstack/react-table'
 import type { EntityGridRow } from '@/api/hooks/useEntityGrid'
 import type { CategorySegment } from '@/lib/paginateCategorySegments'
 import type { ReportCell } from '@/types/stats'
@@ -36,17 +36,31 @@ export function buildCategorySegmentsFromRows<T extends EntityGridRow>(
   return out
 }
 
+function renderCategoryStripMetricPlaceholder() {
+  return <span className="text-muted-foreground">—</span>
+}
+
+function renderOriginalCell<T>(col: ColumnDef<T, unknown>, info: CellContext<T, unknown>) {
+  return col.cell != null ? flexRender(col.cell as never, info) : String(info.getValue() ?? '')
+}
+
+function withCategoryStripCell<T extends { _isCategoryHeader?: boolean }>(
+  col: ColumnDef<T, unknown>,
+): ColumnDef<T, unknown> {
+  return {
+    ...col,
+    cell: (info) => {
+      if (info.row.original._isCategoryHeader) {
+        return renderCategoryStripMetricPlaceholder()
+      }
+      return renderOriginalCell(col, info)
+    },
+  }
+}
+
 /** Metric cells show em dash on category strip rows (no aggregates in v1). */
 export function mapStatColsForCategoryStrip<T extends { _isCategoryHeader?: boolean }>(
   cols: ColumnDef<T, unknown>[],
 ): ColumnDef<T, unknown>[] {
-  return cols.map((col) => ({
-    ...col,
-    cell: (info) => {
-      if (info.row.original._isCategoryHeader) {
-        return <span className="text-muted-foreground">—</span>
-      }
-      return col.cell != null ? flexRender(col.cell as never, info) : String(info.getValue() ?? '')
-    },
-  }))
+  return cols.map(withCategoryStripCell)
 }

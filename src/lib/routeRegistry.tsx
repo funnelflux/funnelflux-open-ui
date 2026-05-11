@@ -1,7 +1,8 @@
-import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
+import type { ComponentType, LazyExoticComponent } from 'react'
 import type { UserProfile } from '@/types/api'
 import type { IconName } from '@/components/ui-kit'
 import { canViewDashboard, isAdminUser } from '@/lib/routeAccess'
+import { lazyNamed } from '@/lib/routeLazy'
 
 /**
  * Any authenticated session may open these routes; they are not gated on a specific
@@ -46,19 +47,6 @@ export type RouteEntry = {
   /** Higher = preferred default landing path (see `getDefaultAuthorizedPath`). */
   defaultRoutePriority?: number
   layout: 'app' | 'public'
-}
-
-function lazyNamed<
-  const T extends Record<string, ComponentType>,
-  K extends keyof T & string,
->(loader: () => Promise<T>, exportName: K): LazyExoticComponent<ComponentType> {
-  return lazy(() =>
-    loader().then((m) => {
-      const C = m[exportName] as ComponentType
-      if (!C) throw new Error(`Module does not export "${exportName}"`)
-      return { default: C }
-    }),
-  )
 }
 
 const DashboardPage = lazyNamed(() => import('@/pages/DashboardPage'), 'DashboardPage')

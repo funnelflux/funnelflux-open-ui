@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
 import { buildChooserGroupsForPage, getColumnMeta, type MetricScope } from '@/components/ui-kit/data-table/columnRegistry'
+import { readHiddenColumnIds, writeHiddenColumnIds } from '@/lib/entityGridColumnStorage'
 
 const ALWAYS_VISIBLE = new Set(['name', 'select'])
 
@@ -48,18 +49,6 @@ function computeFirstVisitHidden(
   return hidden
 }
 
-function readHiddenFromLs(lsKey: string): Set<string> | null {
-  try {
-    const raw = localStorage.getItem(lsKey)
-    if (raw === null) return null
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return null
-    return new Set(parsed as string[])
-  } catch {
-    return null
-  }
-}
-
 export interface UseEntityGridColumnVisibilityOptions {
   defaultVisibleColumnIds?: readonly string[]
   hideScopes?: Set<MetricScope>
@@ -74,7 +63,6 @@ export function useEntityGridColumnVisibility(
   storageKey: string,
   options?: UseEntityGridColumnVisibilityOptions,
 ) {
-  const lsKey = `ff_columns_${storageKey}`
   const [bump, setBump] = useState(0)
   const defaultVisibleColumnIds = options?.defaultVisibleColumnIds
 
@@ -88,13 +76,13 @@ export function useEntityGridColumnVisibility(
   const hiddenCols = useMemo(() => {
     // Touch `bump` so this memo intentionally re-runs after localStorage writes.
     void bump
-    const fromLs = readHiddenFromLs(lsKey)
+    const fromLs = readHiddenColumnIds(storageKey)
     if (fromLs) return fromLs
     return computeFirstVisitHidden(
       controlledColumnIds,
       defaultVisibleColumnIds,
     )
-  }, [lsKey, controlledColumnIds, defaultVisibleColumnIds, bump])
+  }, [storageKey, controlledColumnIds, defaultVisibleColumnIds, bump])
 
   const columnVisibility = useMemo(
     () => Object.fromEntries(controlledColumnIds.map((id) => [id, !hiddenCols.has(id)])),
@@ -108,14 +96,10 @@ export function useEntityGridColumnVisibility(
 
   const persistHidden = useCallback(
     (hidden: Set<string>) => {
-      try {
-        localStorage.setItem(lsKey, JSON.stringify([...hidden]))
-      } catch {
-        /* ignore */
-      }
+      writeHiddenColumnIds(storageKey, hidden)
       setBump((b) => b + 1)
     },
-    [lsKey],
+    [storageKey],
   )
 
   const onColumnsChange = useCallback(

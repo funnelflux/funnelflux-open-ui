@@ -9,9 +9,10 @@ import {
   ENTITY_ID_COLUMN_META,
   type MetricScope,
 } from './columnRegistry'
-import { resolveApiColumnId as resolveSharedApiColumnId } from '@/lib/drilldownMetrics'
+import { resolveApiColumnId } from '@/lib/drilldownMetrics'
 
 export type { ColumnGroupDef, ColumnMeta, MetricScope } from './columnRegistry'
+export { resolveApiColumnId }
 
 // ---------- Cell helpers ----------
 
@@ -49,141 +50,6 @@ interface ColumnOpts {
 interface NameColumnOpts<T> extends ColumnOpts {
   actions?: (row: T) => ReactNode
   cellContent?: (row: T) => ReactNode
-}
-
-/**
- * Map from API column name (as returned by the drilldown API) to registry column id.
- * The first column (index 0) is always the grouping/name column and is skipped.
- */
-const API_NAME_TO_ID: Record<string, string> = {
-  'Entrances': 'visits',
-  'Visits': 'visits',
-  'Visitors': 'visitors',
-  'Uniqueness': 'uniqueness',
-  'Lander Views': 'landerViews',
-  'Lander Views (Unique)': 'landerViewsUnique',
-  'Lander Clicks': 'landerClicks',
-  'Lander Clicks (Unique)': 'landerClicksUnique',
-  'Lander CTR': 'landerClickthroughRate',
-  'Lander CTR (Unique)': 'landerClickthroughRateUnique',
-  'Offer Views': 'offerViews',
-  'Offer Views (Unique)': 'offerViewsUnique',
-  'Offer Clicks': 'offerClicks',
-  'Offer Clicks (Unique)': 'offerClicksUnique',
-  'Offer CTR': 'offerClickthroughRate',
-  'Offer CTR (Unique)': 'offerClickthroughRateUnique',
-  'Conv.': 'conversions',
-  'Conversions': 'conversions',
-  'Conv. (Indirect)': 'indirectConversions',
-  'Indirect Conv.': 'indirectConversions',
-  'Conv. (Lifetime)': 'conversionsLifetime',
-  'Lifetime Conv.': 'conversionsLifetime',
-  'Revenue': 'revenue',
-  'Total Revenue': 'revenue',
-  'Conv. Revenue': 'conversionRevenue',
-  'Revenue (Indirect)': 'revenueIndirect',
-  'Indirect Revenue': 'revenueIndirect',
-  'Revenue (Lifetime)': 'revenueLifetime',
-  'Lifetime Revenue': 'revenueLifetime',
-  'Cost': 'cost',
-  'Traffic Cost': 'cost',
-  'P/L': 'profitAndLoss',
-  'Profit/Loss': 'profitAndLoss',
-  'ROI': 'returnOnInvestment',
-  'Cv %': 'conversionPerVisit',
-  'Cv% (Visit)': 'conversionPerVisit',
-  'u|Cv %': 'conversionPerUniqueVisitor',
-  'CPVi': 'costPerVisit',
-  'Cost/Visit': 'costPerVisit',
-  'u|CPV': 'costPerUniqueVisitor',
-  'RPVi': 'revenuePerVisit',
-  'Rev/Visit': 'revenuePerVisit',
-  'u|RPV': 'revenuePerUniqueVisitor',
-  'CPCv': 'costPerConversion',
-  'Cost/Conv': 'costPerConversion',
-  'RPCv': 'revenuePerConversion',
-  'Rev/Conv': 'revenuePerConversion',
-  /** API v2 drilldown names — same formulas as adjacent registry metrics; map so picker uses full labels */
-  'EPa': 'revenuePerConversion',
-  'CPa': 'costPerConversion',
-  'CVRe': 'conversionPerVisit',
-  'EPe': 'revenuePerVisit',
-  'CPe': 'costPerVisit',
-  'CVRov': 'conversionPerOfferView',
-  'EPov': 'revenuePerOfferView',
-  'CPov': 'costPerOfferView',
-  'CVRlv': 'conversionPerLanderView',
-  'EPlv': 'revenuePerLanderView',
-  'CPlv': 'costPerLanderView',
-  'CVRnv': 'conversionRateNodeViews',
-  'EPnv': 'revenuePerNodeView',
-  'CPnv': 'costPerNodeView',
-  'Unique CVRe': 'conversionPerUniqueVisitor',
-  'Unique EPe': 'revenuePerUniqueVisitor',
-  'Unique CPe': 'costPerUniqueVisitor',
-  'Unique CVRov': 'conversionPerUniqueOfferView',
-  'Unique EPov': 'revenuePerUniqueOfferView',
-  'Unique CPov': 'costPerUniqueOfferView',
-  'Unique CVRlv': 'conversionPerUniqueLanderView',
-  'Unique EPlv': 'revenuePerUniqueLanderView',
-  'Unique CPlv': 'costPerUniqueLanderView',
-  'Unique CVRnv': 'conversionRateNodeViewsUnique',
-  'Unique EPnv': 'revenuePerUniqueNodeView',
-  'Unique CPnv': 'costPerUniqueNodeView',
-  'CPLV': 'costPerLanderView',
-  'CPLC': 'costPerLanderClick',
-  'u|CPLV': 'costPerUniqueLanderView',
-  'u|CPLC': 'costPerUniqueLanderClick',
-  'RPLV': 'revenuePerLanderView',
-  'RPLC': 'revenuePerLanderClick',
-  'u|RPLV': 'revenuePerUniqueLanderView',
-  'u|RPLC': 'revenuePerUniqueLanderClick',
-  'CPOV': 'costPerOfferView',
-  'CPOC': 'costPerOfferClick',
-  'u|CPOV': 'costPerUniqueOfferView',
-  'u|CPOC': 'costPerUniqueOfferClick',
-  'RPOV': 'revenuePerOfferView',
-  'RPOC': 'revenuePerOfferClick',
-  'u|RPOV': 'revenuePerUniqueOfferView',
-  'u|RPOC': 'revenuePerUniqueOfferClick',
-  'CvOV': 'conversionPerOfferView',
-  'CvOC': 'conversionPerOfferClick',
-  'u|CvOV': 'conversionPerUniqueOfferView',
-  'u|CvOC': 'conversionPerUniqueOfferClick',
-  'CvLV': 'conversionPerLanderView',
-  'CvLC': 'conversionPerLanderClick',
-  'u|CvLV': 'conversionPerUniqueLanderView',
-  'u|CvLC': 'conversionPerUniqueLanderClick',
-  'top|V%': 'visitPercentVsTopLevel',
-  'rel|V%': 'visitPercentVsParent',
-  'top|Cv%': 'conversionPercentVsTopLevel',
-  'rel|Cv%': 'conversionPercentVsParent',
-  'Payout': 'offerPayout',
-  'Offer URL': 'offerURL',
-  'Lander URL': 'landerURL',
-  'Resource ID': 'resourceId',
-}
-
-// Custom event name patterns: "CE1", "CE1 Rev", "CE1 %", "CPCE1", "RPCE1"
-export function resolveApiColumnId(apiName: string): string | undefined {
-  const shared = resolveSharedApiColumnId(apiName)
-  if (shared) return shared
-
-  if (API_NAME_TO_ID[apiName]) return API_NAME_TO_ID[apiName]
-
-  let m: RegExpMatchArray | null
-  m = apiName.match(/^CE(\d+)$/)
-  if (m) return `customEvent${m[1]}Count`
-  m = apiName.match(/^CE(\d+)\s*Rev/)
-  if (m) return `customEvent${m[1]}Revenue`
-  m = apiName.match(/^CE(\d+)\s*%/)
-  if (m) return `customEvent${m[1]}PerVisit`
-  m = apiName.match(/^CPCE(\d+)/)
-  if (m) return `costPerEvent${m[1]}`
-  m = apiName.match(/^RPCE(\d+)/)
-  if (m) return `revenuePerEvent${m[1]}`
-
-  return undefined
 }
 
 export interface BuildColumnsFromReportOptions {
