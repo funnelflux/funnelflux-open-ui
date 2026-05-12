@@ -119,19 +119,28 @@ export function OfferSourcesEntityPage({ metricHideScopes }: OfferSourcesEntityP
     return row ? [row as OfferSourceGridRow] : undefined
   }, [totalsCells, filtered.length])
 
-  const handleSubmit = (data: OfferSourceFormData) => {
-    saveMutation.mutate(
-      { offerSource: data, isCreate: !editId },
-      {
-        onSuccess: () => {
-          toast.success(editId ? 'Offer source updated' : 'Offer source created')
-          setSheetOpen(false)
+  const handleSubmit = useCallback(
+    async (data: OfferSourceFormData, options?: { createAnother?: boolean }) => {
+      const isCreate = !editId
+      try {
+        await saveMutation.mutateAsync({ offerSource: data, isCreate })
+        toast.success(editId ? 'Offer source updated' : 'Offer source created')
+
+        if (options?.createAnother && isCreate) {
           setEditId(null)
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      },
-    )
-  }
+          setSheetOpen(true)
+          return
+        }
+
+        setSheetOpen(false)
+        setEditId(null)
+      } catch (err) {
+        toast.error(getErrorMessage(err))
+        throw err
+      }
+    },
+    [editId, saveMutation, toast, setEditId, setSheetOpen],
+  )
 
   const handleDelete = () => {
     if (!deleteId) return

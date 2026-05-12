@@ -26,8 +26,12 @@ export function useInboxMessage(id: string) {
 export function useChangeReadStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, isRead }: { id: string; isRead: boolean }) =>
-      api.post('/ui/inbox/message/changeReadStatus/', { id, isRead }),
+    mutationFn: ({ ids, isRead }: { ids: string[]; isRead: boolean }) =>
+      api.put(
+        '/ui/inbox/message/changeReadStatus/',
+        { ids },
+        { alreadyRead: isRead ? '1' : '0' },
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.inbox.all })
     },
@@ -37,7 +41,7 @@ export function useChangeReadStatus() {
 export function useDeleteInboxMessage() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete('/ui/inbox/message/delete/', { id }),
+    mutationFn: (ids: string[]) => api.delete('/ui/inbox/message/delete/', undefined, { ids }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.inbox.all })
     },

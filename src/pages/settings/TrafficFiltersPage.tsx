@@ -58,9 +58,14 @@ export function TrafficFiltersPage() {
 
   const runApplyRetroactively = useCallback(() => {
     if (!retroTarget) return
-    applyRetroMutate(retroTarget.idTrafficFilter, {
+    const shouldApplyFilter = Boolean(retroTarget.isEnabled)
+    applyRetroMutate({ idTrafficFilter: retroTarget.idTrafficFilter, apply: shouldApplyFilter }, {
       onSuccess: () => {
-        toast.success(`Filter "${retroTarget.trafficFilterName}" applied retroactively`)
+        toast.success(
+          shouldApplyFilter
+            ? `Filter "${retroTarget.trafficFilterName}" applied retroactively`
+            : `Filter "${retroTarget.trafficFilterName}" removed retroactively`,
+        )
         setRetroTarget(null)
       },
       onError: (err) => {
@@ -219,13 +224,15 @@ export function TrafficFiltersPage() {
 
       <ConfirmModal
         open={!!retroTarget}
-        title="Apply filter retroactively"
+        title={retroTarget?.isEnabled ? 'Apply filter retroactively' : 'Unfilter retroactively'}
         description={
           retroTarget
-            ? `Apply "${retroTarget.trafficFilterName}" to historical stats? This is a destructive data operation similar to Reset Stats.`
+            ? retroTarget.isEnabled
+              ? `Apply "${retroTarget.trafficFilterName}" to historical stats? This is a destructive data operation similar to Reset Stats.`
+              : `Remove "${retroTarget.trafficFilterName}" from historical filtered stats? This is a destructive data operation similar to Reset Stats.`
             : ''
         }
-        confirmText="Apply"
+        confirmText={retroTarget?.isEnabled ? 'Apply' : 'Unfilter'}
         danger
         loading={applyRetro.isPending}
         onConfirm={runApplyRetroactively}

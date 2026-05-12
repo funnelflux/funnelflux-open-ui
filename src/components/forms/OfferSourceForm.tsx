@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import type { Resolver } from 'react-hook-form'
 import { FormField, Modal, Button, Input, Select } from '@/components/ui-kit'
 import { useOfferSourceTemplates, useLoadOfferSourceTemplate } from '@/api/hooks'
+import { useDomains } from '@/api/hooks/useDomains'
 import { mapOfferSourceTemplateLoadToFormPatch } from '@/api/offerSourceTemplateLoad'
 import { offerSourceSchema, type OfferSourceFormData } from '@/schemas/offerSource'
 import type { OfferSource } from '@/types/entities'
@@ -20,6 +21,15 @@ const defaultValues: OfferSourceFormData = {
   notes: '',
 }
 
+function toTrackingBaseUrl(domain: string | null | undefined): string {
+  if (!domain) return window.location.origin
+  const trimmed = domain.trim()
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed.replace(/\/+$/, '')
+  }
+  return `${window.location.protocol}//${trimmed}`.replace(/\/+$/, '')
+}
+
 export function OfferSourceForm({
   open,
   onOpenChange,
@@ -30,13 +40,18 @@ export function OfferSourceForm({
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData: OfferSource | null | undefined
-  onSubmit: (data: OfferSourceFormData) => void
+  onSubmit: (
+    data: OfferSourceFormData,
+    options?: { createAnother?: boolean },
+  ) => Promise<void>
   isSubmitting?: boolean
 }) {
   const { data: templates } = useOfferSourceTemplates(open)
+  const { data: domains } = useDomains()
   const loadTemplate = useLoadOfferSourceTemplate()
   const loadTemplateMutate = loadTemplate.mutate
   const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>()
+  const [submitMode, setSubmitMode] = useState<'default' | 'createAnother'>('default')
   const isEditing = !!initialData?.idOfferSource
   const templateOptions = useMemo(
     () => (templates ?? []).map((template) => ({ value: template.id, label: template.name })),
@@ -57,6 +72,13 @@ export function OfferSourceForm({
   } = form
   const formId = useId()
   const offerSourceId = useWatch({ control, name: 'idOfferSource' })
+  const postbackSubId = useWatch({ control, name: 'postbackSubId' })
+  const postbackTxId = useWatch({ control, name: 'postbackTxId' })
+  const postbackPayout = useWatch({ control, name: 'postbackPayout' })
+  const defaultDomain = useMemo(
+    () => domains?.find((domain) => domain.isDefault)?.domain ?? domains?.[0]?.domain,
+    [domains],
+  )
 
   useEffect(() => {
     if (open) {
@@ -98,6 +120,26 @@ export function OfferSourceForm({
     })
   }, [getValues, loadTemplateMutate, reset])
 
+  const postbackUrlPreview = useMemo(() => {
+    const base = `${toTrackingBaseUrl(defaultDomain)}/tracking/conversions/postback.php`
+    const payout = postbackPayout || '{payout}'
+    const txid = postbackTxId || '{transaction_id}'
+    const subid = postbackSubId || '{aff_sub}'
+    return `${base}?flux_payout=${payout}&flux_txid=${txid}&flux_hid=${subid}`
+  }, [defaultDomain, postbackPayout, postbackSubId, postbackTxId])
+
+  const handleSubmitAndMaybeReset = useCallback(
+    async (data: OfferSourceFormData) => {
+      const createAnother = submitMode === 'createAnother' && !isEditing
+      await onSubmit(data, createAnother ? { createAnother: true } : undefined)
+      if (createAnother) {
+        reset({ ...defaultValues, idOfferSource: generateEntityId() })
+      }
+      setSubmitMode('default')
+    },
+    [isEditing, onSubmit, reset, submitMode],
+  )
+
   const modalTitle = useMemo(() => {
     const title = isEditing ? 'Edit Offer Source' : 'Add Offer Source'
     if (isEditing || templateOptions.length === 0) return title
@@ -133,6 +175,16 @@ export function OfferSourceForm({
             <Button htmlType="button" onClick={handleClose} disabled={isSubmitting}>
               Cancel
             </Button>
+            {!isEditing ? (
+              <Button
+                htmlType="submit"
+                form={formId}
+                disabled={isSubmitting}
+                onClick={() => setSubmitMode('createAnother')}
+              >
+                Create & New
+              </Button>
+            ) : null}
             <Button
               type="primary"
               htmlType="submit"
@@ -141,6 +193,7 @@ export function OfferSourceForm({
               iconName={isSubmitting ? 'loader-2' : undefined}
               iconAnimation={isSubmitting ? 'spin' : 'none'}
               iconSize="sm"
+              onClick={() => setSubmitMode('default')}
             >
               {isEditing ? 'Save Changes' : 'Create'}
             </Button>
@@ -156,7 +209,11 @@ export function OfferSourceForm({
       destroyOnHidden
       layoutVariant="form"
     >
-      <form id={formId} onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      <form
+        id={formId}
+        onSubmit={handleSubmit(handleSubmitAndMaybeReset)}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-3 pb-4">
           <FormField label="Name" htmlFor="offerSourceName" error={errors.offerSourceName?.message}>
             <Controller
@@ -261,15 +318,9 @@ export function OfferSourceForm({
             />
           </FormField>
 
-          {isEditing && initialData && (
-            <FormField label="Postback URL">
-              <Input
-                value={`YOUR_DOMAIN/postback?subid=${initialData.postbackSubId || '{subid}'}&txid=${initialData.postbackTxId || '{txid}'}&payout=${initialData.postbackPayout || '{payout}'}`}
-                disabled
-                className="font-mono text-xs"
-              />
-            </FormField>
-          )}
+          <FormField label="Postback URL">
+            <Input value={postbackUrlPreview} disabled className="font-mono text-xs" />
+          </FormField>
 
         </div>
       </form>

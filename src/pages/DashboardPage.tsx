@@ -8,7 +8,7 @@ import { DashboardTopTable, type DashboardTopTableProps } from '@/components/das
 import { useLazySectionVisible } from '@/hooks/useLazySectionVisible'
 import { PageShell, TimezoneSelect, Button, Modal, Select, type SelectOption } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { toApiDateTimeRange } from '@/lib/statsDateRange'
+import { toApiDateTimeRangeForReporting } from '@/lib/statsDateRange'
 import type { DateRange } from '@/lib/date-presets'
 import type { Report } from '@/types/stats'
 import { cellRaw } from '@/components/ui-kit/data-table'
@@ -77,7 +77,7 @@ function extractStats(report: Report): DashboardSummaryStats {
   const offerViews = get('offer views')
   const landerClicks = get('lander clicks')
   const offerClicks = get('offer clicks')
-  const conversions = get('conversions')
+  const conversions = get('conv.')
   const revenue = get('revenue')
   const cost = get('cost')
   const roiCell = cells[map.get('roi') ?? -1]
@@ -108,7 +108,7 @@ function extractChartData(report: Report): ChartPoint[] {
       date: cells[0]?.formatted ?? '',
       visits: get('entrances'),
       clicks: get('lander clicks') + get('offer clicks'),
-      conversions: get('conversions'),
+      conversions: get('conv.'),
       revenue: get('revenue'),
       cost: get('cost'),
       roi: get('roi'),
@@ -189,8 +189,8 @@ export function DashboardPage() {
   )
 
   const timeRange = useMemo(
-    () => toApiDateTimeRange(dateRange.from, dateRange.to),
-    [dateRange.from, dateRange.to],
+    () => toApiDateTimeRangeForReporting(dateRange.from, dateRange.to, tz),
+    [dateRange.from, dateRange.to, tz],
   )
 
   const triggerPulse = useCallback(() => {
@@ -211,7 +211,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     const { from, to } = dateRangeRef.current
-    const tr = toApiDateTimeRange(from, to)
+    const tr = toApiDateTimeRangeForReporting(from, to, tzRef.current)
     const timeZone = { name: tzRef.current }
 
     let cancelled = false
@@ -352,6 +352,7 @@ export function DashboardPage() {
             timezone={tz}
             density="compact"
             onChange={handleDashboardDateRangeChange}
+            className="[--ff-date-range-compact-max:236px]"
           />
           <TimezoneSelect value={tz} onChange={setTz} />
         </div>

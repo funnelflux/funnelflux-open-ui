@@ -137,8 +137,8 @@ export function useDeleteTrafficFilter() {
 
 export function useApplyTrafficFilterRetroactively() {
   return useMutation({
-    mutationFn: (idTrafficFilter: string) => {
-      const body: TrafficFilterApplyRequest = { idFilter: idTrafficFilter }
+    mutationFn: ({ idTrafficFilter, apply }: { idTrafficFilter: string; apply: boolean }) => {
+      const body: TrafficFilterApplyRequest = { idFilter: idTrafficFilter, apply }
       return api.post('/data/trafficfilter/applyRetroactively/', body)
     },
   })

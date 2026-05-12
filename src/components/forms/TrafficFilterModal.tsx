@@ -23,6 +23,38 @@ function actionModeFromRedirect(redirectToURL: string | null): TrafficFilterActi
   return redirectToURL ? 'hideAndRedirect' : 'hide'
 }
 
+function parseIpRangeEntries(entries: string[]): { fromText: string; toText: string } {
+  const fromLines: string[] = []
+  const toLines: string[] = []
+
+  for (const entry of entries) {
+    const parts = entry.split(',')
+    fromLines.push(parts[0]?.trim() ?? '')
+    toLines.push(parts[1]?.trim() ?? '')
+  }
+
+  return {
+    fromText: fromLines.join('\n'),
+    toText: toLines.join('\n'),
+  }
+}
+
+function combineIpRangeEntries(fromText: string, toText: string): string[] {
+  const fromLines = fromText.split('\n').map((line) => line.trim())
+  const toLines = toText.split('\n').map((line) => line.trim())
+  const lineCount = Math.max(fromLines.length, toLines.length)
+  const entries: string[] = []
+
+  for (let index = 0; index < lineCount; index += 1) {
+    const from = fromLines[index] ?? ''
+    const to = toLines[index] ?? ''
+    if (!from && !to) continue
+    entries.push(`${from}, ${to}`)
+  }
+
+  return entries
+}
+
 export interface TrafficFilterModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -184,6 +216,45 @@ export function TrafficFilterModal({
                   <p className="text-sm text-muted-foreground">
                     Known bots and spiders uses the built-in bot list. No entries required.
                   </p>
+                </FormField>
+              )
+            }
+            if (selectedFilterType === 'ipRanges') {
+              const { fromText, toText } = parseIpRangeEntries(field.value ?? [])
+              return (
+                <FormField label="IP Ranges" error={fieldState.error?.message}>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div>
+                      <label htmlFor="filterEntriesIpFrom" className="mb-1 block text-sm font-medium">
+                        From IPs (one per line)
+                      </label>
+                      <Input.TextArea
+                        id="filterEntriesIpFrom"
+                        value={fromText}
+                        onChange={(e) => {
+                          field.onChange(combineIpRangeEntries(e.target.value, toText))
+                        }}
+                        onBlur={field.onBlur}
+                        placeholder="192.168.0.1"
+                        rows={6}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="filterEntriesIpTo" className="mb-1 block text-sm font-medium">
+                        To IPs (one per line)
+                      </label>
+                      <Input.TextArea
+                        id="filterEntriesIpTo"
+                        value={toText}
+                        onChange={(e) => {
+                          field.onChange(combineIpRangeEntries(fromText, e.target.value))
+                        }}
+                        onBlur={field.onBlur}
+                        placeholder="192.168.0.255"
+                        rows={6}
+                      />
+                    </div>
+                  </div>
                 </FormField>
               )
             }
