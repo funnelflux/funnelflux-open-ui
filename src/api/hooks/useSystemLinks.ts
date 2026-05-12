@@ -2,7 +2,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { IdName } from '@/types/entities'
-import type { SystemLinkRequest } from '@/types/ui'
+import type { SystemLinkRequest, SystemLinksData } from '@/types/ui'
 import { normalizeDomainsFromApiList } from '@/lib/normalizeDomainsFromApi'
 
 /** List row from `/data/trafficsource/list/` (id, name, defaultCostPerEntrance, costType). */
@@ -15,10 +15,19 @@ export function useSystemLinksData() {
   return useQuery({
     queryKey: queryKeys.systemLinks.all,
     queryFn: async () => {
-      const [campaigns, trafficSources, domainsRaw] = await Promise.all([
+      const [campaigns, trafficSources, domainsRaw, systemLinks] = await Promise.all([
         api.get<IdName[]>('/data/campaign/list/'),
         api.get<TrafficSourceOption[]>('/data/trafficsource/list/'),
         api.get<unknown>('/system/domain/list/'),
+        api.post<SystemLinksData>('/ui/systemlinks/load/', {
+          elements: [
+            'actionURL',
+            'postbackURL',
+            'conversionIframe',
+            'pixelURLAndHTML',
+            'clickbankIPN',
+          ],
+        }),
       ])
 
       return {
@@ -31,6 +40,13 @@ export function useSystemLinksData() {
           id: String(trafficSource.id),
         })),
         domains: normalizeDomainsFromApiList(domainsRaw),
+        actionURL: systemLinks.actionURL ?? '',
+        postbackURL: systemLinks.postbackURL ?? '',
+        conversionIframe: systemLinks.conversionIframe ?? '',
+        pixelURL: systemLinks.pixelURL ?? '',
+        pixelHTML: systemLinks.pixelHTML ?? '',
+        clickbankIPNKey: systemLinks.clickbankIPNKey ?? '',
+        clickbankIPNURL: systemLinks.clickbankIPNURL ?? '',
       }
     },
   })
