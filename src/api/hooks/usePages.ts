@@ -16,8 +16,8 @@ import {
   upsertClonedPageInEntityGridCaches,
   upsertPageInEntityGridCaches,
   type PageCloneWireResponse,
-} from '@/lib/entityGridQueryCache'
-import { pageForEntityGridCache } from '@/lib/entityGridSaveMerge'
+} from '@/lib/entity-table/data/queryCache'
+import { pageForEntityGridCache } from '@/lib/entity-table/data/saveMerge'
 
 export type SavePageInput = {
   page: Partial<Page>

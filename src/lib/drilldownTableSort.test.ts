@@ -49,4 +49,16 @@ describe('drilldownSortParamFromReport', () => {
   it('returns undefined when no sorting is active', () => {
     expect(drilldownSortParamFromReport([], reportColumns)).toBeUndefined()
   })
+
+  it('maps name fallback when report columns are unavailable', () => {
+    expect(drilldownSortParamFromReport(sort('name', true), null)).toEqual({
+      sortingColumns: [{ columnName: 'Element: Funnel', order: 'desc' }],
+    })
+  })
+
+  it('maps metric id fallback when report columns are unavailable', () => {
+    expect(drilldownSortParamFromReport(sort('revenue', true), undefined)).toEqual({
+      sortingColumns: [{ columnName: 'Revenue', order: 'desc' }],
+    })
+  })
 })

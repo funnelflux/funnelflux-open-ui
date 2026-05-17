@@ -7,6 +7,10 @@ export const queryKeys = {
     list: (params?: Record<string, string>) => [...queryKeys.campaigns.all, 'list', params] as const,
     detail: (id: string) => [...queryKeys.campaigns.all, 'detail', id] as const,
   },
+  /** Campaigns category-strip table (not covered by `campaigns.all` invalidations). */
+  campaignStrip: {
+    all: ['campaignStrip'] as const,
+  },
   funnels: {
     all: ['funnels'] as const,
     list: (campaignId?: string) => [...queryKeys.funnels.all, 'list', campaignId] as const,

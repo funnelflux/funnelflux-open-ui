@@ -1,16 +1,11 @@
-import { useMemo, useState } from 'react'
-import { selectedRowIds } from '@/lib/utils'
-import type { RowSelectionState } from '@tanstack/react-table'
+import { useMemo } from 'react'
 import { useEntityGrid } from '@/api/hooks/useEntityGrid'
-import type { ListEntity, EntityGridRow } from '@/lib/entityGridUtils'
+import type { ListEntity, EntityGridRow } from '@/lib/entity-table/data/mergedRows'
 import { visibleMetricColumnIdsFromHidden } from '@/lib/drilldownMetrics'
 import type { MetricScope } from '@/components/ui-kit/data-table'
-import { useEntityArchiveTab } from '@/hooks/entity-page/useEntityArchiveTab'
-import { useEntityDateRange } from '@/hooks/entity-page/useEntityDateRange'
-import { useEntityModals } from '@/hooks/entity-page/useEntityModals'
-import { useEntitySearch } from '@/hooks/entity-page/useEntitySearch'
+import { filterEntityTableRows, useEntityTableState } from '@/lib/entity-table/engine/useEntityTableState'
 
-interface UseEntityPageOptions {
+export interface UseEntityPageOptions {
   queryKeyPrefix: readonly unknown[]
   listEndpoint: string
   /** Base query params (always sent, e.g. pageType for pages). */
@@ -26,6 +21,8 @@ interface UseEntityPageOptions {
   metricStorageKey?: string
   defaultVisibleColumnIds?: readonly string[]
   metricHideScopes?: Set<MetricScope>
+  /** When false, list/stats queries do not run (used when composing multiple engines behind one facade). */
+  enabled?: boolean
 }
 
 export function useEntityPage(options: UseEntityPageOptions) {
@@ -39,30 +36,14 @@ export function useEntityPage(options: UseEntityPageOptions) {
     metricStorageKey,
     defaultVisibleColumnIds,
     metricHideScopes,
+    enabled = true,
   } = options
 
-  const {
-    archiveStatus,
-    setArchiveStatus,
-    listParamsForQuery,
-    skipArchiveFilter,
-  } = useEntityArchiveTab({
+  const tableState = useEntityTableState({
+    rows: [],
     archiveListFilter,
     staticListParams,
   })
-  const [selectedCategoryId, setSelectedCategoryId] = useState('')
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const { tz, setTz, dateRange, setDateRange } = useEntityDateRange()
-  const {
-    sheetOpen,
-    setSheetOpen,
-    editId,
-    setEditId,
-    deleteId,
-    setDeleteId,
-    handleCreate,
-    handleEdit,
-  } = useEntityModals()
 
   const metricColumnIds = metricStorageKey
     ? visibleMetricColumnIdsFromHidden(metricStorageKey, { defaultVisibleColumnIds, hideScopes: metricHideScopes })
@@ -73,36 +54,55 @@ export function useEntityPage(options: UseEntityPageOptions) {
     listEndpoint,
     groupBy,
     mapListToEntities,
-    listParams: listParamsForQuery,
-    dateFrom: dateRange.from,
-    dateTo: dateRange.to,
-    timezone: tz,
+    listParams: tableState.listParamsForQuery,
+    dateFrom: tableState.dateRange.from,
+    dateTo: tableState.dateRange.to,
+    timezone: tableState.tz,
     metricColumnIds,
+    enabled,
   })
 
-  const { search, setSearch, filtered } = useEntitySearch({
-    rows: grid.mergedRows as EntityGridRow[],
-    selectedCategoryId,
-    archiveStatus,
-    skipArchiveFilter,
-  })
-
-  const selectedIds = useMemo(() => selectedRowIds(rowSelection), [rowSelection])
+  const filtered = useMemo(
+    () =>
+      filterEntityTableRows(
+        grid.mergedRows as EntityGridRow[],
+        tableState.search,
+        tableState.selectedCategoryId,
+        tableState.archiveStatus,
+        tableState.skipArchiveFilter,
+      ),
+    [
+      grid.mergedRows,
+      tableState.search,
+      tableState.selectedCategoryId,
+      tableState.archiveStatus,
+      tableState.skipArchiveFilter,
+    ],
+  )
 
   return {
     ...grid,
     filtered,
-    search, setSearch,
-    archiveStatus, setArchiveStatus,
-    selectedCategoryId, setSelectedCategoryId,
-    rowSelection, setRowSelection,
-    tz, setTz,
-    dateRange, setDateRange,
-    sheetOpen, setSheetOpen,
-    editId, setEditId,
-    deleteId, setDeleteId,
-    selectedIds,
-    handleCreate,
-    handleEdit,
+    search: tableState.search,
+    setSearch: tableState.setSearch,
+    archiveStatus: tableState.archiveStatus,
+    setArchiveStatus: tableState.setArchiveStatus,
+    selectedCategoryId: tableState.selectedCategoryId,
+    setSelectedCategoryId: tableState.setSelectedCategoryId,
+    rowSelection: tableState.rowSelection,
+    setRowSelection: tableState.setRowSelection,
+    tz: tableState.tz,
+    setTz: tableState.setTz,
+    dateRange: tableState.dateRange,
+    setDateRange: tableState.setDateRange,
+    sheetOpen: tableState.sheetOpen,
+    setSheetOpen: tableState.setSheetOpen,
+    editId: tableState.editId,
+    setEditId: tableState.setEditId,
+    deleteId: tableState.deleteId,
+    setDeleteId: tableState.setDeleteId,
+    selectedIds: tableState.selectedIds,
+    handleCreate: tableState.handleCreate,
+    handleEdit: tableState.handleEdit,
   }
 }

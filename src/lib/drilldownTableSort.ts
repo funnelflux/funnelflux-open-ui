@@ -1,9 +1,11 @@
 import type { SortingState } from '@tanstack/react-table'
 import { countLeadingGroupingColumns, resolveApiColumnId } from '@/components/ui-kit/data-table'
+import { apiMetricNameForColumnId } from '@/lib/drilldownMetrics'
 import type { DrilldownRequest, Report, RequestSorting } from '@/types/stats'
 
 /** API metric key used by PHP `MetricNames::ENTRANCES` (Visits column in the UI registry maps here). */
 const SORT_API_ENTRANCES = 'Entrances'
+const SORT_API_FUNNEL_GROUPING = 'Element: Funnel'
 
 function singleSort(columnName: string, desc: boolean): RequestSorting {
   return {
@@ -44,6 +46,15 @@ export function drilldownSortParamFromReport(
 
   if (String(sortCol.id) === 'visits') {
     return singleSort(SORT_API_ENTRANCES, desc)
+  }
+
+  if (String(sortCol.id) === 'name') {
+    return singleSort(SORT_API_FUNNEL_GROUPING, desc)
+  }
+
+  const metricSort = apiMetricNameForColumnId(String(sortCol.id))
+  if (metricSort) {
+    return singleSort(metricSort, desc)
   }
 
   const colMatch = /^col-(\d+)$/.exec(String(sortCol.id))

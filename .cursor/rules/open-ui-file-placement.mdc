@@ -12,6 +12,7 @@ Before adding or moving code, check that the **primary concern** of the change m
 
 - Keep **feature / domain** logic (e.g. campaigns tree merge, funnel move flow, campaign-specific rollups) in **`src/pages/<feature>/`** utilities or small `*.ts` helpers next to that page, or in **`src/lib/`** when shared across multiple features with a clear name (`campaignTreeUtils.ts`, `normalizeDomainsFromApi.ts`).
 - Keep **ui-kit** (`src/components/ui-kit/**`) for **reusable** table primitives, column registry, and generic cell helpers—not for one-screen business rules.
+- Keep shared entity-table orchestration in **`src/lib/entity-table/`** (`useEntityTable.ts`, `engine/`, `data/`, `columns/`). Page files should mainly provide page-specific APIs/actions/dialog wiring.
 - When a function needs registry metadata (`getColumnMeta`, `resolveApiColumnId`) but encodes **product behavior** for one area, implement it **outside** `columnDefs.tsx` and **import** those primitives from the data-table module.
 
 ## Don’t

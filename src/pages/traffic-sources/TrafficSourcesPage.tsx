@@ -1,37 +1,46 @@
+import { useCallback } from 'react'
 import { Button, TimezoneSelect } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
-import { getErrorMessage } from '@/lib/utils'
-import { defaultColIds } from '@/lib/entityPageDefaultColIds'
 import { entityRowId } from '@/components/ui-kit/data-table'
-import type { TrafficSourceGridRow } from '@/pages/traffic-sources/types'
-import { useTrafficSourcesController } from '@/pages/traffic-sources/useTrafficSourcesController'
-import { useTrafficSourcesColumns } from '@/pages/traffic-sources/useTrafficSourcesColumns'
+import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
+import { useEntityTableColumns } from '@/lib/entity-table/engine/useEntityTableColumns'
+import type { CategoryStripGridRow } from '@/lib/entity-table/data/mergedRows'
+import { getErrorMessage } from '@/lib/utils'
+import { EntityPage } from '@/lib/entity-table/EntityPage'
 import { TrafficSourcesDialogs } from '@/pages/traffic-sources/TrafficSourcesDialogs'
-import { EntityPage } from '@/lib/entity-page/EntityPage'
+import { useTrafficSourcesController } from '@/pages/traffic-sources/useTrafficSourcesController'
 
-const canSelectTrafficSourceRow = (row: { original: TrafficSourceGridRow }) => {
+const TABLE_KEY = 'traffic-sources'
+
+const canSelectTrafficSourceRow = (row: { original: CategoryStripGridRow }) => {
   const r = row.original
   if (r.id === '__totals__') return false
   if (r.id === '1') return false
   return true
 }
-const trafficCategoryRowClassName = (row: TrafficSourceGridRow) =>
+
+const trafficCategoryRowClassName = (row: CategoryStripGridRow) =>
   row._isCategoryHeader ? 'dt-row--category-strip' : undefined
 
 export function TrafficSourcesPage() {
   const controller = useTrafficSourcesController()
-  const { columnDefs, gridColumnVisibility } = useTrafficSourcesColumns({
+
+  const isDefaultTrafficSource = useCallback((row: CategoryStripGridRow) => row.id === '1', [])
+
+  const { columnDefs, gridColumnVisibility } = useEntityTableColumns<CategoryStripGridRow>({
+    tableConfigKey: TABLE_KEY,
     statCols: controller.statCols,
     onEditEntity: controller.handleEdit,
     onCloneEntity: controller.handleClone,
-    onArchiveEntity: controller.handleArchiveTrafficSource,
+    onArchiveEntity: controller.handleArchiveConfirmedRow,
     onDeleteEntity: controller.handleRequestDelete,
     onOpenCategoryRename: controller.openCategoryRename,
     onRequestCategoryDelete: controller.setCategoryDeleteId,
+    isProtectedEntityRow: isDefaultTrafficSource,
   })
 
   const pageBodyState = controller.gridError
@@ -45,18 +54,18 @@ export function TrafficSourcesPage() {
       : { status: 'ready' as const }
 
   return (
-    <EntityPage<TrafficSourceGridRow>
+    <EntityPage<CategoryStripGridRow>
       title="Traffic Sources"
       bodyState={pageBodyState}
       headerActions={(
         <Button type="primary" onClick={controller.handleCreate}>
-          Add Traffic Source
+          {`Add ${controller.singularLabel}`}
         </Button>
       )}
       searchToolbarProps={{
         value: controller.search,
         onChange: controller.setSearch,
-        placeholder: 'Search traffic sources...',
+        placeholder: `Search ${controller.pluralLower}...`,
         onRefresh: controller.reload,
         refreshLoading: controller.isFetching,
         filters: (
@@ -76,6 +85,7 @@ export function TrafficSourcesPage() {
               timezone={controller.tz}
               onChange={controller.handleDateRangeChange}
               density="compact"
+              className="[--ff-date-range-compact-max:236px]"
             />
             <TimezoneSelect value={controller.tz} onChange={controller.setTz} />
           </>
@@ -84,7 +94,7 @@ export function TrafficSourcesPage() {
           <ColumnChooser
             columns={columnDefs}
             table={controller.tableForChooser}
-            storageKey="traffic-sources"
+            storageKey={TABLE_KEY}
             defaultVisibleColumnIds={defaultColIds}
             selectedCols={gridColumnVisibility.selectedCols}
             onColumnsChange={gridColumnVisibility.onColumnsChange}
@@ -96,7 +106,7 @@ export function TrafficSourcesPage() {
         columns: columnDefs,
         loading: controller.isLoading,
         getRowId: entityRowId,
-        tableConfigKey: 'traffic-sources',
+        tableConfigKey: TABLE_KEY,
         pinnedBottomRows: controller.pinnedBottomRows,
         enableRowSelection: canSelectTrafficSourceRow,
         rowSelection: controller.rowSelection,
@@ -132,6 +142,8 @@ export function TrafficSourcesPage() {
       )}
       overlays={(
         <TrafficSourcesDialogs
+          singularLabel={controller.singularLabel}
+          singularLower={controller.singularLower}
           sheetOpen={controller.sheetOpen}
           onFormOpenChange={controller.handleFormOpenChange}
           editId={controller.editId}
@@ -142,6 +154,10 @@ export function TrafficSourcesPage() {
           onDeleteDismiss={controller.handleDismissDelete}
           onDeleteConfirm={controller.handleDelete}
           deletePending={controller.deleteMutation.isPending}
+          archiveConfirm={controller.archiveConfirm}
+          onArchiveConfirmDismiss={() => controller.setArchiveConfirm(null)}
+          onArchiveConfirm={() => void controller.handleConfirmArchiveDialog()}
+          archivePending={controller.archiveMutation.isPending}
           categoryRename={controller.categoryRename}
           categoryRenameDraft={controller.categoryRenameDraft}
           onCategoryRenameDraftChange={controller.setCategoryRenameDraft}

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import type { Campaign, IdName } from '@/types/entities'
+import type { Campaign, IdName, IdNamePair } from '@/types/entities'
 
 /** Use `create: true` when saving a new campaign that already has a client-generated `idCampaign`. */
 export type SaveCampaignInput = Partial<Campaign> & { create?: boolean }
@@ -86,7 +86,8 @@ export function useDeleteCampaign() {
 export function useCloneCampaign() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.post('/data/campaign/clone/', undefined, { idCampaign: id }),
+    mutationFn: (id: string) =>
+      api.post<IdNamePair>('/data/campaign/clone/', undefined, { idCampaign: id }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.campaigns.all })
     },

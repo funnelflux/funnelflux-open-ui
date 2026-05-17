@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RowSelectionState, Table, Updater } from '@tanstack/react-table'
 import { useToastApi } from '@/components/ui-kit'
 import {
@@ -14,20 +14,20 @@ import {
   useSaveCategory,
   useSavePage,
 } from '@/api/hooks'
-import { buildTotalsRow, useEntityGrid } from '@/api/hooks/useEntityGrid'
+import { buildTotalsRow } from '@/api/hooks/useEntityGrid'
 import { queryKeys } from '@/api/queryKeys'
-import { pagesToListEntities } from '@/lib/entityGridUtils'
-import { mapStatColsForCategoryStrip } from '@/lib/categoryStripTable'
+import { pagesToListEntities } from '@/lib/entity-table/data/mergedRows'
+import { mapStatColsForCategoryStrip } from '@/lib/entity-table/engine/categoryStripTable'
 import {
   categoryKeyFromStripRowId,
   deletableCategoryStripRowIds,
   entityRowIdsFromSelection,
   syncCategoryStripRowSelection,
-} from '@/lib/categoryStripSelection'
-import { defaultColIds } from '@/lib/entityPageDefaultColIds'
-import { visibleMetricColumnIdsFromHidden } from '@/lib/drilldownMetrics'
+} from '@/lib/entity-table/engine/categoryStripSelection'
+import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
+import { useEntityTable } from '@/lib/entity-table/useEntityTable'
 import { useCategoryStripTableFlow } from '@/hooks/useCategoryStripTableFlow'
-import { getErrorMessage, selectedRowIds } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
 import type { Page } from '@/types/entities'
 import type { PageFormData } from '@/schemas/page'
@@ -54,23 +54,10 @@ export function usePageEntitiesController({
   const [categoryRename, setCategoryRename] = useState<{ idCategory: string; name: string } | null>(null)
   const [categoryRenameDraft, setCategoryRenameDraft] = useState('')
   const [categoryDeleteId, setCategoryDeleteId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [archiveStatus, setArchiveStatus] = useState<'active' | 'archived' | 'all'>('active')
-  const [sheetOpen, setSheetOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; archive: boolean } | null>(null)
-  const [selectedCategoryId, setSelectedCategoryId] = useState('')
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [tz, setTz] = useState('UTC')
-  const [dateRange, setDateRange] = useState(() => ({
-    from: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
-    to: new Date(),
-  }))
 
   const { data: categories } = useCategories(PAGE_CATEGORY_ENTITY)
-  const { data: editPage } = usePage(editId ?? '')
   const saveMutation = useSavePage()
   const deleteMutation = useDeletePage()
   const cloneMutation = useClonePage()
@@ -81,35 +68,51 @@ export function usePageEntitiesController({
   const importPagesCsvMutation = useImportPagesFromCsv()
   const assignPagesCategoryMutation = useAssignPagesToCategory()
 
-  const listParams = useMemo(
-    () => ({ pageType, status: archiveStatus } as const),
-    [pageType, archiveStatus],
-  )
   const hideScopes = useMemo(() => new Set([hideScope]), [hideScope])
-  const metricColumnIds = visibleMetricColumnIdsFromHidden(tableConfigKey, {
-    defaultVisibleColumnIds: defaultColIds,
-    hideScopes,
-  })
 
   const {
     mergedRows,
+    filtered,
     reportColumns,
     totalsCells,
     isLoading,
     isFetching,
     refetch: reload,
     error: gridError,
-  } = useEntityGrid({
+    search,
+    setSearch,
+    archiveStatus,
+    setArchiveStatus,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    rowSelection,
+    setRowSelection,
+    selectedIds,
+    sheetOpen,
+    setSheetOpen,
+    editId,
+    setEditId,
+    deleteId,
+    setDeleteId,
+    dateRange,
+    setDateRange,
+    tz,
+    setTz,
+    handleCreate,
+    handleEdit,
+  } = useEntityTable({
+    mode: 'flat-client-paged',
     queryKeyPrefix: queryKeys.pages.all,
     listEndpoint: '/data/page/find/byStatus/',
-    listParams,
     groupBy,
-    dateFrom: dateRange.from,
-    dateTo: dateRange.to,
-    timezone: tz,
+    listParams: { pageType },
+    archiveListFilter: 'status',
     mapListToEntities: (items) => pagesToListEntities(items as Page[]),
-    metricColumnIds,
+    metricStorageKey: tableConfigKey,
+    defaultVisibleColumnIds: defaultColIds,
+    metricHideScopes: hideScopes,
   })
+  const { data: editPage } = usePage(editId ?? '')
 
   const {
     listFiltered,
@@ -123,13 +126,17 @@ export function usePageEntitiesController({
     handleSortingChange,
   } = useCategoryStripTableFlow<PageGridRow>({
     tableConfigKey,
-    rows: mergedRows as PageGridRow[],
+    rows: filtered as PageGridRow[],
     reportColumns,
     categories,
-    search,
-    selectedCategoryId,
+    search: '',
+    selectedCategoryId: '',
     resetDeps: [archiveStatus],
   })
+  const listFilteredRef = useRef(listFiltered)
+  useEffect(() => {
+    listFilteredRef.current = listFiltered
+  }, [listFiltered])
 
   const pinnedBottomRows = useMemo(() => {
     if (!hasMetricRows) return undefined
@@ -137,7 +144,6 @@ export function usePageEntitiesController({
     return row ? [row as PageGridRow] : undefined
   }, [totalsCells, hasMetricRows])
 
-  const selectedIds = useMemo(() => selectedRowIds(rowSelection), [rowSelection])
   const entityIdsForBulk = useMemo(() => entityRowIdsFromSelection(selectedIds), [selectedIds])
 
   const bulkDeleteConfirmCopy = useMemo(() => {
@@ -153,21 +159,11 @@ export function usePageEntitiesController({
     (updater: Updater<RowSelectionState>) => {
       setRowSelection((prev) => {
         const next = typeof updater === 'function' ? updater(prev) : updater
-        return syncCategoryStripRowSelection(prev, next, listFiltered as PageGridRow[])
+        return syncCategoryStripRowSelection(prev, next, listFilteredRef.current as PageGridRow[])
       })
     },
-    [listFiltered],
+    [setRowSelection],
   )
-
-  const handleCreate = useCallback(() => {
-    setEditId(null)
-    setSheetOpen(true)
-  }, [])
-
-  const handleEdit = useCallback((id: string) => {
-    setEditId(id)
-    setSheetOpen(true)
-  }, [])
 
   const handleSubmit = useCallback((data: PageFormData) => {
     saveMutation.mutate(
@@ -181,7 +177,7 @@ export function usePageEntitiesController({
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [saveMutation, editId, toast, singularLabel])
+  }, [saveMutation, editId, toast, singularLabel, setEditId, setSheetOpen])
 
   const cloneMutate = cloneMutation.mutate
   const handleClone = useCallback((idPage: string) => {
@@ -233,7 +229,7 @@ export function usePageEntitiesController({
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }, [deleteId, deleteMutation, toast])
+  }, [deleteId, deleteMutation, toast, setDeleteId])
 
   const handleImport = useCallback(async (importRows: Record<string, string>[]) => {
     try {
@@ -258,7 +254,7 @@ export function usePageEntitiesController({
     [reportColumns, hideScopes],
   )
 
-  const handleBulkDeselectAll = useCallback(() => setRowSelection({}), [])
+  const handleBulkDeselectAll = useCallback(() => setRowSelection({}), [setRowSelection])
 
   const handleBulkArchive = useCallback(async () => {
     try {
@@ -268,7 +264,7 @@ export function usePageEntitiesController({
     } catch (e) {
       toast.error(getErrorMessage(e))
     }
-  }, [archiveMutation, entityIdsForBulk, pluralLower, toast])
+  }, [archiveMutation, entityIdsForBulk, pluralLower, toast, setRowSelection])
 
   const handleBulkDelete = useCallback(async () => {
     const categoryKeys = [
@@ -297,6 +293,7 @@ export function usePageEntitiesController({
     deleteCategoryMutation,
     toast,
     pluralLower,
+    setRowSelection,
   ])
 
   const handleBulkAssignCategory = useCallback(async (idCategory: string) => {
@@ -307,7 +304,7 @@ export function usePageEntitiesController({
     } catch (e) {
       toast.error(getErrorMessage(e))
     }
-  }, [assignPagesCategoryMutation, entityIdsForBulk, pluralLower, toast])
+  }, [assignPagesCategoryMutation, entityIdsForBulk, pluralLower, toast, setRowSelection])
 
   const bulkMoveToCategory = useMemo(
     () => ({
@@ -319,14 +316,14 @@ export function usePageEntitiesController({
 
   const handleDateRangeChange = useCallback((value: DateRange & { preset: string | null }) => {
     if (value.from && value.to) setDateRange({ from: value.from, to: value.to })
-  }, [])
+  }, [setDateRange])
 
   const handleFormOpenChange = useCallback((open: boolean) => {
     setSheetOpen(open)
     if (!open) setEditId(null)
-  }, [])
+  }, [setEditId, setSheetOpen])
 
-  const handleDismissDelete = useCallback(() => setDeleteId(null), [])
+  const handleDismissDelete = useCallback(() => setDeleteId(null), [setDeleteId])
 
   const openCategoryRename = useCallback((row: PageGridRow) => {
     const idCategory = row._categoryId ?? ''
@@ -364,7 +361,7 @@ export function usePageEntitiesController({
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [categoryDeleteId, deleteCategoryMutation, toast, selectedCategoryId])
+  }, [categoryDeleteId, deleteCategoryMutation, toast, selectedCategoryId, setSelectedCategoryId])
 
   return {
     singularLower,

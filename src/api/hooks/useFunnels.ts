@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import { parseFunnelWireEnvelope } from '@/schemas/apiBoundaries'
-import type { Funnel, IdName } from '@/types/entities'
+import type { Funnel, IdName, IdNamePair } from '@/types/entities'
 
 /** Use `create: true` when saving a new funnel that already has a client-generated `idFunnel`. */
 export type SaveFunnelInput = Partial<Funnel> & {
@@ -80,7 +80,7 @@ export function useCloneFunnel() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) =>
-      api.post('/data/campaign/funnel/clone/', undefined, { idFunnel: id }),
+      api.post<IdNamePair>('/data/campaign/funnel/clone/', undefined, { idFunnel: id }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.funnels.all })
     },

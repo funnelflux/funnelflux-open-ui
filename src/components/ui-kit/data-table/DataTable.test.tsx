@@ -134,6 +134,35 @@ describe('DataTable contracts', () => {
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
   })
 
+  it('tree mode with manualPagination still expands children', async () => {
+    const user = userEvent.setup()
+    const treeData: TreeRow[] = [
+      {
+        id: 'p1',
+        name: 'Manual Parent',
+        children: [{ id: 'c1', name: 'Manual Child' }],
+      },
+    ]
+    const treeCols: ColumnDef<TreeRow, unknown>[] = [
+      { accessorKey: 'name', header: 'Name', id: 'name' },
+    ]
+    render(
+      <DataTable
+        data={treeData}
+        columns={treeCols}
+        virtualizeThreshold={1000}
+        treeMode
+        manualPagination
+        pageCount={1}
+        pagination={{ pageIndex: 0, pageSize: 25 }}
+        getSubRows={(r) => r.children}
+        getRowId={(r) => r.id}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Expand' }))
+    expect(screen.getByText('Manual Child')).toBeInTheDocument()
+  })
+
   it('tree mode: expanding a parent reveals child rows (paginateExpandedRows with pagination)', async () => {
     const user = userEvent.setup()
     const treeData: TreeRow[] = [

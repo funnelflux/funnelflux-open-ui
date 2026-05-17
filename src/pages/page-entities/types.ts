@@ -1,9 +1,6 @@
-import type { EntityGridRow } from '@/api/hooks/useEntityGrid'
+import type { CategoryStripGridRow } from '@/lib/entity-table/data/mergedRows'
 
-export type PageGridRow = EntityGridRow & {
-  _isCategoryHeader?: boolean
-  _categoryId?: string
-} & Record<string, unknown>
+export type PageGridRow = CategoryStripGridRow & Record<string, unknown>
 
 export interface CsvFieldOption {
   value: string

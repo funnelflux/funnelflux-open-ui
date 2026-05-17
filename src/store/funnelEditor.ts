@@ -189,7 +189,7 @@ interface FunnelEditorState {
   /** Apply server funnel JSON and record `serverVersion` (from {@link computeFunnelEditorHydrationVersion}). */
   hydrateFromServer: (funnel: ApiFunnel | unknown, serverVersion: string) => void
   requestHydrate: (funnelInput: ApiFunnel | unknown, opts?: { force?: boolean }) => HydrateRequestResult
-  initializeNewFunnel: (args: { idCampaign: string; idFunnel: string }) => void
+  initializeNewFunnel: (args: { idCampaign: string; idFunnel: string; funnelName?: string }) => void
   resetEditor: () => void
   serialize: () => ApiFunnel
 
@@ -294,8 +294,9 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
     return { applied: true, graphWarnings: warnings }
   },
 
-  initializeNewFunnel: ({ idCampaign, idFunnel }) => {
+  initializeNewFunnel: ({ idCampaign, idFunnel, funnelName }) => {
     const idNode = generateId()
+    const name = funnelName?.trim() ?? ''
     set({
       loadedFunnelId: idFunnel,
       loadedServerVersion: null,
@@ -305,7 +306,7 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
         ...defaultMeta,
         idCampaign,
         idFunnel,
-        funnelName: '',
+        funnelName: name,
         defaultCostPerEntrance: 0,
         notes: '',
         isArchived: false,

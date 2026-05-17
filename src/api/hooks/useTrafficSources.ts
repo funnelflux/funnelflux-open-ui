@@ -16,8 +16,8 @@ import {
   upsertClonedTrafficSourceInEntityGridCaches,
   upsertTrafficSourceInEntityGridCaches,
   type TrafficSourceCloneWireResponse,
-} from '@/lib/entityGridQueryCache'
-import { trafficSourceForEntityGridCache } from '@/lib/entityGridSaveMerge'
+} from '@/lib/entity-table/data/queryCache'
+import { trafficSourceForEntityGridCache } from '@/lib/entity-table/data/saveMerge'
 import type { TrafficSource } from '@/types/entities'
 
 export type SaveTrafficSourceInput = {

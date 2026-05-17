@@ -5,21 +5,18 @@ import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
 import { entityRowId } from '@/components/ui-kit/data-table'
-import { defaultColIds } from '@/lib/entityPageDefaultColIds'
+import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
 import { getErrorMessage } from '@/lib/utils'
 import type { PageEntitiesPageProps, PageGridRow } from '@/pages/page-entities/types'
 import { usePageEntitiesController } from '@/pages/page-entities/usePageEntitiesController'
 import { usePageEntitiesColumns } from '@/pages/page-entities/usePageEntitiesColumns'
 import { PageEntitiesDialogs } from '@/pages/page-entities/PageEntitiesDialogs'
-import { EntityPage } from '@/lib/entity-page/EntityPage'
+import { EntityPage } from '@/lib/entity-table/EntityPage'
 
 const canSelectRow = (row: { original: PageGridRow }) => row.original.id !== '__totals__'
 const categoryRowClassName = (row: PageGridRow) => row._isCategoryHeader ? 'dt-row--category-strip' : undefined
 
-/**
- * Landers/offers lists with category strip, CSV import, and extended bulk actions.
- * Bespoke layout per the escape hatch in `src/lib/entity-page/config.ts` (not the simple `EntityPage` runner).
- */
+/** Landers/offers lists with category strip, CSV import, and extended bulk actions. */
 export function PageEntitiesPage({
   pageType,
   tableConfigKey,

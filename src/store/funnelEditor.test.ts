@@ -44,6 +44,15 @@ describe('useFunnelEditorStore hydration', () => {
     expect(isDirty).toBe(false)
   })
 
+  it('initializeNewFunnel trims funnelName into meta', () => {
+    useFunnelEditorStore.getState().initializeNewFunnel({
+      idCampaign: 'c1',
+      idFunnel: 'f-new',
+      funnelName: '  Email capture  ',
+    })
+    expect(useFunnelEditorStore.getState().meta.funnelName).toBe('Email capture')
+  })
+
   it('requestHydrate applies first server payload', () => {
     const result = useFunnelEditorStore.getState().requestHydrate(minimalServerFunnelA)
     expect(result.applied).toBe(true)

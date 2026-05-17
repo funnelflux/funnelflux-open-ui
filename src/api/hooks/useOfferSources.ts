@@ -10,8 +10,8 @@ import {
   upsertClonedOfferSourceInEntityGridCaches,
   upsertOfferSourceInEntityGridCaches,
   type OfferSourceCloneWireResponse,
-} from '@/lib/entityGridQueryCache'
-import { offerSourceForEntityGridCache } from '@/lib/entityGridSaveMerge'
+} from '@/lib/entity-table/data/queryCache'
+import { offerSourceForEntityGridCache } from '@/lib/entity-table/data/saveMerge'
 import type { OfferSource } from '@/types/entities'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
 
