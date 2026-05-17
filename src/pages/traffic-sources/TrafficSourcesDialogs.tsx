@@ -4,6 +4,8 @@ import type { TrafficSource } from '@/types/entities'
 import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 
 interface TrafficSourcesDialogsProps {
+  singularLabel: string
+  singularLower: string
   sheetOpen: boolean
   onFormOpenChange: (open: boolean) => void
   editId: string | null
@@ -14,6 +16,10 @@ interface TrafficSourcesDialogsProps {
   onDeleteDismiss: () => void
   onDeleteConfirm: () => void
   deletePending: boolean
+  archiveConfirm: { id: string; archive: boolean } | null
+  onArchiveConfirmDismiss: () => void
+  onArchiveConfirm: () => void
+  archivePending: boolean
   categoryRename: { idCategory: string; name: string } | null
   categoryRenameDraft: string
   onCategoryRenameDraftChange: (value: string) => void
@@ -27,6 +33,8 @@ interface TrafficSourcesDialogsProps {
 }
 
 export function TrafficSourcesDialogs({
+  singularLabel,
+  singularLower,
   sheetOpen,
   onFormOpenChange,
   editId,
@@ -37,6 +45,10 @@ export function TrafficSourcesDialogs({
   onDeleteDismiss,
   onDeleteConfirm,
   deletePending,
+  archiveConfirm,
+  onArchiveConfirmDismiss,
+  onArchiveConfirm,
+  archivePending,
   categoryRename,
   categoryRenameDraft,
   onCategoryRenameDraftChange,
@@ -61,11 +73,25 @@ export function TrafficSourcesDialogs({
       <ConfirmModal
         open={Boolean(deleteId)}
         onCancel={onDeleteDismiss}
-        title="Delete Traffic Source"
+        title={`Delete ${singularLabel}`}
         description="Are you sure? This cannot be undone."
         onConfirm={onDeleteConfirm}
         loading={deletePending}
         danger
+      />
+
+      <ConfirmModal
+        open={Boolean(archiveConfirm)}
+        onCancel={onArchiveConfirmDismiss}
+        title={archiveConfirm?.archive ? `Archive ${singularLabel}` : `Restore ${singularLabel}`}
+        description={
+          archiveConfirm?.archive
+            ? `Archive this ${singularLower}? Archived items are hidden from the default Active view.`
+            : `Restore this ${singularLower} to the active list?`
+        }
+        onConfirm={onArchiveConfirm}
+        loading={archivePending}
+        danger={Boolean(archiveConfirm?.archive)}
       />
 
       <Modal
@@ -92,7 +118,7 @@ export function TrafficSourcesDialogs({
         open={Boolean(categoryDeleteId)}
         onCancel={onCategoryDeleteDismiss}
         title="Delete category"
-        description="Delete this category? Traffic sources in it will become uncategorized."
+        description={`Delete this category? ${singularLabel}s in it will become uncategorized.`}
         onConfirm={onCategoryDeleteConfirm}
         loading={categoryDeletePending}
         danger

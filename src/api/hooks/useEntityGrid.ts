@@ -1,13 +1,12 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ENTITY_GRID_LIST_KEY, ENTITY_GRID_STATS_KEY } from '@/lib/entityGridQueryCache'
-import { toApiDateTimeRange } from '@/lib/statsDateRange'
-import type { DrilldownRequest, ReportCell } from '@/types/stats'
-import { buildMergedRows, buildTotalsRow } from '@/lib/entityGridUtils'
-import type { ListEntity, EntityGridRow } from '@/lib/entityGridUtils'
+import { ENTITY_GRID_LIST_KEY, ENTITY_GRID_STATS_KEY } from '@/lib/entity-table/data/queryCache'
+import type { ReportCell } from '@/types/stats'
+import { buildMergedRows, buildTotalsRow } from '@/lib/entity-table/data/mergedRows'
+import type { ListEntity, EntityGridRow } from '@/lib/entity-table/data/mergedRows'
 import { api } from '@/api/client'
-import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
 import { metricsForColumnIds } from '@/lib/drilldownMetrics'
+import { fetchFlatAssetDrilldownReport } from '@/lib/entity-table/data/fetchFlatAssetDrilldown'
 
 export type { ListEntity, EntityGridRow }
 export { buildTotalsRow }
@@ -56,14 +55,13 @@ export function useEntityGrid(options: UseEntityGridOptions) {
     ],
     queryFn: () => {
       const metrics = metricsForColumnIds(metricColumnIds ?? [])
-      const request: DrilldownRequest = {
-        timeRange: toApiDateTimeRange(dateFrom, dateTo),
-        timeZone: { name: timezone },
-        groupings: [{ groupBy, whitelistFilters: [], blacklistFilters: [] }],
-        options: { viewType: 'flat' },
-        ...(metrics ? { metrics } : {}),
-      }
-      return fetchAllFlatDrilldownRows(request)
+      return fetchFlatAssetDrilldownReport({
+        dateFrom,
+        dateTo,
+        timezone,
+        groupBy,
+        ...(metrics?.length ? { metrics } : {}),
+      })
     },
     enabled,
     placeholderData: (previousData) => previousData,

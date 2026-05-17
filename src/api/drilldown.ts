@@ -35,6 +35,22 @@ function withPaging(
   }
 }
 
+export async function fetchFlatDrilldownPage(
+  request: DrilldownRequest,
+  options?: { pageSize?: number; signal?: AbortSignal },
+): Promise<Report> {
+  const signal = options?.signal
+  const initialStart = request.paging?.start ?? 0
+  const pageSize = options?.pageSize ?? request.paging?.length ?? 200
+  const report = await api.postDrilldown<Report>(
+    withPaging(request, initialStart, pageSize),
+    undefined,
+    signal,
+  )
+  parseDrilldownReport(report)
+  return report
+}
+
 export async function fetchAllFlatDrilldownRows(
   request: DrilldownRequest,
   options?: { pageSize?: number; signal?: AbortSignal },

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useCallback, useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useFunnel } from '@/api/hooks'
@@ -33,9 +33,18 @@ const FunnelQuickStatsModal = lazy(() =>
   })),
 )
 
+/** Router state from Campaigns “Add funnel” (matches OpenAPI funnelName max 255). */
+function newFunnelNameFromLocationState(state: unknown): string {
+  if (typeof state !== 'object' || state === null || !('funnelName' in state)) return ''
+  const raw = (state as { funnelName?: unknown }).funnelName
+  if (typeof raw !== 'string') return ''
+  return raw.trim().slice(0, 255)
+}
+
 export function FunnelEditorPage() {
   const { campaignId, funnelId } = useParams<{ campaignId: string; funnelId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const toast = useToastApi()
   const queryClient = useQueryClient()
   const [isSaving, setIsSaving] = useState(false)
@@ -74,12 +83,18 @@ export function FunnelEditorPage() {
     [toast],
   )
 
+  const nameForNewFunnel = newFunnelNameFromLocationState(location.state)
+
   useEffect(() => {
     if (isNew) {
       dismissedServerVersionRef.current = null
       resetEditor()
       if (campaignId) {
-        initializeNewFunnel({ idCampaign: campaignId, idFunnel: generateId() })
+        initializeNewFunnel({
+          idCampaign: campaignId,
+          idFunnel: generateId(),
+          funnelName: nameForNewFunnel,
+        })
       }
       return
     }
@@ -101,6 +116,7 @@ export function FunnelEditorPage() {
     funnel,
     isNew,
     campaignId,
+    nameForNewFunnel,
     initializeNewFunnel,
     resetEditor,
     requestHydrate,
@@ -256,7 +272,11 @@ export function FunnelEditorPage() {
     if (isNew) {
       resetEditor()
       if (campaignId) {
-        initializeNewFunnel({ idCampaign: campaignId, idFunnel: generateId() })
+        initializeNewFunnel({
+          idCampaign: campaignId,
+          idFunnel: generateId(),
+          funnelName: newFunnelNameFromLocationState(location.state),
+        })
       }
       clearPendingAssetDrafts()
       markClean()
@@ -276,6 +296,7 @@ export function FunnelEditorPage() {
     clearPendingAssetDrafts,
     requestHydrate,
     resetEditor,
+    location.state,
   ])
 
   const handleBack = useCallback(() => {

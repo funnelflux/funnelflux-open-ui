@@ -166,7 +166,7 @@ One schema per entity: `campaign.ts`, `condition.ts`, `funnel.ts`, `landerNode.t
 
 ### `src/hooks/`
 
-Custom React hooks. Page-level hooks live in `src/api/` (e.g. `useAuth.ts`, `useEntityPage.ts`). Shared table/page orchestration hooks (for example `useCategoryStripTableFlow.ts`) live here.
+Custom React hooks. Page-level hooks live in `src/api/` (e.g. `useAuth.ts`). Entity-table orchestration hooks live in `src/lib/entity-table/engine/`.
 
 ### `src/lib/`
 
@@ -223,7 +223,7 @@ Utilities, theming, and pure helpers (most have unit tests):
 
 | Working on... | Read these |
 |---------------|-----------|
-| New entity page | `docs/REACT_UI_EXEC_PLAN.md`, `src/pages/campaigns/CampaignsPage.tsx` |
+| New entity page | `docs/REACT_UI_EXEC_PLAN.md`, `src/lib/entity-table/README.md` |
 | UI kit components | `src/components/ui-kit/index.ts`, `src/styles/design-tokens.css` |
 | API integration | `docs/FUNNEL_API_GUIDE.md`, `docs/api-specs/`, `src/api/client.ts` |
 | Funnel builder | `src/store/funnelEditor.ts`, `src/components/funnel-builder/` |
@@ -249,7 +249,7 @@ Utilities, theming, and pure helpers (most have unit tests):
 - Add new query keys in `src/api/queryKeys.ts`; do not create ad hoc literal key arrays at call sites.
 - Use `api.postDrilldown(...)` for drilldown report requests so `raw` bigint metrics are parsed safely.
 - `codeEdgeRole` on funnel code edges is UI-only; never add it to PHP-facing save payloads.
-- Keep offers/landers page differences in wrapper files; shared table/category-strip behavior belongs in `src/pages/PageEntitiesPage.tsx` + `src/hooks/useCategoryStripTableFlow.ts`.
+- Keep offers/landers page differences in wrapper files; shared table/category-strip behavior belongs in `src/lib/entity-table/` (`useEntityTable.ts` and `engine/` helpers).
 
 ## UI / Styling Rules
 

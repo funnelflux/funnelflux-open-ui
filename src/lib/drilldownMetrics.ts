@@ -1,6 +1,6 @@
 import { getColumnMeta, getDefaultVisibleIds, buildChooserGroupsForPage, type MetricScope } from '@/components/ui-kit/data-table/columnRegistry'
 import type { SortingState, VisibilityState } from '@tanstack/react-table'
-import { readHiddenColumnIds } from '@/lib/entityGridColumnStorage'
+import { readHiddenColumnIds } from '@/lib/entity-table/columns/storage'
 
 const NON_METRIC_COLUMN_IDS = new Set(['name', 'select', 'id'])
 

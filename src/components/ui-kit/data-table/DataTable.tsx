@@ -163,12 +163,11 @@ function DataTableInner<TData>({
     data,
     columns,
     /**
-     * In tree mode with pagination, `false` keeps expanded children on the parent's page
-     * (flattening happens in `getPaginationRowModel`). With `noPagination`, there is no
-     * pagination row model, so we must leave this `true` for `getExpandedRowModel` to
-     * flatten parent+children into the visible rows.
+     * Only disable `paginateExpandedRows` when client-side pagination row model is active.
+     * For manual/no pagination there is no pagination row model to flatten expanded nodes,
+     * so this must stay `true` or children may not render after expand.
      */
-    paginateExpandedRows: treeMode && usePagination ? false : true,
+    paginateExpandedRows: treeMode && usePagination && !manualPagination ? false : true,
     state: {
       sorting: effectiveSorting,
       rowSelection: selection,
@@ -190,13 +189,15 @@ function DataTableInner<TData>({
     getExpandedRowModel: treeMode ? getExpandedRowModel() : undefined,
     getFilteredRowModel: getFilteredRowModel(),
     getSubRows: getSubRows as never,
-    getRowCanExpand:
-      treeMode && onExpandRow
-        ? (row) => {
-            if ((row.subRows?.length ?? 0) > 0) return true
+    getRowCanExpand: treeMode
+      ? (row) => {
+          if ((row.subRows?.length ?? 0) > 0) return true
+          if (onExpandRow) {
             return canLazyExpandRow?.(row.original as TData) ?? false
           }
-        : undefined,
+          return false
+        }
+      : undefined,
     enableRowSelection: enableRowSelection as never,
     enableColumnResizing,
     columnResizeMode: 'onChange',

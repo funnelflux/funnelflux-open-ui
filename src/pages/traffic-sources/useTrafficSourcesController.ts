@@ -1,54 +1,68 @@
-import { useMemo, useCallback, useRef, useState, useEffect } from 'react'
-import type { PaginationState, RowSelectionState, SortingState, Table, Updater } from '@tanstack/react-table'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { RowSelectionState, Table, Updater } from '@tanstack/react-table'
 import { useToastApi } from '@/components/ui-kit'
 import {
-  useCategories,
-  useSaveTrafficSource,
-  useDeleteTrafficSource,
-  useCloneTrafficSource,
   useArchiveTrafficSource,
-  useTrafficSource,
-  useSaveCategory,
-  useDeleteCategory,
-  useBulkDeleteTrafficSources,
   useAssignTrafficSourcesToCategory,
+  useBulkDeleteTrafficSources,
+  useCategories,
+  useCloneTrafficSource,
+  useDeleteCategory,
+  useDeleteTrafficSource,
+  useSaveCategory,
+  useSaveTrafficSource,
+  useTrafficSource,
 } from '@/api/hooks'
 import { buildTotalsRow } from '@/api/hooks/useEntityGrid'
 import { queryKeys } from '@/api/queryKeys'
-import { trafficSourceListToListEntities } from '@/lib/entityGridUtils'
-import { useEntityPage } from '@/hooks/useEntityPage'
-import type { TrafficSource } from '@/types/entities'
-import type { TrafficSourceFormData } from '@/schemas/trafficSource'
+import {
+  trafficSourceListToListEntities,
+  type CategoryStripGridRow,
+} from '@/lib/entity-table/data/mergedRows'
+import { mapStatColsForCategoryStrip } from '@/lib/entity-table/engine/categoryStripTable'
+import {
+  categoryKeyFromStripRowId,
+  deletableCategoryStripRowIds,
+  entityRowIdsFromSelection,
+  syncCategoryStripRowSelection,
+} from '@/lib/entity-table/engine/categoryStripSelection'
+import { useEntityTable } from '@/lib/entity-table/useEntityTable'
+import { useCategoryStripTableFlow } from '@/hooks/useCategoryStripTableFlow'
 import { getErrorMessage } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
-import { paginateCategorySegments } from '@/lib/paginateCategorySegments'
-import { buildCategorySegmentsFromRows, mapStatColsForCategoryStrip } from '@/lib/categoryStripTable'
-import {
-  syncCategoryStripRowSelection,
-  entityRowIdsFromSelection,
-  deletableCategoryStripRowIds,
-  categoryKeyFromStripRowId,
-} from '@/lib/categoryStripSelection'
+import type { TrafficSource } from '@/types/entities'
+import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 import { buildColumnsFromReport } from '@/components/ui-kit/data-table'
-import { sortEntityGridRows } from '@/lib/entityGridSorting'
-import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
-import type { TrafficSourceGridRow } from '@/pages/traffic-sources/types'
 
-const TABLE_KEY = 'traffic-sources'
+const TABLE_CONFIG_KEY = 'traffic-sources'
+const TRAFFICSOURCE_CATEGORY_ENTITY = 'trafficsource' as const
 
 export function useTrafficSourcesController() {
   const toast = useToastApi()
-  const tableRef = useRef<Table<TrafficSourceGridRow> | null>(null)
-  const [tableForChooser, setTableForChooser] = useState<Table<TrafficSourceGridRow> | null>(null)
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
-  const tableConfig = useTableConfigStore(selectTableConfig(TABLE_KEY))
-  const setSorting = useTableConfigStore((state) => state.setSorting)
+  const singularLabel = 'Traffic Source'
+  const singularLower = singularLabel.toLowerCase()
+  const pluralLower = 'traffic sources'
+
+  const tableRef = useRef<Table<CategoryStripGridRow> | null>(null)
+  const [tableForChooser, setTableForChooser] = useState<Table<CategoryStripGridRow> | null>(null)
+
   const [categoryRename, setCategoryRename] = useState<{ idCategory: string; name: string } | null>(null)
   const [categoryRenameDraft, setCategoryRenameDraft] = useState('')
   const [categoryDeleteId, setCategoryDeleteId] = useState<string | null>(null)
+  const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; archive: boolean } | null>(null)
+
+  const { data: categories } = useCategories(TRAFFICSOURCE_CATEGORY_ENTITY)
+  const saveMutation = useSaveTrafficSource()
+  const deleteMutation = useDeleteTrafficSource()
+  const cloneMutation = useCloneTrafficSource()
+  const archiveMutation = useArchiveTrafficSource()
+  const saveCategoryMutation = useSaveCategory()
+  const deleteCategoryMutation = useDeleteCategory()
+  const bulkDeleteTrafficMutation = useBulkDeleteTrafficSources()
+  const assignTrafficCategoryMutation = useAssignTrafficSourcesToCategory()
 
   const {
-    filtered: listFiltered,
+    filtered,
     reportColumns,
     totalsCells,
     isLoading,
@@ -76,77 +90,48 @@ export function useTrafficSourcesController() {
     setTz,
     handleCreate,
     handleEdit,
-  } = useEntityPage({
+  } = useEntityTable({
+    mode: 'flat-client-paged',
     queryKeyPrefix: queryKeys.trafficSources.all,
     listEndpoint: '/data/trafficsource/list/',
     groupBy: 'Third Parties: Traffic Source',
     archiveListFilter: 'trafficsource',
     mapListToEntities: trafficSourceListToListEntities,
-    metricStorageKey: TABLE_KEY,
+    metricStorageKey: TABLE_CONFIG_KEY,
   })
 
-  const { data: categories } = useCategories('trafficsource')
+  const { data: editSource } = useTrafficSource(editId ?? '')
 
-  const categoryMap = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const category of categories ?? []) map.set(category.idCategory, category.name)
-    return map
-  }, [categories])
+  const {
+    listFiltered,
+    hasMetricRows,
+    pageRows,
+    pageCount,
+    totalDataCount,
+    pagination,
+    setPagination,
+    effectiveSorting,
+    handleSortingChange,
+  } = useCategoryStripTableFlow<CategoryStripGridRow>({
+    tableConfigKey: TABLE_CONFIG_KEY,
+    rows: filtered as CategoryStripGridRow[],
+    reportColumns,
+    categories,
+    search: '',
+    selectedCategoryId: '',
+    resetDeps: [archiveStatus],
+  })
 
-  const effectiveSorting = tableConfig.sorting.length > 0 ? tableConfig.sorting : DEFAULT_TABLE_SORTING
-  const sortedListFiltered = useMemo(
-    () => sortEntityGridRows(listFiltered as TrafficSourceGridRow[], reportColumns, effectiveSorting),
-    [listFiltered, reportColumns, effectiveSorting],
-  )
-
-  const segments = useMemo(
-    () => buildCategorySegmentsFromRows(sortedListFiltered, categoryMap),
-    [sortedListFiltered, categoryMap],
-  )
-
-  const totalDataCount = useMemo(
-    () => segments.reduce((count, segment) => count + segment.items.length, 0),
-    [segments],
-  )
-
-  const pageSlice = useMemo(
-    () => paginateCategorySegments(segments, pagination.pageIndex, pagination.pageSize),
-    [segments, pagination.pageIndex, pagination.pageSize],
-  )
-
-  const filterResetKey = useMemo(
-    () => [search, selectedCategoryId, archiveStatus].join('\0'),
-    [search, selectedCategoryId, archiveStatus],
-  )
-
+  const listFilteredRef = useRef(listFiltered)
   useEffect(() => {
-    queueMicrotask(() => {
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    })
-  }, [filterResetKey])
+    listFilteredRef.current = listFiltered
+  }, [listFiltered])
 
-  useEffect(() => {
-    if (pagination.pageIndex > pageSlice.pageCount - 1 && pageSlice.pageCount > 0) {
-      queueMicrotask(() => {
-        setPagination((prev) => ({ ...prev, pageIndex: Math.max(0, pageSlice.pageCount - 1) }))
-      })
-    }
-  }, [pagination.pageIndex, pageSlice.pageCount])
-
-  const handleRowSelectionChange = useCallback(
-    (updater: Updater<RowSelectionState>) => {
-      setRowSelection((prev) => {
-        const next = typeof updater === 'function' ? updater(prev) : updater
-        return syncCategoryStripRowSelection(prev, next, listFiltered as TrafficSourceGridRow[])
-      })
-    },
-    [listFiltered, setRowSelection],
-  )
-
-  const handleSortingChange = useCallback((sorting: SortingState) => {
-    setSorting(TABLE_KEY, sorting)
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-  }, [setSorting])
+  const pinnedBottomRows = useMemo(() => {
+    if (!hasMetricRows) return undefined
+    const row = buildTotalsRow(totalsCells)
+    return row ? [row as CategoryStripGridRow] : undefined
+  }, [totalsCells, hasMetricRows])
 
   const entityIdsForBulk = useMemo(() => entityRowIdsFromSelection(selectedIds), [selectedIds])
 
@@ -159,40 +144,35 @@ export function useTrafficSourcesController() {
     }
   }, [selectedIds, entityIdsForBulk])
 
-  const { data: editSource } = useTrafficSource(editId ?? '')
-  const saveMutation = useSaveTrafficSource()
-  const deleteMutation = useDeleteTrafficSource()
-  const cloneMutation = useCloneTrafficSource()
-  const archiveMutation = useArchiveTrafficSource()
-  const saveCategoryMutation = useSaveCategory()
-  const deleteCategoryMutation = useDeleteCategory()
-  const bulkDeleteTrafficMutation = useBulkDeleteTrafficSources()
-  const assignTrafficCategoryMutation = useAssignTrafficSourcesToCategory()
+  const handleRowSelectionChange = useCallback(
+    (updater: Updater<RowSelectionState>) => {
+      setRowSelection((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater
+        return syncCategoryStripRowSelection(prev, next, listFilteredRef.current as CategoryStripGridRow[])
+      })
+    },
+    [setRowSelection],
+  )
 
-  const hasMetricRows = listFiltered.length > 0
-  const pinnedBottomRows = useMemo(() => {
-    if (!hasMetricRows) return undefined
-    const row = buildTotalsRow(totalsCells)
-    return row ? [row as TrafficSourceGridRow] : undefined
-  }, [totalsCells, hasMetricRows])
-
-  const handleSubmit = (data: TrafficSourceFormData) => {
+  const handleSubmit = useCallback((data: TrafficSourceFormData) => {
     saveMutation.mutate(
       { trafficSource: data as unknown as Partial<TrafficSource>, isCreate: !editId },
       {
         onSuccess: () => {
-          toast.success(editId ? 'Traffic source updated' : 'Traffic source created')
+          toast.success(editId ? `${singularLabel} updated` : `${singularLabel} created`)
           setSheetOpen(false)
           setEditId(null)
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }
+  }, [saveMutation, editId, toast, singularLabel, setEditId, setSheetOpen])
 
   const cloneMutate = cloneMutation.mutate
   const handleClone = useCallback((id: string) => {
-    const row = listFiltered.find((item): item is TrafficSourceGridRow => !item._isCategoryHeader && item.id === id)
+    const row = listFiltered.find(
+      (item): item is CategoryStripGridRow => !item._isCategoryHeader && item.id === id,
+    )
     cloneMutate(
       {
         idTrafficSource: id,
@@ -200,27 +180,35 @@ export function useTrafficSourcesController() {
       },
       {
         onSuccess: () => {
-          toast.success('Traffic source cloned')
+          toast.success(`${singularLabel} cloned`)
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [cloneMutate, listFiltered, toast])
+  }, [cloneMutate, listFiltered, toast, singularLabel])
+
+  const handleArchiveConfirmedRow = useCallback((row: CategoryStripGridRow, archive: boolean) => {
+    if (row._isCategoryHeader || row.id === '__totals__') return
+    setArchiveConfirm({ id: row.id, archive })
+  }, [])
 
   const archiveMutate = archiveMutation.mutate
-  const handleArchiveTrafficSource = useCallback((id: string, archive: boolean) => {
+  const handleConfirmArchiveDialog = useCallback(() => {
+    if (!archiveConfirm) return
+    const { id, archive } = archiveConfirm
     archiveMutate(
       { ids: [id], archive },
       {
         onSuccess: () => {
           toast.success(archive ? 'Archived' : 'Restored')
+          setArchiveConfirm(null)
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [archiveMutate, toast])
+  }, [archiveConfirm, archiveMutate, toast])
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (!deleteId) return
     deleteMutation.mutate(deleteId, {
       onSuccess: () => {
@@ -229,16 +217,16 @@ export function useTrafficSourcesController() {
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     })
-  }
+  }, [deleteId, deleteMutation, toast, setDeleteId])
 
   const statCols = useMemo(
-    () => mapStatColsForCategoryStrip(buildColumnsFromReport<TrafficSourceGridRow>(reportColumns)),
+    () => mapStatColsForCategoryStrip(buildColumnsFromReport<CategoryStripGridRow>(reportColumns)),
     [reportColumns],
   )
 
   const handleRequestDelete = useCallback((id: string) => setDeleteId(id), [setDeleteId])
 
-  const openCategoryRename = useCallback((row: TrafficSourceGridRow) => {
+  const openCategoryRename = useCallback((row: CategoryStripGridRow) => {
     const idCategory = row._categoryId ?? ''
     if (!idCategory) return
     setCategoryRename({ idCategory, name: row.name })
@@ -250,7 +238,7 @@ export function useTrafficSourcesController() {
     const name = categoryRenameDraft.trim()
     if (!name) return
     saveCategoryMutation.mutate(
-      { entityType: 'trafficsource', idCategory: categoryRename.idCategory, name },
+      { entityType: TRAFFICSOURCE_CATEGORY_ENTITY, idCategory: categoryRename.idCategory, name },
       {
         onSuccess: () => {
           toast.success('Category renamed')
@@ -264,7 +252,7 @@ export function useTrafficSourcesController() {
   const handleConfirmCategoryDelete = useCallback(() => {
     if (!categoryDeleteId) return
     deleteCategoryMutation.mutate(
-      { entityType: 'trafficsource', idCategory: categoryDeleteId },
+      { entityType: TRAFFICSOURCE_CATEGORY_ENTITY, idCategory: categoryDeleteId },
       {
         onSuccess: () => {
           toast.success('Category deleted')
@@ -281,12 +269,12 @@ export function useTrafficSourcesController() {
   const handleBulkArchive = useCallback(async () => {
     try {
       await archiveMutation.mutateAsync({ ids: entityIdsForBulk, archive: true })
-      toast.success('Selected traffic sources archived')
+      toast.success(`Selected ${pluralLower} archived`)
       setRowSelection({})
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
-  }, [archiveMutation, entityIdsForBulk, toast, setRowSelection])
+  }, [archiveMutation, entityIdsForBulk, pluralLower, toast, setRowSelection])
 
   const handleBulkDelete = useCallback(async () => {
     const categoryKeys = [
@@ -298,7 +286,10 @@ export function useTrafficSourcesController() {
     ]
     const pageResult = await bulkDeleteTrafficMutation.mutateAsync(entityIdsForBulk)
     for (const idCategory of categoryKeys) {
-      await deleteCategoryMutation.mutateAsync({ entityType: 'trafficsource', idCategory })
+      await deleteCategoryMutation.mutateAsync({
+        entityType: TRAFFICSOURCE_CATEGORY_ENTITY,
+        idCategory,
+      })
     }
     if (pageResult.failed.length > 0) {
       toast.error(`${pageResult.failed.length} traffic sources could not be deleted`)
@@ -321,12 +312,12 @@ export function useTrafficSourcesController() {
         trafficSourceIds: entityIdsForBulk,
         idCategory,
       })
-      toast.success('Selected traffic sources moved')
+      toast.success(`Selected ${pluralLower} moved`)
       setRowSelection({})
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
-  }, [assignTrafficCategoryMutation, entityIdsForBulk, toast, setRowSelection])
+  }, [assignTrafficCategoryMutation, entityIdsForBulk, pluralLower, toast, setRowSelection])
 
   const bulkMoveToCategory = useMemo(
     () => ({
@@ -348,6 +339,9 @@ export function useTrafficSourcesController() {
   const handleDismissDelete = useCallback(() => setDeleteId(null), [setDeleteId])
 
   return {
+    singularLabel,
+    singularLower,
+    pluralLower,
     tableRef,
     tableForChooser,
     setTableForChooser,
@@ -367,8 +361,8 @@ export function useTrafficSourcesController() {
     isFetching,
     reload,
     gridError,
-    pageRows: pageSlice.pageRows,
-    pageCount: pageSlice.pageCount,
+    pageRows,
+    pageCount,
     totalDataCount,
     effectiveSorting,
     handleSortingChange,
@@ -389,12 +383,15 @@ export function useTrafficSourcesController() {
     setCategoryRenameDraft,
     categoryDeleteId,
     setCategoryDeleteId,
+    archiveConfirm,
+    setArchiveConfirm,
     handleRowSelectionChange,
     handleCreate,
     handleEdit,
     handleSubmit,
     handleClone,
-    handleArchiveTrafficSource,
+    handleArchiveConfirmedRow,
+    handleConfirmArchiveDialog,
     handleDelete,
     statCols,
     handleRequestDelete,

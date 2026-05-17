@@ -4,8 +4,8 @@ import { PageShell, EmptyState } from "@/components/ui-kit"
 import { DataTable } from "@/components/ui-kit/data-table"
 import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
 import { ColumnChooser } from "@/components/shared/ColumnChooser"
-import { defaultColIds } from "@/lib/entityPageDefaultColIds"
-import { useEntityGridColumnVisibility } from "@/lib/entityGridColumnVisibility"
+import { defaultColIds } from "@/lib/entity-table/columns/defaultColIds"
+import { useEntityGridColumnVisibility } from "@/lib/entity-table/columns/visibility"
 import {
   DrilldownToolbarProvider,
   DrilldownToolbarHeaderFilters,

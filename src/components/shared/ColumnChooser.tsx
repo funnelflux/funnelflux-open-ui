@@ -9,7 +9,7 @@ import {
   type ColumnGroupDef,
   type MetricScope,
 } from '@/components/ui-kit/data-table/columnRegistry'
-import { listToggleableColumns } from '@/lib/entityGridColumnVisibility'
+import { listToggleableColumns } from '@/lib/entity-table/columns/visibility'
 
 interface ColumnChooserProps<TData = unknown> {
   columns: ColumnDef<TData, unknown>[]

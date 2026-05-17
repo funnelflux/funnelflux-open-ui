@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/api/queryKeys'
 import type { ApiError } from '@/types/api'
-import { ENTITY_GRID_LIST_KEY, ENTITY_GRID_STATS_KEY } from '@/lib/entityGridQueryCache'
+import { ENTITY_GRID_LIST_KEY, ENTITY_GRID_STATS_KEY } from '@/lib/entity-table/data/queryCache'
 
 /** Result of a bulk API workflow with per-id failures preserved. */
 export type BulkResult<T> = {

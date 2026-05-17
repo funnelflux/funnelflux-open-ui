@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { PaginationState, SortingState } from '@tanstack/react-table'
 import type { ReportColumn } from '@/types/stats'
 import type { EntityGridRow } from '@/api/hooks/useEntityGrid'
-import { buildCategorySegmentsFromRows } from '@/lib/categoryStripTable'
-import { paginateCategorySegments } from '@/lib/paginateCategorySegments'
-import { sortEntityGridRows } from '@/lib/entityGridSorting'
+import { buildCategorySegmentsFromRows } from '@/lib/entity-table/engine/categoryStripTable'
+import { paginateCategorySegments } from '@/lib/entity-table/engine/paginateCategorySegments'
+import { sortAssetTableRows } from '@/lib/entity-table/data/sorting'
 import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
 
 interface UseCategoryStripTableFlowArgs<T extends EntityGridRow> {
@@ -47,7 +47,7 @@ export function useCategoryStripTableFlow<T extends EntityGridRow>({
 
   const effectiveSorting = tableConfig.sorting.length > 0 ? tableConfig.sorting : DEFAULT_TABLE_SORTING
   const sortedListFiltered = useMemo(
-    () => sortEntityGridRows(listFiltered, reportColumns, effectiveSorting),
+    () => sortAssetTableRows(listFiltered, reportColumns, effectiveSorting),
     [effectiveSorting, listFiltered, reportColumns],
   )
 
