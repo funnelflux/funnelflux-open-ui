@@ -10,6 +10,7 @@ import {
   LogOut,
   Sun,
   Moon,
+  Menu,
 } from 'lucide-react'
 import { useThemeStore } from '@/store/theme'
 import {
@@ -111,6 +112,51 @@ function DesktopNav({
   )
 }
 
+function MainNavDropdown({
+  mainNav: structure,
+}: {
+  mainNav: MainNavTopItem[]
+}) {
+  const items: MenuProps['items'] = structure.map((item) => {
+    if (item.kind === 'menu') {
+      return {
+        key: item.section.id,
+        label: item.section.label,
+        children: item.children.map((child) => ({
+          key: child.to,
+          label: (
+            <Link to={child.to} className={menuLinkClass}>
+              {child.label}
+            </Link>
+          ),
+        })),
+      }
+    }
+
+    return {
+      key: item.to,
+      label: (
+        <Link to={item.to} className={menuLinkClass}>
+          {item.label}
+        </Link>
+      ),
+    }
+  })
+
+  return (
+    <Dropdown menu={{ items }} trigger={['click']}>
+      <button
+        type="button"
+        className="ff-navbar-util-btn flex shrink-0 items-center gap-1.5 rounded border-0 bg-transparent px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="Open navigation menu"
+      >
+        <Menu className="h-4 w-4" />
+        <span className="hidden sm:inline">Menu</span>
+      </button>
+    </Dropdown>
+  )
+}
+
 function SettingsDropdown({ settingsLinks }: { settingsLinks: NavLinkItem[] }) {
   const items: MenuProps['items'] = []
 
@@ -121,14 +167,25 @@ function SettingsDropdown({ settingsLinks }: { settingsLinks: NavLinkItem[] }) {
     items.push({
       key: link.to,
       label: (
-        <Link to={link.to} className={menuLinkClass}>
-          {link.icon ? (
-            <span className="mr-2 inline-flex align-middle">
-              <Icon name={link.icon} />
-            </span>
-          ) : null}
-          {link.label}
-        </Link>
+        link.external ? (
+          <a href={link.to} className={menuLinkClass} target="_blank" rel="noreferrer">
+            {link.icon ? (
+              <span className="mr-2 inline-flex align-middle">
+                <Icon name={link.icon} />
+              </span>
+            ) : null}
+            {link.label}
+          </a>
+        ) : (
+          <Link to={link.to} className={menuLinkClass}>
+            {link.icon ? (
+              <span className="mr-2 inline-flex align-middle">
+                <Icon name={link.icon} />
+              </span>
+            ) : null}
+            {link.label}
+          </Link>
+        )
       ),
     })
   }
@@ -237,7 +294,13 @@ export function Navbar() {
         FunnelFlux
       </Link>
 
-      <DesktopNav mainNav={mainNav} pathname={location.pathname} />
+      <div className="min-[1100px]:hidden">
+        <MainNavDropdown mainNav={mainNav} />
+      </div>
+
+      <div className="hidden min-w-0 flex-1 min-[1100px]:flex">
+        <DesktopNav mainNav={mainNav} pathname={location.pathname} />
+      </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
         <ThemeToggle />

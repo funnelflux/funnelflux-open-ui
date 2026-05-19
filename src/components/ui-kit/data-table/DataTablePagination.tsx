@@ -20,6 +20,7 @@ export interface DataTablePaginationProps {
   onNextPage: () => void
   onPageSelect: (pageIndex: number) => void
   showNavigation?: boolean
+  showPageSizeSelect?: boolean
   pageSizeAriaLabel?: string
   className?: string
 }
@@ -37,6 +38,7 @@ export function DataTablePagination({
   onNextPage,
   onPageSelect,
   showNavigation = true,
+  showPageSizeSelect = true,
   pageSizeAriaLabel = 'Rows per page',
   className,
 }: DataTablePaginationProps) {
@@ -61,18 +63,20 @@ export function DataTablePagination({
     <div className={cn('dt-footer', className)}>
       <div className="dt-footer-info">
         <span>{rangeLabel}</span>
-        <select
-          className="dt-page-size-select"
-          value={pageSize}
-          onChange={handlePageSizeSelect}
-          aria-label={pageSizeAriaLabel}
-        >
-          {pageSizeOptions.map((sizeOption) => (
-            <option key={sizeOption} value={sizeOption}>
-              {sizeOption} / page
-            </option>
-          ))}
-        </select>
+        {showPageSizeSelect ? (
+          <select
+            className="dt-page-size-select"
+            value={pageSize}
+            onChange={handlePageSizeSelect}
+            aria-label={pageSizeAriaLabel}
+          >
+            {pageSizeOptions.map((sizeOption) => (
+              <option key={sizeOption} value={sizeOption}>
+                {sizeOption} / page
+              </option>
+            ))}
+          </select>
+        ) : null}
       </div>
       {showNavigation ? (
         <div className="dt-footer-nav">

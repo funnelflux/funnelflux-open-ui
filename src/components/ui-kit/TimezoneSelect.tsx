@@ -2,6 +2,7 @@ import { Select } from './Select'
 import type { SelectOption } from './Select'
 import { getStoredTimezone, storeTimezonePreference } from './timezoneStorage'
 import type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
+import type { CSSProperties } from 'react'
 
 const UTC_OFFSETS: { value: string; offset: number; label: string; city?: string }[] = [
   { value: 'Etc/GMT+12', offset: -12, label: 'UTC-12', city: 'Baker Island (US)' },
@@ -56,12 +57,23 @@ interface TimezoneSelectProps {
   value?: string
   onChange?: (timezone: string) => void
   className?: string
+  style?: CSSProperties
   disabled?: boolean
   /** Default **md** — aligns with other toolbar selects */
   size?: ControlSize | LegacyAntdControlSize
+  'aria-label'?: string
 }
 
-export function TimezoneSelect({ id, value, onChange, className, disabled, size = 'md' }: TimezoneSelectProps) {
+export function TimezoneSelect({
+  id,
+  value,
+  onChange,
+  className,
+  style,
+  disabled,
+  size = 'md',
+  'aria-label': ariaLabel,
+}: TimezoneSelectProps) {
   const currentTz = value || getStoredTimezone()
   const normalized = normalizeTimezone(currentTz)
 
@@ -76,9 +88,10 @@ export function TimezoneSelect({ id, value, onChange, className, disabled, size 
       options={TZ_OPTIONS}
       alphabetical={false}
       placeholder="Select timezone"
+      aria-label={ariaLabel ?? 'Select timezone'}
       size={size}
       className={className}
-      style={{ minWidth: 180 }}
+      style={{ minWidth: 180, ...style }}
       disabled={disabled}
     />
   )

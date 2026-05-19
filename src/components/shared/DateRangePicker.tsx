@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { DateTimeRangePicker } from '@/components/ui-kit'
 import type { ControlSize, LegacyAntdControlSize } from '@/lib/controlSize'
 import { normalizePickerControlTier } from '@/lib/controlSize'
@@ -51,6 +52,7 @@ export function DateRangePicker({
     density === 'compact'
       ? 'max-w-[min(100%,var(--ff-date-range-compact-max,280px))] w-[min(100%,var(--ff-date-range-compact-max,280px))] shrink-0'
       : 'max-w-full'
+  const presets = useMemo(() => presetRanges(timezone), [timezone])
 
   return (
     <DateTimeRangePicker
@@ -64,7 +66,7 @@ export function DateRangePicker({
           })
         }
       }}
-      presets={presetRanges(timezone)}
+      presets={presets}
       size={antdSize}
       allowClear={false}
       variant="outlined"

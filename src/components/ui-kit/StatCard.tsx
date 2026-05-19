@@ -9,6 +9,7 @@ interface StatCardProps {
   suffix?: string
   trend?: { value: number; label?: string }
   className?: string
+  valueClassName?: string
   /** Smaller padding and value size (e.g. dashboard summary grid). */
   compact?: boolean
 }
@@ -20,6 +21,7 @@ export function StatCard({
   suffix,
   trend,
   className,
+  valueClassName,
   compact = false,
 }: StatCardProps) {
   return (
@@ -36,6 +38,7 @@ export function StatCard({
           className={cn(
             'font-semibold text-foreground',
             compact ? 'text-lg' : 'text-2xl',
+            valueClassName,
           )}
           style={{ fontVariantNumeric: 'tabular-nums' }}
         >

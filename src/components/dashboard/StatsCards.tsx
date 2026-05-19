@@ -61,6 +61,28 @@ function formatValue(
   return num.toLocaleString()
 }
 
+function numericMetricValue(key: string, stats: DashboardSummaryStats | undefined): number | null {
+  if (!stats) return null
+  if (key === 'net') return (stats.revenue ?? 0) - (stats.cost ?? 0)
+  if (key === 'roi') {
+    const raw = stats.roi
+    if (typeof raw === 'number') return raw
+    if (typeof raw !== 'string') return null
+    const parsed = Number(raw.replace('%', '').replace(/,/g, ''))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function metricToneClass(key: string, stats: DashboardSummaryStats | undefined): string | undefined {
+  if (key !== 'net' && key !== 'roi') return undefined
+  const value = numericMetricValue(key, stats)
+  if (value == null) return undefined
+  if (value > 0) return 'text-profit'
+  if (value < 0) return 'text-loss'
+  return 'text-muted-foreground'
+}
+
 export function StatsCards({ stats, isLoading, layout = 'dashboard', className }: StatsCardsProps) {
   const cards = layout === 'dashboard' ? DASHBOARD_CARDS : LEGACY_CARDS
   const compact = layout === 'dashboard'
@@ -88,6 +110,7 @@ export function StatsCards({ stats, isLoading, layout = 'dashboard', className }
             value={stats ? formatValue(key, format, stats) : '0'}
             compact={compact}
             className="min-h-0 shadow-sm"
+            valueClassName={metricToneClass(key, stats)}
           />
         )
       ))}

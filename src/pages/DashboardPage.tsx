@@ -59,10 +59,63 @@ interface ChartPoint {
   roi: number
 }
 
+type DashboardChartGranularity = 'hourly' | 'daily' | 'weekly'
+
+interface DashboardChartGroupingConfig {
+  granularity: DashboardChartGranularity
+  groupings: string[]
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
 function buildColMap(report: Report): Map<string, number> {
   const map = new Map<string, number>()
   report.columns?.forEach((column, index) => map.set(column.name?.toLowerCase() ?? '', index))
   return map
+}
+
+function getDashboardChartGrouping(from: Date, to: Date): DashboardChartGroupingConfig {
+  const durationDays = Math.max(0, (to.getTime() - from.getTime()) / DAY_MS)
+  if (durationDays < 3) {
+    return { granularity: 'hourly', groupings: ['Time: Date', 'Time: HH:MM'] }
+  }
+  if (durationDays > 90) {
+    return { granularity: 'weekly', groupings: ['Time: Date'] }
+  }
+  return { granularity: 'daily', groupings: ['Time: Date'] }
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+function parseDateParts(value: string | number | undefined): { year: number; month: number; day: number } | null {
+  if (value == null) return null
+  const text = String(value)
+  const iso = text.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  if (iso) {
+    return { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) }
+  }
+  const us = text.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/)
+  if (us) {
+    return { year: Number(us[3]), month: Number(us[1]), day: Number(us[2]) }
+  }
+  return null
+}
+
+function formatMonthDay(value: string | number | undefined): string {
+  const parts = parseDateParts(value)
+  if (!parts) return value == null ? '' : String(value)
+  return `${pad2(parts.month)}-${pad2(parts.day)}`
+}
+
+function weekStartKey(value: string | number | undefined): string {
+  const parts = parseDateParts(value)
+  if (!parts) return value == null ? '' : String(value)
+  const d = new Date(Date.UTC(parts.year, parts.month - 1, parts.day))
+  const day = d.getUTCDay()
+  d.setUTCDate(d.getUTCDate() - day)
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`
 }
 
 function extractStats(report: Report): DashboardSummaryStats {
@@ -96,16 +149,21 @@ function extractStats(report: Report): DashboardSummaryStats {
   }
 }
 
-function extractChartData(report: Report): ChartPoint[] {
+function extractChartData(report: Report, granularity: DashboardChartGranularity): ChartPoint[] {
   if (!report.rows || report.rows.length === 0) return []
   const map = buildColMap(report)
 
-  return report.rows.map((row) => {
+  const points = report.rows.map((row) => {
     const cells = row.cells ?? []
     const get = (name: string) => cellRaw(cells[map.get(name) ?? -1])
+    const dateCell = cells[0]
+    const dateValue = dateCell?.raw || dateCell?.formatted
+    const hourValue = cells[1]?.formatted || cells[1]?.raw
 
     return {
-      date: cells[0]?.formatted ?? '',
+      date: granularity === 'hourly'
+        ? `${formatMonthDay(dateValue)} ${hourValue ?? ''}`.trim()
+        : formatMonthDay(dateValue),
       visits: get('entrances'),
       clicks: get('lander clicks') + get('offer clicks'),
       conversions: get('conv.'),
@@ -114,6 +172,36 @@ function extractChartData(report: Report): ChartPoint[] {
       roi: get('roi'),
     }
   })
+
+  if (granularity !== 'weekly') return points
+
+  const weekly = new Map<string, ChartPoint>()
+  for (const row of report.rows) {
+    const cells = row.cells ?? []
+    const get = (name: string) => cellRaw(cells[map.get(name) ?? -1])
+    const dateCell = cells[0]
+    const bucket = weekStartKey(dateCell?.raw || dateCell?.formatted)
+    const previous = weekly.get(bucket) ?? {
+      date: formatMonthDay(bucket),
+      visits: 0,
+      clicks: 0,
+      conversions: 0,
+      revenue: 0,
+      cost: 0,
+      roi: 0,
+    }
+    previous.visits += get('entrances')
+    previous.clicks += get('lander clicks') + get('offer clicks')
+    previous.conversions += get('conv.')
+    previous.revenue += get('revenue')
+    previous.cost += get('cost')
+    previous.roi = previous.cost > 0 ? ((previous.revenue - previous.cost) / previous.cost) * 100 : 0
+    weekly.set(bucket, previous)
+  }
+
+  return Array.from(weekly.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, point]) => point)
 }
 
 function statsChanged(previous: DashboardSummaryStats | undefined, next: DashboardSummaryStats): boolean {
@@ -131,13 +219,14 @@ function DashboardTopTableLazySlot(
   const { ref, isVisible } = useLazySectionVisible()
   const { fetchEnabled: fe, ...rest } = props
   return (
-    <div ref={ref} className="min-h-[320px] min-w-0">
+    <div ref={ref} className="min-h-[292px] min-w-0">
       <DashboardTopTable {...rest} fetchEnabled={fe ?? isVisible} />
     </div>
   )
 }
 
 const TABLE_PAGE_OPTIONS: SelectOption[] = [
+  { value: '5', label: '5 rows' },
   { value: '10', label: '10 rows' },
   { value: '25', label: '25 rows' },
   { value: '50', label: '50 rows' },
@@ -213,13 +302,18 @@ export function DashboardPage() {
     const { from, to } = dateRangeRef.current
     const tr = toApiDateTimeRangeForReporting(from, to, tzRef.current)
     const timeZone = { name: tzRef.current }
+    const chartGrouping = getDashboardChartGrouping(from, to)
 
     let cancelled = false
 
     fetchAllFlatDrilldownRows({
       timeRange: tr,
       timeZone,
-      groupings: [{ groupBy: 'Time: Date', whitelistFilters: [], blacklistFilters: [] }],
+      groupings: chartGrouping.groupings.map((groupBy) => ({
+        groupBy,
+        whitelistFilters: [],
+        blacklistFilters: [],
+      })),
       options: { viewType: 'flat' },
       metrics: [...DASHBOARD_SUMMARY_METRICS],
     })
@@ -231,7 +325,7 @@ export function DashboardPage() {
         }
         previousStatsRef.current = nextStats
         setStats(nextStats)
-        setChartPoints(extractChartData(report))
+        setChartPoints(extractChartData(report, chartGrouping.granularity))
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -333,8 +427,10 @@ export function DashboardPage() {
     <PageShell
       title="Dashboard"
       subtitle={dashboardAutoRefreshSubtitle}
+      density="dense"
+      className="min-w-0 overflow-x-hidden [&>div:first-child>div:last-child]:hidden md:[&>div:first-child>div:last-child]:flex"
       actions={
-        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2">
+        <div className="hidden min-w-0 items-center justify-end gap-2 md:flex">
           <Button
             htmlType="button"
             type="default"
@@ -344,7 +440,13 @@ export function DashboardPage() {
           >
             Settings
           </Button>
-          <Button htmlType="button" type="default" onClick={bumpRefresh} iconName="refresh-cw" iconSize="sm">
+          <Button
+            htmlType="button"
+            type="default"
+            onClick={bumpRefresh}
+            iconName="refresh-cw"
+            iconSize="sm"
+          >
             Refresh
           </Button>
           <DateRangePicker
@@ -354,7 +456,11 @@ export function DashboardPage() {
             onChange={handleDashboardDateRangeChange}
             className="[--ff-date-range-compact-max:236px]"
           />
-          <TimezoneSelect value={tz} onChange={setTz} />
+          <TimezoneSelect
+            value={tz}
+            onChange={setTz}
+            style={{ minWidth: 180, width: 180 }}
+          />
         </div>
       }
     >
@@ -380,6 +486,18 @@ export function DashboardPage() {
           </div>
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Time zone
+            </span>
+            <TimezoneSelect
+              value={tz}
+              onChange={setTz}
+              className="w-full"
+              style={{ width: '100%' }}
+              aria-label="Dashboard time zone"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Rows per breakdown table
             </span>
             <Select
@@ -393,7 +511,33 @@ export function DashboardPage() {
         </div>
       </Modal>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch lg:gap-4">
+      <div className="grid min-w-0 grid-cols-[2rem_2rem_minmax(0,1fr)] items-center gap-1.5 md:hidden">
+        <Button
+          htmlType="button"
+          type="default"
+          onClick={handleOpenDashboardSettings}
+          iconName="settings"
+          iconSize="sm"
+          aria-label="Dashboard settings"
+        />
+        <Button
+          htmlType="button"
+          type="default"
+          onClick={bumpRefresh}
+          iconName="refresh-cw"
+          iconSize="sm"
+          aria-label="Refresh dashboard"
+        />
+        <DateRangePicker
+          value={dateRangePickerValue}
+          timezone={tz}
+          density="compact"
+          onChange={handleDashboardDateRangeChange}
+          className="min-w-0 !w-full !max-w-full"
+        />
+      </div>
+
+      <section className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
         <DashboardChart
           className="min-h-0 min-w-0 shadow-sm"
           data={chartPoints}
@@ -412,7 +556,7 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="mt-3 grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
         {WIDGETS.map((widget) => (
           <DashboardTopTableLazySlot
             key={widget.id}

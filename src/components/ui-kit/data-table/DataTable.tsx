@@ -226,6 +226,22 @@ function DataTableInner<TData>({
 
   const shouldVirtualize = tableRows.length > virtualizeThreshold
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollViewportWidth, setScrollViewportWidth] = useState(0)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const updateWidth = () => setScrollViewportWidth(el.clientWidth)
+    updateWidth()
+    const ResizeObserverCtor = globalThis.ResizeObserver
+    if (!ResizeObserverCtor) {
+      window.addEventListener('resize', updateWidth)
+      return () => window.removeEventListener('resize', updateWidth)
+    }
+    const resizeObserver = new ResizeObserverCtor(updateWidth)
+    resizeObserver.observe(el)
+    return () => resizeObserver.disconnect()
+  }, [])
 
   const virtualizer = useVirtualizer({
     count: tableRows.length,
@@ -259,13 +275,57 @@ function DataTableInner<TData>({
   const headerGroups = table.getHeaderGroups()
   const visibleColumns = table.getVisibleLeafColumns()
 
+  const columnWidths = useMemo(() => {
+    const widths = new Map<string, number>()
+    const baseTotal = visibleColumns.reduce((sum, col) => {
+      const width = Math.ceil(col.getSize())
+      widths.set(col.id, width)
+      return sum + width
+    }, 0)
+    const fitWidth = Math.max(0, Math.floor(scrollViewportWidth) - 2)
+    let extra = Math.max(0, fitWidth - baseTotal)
+    if (extra <= 0) return widths
+
+    const flexColumns = visibleColumns.filter((col) => {
+      const meta = col.columnDef.meta as Record<string, unknown> | undefined
+      return typeof meta?.flex === 'number' && meta.flex > 0
+    })
+
+    while (extra > 0.5 && flexColumns.length > 0) {
+      const activeFlexColumns = flexColumns.filter((col) => {
+        const current = widths.get(col.id) ?? col.getSize()
+        const maxSize = col.columnDef.maxSize ?? Number.POSITIVE_INFINITY
+        return current < maxSize
+      })
+      if (activeFlexColumns.length === 0) break
+      let distributed = 0
+      const portion = Math.max(1, Math.floor(extra / activeFlexColumns.length))
+      for (const col of activeFlexColumns) {
+        const current = widths.get(col.id) ?? col.getSize()
+        const maxSize = col.columnDef.maxSize ?? Number.POSITIVE_INFINITY
+        const room = Math.max(0, maxSize - current)
+        const add = Math.min(room, portion)
+        if (add > 0) {
+          widths.set(col.id, current + add)
+          distributed += add
+        }
+      }
+      if (distributed <= 0) break
+      extra -= distributed
+    }
+
+    return widths
+  }, [visibleColumns, scrollViewportWidth])
+
   const totalTableWidth = useMemo(() => {
-    return visibleColumns.reduce((sum, col) => sum + col.getSize(), 0)
-  }, [visibleColumns])
+    const columnTotal = visibleColumns.reduce((sum, col) => sum + (columnWidths.get(col.id) ?? col.getSize()), 0)
+    if (scrollViewportWidth <= 0) return columnTotal
+    return Math.min(columnTotal, Math.max(0, Math.floor(scrollViewportWidth) - 2))
+  }, [visibleColumns, columnWidths, scrollViewportWidth])
 
   const getColWidth = useCallback(
-    (col: { getSize: () => number }): number => col.getSize(),
-    [],
+    (col: { id: string; getSize: () => number }): number => columnWidths.get(col.id) ?? col.getSize(),
+    [columnWidths],
   )
 
   const renderResizer = useCallback(

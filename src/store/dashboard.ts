@@ -13,7 +13,7 @@ export const useDashboardStore = create<DashboardState>()(
     (set) => ({
       chartMetric: 'visits',
       setChartMetric: (chartMetric) => set({ chartMetric }),
-      dashboardTablePageSize: 10,
+      dashboardTablePageSize: 5,
       setDashboardTablePageSize: (dashboardTablePageSize) =>
         set({ dashboardTablePageSize }),
     }),

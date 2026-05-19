@@ -9,6 +9,8 @@ import { friendlyDashboardGroupingColumnHeader } from '@/lib/dashboardLabels'
 import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
 import type { ApiDateTimeRange, Report, ReportCell } from '@/types/stats'
 import { metricsForColumnIds } from '@/lib/drilldownMetrics'
+import { Icon, type IconName } from '@/components/ui-kit/icons'
+import { cn } from '@/lib/utils'
 
 const EMPTY_CELL: ReportCell = { raw: '', formatted: '' }
 
@@ -18,13 +20,19 @@ const WIDGET_METRIC_ORDER = [
   'landerClicks',
   'landerClickthroughRate',
   'offerViews',
-  'conversionPerVisit',
   'cost',
   'revenue',
   'returnOnInvestment',
   'profitAndLoss',
 ] as const
 const WIDGET_API_METRICS = metricsForColumnIds(WIDGET_METRIC_ORDER) ?? undefined
+
+const TITLE_ICON_BY_GROUP = new Map<string, { icon: IconName; className: string }>([
+  ['Element: Funnel', { icon: 'workflow', className: 'text-violet-600 bg-violet-50 dark:bg-violet-950/40 dark:text-violet-300' }],
+  ['Third Parties: Traffic Source', { icon: 'network', className: 'text-red-600 bg-red-50 dark:bg-red-950/40 dark:text-red-300' }],
+  ['Element: Lander', { icon: 'file-text', className: 'text-blue-600 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-300' }],
+  ['Element: Offer', { icon: 'gift', className: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300' }],
+])
 
 export interface DashboardTopTableFlatRow {
   _id: string
@@ -52,12 +60,16 @@ function buildWidgetColumnDefs(
 ): ColumnDef<DashboardTopTableFlatRow, unknown>[] {
   const groupingCol: ColumnDef<DashboardTopTableFlatRow, unknown> = {
     id: 'name',
-    header: friendlyDashboardGroupingColumnHeader(report.columns[0]?.name, groupBy),
+    header: () => (
+      <span className="font-semibold text-foreground">
+        {friendlyDashboardGroupingColumnHeader(report.columns[0]?.name, groupBy)}
+      </span>
+    ),
     accessorFn: (row) => row.cells[0]?.formatted ?? '',
     enableSorting: true,
-    size: 300,
-    minSize: 200,
-    maxSize: 560,
+    size: 320,
+    minSize: 180,
+    maxSize: 680,
     meta: { flex: 1 },
     cell: (info: { getValue: () => unknown }) => (
       <span className="font-medium">{String(info.getValue())}</span>
@@ -68,7 +80,16 @@ function buildWidgetColumnDefs(
   const byId = new Map(all.map((c) => [String(c.id), c]))
   const metrics = WIDGET_METRIC_ORDER.flatMap((id) => {
     const col = byId.get(id)
-    return col ? [col] : []
+    if (!col) return []
+    const isRoi = id === 'returnOnInvestment'
+    const isProfitAndLoss = id === 'profitAndLoss'
+    const compactMetricColumn = {
+      ...col,
+      size: isRoi ? 100 : isProfitAndLoss ? 90 : 96,
+      minSize: isRoi ? 90 : isProfitAndLoss ? 78 : 82,
+      maxSize: isRoi ? 128 : isProfitAndLoss ? 118 : 132,
+    }
+    return [compactMetricColumn]
   })
 
   return [groupingCol, ...metrics]
@@ -87,7 +108,8 @@ export interface DashboardTopTableProps {
   fetchEnabled?: boolean
 }
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100]
+const DASHBOARD_TOP_TABLE_HEIGHT = 248
 
 const PLACEHOLDER_COLUMNS: ColumnDef<DashboardTopTableFlatRow, unknown>[] = [
   {
@@ -101,7 +123,7 @@ const PLACEHOLDER_COLUMNS: ColumnDef<DashboardTopTableFlatRow, unknown>[] = [
 ]
 
 function coercePageSize(n: number): number {
-  return PAGE_SIZE_OPTIONS.includes(n) ? n : 10
+  return PAGE_SIZE_OPTIONS.includes(n) ? n : 5
 }
 
 export function DashboardTopTable({
@@ -204,10 +226,6 @@ export function DashboardTopTable({
     [setTableSorting, tableConfigKey],
   )
 
-  const handlePaginationSizeSelect = useCallback((nextPageSize: number) => {
-    setPagination({ pageIndex: 0, pageSize: nextPageSize })
-  }, [])
-
   const handlePrevPage = useCallback(() => {
     setPagination((previous) => ({ ...previous, pageIndex: Math.max(0, previous.pageIndex - 1) }))
   }, [])
@@ -231,14 +249,20 @@ export function DashboardTopTable({
     (pagination.pageIndex + 1) * pagination.pageSize,
     rowsTotal,
   )} of ${rowsTotal.toLocaleString()}`
+  const titleIcon = TITLE_ICON_BY_GROUP.get(groupBy) ?? { icon: 'bar-chart-3' as IconName, className: 'text-primary bg-primary/10' }
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-2">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-medium text-foreground">{title}</h3>
+        <h3 className="flex min-w-0 items-center gap-2 text-[15px] font-semibold text-foreground">
+          <span className={cn('inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md', titleIcon.className)}>
+            <Icon name={titleIcon.icon} size="sm" aria-hidden />
+          </span>
+          <span className="truncate">{title}</span>
+        </h3>
         {showPagination ? (
           <DataTablePagination
-            className="border-0 bg-transparent p-0 text-xs"
+            className="!border-t-0 !p-0 bg-transparent text-xs"
             rangeLabel={paginationRangeLabel}
             pageSize={pagination.pageSize}
             pageSizeOptions={PAGE_SIZE_OPTIONS}
@@ -246,18 +270,19 @@ export function DashboardTopTable({
             currentPage={currentPage}
             canPreviousPage={currentPage > 0}
             canNextPage={currentPage < totalPages - 1}
-            onPageSizeChange={handlePaginationSizeSelect}
+            onPageSizeChange={() => {}}
             onPreviousPage={handlePrevPage}
             onNextPage={handleNextPage}
             onPageSelect={handlePageIndexSelect}
             showNavigation={hasMultiplePages}
+            showPageSizeSelect={false}
             pageSizeAriaLabel={`${title} rows per page`}
           />
         ) : null}
       </div>
       <DataTable<DashboardTopTableFlatRow>
-        className="min-h-0 flex-1"
-        maxHeight={280}
+        className="h-[248px] min-h-0 shrink-0 flex-none"
+        height={DASHBOARD_TOP_TABLE_HEIGHT}
         data={flatData}
         columns={columnDefs}
         loading={!fetchEnabled || loading}
@@ -275,6 +300,8 @@ export function DashboardTopTable({
         tableConfigKey={tableConfigKey}
         defaultSorting={DEFAULT_TABLE_SORTING}
         emptyMessage="No data for the selected period."
+        loadingMinBodyHeight={216}
+        loadingSkeletonRows={5}
         paginationPosition="none"
       />
     </div>

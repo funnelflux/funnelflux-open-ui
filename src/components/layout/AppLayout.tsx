@@ -14,7 +14,7 @@ export function AppLayout() {
         className={
           isFunnelBuilderRoute
             ? "flex min-h-0 flex-1 flex-col overflow-hidden p-0"
-            : "flex min-h-0 flex-1 flex-col overflow-y-auto p-6"
+            : "flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto p-4 min-[1600px]:p-6"
         }
       >
         <Outlet />

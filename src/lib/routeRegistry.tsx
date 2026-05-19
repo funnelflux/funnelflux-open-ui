@@ -482,6 +482,7 @@ export type NavLinkItem = {
   label: string
   to: string
   icon?: IconName
+  external?: boolean
 }
 
 export type MainNavTopItem =
@@ -550,7 +551,7 @@ export function getMainNavStructure(user: UserProfile): MainNavTopItem[] {
 }
 
 export function getSettingsNavLinks(user: UserProfile): NavLinkItem[] {
-  return ROUTE_ENTRIES.filter(
+  const links: NavLinkItem[] = ROUTE_ENTRIES.filter(
     (e) => e.layout === 'app' && e.nav?.group === 'settings' && e.permission(user),
   )
     .sort((a, b) => a.nav!.order - b.nav!.order)
@@ -559,6 +560,15 @@ export function getSettingsNavLinks(user: UserProfile): NavLinkItem[] {
       to: entryPathToHref(e.path),
       icon: e.nav!.icon,
     }))
+
+  links.push({
+    label: 'API Docs',
+    to: 'http://api-docs.funnelflux.com/',
+    icon: 'external-link',
+    external: true,
+  })
+
+  return links
 }
 
 export function getUserMenuNavLinks(user: UserProfile): NavLinkItem[] {

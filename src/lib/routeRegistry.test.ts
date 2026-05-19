@@ -347,7 +347,9 @@ describe('routeRegistry', () => {
       if (item.kind === 'link') collect(item.to)
       else item.children.forEach((c) => collect(c.to))
     }
-    for (const s of getSettingsNavLinks(superUser)) collect(s.to)
+    for (const s of getSettingsNavLinks(superUser)) {
+      if (!s.external) collect(s.to)
+    }
     for (const u of getUserMenuNavLinks(superUser)) collect(u.to)
   })
 

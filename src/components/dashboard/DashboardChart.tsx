@@ -40,12 +40,12 @@ interface DashboardChartProps {
 }
 
 const METRICS = [
-  { key: 'visits', label: 'Visits' },
-  { key: 'clicks', label: 'Clicks' },
-  { key: 'conversions', label: 'Conversions' },
-  { key: 'revenue', label: 'Revenue' },
-  { key: 'cost', label: 'Cost' },
-  { key: 'roi', label: 'ROI' },
+  { key: 'visits', label: 'Visits', shortLabel: 'Visits' },
+  { key: 'clicks', label: 'Clicks', shortLabel: 'Clicks' },
+  { key: 'conversions', label: 'Conversions', shortLabel: 'Conv.' },
+  { key: 'revenue', label: 'Revenue', shortLabel: 'Rev.' },
+  { key: 'cost', label: 'Cost', shortLabel: 'Cost' },
+  { key: 'roi', label: 'ROI', shortLabel: 'ROI' },
 ] as const
 
 function formatTooltipValue(value: number, metric: string): string {
@@ -94,21 +94,22 @@ export function DashboardChart({
     <Card
       className={className}
       title={
-        <div className="flex flex-wrap items-center gap-1">
-          {METRICS.map(({ key, label }) => (
+        <div className="grid w-full min-w-0 grid-cols-6 gap-1">
+          {METRICS.map(({ key, label, shortLabel }) => (
             <Button
               key={key}
               type={metric === key ? 'primary' : 'text'}
               size="small"
-              className="h-7 text-xs"
+              className="h-7 min-w-0 px-1 text-[10px] sm:px-2 sm:text-xs"
               onClick={() => onMetricChange(key)}
             >
-              {label}
+              <span className="hidden sm:inline">{label}</span>
+              <span className="sm:hidden">{shortLabel}</span>
             </Button>
           ))}
         </div>
       }
-      styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}
+      styles={{ header: { padding: '12px 12px 8px' }, body: { padding: '0 8px 12px' } }}
     >
         {isLoading ? (
           <Skeleton.Node active style={{ width: '100%', height: chartHeight }}>
@@ -123,10 +124,10 @@ export function DashboardChart({
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={chartHeight}>
-            <LineChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+            <LineChart data={data} margin={{ top: 8, right: 4, bottom: 4, left: -8 }}>
               <CartesianGrid {...gridStyle} />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} {...axisStyle} />
-              <YAxis tick={{ fontSize: 11 }} {...axisStyle} width={60} />
+              <YAxis tick={{ fontSize: 11 }} {...axisStyle} width={48} />
               <Tooltip
                 formatter={(value) => [
                   formatTooltipValue(tooltipNumericValue(value), metric),
@@ -142,6 +143,7 @@ export function DashboardChart({
                 dot={false}
                 activeDot={{ r: 4 }}
                 isAnimationActive={data.length < 200}
+                animationDuration={220}
               />
             </LineChart>
           </ResponsiveContainer>
