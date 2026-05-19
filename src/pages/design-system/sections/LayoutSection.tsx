@@ -17,7 +17,12 @@ export function LayoutSection() {
           <div className="border border-border rounded-lg overflow-hidden bg-surface">
             {/* Header nav bar */}
             <div className="h-12 bg-nav-bg flex items-center px-4 gap-6">
-              <span className="text-nav-fg text-sm font-semibold">FunnelFlux</span>
+              <img
+                src={`${import.meta.env.BASE_URL}logo-full-on-dark.png`}
+                alt="FunnelFlux"
+                className="h-8 w-auto object-contain"
+                decoding="async"
+              />
               <div className="flex gap-4">
                 {['Dashboard', 'Campaigns', 'Reports', 'Traffic Sources', 'Offers'].map((item) => (
                   <span key={item} className="text-xs text-gray-400 hover:text-gray-0 cursor-pointer">
@@ -59,9 +64,34 @@ export function LayoutSection() {
 
                 {/* Content placeholder */}
                 <div className="mt-4 p-12 border border-dashed border-border rounded-lg text-center text-sm text-muted-foreground">
-                  AG-Grid table here
+                  DataTable here
                 </div>
               </PageShell>
+            </div>
+          </div>
+        </div>
+
+        {/* Brand assets */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Brand Assets</h3>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-md border border-border bg-surface p-4">
+              <div className="mb-3 text-xs font-medium text-muted-foreground">Full logo on light surfaces</div>
+              <img
+                src={`${import.meta.env.BASE_URL}logo-full-on-light.png`}
+                alt="FunnelFlux"
+                className="h-12 w-auto object-contain"
+                decoding="async"
+              />
+            </div>
+            <div className="rounded-md border border-border bg-nav-bg p-4">
+              <div className="mb-3 text-xs font-medium text-gray-400">Full logo on dark navigation</div>
+              <img
+                src={`${import.meta.env.BASE_URL}logo-full-on-dark.png`}
+                alt="FunnelFlux"
+                className="h-12 w-auto object-contain"
+                decoding="async"
+              />
             </div>
           </div>
         </div>
@@ -170,7 +200,7 @@ export function LayoutSection() {
             <li>Page padding: <code>p-6</code> (24px). Section gaps: <code>gap-6</code>.</li>
             <li>All single-line inputs are 36px tall (controlled via antd theme <code>controlHeight</code>).</li>
             <li>Toolbar strip: flex with <code>gap-3</code>, search left, date/tz/filters right with <code>ml-auto</code>.</li>
-            <li>Tables fill remaining height. Use <code>flex-1</code> or explicit height for AG-Grid.</li>
+            <li>Tables fill remaining height. Use <code>flex-1</code> or explicit height for DataTable.</li>
             <li>Below 1024px: toolbars wrap, tables scroll horizontally, nav collapses to hamburger.</li>
           </ul>
         </div>

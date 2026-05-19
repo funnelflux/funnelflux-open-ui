@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils'
 export interface SelectOption {
   label: string
   value: string
+  /** Optional rendered dropdown row; `label` remains the search/selected text. */
+  displayLabel?: ReactNode
   /** Optional secondary search key (e.g. entity ID) */
   searchId?: string
 }
@@ -89,8 +91,12 @@ export function Select({
   const { items, overflow } = useFilteredOptions(options, search, alphabetical)
 
   const selectOptions = useMemo(() => {
-    const mapped: { label: string; value: string; disabled?: boolean }[] =
-      items.map((option) => ({ label: option.label, value: option.value }))
+    const mapped: { label: string; value: string; displayLabel?: ReactNode; disabled?: boolean }[] =
+      items.map((option) => ({
+        label: option.label,
+        value: option.value,
+        displayLabel: option.displayLabel,
+      }))
     if (overflow > 0) {
       mapped.push({
         label: `Type to search ${overflow} more...`,
@@ -117,7 +123,7 @@ export function Select({
             </span>
           )
         }
-        return option.label
+        return option.data.displayLabel ?? option.label
       }}
       {...rest}
     />

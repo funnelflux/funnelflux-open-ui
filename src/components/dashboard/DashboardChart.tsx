@@ -18,6 +18,7 @@ import {
   LOSS_COLOR,
 } from '@/lib/chart-theme'
 import { useThemeStore } from '@/store/theme'
+import { cn } from '@/lib/utils'
 
 interface ChartPoint {
   date: string
@@ -92,7 +93,7 @@ export function DashboardChart({
 
   return (
     <Card
-      className={className}
+      className={cn('ff-analytics-panel border-border-strong bg-surface-secondary shadow-none', className)}
       title={
         <div className="grid w-full min-w-0 grid-cols-6 gap-1">
           {METRICS.map(({ key, label, shortLabel }) => (
@@ -109,7 +110,14 @@ export function DashboardChart({
           ))}
         </div>
       }
-      styles={{ header: { padding: '12px 12px 8px' }, body: { padding: '0 8px 12px' } }}
+      styles={{
+        header: {
+          padding: '12px 12px 8px',
+          background: 'var(--surface-sunken)',
+          borderBottom: '1px solid var(--border-strong)',
+        },
+        body: { padding: '12px 8px 12px', background: 'transparent' },
+      }}
     >
         {isLoading ? (
           <Skeleton.Node active style={{ width: '100%', height: chartHeight }}>

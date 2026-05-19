@@ -296,7 +296,7 @@ export function ResetStatsPage() {
       title="Reset Stats"
       subtitle="Delete statistics data for a date-time range. Funnel is required; other filters narrow scope."
     >
-      <Card className="max-w-lg border-border" styles={{ body: { padding: 24 } }}>
+      <Card className="ff-analytics-panel max-w-4xl border-border-strong" styles={{ body: { padding: 24 } }}>
         {pageError && (
           <Alert
             type="error"
@@ -317,92 +317,94 @@ export function ResetStatsPage() {
         )}
 
         <Spin spinning={pageLoading}>
-          <div className="space-y-5">
-            <Field
-              title="Campaign"
-              htmlFor="reset-stats-campaign"
-              description="Optional. Narrow available funnels and scope by campaign."
-            >
-              <Select
-                id="reset-stats-campaign"
-                options={campaignOptions}
-                value={idCampaign || undefined}
-                onChange={handleCampaignChange}
-                placeholder={pageLoading ? 'Loading…' : 'All campaigns'}
-                className="w-full"
-                disabled={formLocked}
-                allowClear
-              />
-            </Field>
+          <div className="space-y-6">
+            <div className="space-y-5">
+              <div className="grid gap-5 lg:grid-cols-3">
+                <Field
+                  title="Campaign"
+                  htmlFor="reset-stats-campaign"
+                  description="Optional. Narrow available funnels and scope by campaign."
+                >
+                  <Select
+                    id="reset-stats-campaign"
+                    options={campaignOptions}
+                    value={idCampaign || undefined}
+                    onChange={handleCampaignChange}
+                    placeholder={pageLoading ? 'Loading…' : 'All campaigns'}
+                    className="w-full"
+                    disabled={formLocked}
+                    allowClear
+                  />
+                </Field>
 
-            <Field
-              title="Funnel"
-              required
-              htmlFor="reset-stats-funnel"
-              description="Required. Select the funnel to reset stats for."
-            >
-              <Select
-                id="reset-stats-funnel"
-                options={funnelOptions}
-                value={idFunnel || undefined}
-                onChange={setIdFunnel}
-                placeholder={pageLoading ? 'Loading…' : 'Select funnel'}
-                className="w-full"
-                disabled={formLocked || funnelOptions.length === 0}
-              />
-            </Field>
+                <Field
+                  title="Funnel"
+                  required
+                  htmlFor="reset-stats-funnel"
+                  description="Required. Select the funnel to reset stats for."
+                >
+                  <Select
+                    id="reset-stats-funnel"
+                    options={funnelOptions}
+                    value={idFunnel || undefined}
+                    onChange={setIdFunnel}
+                    placeholder={pageLoading ? 'Loading…' : 'Select funnel'}
+                    className="w-full"
+                    disabled={formLocked || funnelOptions.length === 0}
+                  />
+                </Field>
 
-            <Field
-              title="Traffic source"
-              htmlFor="reset-stats-traffic-source"
-              description="Optional. Limit to one traffic source."
-            >
-              <Select
-                id="reset-stats-traffic-source"
-                options={trafficSourceOptions}
-                value={idTrafficSource || undefined}
-                onChange={setIdTrafficSource}
-                placeholder={
-                  pageLoading
-                    ? 'Loading…'
-                    : 'All traffic sources'
-                }
-                className="w-full"
-                disabled={formLocked || noTrafficSources}
-                allowClear
-              />
-            </Field>
+                <Field
+                  title="Traffic source"
+                  htmlFor="reset-stats-traffic-source"
+                  description="Optional. Limit to one traffic source."
+                >
+                  <Select
+                    id="reset-stats-traffic-source"
+                    options={trafficSourceOptions}
+                    value={idTrafficSource || undefined}
+                    onChange={setIdTrafficSource}
+                    placeholder={pageLoading ? 'Loading…' : 'All traffic sources'}
+                    className="w-full"
+                    disabled={formLocked || noTrafficSources}
+                    allowClear
+                  />
+                </Field>
+              </div>
 
-            <Field
-              title="Date-time range"
-              required
-              htmlFor="reset-stats-datetime-range"
-              description="Start and end are interpreted in the selected timezone."
-            >
-              <DateTimeRangePicker
-                showTime
-                autoConfirmCalendarSteps={false}
-                allowClear={false}
-                value={range}
-                onChange={handleRangeChange}
-                presets={rangePresets}
-                className={cn('w-full [&_.ant-picker]:w-full', 'h-control-md')}
-              />
-            </Field>
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(220px,1fr)]">
+                <Field
+                  title="Date-time range"
+                  required
+                  htmlFor="reset-stats-datetime-range"
+                  description="Start and end are interpreted in the selected timezone."
+                >
+                  <DateTimeRangePicker
+                    showTime
+                    autoConfirmCalendarSteps={false}
+                    allowClear={false}
+                    value={range}
+                    onChange={handleRangeChange}
+                    presets={rangePresets}
+                    className={cn('w-full [&_.ant-picker]:w-full', 'h-control-md')}
+                  />
+                </Field>
 
-            <Field
-              title="Timezone"
-              htmlFor="reset-stats-timezone"
-              description="Interprets the date range in this timezone (same as reporting)."
-            >
-              <TimezoneSelect
-                id="reset-stats-timezone"
-                value={timezone}
-                onChange={setTimezone}
-                className="w-full"
-                disabled={formLocked}
-              />
-            </Field>
+                <Field
+                  title="Timezone"
+                  htmlFor="reset-stats-timezone"
+                  description="Interprets the date range in this timezone (same as reporting)."
+                >
+                  <TimezoneSelect
+                    id="reset-stats-timezone"
+                    value={timezone}
+                    onChange={setTimezone}
+                    className="w-full"
+                    disabled={formLocked}
+                  />
+                </Field>
+              </div>
+            </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Button onClick={handleCalculate} disabled={isCalculating || formLocked}>

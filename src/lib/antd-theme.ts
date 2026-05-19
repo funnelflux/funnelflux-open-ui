@@ -15,7 +15,7 @@ const sharedToken = {
   colorInfo: '#3B82F6',
   fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   fontSize: 14,
-  borderRadius: 6,
+  borderRadius: 8,
   /** md — default toolbar / form control height */
   controlHeight: 35,
   controlHeightSM: 28,

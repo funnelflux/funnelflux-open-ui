@@ -539,7 +539,7 @@ export function DashboardPage() {
 
       <section className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
         <DashboardChart
-          className="min-h-0 min-w-0 shadow-sm"
+          className="min-h-0 min-w-0"
           data={chartPoints}
           metric={chartMetric}
           onMetricChange={setChartMetric}

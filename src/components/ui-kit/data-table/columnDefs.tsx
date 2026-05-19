@@ -445,15 +445,34 @@ export function selectionColumn<T>(): ColumnDef<T, unknown> {
     maxSize: 40,
     enableSorting: false,
     enableResizing: false,
-    header: ({ table }) => (
-      <input
-        type="checkbox"
-        className="dt-checkbox"
-        checked={table.getIsAllPageRowsSelected()}
-        ref={(el) => { if (el) el.indeterminate = table.getIsSomePageRowsSelected() }}
-        onChange={table.getToggleAllPageRowsSelectedHandler()}
-      />
-    ),
+    header: ({ table }) => {
+      const selectableRows = table.getRowModel().rows.filter((row) => row.getCanSelect())
+      const selectedCount = selectableRows.filter((row) => row.getIsSelected()).length
+      const allSelected = selectableRows.length > 0 && selectedCount === selectableRows.length
+      const someSelected = selectedCount > 0 && !allSelected
+
+      return (
+        <input
+          type="checkbox"
+          className="dt-checkbox"
+          checked={allSelected}
+          disabled={selectableRows.length === 0}
+          ref={(el) => { if (el) el.indeterminate = someSelected }}
+          onChange={(e) => {
+            const checked = e.currentTarget.checked
+            table.setRowSelection((prev) => {
+              const next = { ...prev }
+              for (const row of selectableRows) {
+                if (checked) next[row.id] = true
+                else delete next[row.id]
+              }
+              return next
+            })
+          }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      )
+    },
     cell: ({ row }) => {
       if (isPinnedTotalsRow(row.original)) return null
       return (
@@ -462,7 +481,7 @@ export function selectionColumn<T>(): ColumnDef<T, unknown> {
           className="dt-checkbox"
           checked={row.getIsSelected()}
           disabled={!row.getCanSelect()}
-          onChange={row.getToggleSelectedHandler()}
+          onChange={(e) => row.toggleSelected(e.currentTarget.checked)}
           onClick={(e) => e.stopPropagation()}
         />
       )

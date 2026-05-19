@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Icon } from '@/components/ui-kit/icons'
-import { Button, Field, Input, PageShell, useToastApi } from '@/components/ui-kit'
+import { Alert, Button, Field, Input, PageShell, useToastApi } from '@/components/ui-kit'
 import { api } from '@/api/client'
 import type { BackgroundJobResponse, ConvertedHit, ConversionsUpload } from '@/types/stats'
 import { getErrorMessage } from '@/lib/utils'
@@ -171,24 +171,21 @@ export function ConversionsPage() {
           </Button>
         </div>
 
-        <div className="space-y-3 text-xs text-muted-foreground">
-          <p>Each line of data must follow this format: HIT-ID[:OPTIONAL-TRANSACTION-ID][, OPTIONAL-PAYOUT].</p>
-          <p>
-            The HIT-ID is mandatory, the remaining data is optional.
-          </p>
-          <p>
-            If you list <code>108</code>, <code>123</code>, <code>267</code>, those hits are recorded as converted and the default offer payout is used.
-          </p>
-          <p>
-            If you list <code>108, 20.50</code>, <code>123, 17.00</code>, <code>267, 32.00</code>, those hits are recorded with the specified payouts.
-          </p>
-          <p>
-            If you list <code>108:main, 47.00</code> and <code>108:special, 27.00</code>, the same hit can be recorded with different transaction IDs and payouts.
-          </p>
-          <p>
-            You can delete converted hits by setting payout to <code>-1</code>, e.g. <code>108, -1</code> or <code>108:special, -1</code>.
-          </p>
-        </div>
+        <Alert
+          type="info"
+          showIcon
+          message="Conversion data format"
+          description={(
+            <div className="space-y-2 text-xs">
+              <p>Each line must use: <code>HIT-ID[:OPTIONAL-TRANSACTION-ID][, OPTIONAL-PAYOUT]</code>.</p>
+              <p>The hit ID is mandatory. Transaction ID and payout are optional.</p>
+              <p><code>108</code> records the hit as converted with the default offer payout.</p>
+              <p><code>108, 20.50</code> records a specific payout.</p>
+              <p><code>108:main, 47.00</code> records the same hit with a transaction ID.</p>
+              <p>Set payout to <code>-1</code> to delete converted hits, e.g. <code>108:special, -1</code>.</p>
+            </div>
+          )}
+        />
       </form>
     </PageShell>
   )

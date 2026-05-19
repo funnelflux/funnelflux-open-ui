@@ -13,6 +13,7 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-secondary: var(--surface-secondary);
+  --color-surface-sunken: var(--surface-sunken);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-muted: var(--muted);
@@ -238,4 +239,75 @@ html.dark .ant-message .ant-message-notice-content {
 
 html.dark .ff-funnel-controls.react-flow__controls button.react-flow__controls-button {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+}
+
+/* Dashboard analytics panels: stronger operational separation without soft card shadows. */
+.ant-card.ff-analytics-panel,
+.ff-stat-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--border-strong);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.ant-card.ff-analytics-panel > .ant-card-head {
+  min-height: 42px;
+  border-bottom-color: var(--border-strong);
+  background: var(--surface-sunken);
+}
+
+.ant-card.ff-analytics-panel > .ant-card-body,
+.ant-card.ff-stat-card > .ant-card-body {
+  background: transparent;
+}
+
+.ff-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: color-mix(in srgb, var(--primary) 72%, var(--border-strong));
+}
+
+.ff-stat-card--profit::before {
+  background: color-mix(in srgb, var(--ff-profit) 78%, var(--border-strong));
+}
+
+.ff-stat-card--loss::before {
+  background: color-mix(in srgb, var(--ff-loss) 78%, var(--border-strong));
+}
+
+html.dark .ant-card.ff-analytics-panel,
+html.dark .ff-stat-card {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+html.dark .ant-card.ff-analytics-panel > .ant-card-head {
+  background: color-mix(in srgb, var(--ff-gray-700) 62%, var(--surface));
+}
+
+.ant-btn {
+  box-shadow: none !important;
+}
+
+.ff-archive-toggle.ant-segmented {
+  background: var(--surface-sunken);
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.ff-archive-toggle.ant-segmented .ant-segmented-item {
+  min-height: calc(var(--control-height-md) - 6px);
+  line-height: calc(var(--control-height-md) - 6px);
+}
+
+.ff-archive-toggle.ant-segmented .ant-segmented-thumb {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.ff-archive-toggle.ant-segmented .ant-segmented-item-selected {
+  background: var(--surface);
 }

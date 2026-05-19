@@ -73,6 +73,33 @@ describe('DataTable contracts', () => {
     expect(checks[1]).not.toBeChecked()
   })
 
+  it('row selection: header checkbox selects and clears all selectable rendered rows', async () => {
+    const user = userEvent.setup()
+    const data: Row[] = [
+      { id: 'a', name: 'A', value: 1 },
+      { id: 'b', name: 'B', value: 2 },
+    ]
+    const cols = [selectionColumn<Row>(), ...baseColumns]
+    render(
+      <DataTable
+        data={data}
+        columns={cols}
+        virtualizeThreshold={1000}
+        getRowId={(r) => r.id}
+        enableRowSelection
+      />,
+    )
+    const [header, firstRow, secondRow] = screen.getAllByRole('checkbox')
+
+    await user.click(header)
+    expect(firstRow).toBeChecked()
+    expect(secondRow).toBeChecked()
+
+    await user.click(header)
+    expect(firstRow).not.toBeChecked()
+    expect(secondRow).not.toBeChecked()
+  })
+
   it('manual pagination: footer navigates pages and shows sliced server data', async () => {
     const user = userEvent.setup()
     const all: Row[] = [

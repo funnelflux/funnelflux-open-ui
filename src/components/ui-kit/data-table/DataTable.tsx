@@ -545,21 +545,26 @@ function DataTableInner<TData>({
                     style={{ width: getColWidth(header.column) }}
                   >
                     {isFirstDataCol && <span className="dt-tree-header-spacer" />}
-                    <button
-                      type="button"
-                      className="dt-header-cell-content"
-                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
-                      disabled={!canSort}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                      {canSort && (
+                    {canSort ? (
+                      <button
+                        type="button"
+                        className="dt-header-cell-content"
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
                         <span className={`dt-sort-icon${sorted ? ' dt-sort-icon--active' : ''}`}>
                           {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
                         </span>
-                      )}
-                    </button>
+                      </button>
+                    ) : (
+                      <div className="dt-header-cell-content">
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </div>
+                    )}
                     {renderResizer(header)}
                   </div>
                 )

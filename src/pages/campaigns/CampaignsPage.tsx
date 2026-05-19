@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import type { PaginationState, Table, VisibilityState } from '@tanstack/react-table'
+import type { PaginationState, RowSelectionState, Table, Updater, VisibilityState } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
 import {
   Alert,
@@ -20,6 +20,7 @@ import {
   selectionColumn,
 } from '@/components/ui-kit/data-table'
 import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
+import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
@@ -34,6 +35,7 @@ import { ASSET_CAMPAIGNS_HIERARCHY_REPORT } from '@/lib/entity-table/data/cacheK
 import { useEntityTable } from '@/lib/entity-table/useEntityTable'
 import type { AssetTableEnginePageData } from '@/lib/entity-table/engine/useServerPagedData'
 import { mapStatColsForCategoryStrip } from '@/lib/entity-table/engine/categoryStripTable.tsx'
+import { syncCategoryStripRowSelection } from '@/lib/entity-table/engine/categoryStripSelection'
 import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
 import {
   cellsForNewFunnel,
@@ -52,7 +54,7 @@ import {
   metricsForColumnIds,
   visibleMetricColumnIdsFromVisibility,
 } from '@/lib/drilldownMetrics'
-import { getErrorMessage } from '@/lib/utils'
+import { getErrorMessage, selectedRowIds } from '@/lib/utils'
 import type { ReportCell } from '@/types/stats'
 import type { Campaign, Funnel, IdName, IdNamePair } from '@/types/entities'
 import { useAuthStore } from '@/store/auth'
@@ -66,6 +68,9 @@ type PendingAction =
 
 const TABLE_KEY = 'campaigns'
 const CAMPAIGNS_MAX_PAGE_SIZE = 200
+
+const canSelectCampaignRow = (row: { original: CampaignRow }) => row.original.id !== '__totals__'
+const campaignRowClassName = (row: CampaignRow) => row._isCategoryHeader ? 'dt-row--category-strip' : undefined
 
 function buildCampaignTotalsRow(cells: ReportCell[] | null | undefined): CampaignRow | null {
   if (!cells?.length) return null
@@ -111,6 +116,7 @@ export function CampaignsPage() {
   })
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const [confirmLoading, setConfirmLoading] = useState(false)
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [campaignModal, setCampaignModal] = useState<
     null | { mode: 'create' } | { mode: 'edit'; campaignId: string }
   >(null)
@@ -158,6 +164,18 @@ export function CampaignsPage() {
     // Keep campaign strip headers adjacent to their funnels.
     sortRows: (rows) => rows,
   })
+
+  const handleRowSelectionChange = useCallback(
+    (updater: Updater<RowSelectionState>) => {
+      setRowSelection((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater
+        return syncCategoryStripRowSelection(prev, next, controller.rows)
+      })
+    },
+    [controller.rows],
+  )
+
+  const selectedIds = useMemo(() => selectedRowIds(rowSelection), [rowSelection])
 
   const patchStrip = controller.setCachedPage
 
@@ -404,6 +422,42 @@ export function CampaignsPage() {
     }
   }, [archiveStatus, toast, patchStrip])
 
+  const bulkTargetRows = useMemo(() => {
+    const selectedSet = new Set(selectedIds)
+    const selectedCampaignIds = new Set(
+      controller.rows
+        .filter((row) => row._isCategoryHeader && selectedSet.has(row.id))
+        .map((row) => row.campaignId),
+    )
+    return controller.rows.filter((row) => {
+      if (row.id === '__totals__' || !selectedSet.has(row.id)) return false
+      if (!row._isCategoryHeader && selectedCampaignIds.has(row.campaignId)) return false
+      return true
+    })
+  }, [controller.rows, selectedIds])
+
+  const handleBulkDeselectAll = useCallback(() => setRowSelection({}), [])
+
+  const handleBulkArchive = useCallback(async () => {
+    for (const row of bulkTargetRows) {
+      await runArchive(row, true)
+    }
+    setRowSelection({})
+  }, [bulkTargetRows, runArchive])
+
+  const handleBulkDelete = useCallback(async () => {
+    for (const row of bulkTargetRows) {
+      if (row._isCategoryHeader) {
+        await deleteCampaign.mutateAsync(row.campaignId)
+      } else if (row.funnelId) {
+        await deleteFunnel.mutateAsync(row.funnelId)
+      }
+    }
+    toast.success('Selected items deleted')
+    setRowSelection({})
+    await controller.reload()
+  }, [bulkTargetRows, controller, deleteCampaign, deleteFunnel, toast])
+
   const requestClone = useCallback((row: CampaignRow) => {
     if (row.id === '__totals__') return
     setPendingAction({ kind: 'clone', row })
@@ -619,15 +673,27 @@ export function CampaignsPage() {
         manualPaginationTotalRows: controller.totalRows,
         pageSizeOptions: [25, 50, 100, 200],
         pinnedBottomRows,
+        enableRowSelection: canSelectCampaignRow,
+        rowSelection,
+        onRowSelectionChange: handleRowSelectionChange,
+        rowClassName: campaignRowClassName,
         tableRef,
         onTableInstance: setTableForChooser,
         columnSizing: tableConfig.columnSizing,
         onColumnSizingChange: handleTableColumnSizingChange,
         columnVisibility: tableConfig.columnVisibility,
         onColumnVisibilityChange: handleTableColumnVisibilityChange,
-        rowClassName: (row) => (row._isCategoryHeader ? 'dt-row--category-strip' : undefined),
         emptyMessage: search ? 'No campaigns or funnels match your search.' : 'No campaigns found.',
       }}
+      bulkActions={(
+        <BulkActionsBar
+          count={bulkTargetRows.length}
+          onDeselectAll={handleBulkDeselectAll}
+          onArchive={handleBulkArchive}
+          onDelete={handleBulkDelete}
+          archiveLabel="Archive"
+        />
+      )}
       overlays={(
         <>
           <AddFunnelModal

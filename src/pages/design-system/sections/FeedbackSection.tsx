@@ -38,7 +38,7 @@ export function FeedbackSection() {
 
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Alerts</h3>
-          <div className="space-y-3">
+          <div className="grid gap-3">
             <Alert title="Success" description="Operation completed successfully." type="success" showIcon />
             <Alert title="Info" description="Here is some helpful information." type="info" showIcon />
             <Alert title="Warning" description="Please review before continuing." type="warning" showIcon />

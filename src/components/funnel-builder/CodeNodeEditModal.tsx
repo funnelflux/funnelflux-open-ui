@@ -269,7 +269,7 @@ function CodeNodeEditForm({
       />
       {awaitingInitialSnippet ?
         <div className="flex flex-1 items-center justify-center py-16">
-          <Spin tip="Loading snippet…" />
+          <Spin description="Loading snippet…" />
         </div>
       : <>
           <p className="text-sm text-muted-foreground">{nodeTypeLabel} — edits are saved as a funnel code snippet.</p>

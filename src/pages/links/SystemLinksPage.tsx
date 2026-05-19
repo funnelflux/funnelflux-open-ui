@@ -4,11 +4,9 @@ import {
   Card,
   CopyButton,
   Field,
-  Icon,
   Input,
   PageShell,
   Select,
-  Space,
   Spin,
   useToastApi,
 } from '@/components/ui-kit'
@@ -16,6 +14,44 @@ import type { SelectOption } from '@/components/ui-kit'
 import { useSystemLinksData, useFunnels, useFunnel, useGenerateEntranceLink } from '@/api/hooks'
 import type { FunnelNode } from '@/types/entities'
 import { getErrorMessage } from '@/lib/utils'
+
+const readonlyLinkInputClass = 'font-mono text-xs flex-1 min-w-0 !bg-surface-sunken text-muted-foreground'
+const systemLinkCardClass = 'ff-analytics-panel border-border-strong'
+
+function getDomainHost(domain: string): string {
+  const trimmed = domain.trim()
+  if (!trimmed) return ''
+
+  try {
+    return new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`).host
+  } catch {
+    return trimmed.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+  }
+}
+
+function rewriteTrackingDomain(value: string, domain: string): string {
+  const host = getDomainHost(domain)
+  if (!value || !host) return value
+
+  return value.replace(/https?:\/\/[^\s"'<>]+/g, (url) => {
+    try {
+      const parsed = new URL(url)
+      parsed.host = host
+      return parsed.toString()
+    } catch {
+      return url.replace(/^(https?:\/\/)[^/\s"'<>]+/, `$1${host}`)
+    }
+  })
+}
+
+function compareNodeIdsAsc(a: string, b: string): number {
+  if (/^\d+$/.test(a) && /^\d+$/.test(b)) {
+    const aBig = BigInt(a)
+    const bBig = BigInt(b)
+    return aBig < bBig ? -1 : aBig > bBig ? 1 : 0
+  }
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+}
 
 export function SystemLinksPage() {
   const toast = useToastApi()
@@ -35,7 +71,7 @@ export function SystemLinksPage() {
   const requestIdRef = useRef(0)
 
   const { data: funnels } = useFunnels(selectedCampaign)
-  const { data: funnelDetail } = useFunnel(selectedFunnel)
+  const { data: funnelDetail } = useFunnel(selectedFunnel, { loadDependencies: true })
 
   const selectedTrafficSourceOption = useMemo(
     () => (linksData?.trafficSources ?? []).find((source) => source.id === selectedTrafficSource),
@@ -43,15 +79,44 @@ export function SystemLinksPage() {
   )
 
   const handleNodeChange = useCallback((value: string) => {
-    setSelectedNode(value === '__default__' ? '' : value)
+    requestIdRef.current += 1
+    setSelectedNode(value)
   }, [])
 
   const handleDomainChange = useCallback((value: string) => {
-    setSelectedDomain(value === '__default__' ? '' : value)
+    requestIdRef.current += 1
+    setSelectedDomain(value)
+  }, [])
+
+  const handleCampaignChange = useCallback((value: string) => {
+    requestIdRef.current += 1
+    setSelectedCampaign(value)
+    setSelectedFunnel('')
+    setSelectedNode('')
+    setEntranceLink('')
+  }, [])
+
+  const handleFunnelChange = useCallback((value: string) => {
+    requestIdRef.current += 1
+    setSelectedFunnel(value)
+    setSelectedNode('')
+    setEntranceLink('')
+  }, [])
+
+  const handleTrafficSourceChange = useCallback((value: string) => {
+    requestIdRef.current += 1
+    setSelectedTrafficSource(value)
   }, [])
 
   const nodes = useMemo<FunnelNode[]>(
-    () => (funnelDetail?.nodes ?? []).filter((node) => !node.isArchived),
+    () =>
+      (funnelDetail?.nodes ?? [])
+        .filter((node) => !node.isArchived)
+        .sort((a, b) => {
+          if (a.nodeType === 'root' && b.nodeType !== 'root') return -1
+          if (a.nodeType !== 'root' && b.nodeType === 'root') return 1
+          return compareNodeIdsAsc(a.idNode, b.idNode)
+        }),
     [funnelDetail?.nodes],
   )
 
@@ -68,19 +133,33 @@ export function SystemLinksPage() {
   }, [funnelDetail, selectedTrafficSourceOption])
 
   useEffect(() => {
-    setEntranceLink('')
-    setSelectedNode('')
-  }, [selectedCampaign, selectedFunnel, selectedTrafficSource, selectedDomain])
-
-  useEffect(() => {
     setCostInput(resolvedDefaultCost)
   }, [resolvedDefaultCost])
 
   useEffect(() => {
-    setIframeCode(linksData?.conversionIframe ?? '')
-    setPixelUrl(linksData?.pixelURL ?? '')
-    setPixelHtml(linksData?.pixelHTML ?? '')
-  }, [linksData?.conversionIframe, linksData?.pixelURL, linksData?.pixelHTML])
+    if (!selectedFunnel || !nodes.length) return
+    if (nodes.some((node) => node.idNode === selectedNode)) return
+
+    const defaultNode = nodes.find((node) => node.nodeType === 'root') ?? nodes[0]
+    if (defaultNode) setSelectedNode(defaultNode.idNode)
+  }, [nodes, selectedFunnel, selectedNode])
+
+  useEffect(() => {
+    const domains = linksData?.domains ?? []
+    if (!domains.length) return
+
+    const currentIsValid = domains.some((domain) => domain.domain === selectedDomain)
+    if (selectedDomain && currentIsValid) return
+
+    const defaultDomain = domains.find((domain) => domain.isDefault)?.domain ?? domains[0]?.domain ?? ''
+    setSelectedDomain(defaultDomain)
+  }, [linksData?.domains, selectedDomain])
+
+  useEffect(() => {
+    setIframeCode(rewriteTrackingDomain(linksData?.conversionIframe ?? '', selectedDomain))
+    setPixelUrl(rewriteTrackingDomain(linksData?.pixelURL ?? '', selectedDomain))
+    setPixelHtml(rewriteTrackingDomain(linksData?.pixelHTML ?? '', selectedDomain))
+  }, [linksData?.conversionIframe, linksData?.pixelURL, linksData?.pixelHTML, selectedDomain])
 
   const refreshTrackingSalt = useCallback((value: string) => {
     const salt = `${Date.now()}`
@@ -101,7 +180,7 @@ export function SystemLinksPage() {
   )
 
   useEffect(() => {
-    if (!selectedCampaign || !selectedFunnel || !selectedTrafficSource) return
+    if (!selectedCampaign || !selectedFunnel || !selectedTrafficSource || !selectedNode) return
 
     const thisRequest = ++requestIdRef.current
     const parsedCost = Number(costInput)
@@ -141,47 +220,68 @@ export function SystemLinksPage() {
   )
 
   const domainOptions: SelectOption[] = useMemo(
-    () => [
-      { label: 'Default domain', value: '__default__' },
-      ...(linksData?.domains ?? []).map((d) => ({ label: d.domain, value: d.domain, searchId: d.id })),
-    ],
+    () =>
+      (linksData?.domains ?? []).map((d) => ({
+        label: d.isDefault ? `${d.domain} (default)` : d.domain,
+        value: d.domain,
+        searchId: d.id,
+      })),
     [linksData?.domains],
   )
 
   const nodeOptions: SelectOption[] = useMemo(
-    () => [
-      { label: 'Default funnel entry', value: '__default__' },
-      ...nodes.map((node) => ({
-        label: node.nodeName,
+    () =>
+      nodes.map((node) => ({
+        label: node.nodeName || node.idNode,
         value: node.idNode,
         searchId: node.idNode,
+        displayLabel: (
+          <span className="flex min-w-0 items-center justify-between gap-3">
+            <span className="truncate">{node.nodeName || 'Unnamed node'}</span>
+            <span className="shrink-0 rounded border border-border bg-surface-sunken px-1.5 py-0.5 font-mono text-[11px] leading-none text-muted-foreground">
+              {node.idNode}
+            </span>
+          </span>
+        ),
       })),
-    ],
     [nodes],
   )
 
   const clickfunnelsWebhookURL = useMemo(() => {
-    const cbUrl = linksData?.clickbankIPNURL ?? ''
+    const cbUrl = rewriteTrackingDomain(linksData?.clickbankIPNURL ?? '', selectedDomain)
     return cbUrl ? cbUrl.replace('cb.php', 'clickfunnels.php') : ''
-  }, [linksData?.clickbankIPNURL])
+  }, [linksData?.clickbankIPNURL, selectedDomain])
+
+  const actionURL = useMemo(
+    () => rewriteTrackingDomain(linksData?.actionURL ?? '', selectedDomain),
+    [linksData?.actionURL, selectedDomain],
+  )
+  const postbackURL = useMemo(
+    () => rewriteTrackingDomain(linksData?.postbackURL ?? '', selectedDomain),
+    [linksData?.postbackURL, selectedDomain],
+  )
+  const clickbankIPNURL = useMemo(
+    () => rewriteTrackingDomain(linksData?.clickbankIPNURL ?? '', selectedDomain),
+    [linksData?.clickbankIPNURL, selectedDomain],
+  )
 
   const costLabel = selectedTrafficSourceOption?.costType === 'cpa' ? 'Cost per action' : 'Cost per entrance'
 
   return (
     <PageShell title="System Links" subtitle="Generate funnel links and conversion integration links.">
-      <Spin spinning={loadingData} tip="Loading link options…">
-        <div className="space-y-6">
-          <Card title={<span className="text-sm font-medium">Funnel URL</span>}>
+      <Spin spinning={loadingData} description="Loading link options…">
+        <div className="grid max-w-7xl gap-3 xl:grid-cols-2">
+          <Card className={`${systemLinkCardClass} xl:col-span-2`} title={<span className="text-sm font-medium">Get campaign link</span>}>
             <p className="mb-4 text-sm text-muted-foreground">
               Follow the steps below to get the URL of one of your funnels.
             </p>
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-3">
               <Field title="Step 1: Select a Campaign" required htmlFor="system-links-campaign">
                 <Select
                   id="system-links-campaign"
                   options={campaignOptions}
                   value={selectedCampaign || undefined}
-                  onChange={setSelectedCampaign}
+                  onChange={handleCampaignChange}
                   placeholder="Select campaign"
                   className="w-full"
                   disabled={loadingData}
@@ -193,7 +293,7 @@ export function SystemLinksPage() {
                   id="system-links-funnel"
                   options={funnelOptions}
                   value={selectedFunnel || undefined}
-                  onChange={setSelectedFunnel}
+                  onChange={handleFunnelChange}
                   disabled={loadingData || !selectedCampaign}
                   placeholder={selectedCampaign ? 'Select funnel' : 'Select a campaign first'}
                   className="w-full"
@@ -204,11 +304,12 @@ export function SystemLinksPage() {
                 <Select
                   id="system-links-node"
                   options={nodeOptions}
-                  value={selectedNode || '__default__'}
+                  value={selectedNode || undefined}
                   onChange={handleNodeChange}
                   disabled={loadingData || !selectedFunnel}
                   placeholder={selectedFunnel ? 'Select node' : 'Select a funnel first'}
                   className="w-full"
+                  alphabetical={false}
                 />
               </Field>
 
@@ -217,7 +318,7 @@ export function SystemLinksPage() {
                   id="system-links-traffic-source"
                   options={trafficSourceOptions}
                   value={selectedTrafficSource || undefined}
-                  onChange={setSelectedTrafficSource}
+                  onChange={handleTrafficSourceChange}
                   placeholder="Select traffic source"
                   className="w-full"
                   disabled={loadingData}
@@ -237,9 +338,9 @@ export function SystemLinksPage() {
                 <Select
                   id="system-links-domain"
                   options={domainOptions}
-                  value={selectedDomain || '__default__'}
+                  value={selectedDomain || undefined}
                   onChange={handleDomainChange}
-                  placeholder="Default domain"
+                  placeholder="Select domain"
                   className="w-full"
                   disabled={loadingData}
                 />
@@ -248,12 +349,12 @@ export function SystemLinksPage() {
 
             <div className="mt-4">
               <Field title="Step 6: Copy your link" htmlFor="system-links-url-output">
-                <Space align="center" className="w-full">
+                <div className="flex w-full min-w-0 items-center gap-2">
                   <Input
                     id="system-links-url-output"
                     value={entranceLink}
                     readOnly
-                    className="font-mono text-xs flex-1 min-w-0"
+                    className={readonlyLinkInputClass}
                   />
                   <Button
                     disabled={!entranceLink}
@@ -266,63 +367,57 @@ export function SystemLinksPage() {
                     QR Code
                   </Button>
                   <CopyButton value={entranceLink} />
-                </Space>
-              </Field>
-              {generateEntranceLink.isPending ? (
-                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Icon name="loader-2" animation="spin" />
-                  <span>Refreshing link…</span>
                 </div>
-              ) : null}
+              </Field>
             </div>
           </Card>
 
-          <Card title={<span className="text-sm font-medium">Funnels' Action Click URL</span>}>
-            <p className="mb-3 text-sm text-muted-foreground">
-              Copy this link and replace <code>ACTION-NUMBER</code> with a number from 1 to 64.
-            </p>
-            <Space align="center" className="w-full">
-              <Input value={linksData?.actionURL ?? ''} readOnly className="font-mono text-xs flex-1 min-w-0" />
-              <CopyButton value={linksData?.actionURL ?? ''} />
-            </Space>
+          <Card className={systemLinkCardClass} title={<span className="text-sm font-medium">Action click URL</span>}>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Copy this link and replace <code>ACTION-NUMBER</code> with a number from 1 to 64.
+              </p>
+              <div className="flex w-full min-w-0 items-center gap-2">
+                <Input value={actionURL} readOnly className={readonlyLinkInputClass} />
+                <CopyButton value={actionURL} />
+              </div>
           </Card>
 
-          <Card title={<span className="text-sm font-medium">Conversion Postback URL</span>}>
-            <p className="mb-3 text-sm text-muted-foreground">
-              Use this URL to register conversions from a remote server (affiliate network postbacks).
-            </p>
-            <Space align="center" className="w-full">
-              <Input value={linksData?.postbackURL ?? ''} readOnly className="font-mono text-xs flex-1 min-w-0" />
-              <CopyButton value={linksData?.postbackURL ?? ''} />
-            </Space>
+          <Card className={systemLinkCardClass} title={<span className="text-sm font-medium">Conversion Postback URL</span>}>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Use this URL to register conversions from a remote server (affiliate network postbacks).
+              </p>
+              <div className="flex w-full min-w-0 items-center gap-2">
+                <Input value={postbackURL} readOnly className={readonlyLinkInputClass} />
+                <CopyButton value={postbackURL} />
+              </div>
           </Card>
 
-          <Card title={<span className="text-sm font-medium">Conversion iFrame</span>}>
-            <p className="mb-3 text-sm text-muted-foreground">
-              Use this iFrame on your thank-you page. Copying regenerates a fresh pixel salt.
-            </p>
-            <Space align="center" className="w-full">
-              <Input value={iframeCode} readOnly className="font-mono text-xs flex-1 min-w-0" />
-              <Button
-                onClick={async () => {
-                  const next = refreshTrackingSalt(iframeCode)
-                  setIframeCode(next)
-                  await copyText(next, 'iFrame copied')
-                }}
-              >
-                Copy
-              </Button>
-            </Space>
+          <Card className={systemLinkCardClass} title={<span className="text-sm font-medium">Conversion iFrame</span>}>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Use this iFrame on your thank-you page. Copying regenerates a fresh pixel salt.
+              </p>
+              <div className="flex w-full min-w-0 items-center gap-2">
+                <Input value={iframeCode} readOnly className={readonlyLinkInputClass} />
+                <Button
+                  onClick={async () => {
+                    const next = refreshTrackingSalt(iframeCode)
+                    setIframeCode(next)
+                    await copyText(next, 'iFrame copied')
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
           </Card>
 
-          <Card title={<span className="text-sm font-medium">Conversion Pixel</span>}>
+          <Card className={systemLinkCardClass} title={<span className="text-sm font-medium">Conversion Pixel</span>}>
             <p className="mb-3 text-sm text-muted-foreground">
               Pixel URL and HTML snippet. Copying regenerates a fresh pixel salt.
             </p>
             <div className="space-y-3">
               <Field title="Pixel URL" htmlFor="system-links-pixel-url">
-                <Space align="center" className="w-full">
-                  <Input id="system-links-pixel-url" value={pixelUrl} readOnly className="font-mono text-xs flex-1 min-w-0" />
+                <div className="flex w-full min-w-0 items-center gap-2">
+                  <Input id="system-links-pixel-url" value={pixelUrl} readOnly className={readonlyLinkInputClass} />
                   <Button
                     onClick={async () => {
                       const nextUrl = refreshTrackingSalt(pixelUrl)
@@ -334,11 +429,11 @@ export function SystemLinksPage() {
                   >
                     Copy
                   </Button>
-                </Space>
+                </div>
               </Field>
               <Field title="Pixel HTML" htmlFor="system-links-pixel-html">
-                <Space align="center" className="w-full">
-                  <Input id="system-links-pixel-html" value={pixelHtml} readOnly className="font-mono text-xs flex-1 min-w-0" />
+                <div className="flex w-full min-w-0 items-center gap-2">
+                  <Input id="system-links-pixel-html" value={pixelHtml} readOnly className={readonlyLinkInputClass} />
                   <Button
                     onClick={async () => {
                       const nextUrl = refreshTrackingSalt(pixelUrl)
@@ -350,39 +445,39 @@ export function SystemLinksPage() {
                   >
                     Copy
                   </Button>
-                </Space>
+                </div>
               </Field>
             </div>
           </Card>
 
-          <Card title={<span className="text-sm font-medium">Clickbank Instant Notifications</span>}>
+          <Card className={systemLinkCardClass} title={<span className="text-sm font-medium">Clickbank Instant Notifications</span>}>
             <p className="mb-3 text-sm text-muted-foreground">
               Secret key and URL for Clickbank instant sale/re-bill/refund notifications (API v6).
             </p>
             <div className="space-y-3">
               <Field title="Secret Key" htmlFor="system-links-cb-key">
-                <Space align="center" className="w-full">
-                  <Input id="system-links-cb-key" value={linksData?.clickbankIPNKey ?? ''} readOnly className="font-mono text-xs flex-1 min-w-0" />
+                <div className="flex w-full min-w-0 items-center gap-2">
+                  <Input id="system-links-cb-key" value={linksData?.clickbankIPNKey ?? ''} readOnly className={readonlyLinkInputClass} />
                   <CopyButton value={linksData?.clickbankIPNKey ?? ''} />
-                </Space>
+                </div>
               </Field>
               <Field title="Notification URL" htmlFor="system-links-cb-url">
-                <Space align="center" className="w-full">
-                  <Input id="system-links-cb-url" value={linksData?.clickbankIPNURL ?? ''} readOnly className="font-mono text-xs flex-1 min-w-0" />
-                  <CopyButton value={linksData?.clickbankIPNURL ?? ''} />
-                </Space>
+                <div className="flex w-full min-w-0 items-center gap-2">
+                  <Input id="system-links-cb-url" value={clickbankIPNURL} readOnly className={readonlyLinkInputClass} />
+                  <CopyButton value={clickbankIPNURL} />
+                </div>
               </Field>
             </div>
           </Card>
 
-          <Card title={<span className="text-sm font-medium">ClickFunnels Webhook</span>}>
+          <Card className={systemLinkCardClass} title={<span className="text-sm font-medium">ClickFunnels Webhook</span>}>
             <p className="mb-3 text-sm text-muted-foreground">
               Use this webhook URL in ClickFunnels settings. Events: contact_created, contact_destroyed, purchase_created, purchase_destroyed.
             </p>
-            <Space align="center" className="w-full">
-              <Input value={clickfunnelsWebhookURL} readOnly className="font-mono text-xs flex-1 min-w-0" />
+            <div className="flex w-full min-w-0 items-center gap-2">
+              <Input value={clickfunnelsWebhookURL} readOnly className={readonlyLinkInputClass} />
               <CopyButton value={clickfunnelsWebhookURL} />
-            </Space>
+            </div>
           </Card>
         </div>
       </Spin>

@@ -1,7 +1,7 @@
 /* ============================================================
    FunnelFlux Design Tokens
    Single source of truth for colors, typography, and spacing.
-   Consumed by Tailwind (via index.css), AG-Grid, and Recharts.
+   Consumed by Tailwind (via index.css), DataTable, and Recharts.
    Ant Design tokens are duplicated in antd-theme.ts (hex values).
    ============================================================ */
 
@@ -68,7 +68,7 @@
 
   /* Layout */
   --nav-height: 48px;
-  --radius: 6px;
+  --radius: 8px;
   --page-padding: 24px;
   --toolbar-height: 48px;
   --control-height: 32px;
@@ -84,10 +84,11 @@
 
 /* --- Light mode semantic aliases (default) --- */
 :root {
-  --background:        var(--ff-gray-0);
+  --background:        var(--ff-gray-50);
   --foreground:        var(--ff-gray-900);
   --surface:           var(--ff-gray-0);
   --surface-secondary: var(--ff-gray-50);
+  --surface-sunken:    var(--ff-gray-100);
   --border:            var(--ff-gray-200);
   --border-strong:     var(--ff-gray-300);
   --muted:             var(--ff-gray-100);
@@ -102,6 +103,8 @@
   --nav-fg:            var(--ff-gray-50);
   --ring:              var(--ff-blue-500);
   --focus-ring:        rgba(37, 99, 235, 0.25);
+  --shadow-card:       0 1px 2px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(15, 23, 42, 0.06);
+  --shadow-elevated:   0 6px 16px -8px rgba(15, 23, 42, 0.18), 0 2px 4px -2px rgba(15, 23, 42, 0.08);
 
   /* Select highlight */
   --select-option-bg:  var(--ff-blue-50);
@@ -113,6 +116,7 @@
   --foreground:        var(--ff-gray-50);
   --surface:           var(--ff-gray-800);
   --surface-secondary: var(--ff-gray-800);
+  --surface-sunken:    var(--ff-gray-900);
   --border:            var(--ff-gray-700);
   --border-strong:     var(--ff-gray-600);
   --muted:             var(--ff-gray-800);
@@ -127,6 +131,8 @@
   --nav-fg:            var(--ff-gray-50);
   --ring:              var(--ff-blue-500);
   --focus-ring:        rgba(59, 130, 246, 0.35);
+  --shadow-card:       0 0 0 1px rgba(255, 255, 255, 0.045);
+  --shadow-elevated:   0 10px 24px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
 
   --select-option-bg:  #1E3A5F;
 }

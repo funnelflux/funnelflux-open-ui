@@ -26,6 +26,21 @@ export function collectEntityIdsInCategory(categoryKey: string, rows: EntityGrid
   return out
 }
 
+function categoryKeyForSelectedRow(id: string, rows: EntityGridRow[]): string | null {
+  const stripKey = categoryKeyFromStripRowId(id)
+  if (stripKey !== null) return stripKey
+
+  const row = rows.find((candidate) => candidate.id === id) as
+    | (EntityGridRow & {
+      _isCategoryHeader?: boolean
+      _categoryId?: string
+      campaignId?: string
+    })
+    | undefined
+  if (!row?._isCategoryHeader) return null
+  return row._categoryId ?? (row.categoryId as string | undefined) ?? row.campaignId ?? ''
+}
+
 /** Strip row ids that represent a real category (not uncategorized). */
 export function deletableCategoryStripRowIds(selectedIds: string[]): string[] {
   return selectedIds.filter((id) => id !== `${CATEGORY_STRIP_ROW_ID_PREFIX}uncat` && isCategoryStripRowId(id))
@@ -59,7 +74,7 @@ export function syncCategoryStripRowSelection(
   const result: RowSelectionState = { ...next }
 
   for (const id of added) {
-    const catKey = categoryKeyFromStripRowId(id)
+    const catKey = categoryKeyForSelectedRow(id, listFiltered)
     if (catKey === null) continue
     for (const childId of collectEntityIdsInCategory(catKey, listFiltered)) {
       result[childId] = true
@@ -68,7 +83,7 @@ export function syncCategoryStripRowSelection(
   }
 
   for (const id of removed) {
-    const catKey = categoryKeyFromStripRowId(id)
+    const catKey = categoryKeyForSelectedRow(id, listFiltered)
     if (catKey === null) continue
     for (const childId of collectEntityIdsInCategory(catKey, listFiltered)) {
       delete result[childId]

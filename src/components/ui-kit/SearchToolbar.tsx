@@ -50,7 +50,7 @@ export function SearchToolbar({
   const endBar = onRefresh || trailing || actions
 
   return (
-    <div className={cn('flex min-w-0 items-center gap-3', className)}>
+    <div className={cn('flex w-full min-w-0 items-center gap-3', className)}>
       <Input
         prefix={
           <span className="text-muted-foreground inline-flex">
@@ -64,9 +64,9 @@ export function SearchToolbar({
         onClear={() => { setInternal(''); onChange('') }}
         className="max-w-xs shrink-0"
       />
-      {filters && <div className="flex items-center gap-2">{filters}</div>}
+      {filters && <div className="flex min-w-0 items-center gap-3">{filters}</div>}
       {endBar ? (
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-2">
           {onRefresh ? (
             <Tooltip title="Refresh">
               <Button

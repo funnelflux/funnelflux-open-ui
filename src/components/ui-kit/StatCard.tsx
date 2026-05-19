@@ -26,8 +26,13 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <Card
-      className={cn('h-full min-h-0', className)}
-      styles={{ body: { padding: compact ? 12 : 20 } }}
+      className={cn('ff-stat-card h-full min-h-0 border-border-strong bg-surface-secondary shadow-none', className)}
+      styles={{
+        body: {
+          padding: compact ? 12 : 20,
+          background: 'transparent',
+        },
+      }}
     >
       <p className={cn('font-medium text-muted-foreground', compact ? 'text-xs' : 'text-sm')}>
         {title}

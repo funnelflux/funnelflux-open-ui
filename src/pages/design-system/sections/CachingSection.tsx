@@ -96,12 +96,12 @@ queryClient.setQueryData(['offers'], (old) =>
 queryClient.invalidateQueries({ queryKey: ['report'] })`}</pre>
         </div>
 
-        {/* AG-Grid Integration */}
+        {/* DataTable Integration */}
         <div className="p-4 bg-surface border border-border rounded-lg">
-          <h3 className="text-sm font-medium text-foreground mb-3">AG-Grid + React Query</h3>
+          <h3 className="text-sm font-medium text-foreground mb-3">DataTable + React Query</h3>
           <p className="text-xs text-muted-foreground mb-3">
-            AG-Grid gets data from React Query. When cache updates (optimistic or refetch),
-            AG-Grid re-renders automatically.
+            DataTable gets rows from React Query. When cache updates (optimistic or refetch),
+            the table re-renders automatically.
           </p>
           <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">{`function OffersPage() {
   const { data, isLoading } = useQuery({
@@ -111,10 +111,10 @@ queryClient.invalidateQueries({ queryKey: ['report'] })`}</pre>
   })
 
   return (
-    <DataGrid
-      rowData={data ?? []}
+    <DataTable
+      data={data ?? []}
       loading={isLoading}
-      columnDefs={columns}
+      columns={columns}
     />
   )
 }

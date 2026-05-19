@@ -74,7 +74,7 @@ export function DateRangePicker({
       className={cn(
         heightClass,
         densityClass,
-        'ff-date-range-picker box-border !rounded-md !border-input !bg-background !px-2.5 !text-sm !shadow-[0_1px_2px_rgba(15,23,42,0.04)]',
+        'ff-date-range-picker box-border !rounded-md !border-input !bg-surface !px-2.5 !text-sm !shadow-none',
         '[&_.ant-picker-input>input]:text-foreground [&_.ant-picker-input>input]:placeholder:text-muted-foreground',
         '[&_.ant-picker-separator]:text-muted-foreground [&_.ant-picker-suffix]:text-muted-foreground',
         '[&_.ant-picker-active-bar]:bg-primary',

@@ -21,18 +21,17 @@ export function Field({
   className,
 }: FieldProps) {
   return (
-    <div className={cn('space-y-1.5', className)}>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-foreground">
+    <div className={cn(className)}>
+      <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-medium text-foreground">
         {title}
         {required && <span className="text-error ml-0.5">*</span>}
       </label>
       {children}
       {errorText ? (
-        <p className="text-xs text-error">{errorText}</p>
+        <p className="mt-2 text-xs text-error">{errorText}</p>
       ) : description ? (
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="mt-2 text-xs text-muted-foreground">{description}</p>
       ) : null}
     </div>
   )
 }
-

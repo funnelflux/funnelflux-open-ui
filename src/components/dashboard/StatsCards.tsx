@@ -99,7 +99,13 @@ export function StatsCards({ stats, isLoading, layout = 'dashboard', className }
     >
       {cards.map(({ key, label, format }) => (
         isLoading ? (
-          <div key={key} className={cn('rounded-lg border bg-background', compact ? 'p-3' : 'p-5')}>
+          <div
+            key={key}
+            className={cn(
+              'ff-stat-card relative overflow-hidden rounded-lg border border-border-strong bg-surface-secondary',
+              compact ? 'p-3' : 'p-5',
+            )}
+          >
             <p className={cn('font-medium text-muted-foreground', compact ? 'text-xs' : 'text-sm')}>{label}</p>
             <Skeleton.Input active size="small" style={{ width: 80, height: compact ? 22 : 28, marginTop: 4 }} />
           </div>
@@ -109,7 +115,12 @@ export function StatsCards({ stats, isLoading, layout = 'dashboard', className }
             title={label}
             value={stats ? formatValue(key, format, stats) : '0'}
             compact={compact}
-            className="min-h-0 shadow-sm"
+            className={cn(
+              'min-h-0',
+              key === 'net' || key === 'roi' ? (
+                stats && Number(stats[key]) < 0 ? 'ff-stat-card--loss' : 'ff-stat-card--profit'
+              ) : undefined,
+            )}
             valueClassName={metricToneClass(key, stats)}
           />
         )

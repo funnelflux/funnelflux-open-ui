@@ -1,5 +1,5 @@
 /*
-  DataTable theme — mirrors the AG Grid Quartz look.
+  DataTable theme — compact operational data grid.
   Uses semantic CSS vars from design-tokens.css.
   Dark mode is automatic via .dark on <html>.
 */
@@ -48,6 +48,10 @@
   top: 0;
   z-index: 2;
   width: 100%;
+}
+
+.dark .dt-header {
+  background: color-mix(in srgb, var(--ff-gray-950) 34%, var(--surface));
 }
 
 .dt-header-cell {
@@ -441,6 +445,10 @@
   z-index: 2;
 }
 
+.dark .dt-pinned-bottom {
+  background: color-mix(in srgb, var(--ff-gray-950) 28%, var(--surface));
+}
+
 .dt-pinned-bottom .dt-cell {
   font-weight: 600;
 }
@@ -455,19 +463,20 @@
   border-top: 1px solid var(--border);
   font-size: 13px;
   color: var(--muted-fg);
-  background: var(--surface);
+  background: transparent;
 }
 
 .dt-footer-info {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding-inline-end: 8px;
 }
 
 .dt-footer-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .dt-page-btn {
@@ -478,7 +487,7 @@
   height: 28px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: var(--surface);
+  background: transparent;
   color: var(--foreground);
   font-size: 13px;
   cursor: pointer;
@@ -486,7 +495,7 @@
 }
 
 .dt-page-btn:hover:not(:disabled) {
-  background: var(--surface-secondary);
+  background: color-mix(in srgb, var(--muted-fg) 10%, transparent);
 }
 
 .dt-page-btn:disabled {
