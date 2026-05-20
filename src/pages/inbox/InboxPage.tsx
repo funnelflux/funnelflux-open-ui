@@ -1,10 +1,9 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table'
 import { sanitizeHtml } from '@/lib/sanitize'
-import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Modal, Select, Tag } from '@/components/ui-kit'
 import { DataTable, selectionColumn } from '@/components/ui-kit/data-table'
-import { PageShell, ConfirmModal, EmptyState, useToastApi } from '@/components/ui-kit'
+import { PageShell, ConfirmModal, useToastApi } from '@/components/ui-kit'
 import {
   useInboxMessages,
   useInboxMessage,
@@ -184,63 +183,48 @@ export function InboxPage() {
 
   return (
     <PageShell title="Inbox">
-      {isLoading && <p className="text-sm text-muted-foreground">Loading messages...</p>}
-
-      {!isLoading && (!messages || messages.length === 0) && (
-        <EmptyState
-          icon={
-            <span className="inline-flex [&>svg]:h-10 [&>svg]:w-10">
-              <Icon name="inbox" size="lg" />
-            </span>
-          }
-          message="No messages in your inbox."
-        />
-      )}
-
-      {messages && messages.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="w-44">
-              <Select
-                value={bulkAction}
-                onChange={(value) => setBulkAction((value as 'read' | 'unread' | 'delete') ?? 'read')}
-                options={[
-                  { value: 'read', label: 'Mark as read' },
-                  { value: 'unread', label: 'Mark as unread' },
-                  { value: 'delete', label: 'Delete' },
-                ]}
-              />
-            </div>
-            <Button
-              onClick={() => {
-                void applyBulkAction()
-              }}
-              disabled={selectedIds.length === 0}
-            >
-              Apply
-            </Button>
-            <div className="w-64">
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search..."
-              />
-            </div>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-44">
+            <Select
+              value={bulkAction}
+              onChange={(value) => setBulkAction((value as 'read' | 'unread' | 'delete') ?? 'read')}
+              options={[
+                { value: 'read', label: 'Mark as read' },
+                { value: 'unread', label: 'Mark as unread' },
+                { value: 'delete', label: 'Delete' },
+              ]}
+            />
           </div>
-
-          <DataTable<InboxMessage>
-            data={filteredMessages}
-            columns={columns}
-            getRowId={(row) => row.id}
-            loading={isLoading}
-            tableConfigKey="inbox-messages"
-            enableRowSelection
-            rowSelection={rowSelection}
-            onRowSelectionChange={setRowSelection}
-            emptyMessage="No messages."
-          />
+          <Button
+            onClick={() => {
+              void applyBulkAction()
+            }}
+            disabled={selectedIds.length === 0}
+          >
+            Apply
+          </Button>
+          <div className="w-64">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search..."
+            />
+          </div>
         </div>
-      )}
+
+        <DataTable<InboxMessage>
+          data={filteredMessages}
+          columns={columns}
+          getRowId={(row) => row.id}
+          loading={isLoading}
+          tableConfigKey="inbox-messages"
+          enableRowSelection
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
+          emptyMessage="No messages."
+        />
+      </div>
 
       <ConfirmModal
         open={!!deleteTarget}
