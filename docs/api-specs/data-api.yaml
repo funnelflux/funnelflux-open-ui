@@ -1812,13 +1812,23 @@ paths:
     get:
       tags:
         - funnel-conditions
-      description: Get a list of all conditions as id/name pairs
+      description: Get a list of conditions as id/name pairs
       parameters:
         - name: apiKey
           required: true
           in: query
           type: string
           description: An authorized api key
+        - name: scope
+          required: false
+          in: query
+          type: string
+          description: Filter by scope ('global', 'all', or a specific funnel ID)
+        - name: idFunnel
+          required: false
+          in: query
+          type: string
+          description: Filter by funnel ID (loads global + local to this funnel)
       responses:
         200:
           description: List of conditions

@@ -36,15 +36,15 @@ export function normalizeConditionListResponse(raw: unknown): ConditionListItem[
     .filter((x): x is ConditionListItem => x !== null)
 }
 
-async function fetchConditionList(): Promise<ConditionListItem[]> {
-  const raw = await api.get<unknown>('/data/campaign/funnel/condition/list/')
+async function fetchConditionList(params?: { scope?: string; idFunnel?: string }): Promise<ConditionListItem[]> {
+  const raw = await api.get<unknown>('/data/campaign/funnel/condition/list/', params)
   return normalizeConditionListResponse(raw)
 }
 
-export function useConditions() {
+export function useConditions(params?: { scope?: string; idFunnel?: string }) {
   return useQuery({
-    queryKey: queryKeys.conditions.list(),
-    queryFn: fetchConditionList,
+    queryKey: params ? [...queryKeys.conditions.list(), params] : queryKeys.conditions.list(),
+    queryFn: () => fetchConditionList(params),
   })
 }
 
