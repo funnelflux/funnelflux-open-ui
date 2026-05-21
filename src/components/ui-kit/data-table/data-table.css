@@ -269,6 +269,21 @@
   background: color-mix(in srgb, var(--muted-fg) 16%, var(--surface));
 }
 
+@keyframes dt-row-reveal {
+  0%,
+  100% {
+    background: transparent;
+  }
+  20%,
+  60% {
+    background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  }
+}
+
+.dt-row--revealed {
+  animation: dt-row-reveal 2.4s ease-out;
+}
+
 /* ---- Cell ---- */
 .dt-cell {
   display: flex;

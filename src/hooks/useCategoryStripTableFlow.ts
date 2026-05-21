@@ -3,7 +3,10 @@ import type { PaginationState, SortingState } from '@tanstack/react-table'
 import type { ReportColumn } from '@/types/stats'
 import type { EntityGridRow } from '@/api/hooks/useEntityGrid'
 import { buildCategorySegmentsFromRows } from '@/lib/entity-table/engine/categoryStripTable'
-import { paginateCategorySegments } from '@/lib/entity-table/engine/paginateCategorySegments'
+import {
+  paginateCategorySegments,
+  pageIndexForEntityInCategorySegments,
+} from '@/lib/entity-table/engine/paginateCategorySegments'
 import { sortAssetTableRows } from '@/lib/entity-table/data/sorting'
 import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
 
@@ -15,6 +18,8 @@ interface UseCategoryStripTableFlowArgs<T extends EntityGridRow> {
   search: string
   selectedCategoryId: string
   resetDeps?: readonly unknown[]
+  /** After create/clone, jump pagination to the page that contains this entity id. */
+  revealEntityId?: string | null
 }
 
 export function useCategoryStripTableFlow<T extends EntityGridRow>({
@@ -25,6 +30,7 @@ export function useCategoryStripTableFlow<T extends EntityGridRow>({
   search,
   selectedCategoryId,
   resetDeps = [],
+  revealEntityId = null,
 }: UseCategoryStripTableFlowArgs<T>) {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
   const tableConfig = useTableConfigStore(selectTableConfig(tableConfigKey))
@@ -81,6 +87,19 @@ export function useCategoryStripTableFlow<T extends EntityGridRow>({
       })
     }
   }, [pagination.pageIndex, pageSlice.pageCount])
+
+  useEffect(() => {
+    if (!revealEntityId) return
+    const pageIndex = pageIndexForEntityInCategorySegments(
+      segments,
+      revealEntityId,
+      pagination.pageSize,
+    )
+    if (pageIndex == null) return
+    queueMicrotask(() => {
+      setPagination((prev) => (prev.pageIndex === pageIndex ? prev : { ...prev, pageIndex }))
+    })
+  }, [revealEntityId, segments, pagination.pageSize])
 
   const handleSortingChange = useCallback((sorting: SortingState) => {
     setSorting(tableConfigKey, sorting)

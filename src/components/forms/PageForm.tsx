@@ -23,11 +23,16 @@ import { generateEntityId } from '@/lib/id-generator'
 
 type FluxifyFormParams = NonNullable<PageFormData['fluxifyParams']>
 
+export type PageFormMode = 'create' | 'edit' | 'clone'
+
 interface PageFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   pageType: PageType
+  mode?: PageFormMode
   initialData?: Page
+  /** Prefill for create/clone (new entity); ignored when `mode` is `edit`. */
+  createInitialValues?: PageFormData
   onSubmit: (data: PageFormData) => void
   isSubmitting?: boolean
 }
@@ -74,12 +79,18 @@ export function PageForm({
   open,
   onOpenChange,
   pageType,
+  mode: modeProp,
   initialData,
+  createInitialValues,
   onSubmit,
   isSubmitting,
 }: PageFormProps) {
   const isOffer = pageType === 'offer'
   const entityLabel = isOffer ? 'Offer' : 'Lander'
+  const mode: PageFormMode =
+    modeProp ?? (initialData?.idPage ? 'edit' : 'create')
+  const isEditing = mode === 'edit'
+  const isClone = mode === 'clone'
   const toast = useToastApi()
   const saveCategory = useSaveCategory()
   const [newCategoryOpen, setNewCategoryOpen] = useState(false)
@@ -125,47 +136,51 @@ export function PageForm({
   const offerSourceIdValue = useWatch({ control: form.control, name: 'offerParams.idOfferSource' })
 
   useEffect(() => {
-    if (open) {
-      if (initialData) {
-        form.reset({
-          idPage: initialData.idPage,
-          pageType: initialData.pageType,
-          pageName: initialData.pageName,
-          url: initialData.url,
-          redirectType: initialData.redirectType,
-          categoryId: initialData.categoryId ?? '',
-          numberOfActions: initialData.numberOfActions,
-          tags: initialData.tags ?? [],
-          notes: initialData.notes ?? '',
-          customFields: customFieldsDisplayFromWire(initialData.customFields),
-          offerParams: isOffer
-            ? {
-                idOfferSource: initialData.offerParams?.idOfferSource ?? '',
-                payout: initialData.offerParams?.payout ?? 0,
-                payoutType: initialData.offerParams?.payoutType ?? 'perConversion',
-              }
-            : undefined,
-          fluxifyParams: initialData.fluxifyParams ?? (initialData.redirectType === 'fluxify' ? defaultFluxifyParams : undefined),
-        })
-      } else {
-        form.reset({
-          idPage: generateEntityId(),
-          pageType,
-          pageName: '',
-          url: '',
-          redirectType: '307',
-          categoryId: '',
-          numberOfActions: undefined,
-          tags: [],
-          notes: '',
-          customFields: '',
-          offerParams: isOffer ? { idOfferSource: '', payout: 0, payoutType: 'perConversion' } : undefined,
-          fluxifyParams: undefined,
-        })
-      }
-
+    if (!open) return
+    if (isEditing && initialData) {
+      form.reset({
+        idPage: initialData.idPage,
+        pageType: initialData.pageType,
+        pageName: initialData.pageName,
+        url: initialData.url,
+        redirectType: initialData.redirectType,
+        categoryId: initialData.categoryId ?? '',
+        numberOfActions: initialData.numberOfActions,
+        tags: initialData.tags ?? [],
+        notes: initialData.notes ?? '',
+        customFields: customFieldsDisplayFromWire(initialData.customFields),
+        offerParams: isOffer
+          ? {
+              idOfferSource: initialData.offerParams?.idOfferSource ?? '',
+              payout: initialData.offerParams?.payout ?? 0,
+              payoutType: initialData.offerParams?.payoutType ?? 'perConversion',
+            }
+          : undefined,
+        fluxifyParams:
+          initialData.fluxifyParams
+          ?? (initialData.redirectType === 'fluxify' ? defaultFluxifyParams : undefined),
+      })
+      return
     }
-  }, [open, initialData, form, pageType, isOffer])
+    if (createInitialValues) {
+      form.reset(createInitialValues)
+      return
+    }
+    form.reset({
+      idPage: generateEntityId(),
+      pageType,
+      pageName: '',
+      url: '',
+      redirectType: '307',
+      categoryId: '',
+      numberOfActions: undefined,
+      tags: [],
+      notes: '',
+      customFields: '',
+      offerParams: isOffer ? { idOfferSource: '', payout: 0, payoutType: 'perConversion' } : undefined,
+      fluxifyParams: undefined,
+    })
+  }, [open, isEditing, initialData, createInitialValues, form, pageType, isOffer])
 
   // Auto-initialize fluxifyParams when switching to fluxify redirect type
   useEffect(() => {
@@ -216,11 +231,17 @@ export function PageForm({
     }
   }
 
+  const modalTitle = isEditing
+    ? `Edit ${entityLabel}`
+    : isClone
+      ? `Clone ${entityLabel}`
+      : `New ${entityLabel}`
+
   return (
-    <Modal open={open} onCancel={() => onOpenChange(false)} title={initialData ? `Edit ${entityLabel}` : `New ${entityLabel}`} footer={null} width={640} destroyOnHidden layoutVariant="form">
+    <Modal open={open} onCancel={() => onOpenChange(false)} title={modalTitle} footer={null} width={640} destroyOnHidden layoutVariant="form">
       <form onSubmit={form.handleSubmit(submitForm)} className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-4 space-y-5">
-        {initialData?.idPage && (
+        {isEditing && initialData?.idPage && (
           <FormField label="ID">
             <Input value={initialData.idPage} disabled className="font-mono text-xs" />
           </FormField>
@@ -583,7 +604,7 @@ export function PageForm({
             iconAnimation={isSubmitting ? 'spin' : 'none'}
             iconSize="sm"
           >
-            {initialData ? 'Save' : 'Create'}
+            {isEditing ? 'Save' : 'Create'}
           </Button>
         </div>
       </form>

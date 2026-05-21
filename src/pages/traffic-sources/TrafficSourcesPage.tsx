@@ -9,7 +9,7 @@ import { entityRowId } from '@/components/ui-kit/data-table'
 import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
 import { useEntityTableColumns } from '@/lib/entity-table/engine/useEntityTableColumns'
 import type { CategoryStripGridRow } from '@/lib/entity-table/data/mergedRows'
-import { getErrorMessage } from '@/lib/utils'
+import { cn, getErrorMessage } from '@/lib/utils'
 import { EntityPage } from '@/lib/entity-table/EntityPage'
 import { TrafficSourcesDialogs } from '@/pages/traffic-sources/TrafficSourcesDialogs'
 import { useTrafficSourcesController } from '@/pages/traffic-sources/useTrafficSourcesController'
@@ -23,13 +23,19 @@ const canSelectTrafficSourceRow = (row: { original: CategoryStripGridRow }) => {
   return true
 }
 
-const trafficCategoryRowClassName = (row: CategoryStripGridRow) =>
-  row._isCategoryHeader ? 'dt-row--category-strip' : undefined
-
 export function TrafficSourcesPage() {
   const controller = useTrafficSourcesController()
 
   const isDefaultTrafficSource = useCallback((row: CategoryStripGridRow) => row.id === '1', [])
+
+  const trafficCategoryRowClassName = useCallback(
+    (row: CategoryStripGridRow) =>
+      cn(
+        row._isCategoryHeader && 'dt-row--category-strip',
+        row.id === controller.highlightRowId && 'dt-row--revealed',
+      ),
+    [controller.highlightRowId],
+  )
 
   const { columnDefs, gridColumnVisibility } = useEntityTableColumns<CategoryStripGridRow>({
     tableConfigKey: TABLE_KEY,

@@ -1,15 +1,10 @@
+import { defaultClonedEntityName } from '@/lib/cloneDraftName'
 import { generateEntityId } from '@/lib/id-generator'
 import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 import type { TrafficSource } from '@/types/entities'
 
-const NAME_MAX = 255
-const COPY_SUFFIX = ' (copy)'
-
 export function defaultClonedTrafficSourceName(sourceName: string): string {
-  const trimmed = sourceName.trim()
-  if (!trimmed) return 'New traffic source (copy)'
-  if (trimmed.length + COPY_SUFFIX.length <= NAME_MAX) return `${trimmed}${COPY_SUFFIX}`
-  return `${trimmed.slice(0, NAME_MAX - COPY_SUFFIX.length)}${COPY_SUFFIX}`
+  return defaultClonedEntityName(sourceName, 'New traffic source (copy)')
 }
 
 /** Form values for create-after-clone (new id; user saves to persist). */

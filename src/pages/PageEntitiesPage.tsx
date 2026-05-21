@@ -6,7 +6,7 @@ import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
 import { entityRowId } from '@/components/ui-kit/data-table'
 import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
-import { getErrorMessage } from '@/lib/utils'
+import { cn, getErrorMessage } from '@/lib/utils'
 import type { PageEntitiesPageProps, PageGridRow } from '@/pages/page-entities/types'
 import { usePageEntitiesController } from '@/pages/page-entities/usePageEntitiesController'
 import { usePageEntitiesColumns } from '@/pages/page-entities/usePageEntitiesColumns'
@@ -14,7 +14,6 @@ import { PageEntitiesDialogs } from '@/pages/page-entities/PageEntitiesDialogs'
 import { EntityPage } from '@/lib/entity-table/EntityPage'
 
 const canSelectRow = (row: { original: PageGridRow }) => row.original.id !== '__totals__'
-const categoryRowClassName = (row: PageGridRow) => row._isCategoryHeader ? 'dt-row--category-strip' : undefined
 
 /** Landers/offers lists with category strip, CSV import, and extended bulk actions. */
 export function PageEntitiesPage({
@@ -35,6 +34,12 @@ export function PageEntitiesPage({
     hideScope,
     buildImportPayload,
   })
+
+  const categoryRowClassName = (row: PageGridRow) =>
+    cn(
+      row._isCategoryHeader && 'dt-row--category-strip',
+      row.id === controller.highlightRowId && 'dt-row--revealed',
+    )
 
   const { columnDefs, gridColumnVisibility } = usePageEntitiesColumns({
     tableConfigKey,
@@ -164,6 +169,9 @@ export function PageEntitiesPage({
           onFormOpenChange={controller.handleFormOpenChange}
           editId={controller.editId}
           editPage={controller.editPage}
+          formMode={controller.formMode}
+          cloneInitialValues={controller.cloneInitialValues}
+          cloneLoading={controller.cloneLoading}
           onSubmit={controller.handleSubmit}
           isSubmitting={controller.saveMutation.isPending}
           deleteId={controller.deleteId}

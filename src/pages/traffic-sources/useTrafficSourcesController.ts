@@ -30,6 +30,7 @@ import {
 } from '@/lib/entity-table/engine/categoryStripSelection'
 import { useEntityTable } from '@/lib/entity-table/useEntityTable'
 import { useCategoryStripTableFlow } from '@/hooks/useCategoryStripTableFlow'
+import { useRevealEntityRow } from '@/hooks/useRevealEntityRow'
 import { getErrorMessage } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
 import type { TrafficSource } from '@/types/entities'
@@ -61,6 +62,7 @@ export function useTrafficSourcesController() {
   const archiveMutation = useArchiveTrafficSource()
   const [cloneInitialValues, setCloneInitialValues] = useState<TrafficSourceFormData | null>(null)
   const [cloneLoading, setCloneLoading] = useState(false)
+  const [revealRowId, setRevealRowId] = useState<string | null>(null)
   const saveCategoryMutation = useSaveCategory()
   const deleteCategoryMutation = useDeleteCategory()
   const bulkDeleteTrafficMutation = useBulkDeleteTrafficSources()
@@ -125,7 +127,10 @@ export function useTrafficSourcesController() {
     search: '',
     selectedCategoryId: '',
     resetDeps: [archiveStatus],
+    revealEntityId: revealRowId,
   })
+
+  const { requestReveal, highlightRowId } = useRevealEntityRow(pageRows, revealRowId, setRevealRowId)
 
   const listFilteredRef = useRef(listFiltered)
   useEffect(() => {
@@ -168,11 +173,14 @@ export function useTrafficSourcesController() {
           setSheetOpen(false)
           setEditId(null)
           setCloneInitialValues(null)
+          if (!editId && data.idTrafficSource) {
+            requestReveal(data.idTrafficSource)
+          }
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [saveMutation, editId, toast, singularLabel, setEditId, setSheetOpen])
+  }, [saveMutation, editId, toast, singularLabel, setEditId, setSheetOpen, requestReveal])
 
   const handleClone = useCallback(async (id: string) => {
     setCloneLoading(true)
@@ -413,6 +421,7 @@ export function useTrafficSourcesController() {
     formMode,
     cloneInitialValues,
     cloneLoading,
+    highlightRowId,
     handleArchiveConfirmedRow,
     handleConfirmArchiveDialog,
     handleDelete,

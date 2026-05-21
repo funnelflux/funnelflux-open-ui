@@ -10,6 +10,8 @@ import { offerSourceSchema, type OfferSourceFormData } from '@/schemas/offerSour
 import type { OfferSource } from '@/types/entities'
 import { generateEntityId } from '@/lib/id-generator'
 
+export type OfferSourceFormMode = 'create' | 'edit' | 'clone'
+
 const defaultValues: OfferSourceFormData = {
   idOfferSource: '',
   offerSourceName: '',
@@ -33,13 +35,17 @@ function toTrackingBaseUrl(domain: string | null | undefined): string {
 export function OfferSourceForm({
   open,
   onOpenChange,
+  mode: modeProp,
   initialData,
+  createInitialValues,
   onSubmit,
   isSubmitting,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  initialData: OfferSource | null | undefined
+  mode?: OfferSourceFormMode
+  initialData?: OfferSource | null
+  createInitialValues?: OfferSourceFormData
   onSubmit: (
     data: OfferSourceFormData,
     options?: { createAnother?: boolean },
@@ -52,7 +58,10 @@ export function OfferSourceForm({
   const loadTemplateMutate = loadTemplate.mutate
   const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>()
   const [submitMode, setSubmitMode] = useState<'default' | 'createAnother'>('default')
-  const isEditing = !!initialData?.idOfferSource
+  const mode: OfferSourceFormMode =
+    modeProp ?? (initialData?.idOfferSource ? 'edit' : 'create')
+  const isEditing = mode === 'edit'
+  const isClone = mode === 'clone'
   const templateOptions = useMemo(
     () => (templates ?? []).map((template) => ({ value: template.id, label: template.name })),
     [templates],
@@ -81,24 +90,27 @@ export function OfferSourceForm({
   )
 
   useEffect(() => {
-    if (open) {
-      if (initialData) {
-        reset({
-          idOfferSource: initialData.idOfferSource,
-          offerSourceName: initialData.offerSourceName,
-          subId: initialData.subId ?? '',
-          querySeparator: initialData.querySeparator ?? '&',
-          postbackSubId: initialData.postbackSubId ?? '',
-          postbackTxId: initialData.postbackTxId ?? '',
-          postbackPayout: initialData.postbackPayout ?? '',
-          notes: (initialData as OfferSource & { notes?: string }).notes ?? '',
-          isArchived: initialData.isArchived,
-        })
-      } else {
-        reset({ ...defaultValues, idOfferSource: generateEntityId() })
-      }
+    if (!open) return
+    if (isEditing && initialData) {
+      reset({
+        idOfferSource: initialData.idOfferSource,
+        offerSourceName: initialData.offerSourceName,
+        subId: initialData.subId ?? '',
+        querySeparator: initialData.querySeparator ?? '&',
+        postbackSubId: initialData.postbackSubId ?? '',
+        postbackTxId: initialData.postbackTxId ?? '',
+        postbackPayout: initialData.postbackPayout ?? '',
+        notes: (initialData as OfferSource & { notes?: string }).notes ?? '',
+        isArchived: initialData.isArchived,
+      })
+      return
     }
-  }, [open, initialData, reset])
+    if (createInitialValues) {
+      reset(createInitialValues)
+      return
+    }
+    reset({ ...defaultValues, idOfferSource: generateEntityId() })
+  }, [open, isEditing, initialData, createInitialValues, reset])
 
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange])
 
@@ -141,8 +153,12 @@ export function OfferSourceForm({
   )
 
   const modalTitle = useMemo(() => {
-    const title = isEditing ? 'Edit Offer Source' : 'Add Offer Source'
-    if (isEditing || templateOptions.length === 0) return title
+    const title = isEditing
+      ? 'Edit Offer Source'
+      : isClone
+        ? 'Clone Offer Source'
+        : 'Add Offer Source'
+    if (isEditing || isClone || templateOptions.length === 0) return title
 
     return (
       <div className="flex flex-col gap-3 pr-10 sm:flex-row sm:items-center sm:justify-between">
@@ -161,7 +177,7 @@ export function OfferSourceForm({
         </div>
       </div>
     )
-  }, [handlePickTemplate, isEditing, templateOptions, templateSelectValue])
+  }, [handlePickTemplate, isClone, isEditing, templateOptions, templateSelectValue])
 
   return (
     <Modal
@@ -175,7 +191,7 @@ export function OfferSourceForm({
             <Button htmlType="button" onClick={handleClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            {!isEditing ? (
+            {!isEditing && !isClone ? (
               <Button
                 htmlType="submit"
                 form={formId}

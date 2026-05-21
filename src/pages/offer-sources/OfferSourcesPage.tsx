@@ -7,7 +7,7 @@ import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
 import { entityRowId } from '@/components/ui-kit/data-table'
 import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
 import { useEntityTableColumns } from '@/lib/entity-table/engine/useEntityTableColumns'
-import { getErrorMessage } from '@/lib/utils'
+import { cn, getErrorMessage } from '@/lib/utils'
 import { EntityPage } from '@/lib/entity-table/EntityPage'
 import {
   OFFER_SOURCES_METRIC_HIDE_SCOPES,
@@ -49,7 +49,7 @@ export function OfferSourcesPage() {
         message: getErrorMessage(controller.gridError),
         onRetry: () => void controller.reload(),
       }
-    : controller.isLoading && controller.filtered.length === 0
+    : controller.isLoading && controller.pageRows.length === 0
       ? { status: 'loading' as const }
       : { status: 'ready' as const }
 
@@ -94,7 +94,7 @@ export function OfferSourcesPage() {
         ) : null,
       }}
       tableProps={{
-        data: controller.filtered,
+        data: controller.pageRows,
         columns: columnDefs,
         loading: controller.isLoading,
         getRowId: entityRowId,
@@ -103,10 +103,20 @@ export function OfferSourcesPage() {
         enableRowSelection: canSelectOfferSourceRow,
         rowSelection: controller.rowSelection,
         onRowSelectionChange: controller.setRowSelection,
+        rowClassName: (row) =>
+          cn(row.id === controller.highlightRowId && 'dt-row--revealed'),
         tableRef: controller.tableRef,
         onTableInstance: controller.setTableForChooser,
         emptyMessage:
           controller.search ? `No ${controller.pluralLower} match your search.` : `No ${controller.pluralLower} found.`,
+        manualPagination: true,
+        manualSorting: true,
+        sorting: controller.effectiveSorting,
+        onSortingChange: controller.handleSortingChange,
+        pageCount: controller.pageCount,
+        manualPaginationTotalRows: controller.totalDataCount,
+        pagination: controller.pagination,
+        onPaginationChange: controller.setPagination,
         columnVisibility: gridColumnVisibility.columnVisibility,
         onColumnVisibilityChange: gridColumnVisibility.onColumnVisibilityChange,
       }}
@@ -126,6 +136,9 @@ export function OfferSourcesPage() {
           onFormOpenChange={controller.handleFormOpenChange}
           editId={controller.editId}
           editSource={controller.editSource}
+          formMode={controller.formMode}
+          cloneInitialValues={controller.cloneInitialValues}
+          cloneLoading={controller.cloneLoading}
           onSubmit={controller.handleSubmit}
           savePending={controller.saveMutation.isPending}
           deleteId={controller.deleteId}

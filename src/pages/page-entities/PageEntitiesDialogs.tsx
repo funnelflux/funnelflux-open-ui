@@ -1,6 +1,7 @@
 import { ConfirmModal, Input, Modal } from '@/components/ui-kit'
 import { CsvImportDialog } from '@/components/shared/CsvImportDialog'
 import { PageForm } from '@/components/forms/PageForm'
+import type { PageFormMode } from '@/components/forms/PageForm'
 import type { CsvFieldOption, PageEntitiesPageProps } from '@/pages/page-entities/types'
 import type { Page } from '@/types/entities'
 import type { PageFormData } from '@/schemas/page'
@@ -17,6 +18,9 @@ interface PageEntitiesDialogsProps {
   onFormOpenChange: (open: boolean) => void
   editId: string | null
   editPage: Page | undefined
+  formMode: PageFormMode
+  cloneInitialValues: PageFormData | null
+  cloneLoading: boolean
   onSubmit: (data: PageFormData) => void
   isSubmitting: boolean
   deleteId: string | null
@@ -52,6 +56,9 @@ export function PageEntitiesDialogs({
   onFormOpenChange,
   editId,
   editPage,
+  formMode,
+  cloneInitialValues,
+  cloneLoading,
   onSubmit,
   isSubmitting,
   deleteId,
@@ -89,9 +96,11 @@ export function PageEntitiesDialogs({
         open={sheetOpen}
         onOpenChange={onFormOpenChange}
         pageType={pageType}
+        mode={formMode}
         initialData={editId ? editPage : undefined}
+        createInitialValues={cloneInitialValues ?? undefined}
         onSubmit={onSubmit}
-        isSubmitting={isSubmitting}
+        isSubmitting={isSubmitting || cloneLoading}
       />
 
       <ConfirmModal

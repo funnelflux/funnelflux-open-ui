@@ -48,3 +48,30 @@ export function paginateCategorySegments<TRow>(
 
   return { pageRows, totalDataCount, pageCount }
 }
+
+/** 0-based data-row offset of `entityId` in segment item order (headers excluded). */
+export function dataRowOffsetForEntityInCategorySegments<TRow extends { id: string }>(
+  segments: CategorySegment<TRow>[],
+  entityId: string,
+): number | null {
+  let dataOffset = 0
+  for (const segment of segments) {
+    for (const item of segment.items) {
+      if (item.id === entityId) return dataOffset
+      dataOffset += 1
+    }
+  }
+  return null
+}
+
+/** Page index that contains `entityId`, or null when the row is not in the current segments. */
+export function pageIndexForEntityInCategorySegments<TRow extends { id: string }>(
+  segments: CategorySegment<TRow>[],
+  entityId: string,
+  pageSize: number,
+): number | null {
+  if (pageSize <= 0) return null
+  const offset = dataRowOffsetForEntityInCategorySegments(segments, entityId)
+  if (offset == null) return null
+  return Math.floor(offset / pageSize)
+}

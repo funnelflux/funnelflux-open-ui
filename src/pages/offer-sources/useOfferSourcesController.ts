@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
-import type { Table } from '@tanstack/react-table'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import type { PaginationState, SortingState, Table } from '@tanstack/react-table'
+import { api } from '@/api/client'
 import { useToastApi } from '@/components/ui-kit'
+import type { OfferSourceFormMode } from '@/components/forms/OfferSourceForm'
 import type { MetricScope } from '@/components/ui-kit/data-table/columnRegistry'
 import {
   useArchiveOfferSource,
-  useCloneOfferSource,
   useDeleteOfferSource,
   useOfferSource,
   useSaveOfferSource,
@@ -12,6 +14,8 @@ import {
 import { buildTotalsRow } from '@/api/hooks/useEntityGrid'
 import type { EntityGridRow } from '@/lib/entity-table/data/mergedRows'
 import { offerSourcesToListEntities } from '@/lib/entity-table/data/mergedRows'
+import { sortAssetTableRows } from '@/lib/entity-table/data/sorting'
+import { pageIndexForRowInFlatList } from '@/lib/entity-table/engine/flatListPagination'
 import { buildColumnsFromReport } from '@/components/ui-kit/data-table'
 import { useEntityTable } from '@/lib/entity-table/useEntityTable'
 import { queryKeys } from '@/api/queryKeys'
@@ -20,6 +24,9 @@ import type { OfferSourceFormData } from '@/schemas/offerSource'
 import type { DateRange } from '@/lib/date-presets'
 import { getErrorMessage } from '@/lib/utils'
 import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
+import { useRevealEntityRow } from '@/hooks/useRevealEntityRow'
+import { buildOfferSourceCloneDraft } from '@/lib/offerSourceCloneDraft'
+import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
 
 export type OfferSourceGridRow = EntityGridRow & Record<string, unknown>
 
@@ -27,6 +34,7 @@ const TABLE_CONFIG_KEY = 'offer-sources'
 export const OFFER_SOURCES_METRIC_HIDE_SCOPES = new Set<MetricScope>(['lander'])
 
 export function useOfferSourcesController() {
+  const queryClient = useQueryClient()
   const toast = useToastApi()
   const singularLabel = 'Offer Source'
   const singularLower = singularLabel.toLowerCase()
@@ -35,6 +43,14 @@ export function useOfferSourcesController() {
   const tableRef = useRef<Table<OfferSourceGridRow> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<OfferSourceGridRow> | null>(null)
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; archive: boolean } | null>(null)
+  const [cloneInitialValues, setCloneInitialValues] = useState<OfferSourceFormData | null>(null)
+  const [cloneLoading, setCloneLoading] = useState(false)
+  const [revealRowId, setRevealRowId] = useState<string | null>(null)
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
+
+  const tableConfig = useTableConfigStore(selectTableConfig(TABLE_CONFIG_KEY))
+  const setSorting = useTableConfigStore((state) => state.setSorting)
+  const effectiveSorting = tableConfig.sorting.length > 0 ? tableConfig.sorting : DEFAULT_TABLE_SORTING
 
   const {
     filtered,
@@ -79,7 +95,55 @@ export function useOfferSourcesController() {
   const saveMutation = useSaveOfferSource()
   const deleteMutation = useDeleteOfferSource()
   const archiveMutation = useArchiveOfferSource()
-  const cloneMutation = useCloneOfferSource()
+
+  const sortedRows = useMemo(
+    () => sortAssetTableRows(filtered as OfferSourceGridRow[], reportColumns, effectiveSorting),
+    [effectiveSorting, filtered, reportColumns],
+  )
+
+  const totalDataCount = sortedRows.length
+  const pageCount = Math.max(1, Math.ceil(totalDataCount / pagination.pageSize))
+
+  const pageRows = useMemo(() => {
+    const start = pagination.pageIndex * pagination.pageSize
+    return sortedRows.slice(start, start + pagination.pageSize)
+  }, [sortedRows, pagination.pageIndex, pagination.pageSize])
+
+  const { requestReveal, highlightRowId } = useRevealEntityRow(pageRows, revealRowId, setRevealRowId)
+
+  const formMode: OfferSourceFormMode = editId
+    ? 'edit'
+    : cloneInitialValues
+      ? 'clone'
+      : 'create'
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    })
+  }, [search, archiveStatus])
+
+  useEffect(() => {
+    if (pagination.pageIndex > pageCount - 1 && pageCount > 0) {
+      queueMicrotask(() => {
+        setPagination((prev) => ({ ...prev, pageIndex: Math.max(0, pageCount - 1) }))
+      })
+    }
+  }, [pagination.pageIndex, pageCount])
+
+  useEffect(() => {
+    if (!revealRowId) return
+    const pageIndex = pageIndexForRowInFlatList(sortedRows, revealRowId, pagination.pageSize)
+    if (pageIndex == null) return
+    queueMicrotask(() => {
+      setPagination((prev) => (prev.pageIndex === pageIndex ? prev : { ...prev, pageIndex }))
+    })
+  }, [revealRowId, sortedRows, pagination.pageSize])
+
+  const handleSortingChange = useCallback((sorting: SortingState) => {
+    setSorting(TABLE_CONFIG_KEY, sorting)
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+  }, [setSorting])
 
   const pinnedBottomRows = useMemo(() => {
     if (filtered.length === 0) return undefined
@@ -96,18 +160,23 @@ export function useOfferSourcesController() {
 
         if (options?.createAnother && isCreate) {
           setEditId(null)
+          setCloneInitialValues(null)
           setSheetOpen(true)
           return
         }
 
         setSheetOpen(false)
         setEditId(null)
+        setCloneInitialValues(null)
+        if (isCreate && data.idOfferSource) {
+          requestReveal(data.idOfferSource)
+        }
       } catch (err) {
         toast.error(getErrorMessage(err))
         throw err
       }
     },
-    [editId, saveMutation, toast, singularLabel, setEditId, setSheetOpen],
+    [editId, saveMutation, toast, singularLabel, setEditId, setSheetOpen, requestReveal],
   )
 
   const handleDelete = useCallback(() => {
@@ -131,18 +200,22 @@ export function useOfferSourcesController() {
 
   const handleRequestDelete = useCallback((id: string) => setDeleteId(id), [setDeleteId])
 
-  const cloneMutate = cloneMutation.mutate
-  const handleClone = useCallback(
-    (id: string) => {
-      cloneMutate(id, {
-        onSuccess: () => {
-          toast.success(`${singularLabel} cloned`)
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
+  const handleClone = useCallback(async (id: string) => {
+    setCloneLoading(true)
+    try {
+      const source = await queryClient.fetchQuery({
+        queryKey: queryKeys.offerSources.detail(id),
+        queryFn: () => api.get<OfferSource>('/data/offersource/find/byId/', { idOfferSource: id }),
       })
-    },
-    [cloneMutate, toast, singularLabel],
-  )
+      setEditId(null)
+      setCloneInitialValues(buildOfferSourceCloneDraft(source))
+      setSheetOpen(true)
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setCloneLoading(false)
+    }
+  }, [queryClient, toast, setEditId, setSheetOpen])
 
   const handleArchiveConfirmedRow = useCallback((row: OfferSourceGridRow, archive: boolean) => {
     if (row.id === '__totals__') return
@@ -199,7 +272,10 @@ export function useOfferSourcesController() {
   const handleFormOpenChange = useCallback(
     (open: boolean) => {
       setSheetOpen(open)
-      if (!open) setEditId(null)
+      if (!open) {
+        setEditId(null)
+        setCloneInitialValues(null)
+      }
     },
     [setSheetOpen, setEditId],
   )
@@ -231,7 +307,13 @@ export function useOfferSourcesController() {
     isFetching,
     reload,
     gridError,
-    filtered,
+    pageRows,
+    pageCount,
+    totalDataCount,
+    pagination,
+    setPagination,
+    effectiveSorting,
+    handleSortingChange,
     pinnedBottomRows,
     saveMutation,
     deleteMutation,
@@ -245,6 +327,10 @@ export function useOfferSourcesController() {
     handleDelete,
     handleRequestDelete,
     handleClone,
+    formMode,
+    cloneInitialValues,
+    cloneLoading,
+    highlightRowId,
     handleArchiveConfirmedRow,
     handleConfirmArchiveDialog,
     handleBulkDeselectAll,

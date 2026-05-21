@@ -1,5 +1,6 @@
 import { ConfirmModal } from '@/components/ui-kit'
 import { OfferSourceForm } from '@/components/forms/OfferSourceForm'
+import type { OfferSourceFormMode } from '@/components/forms/OfferSourceForm'
 import type { OfferSource } from '@/types/entities'
 import type { OfferSourceFormData } from '@/schemas/offerSource'
 
@@ -10,6 +11,9 @@ interface OfferSourcesDialogsProps {
   onFormOpenChange: (open: boolean) => void
   editId: string | null
   editSource: OfferSource | undefined
+  formMode: OfferSourceFormMode
+  cloneInitialValues: OfferSourceFormData | null
+  cloneLoading: boolean
   onSubmit: (data: OfferSourceFormData, options?: { createAnother?: boolean }) => Promise<void>
   savePending: boolean
   deleteId: string | null
@@ -29,6 +33,9 @@ export function OfferSourcesDialogs({
   onFormOpenChange,
   editId,
   editSource,
+  formMode,
+  cloneInitialValues,
+  cloneLoading,
   onSubmit,
   savePending,
   deleteId,
@@ -45,9 +52,11 @@ export function OfferSourcesDialogs({
       <OfferSourceForm
         open={sheetOpen}
         onOpenChange={onFormOpenChange}
-        initialData={editId ? editSource ?? null : null}
+        mode={formMode}
+        initialData={editId ? editSource : undefined}
+        createInitialValues={cloneInitialValues ?? undefined}
         onSubmit={onSubmit}
-        isSubmitting={savePending}
+        isSubmitting={savePending || cloneLoading}
       />
 
       <ConfirmModal

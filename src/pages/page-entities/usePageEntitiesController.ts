@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { RowSelectionState, Table, Updater } from '@tanstack/react-table'
+import { api } from '@/api/client'
 import { useToastApi } from '@/components/ui-kit'
+import type { PageFormMode } from '@/components/forms/PageForm'
 import {
   useArchivePage,
   useAssignPagesToCategory,
   useBulkDeletePages,
   useCategories,
-  useClonePage,
   useDeleteCategory,
   useDeletePage,
   useImportPagesFromCsv,
@@ -27,6 +29,8 @@ import {
 import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
 import { useEntityTable } from '@/lib/entity-table/useEntityTable'
 import { useCategoryStripTableFlow } from '@/hooks/useCategoryStripTableFlow'
+import { useRevealEntityRow } from '@/hooks/useRevealEntityRow'
+import { buildPageCloneDraft } from '@/lib/pageCloneDraft'
 import { getErrorMessage } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
 import type { Page } from '@/types/entities'
@@ -44,6 +48,7 @@ export function usePageEntitiesController({
   hideScope,
   buildImportPayload,
 }: Omit<PageEntitiesPageProps, 'title' | 'csvFieldOptions'>) {
+  const queryClient = useQueryClient()
   const toast = useToastApi()
   const singularLower = singularLabel.toLowerCase()
   const pluralLower = `${singularLower}s`
@@ -60,7 +65,8 @@ export function usePageEntitiesController({
   const { data: categories } = useCategories(PAGE_CATEGORY_ENTITY)
   const saveMutation = useSavePage()
   const deleteMutation = useDeletePage()
-  const cloneMutation = useClonePage()
+  const [cloneInitialValues, setCloneInitialValues] = useState<PageFormData | null>(null)
+  const [cloneLoading, setCloneLoading] = useState(false)
   const archiveMutation = useArchivePage()
   const saveCategoryMutation = useSaveCategory()
   const deleteCategoryMutation = useDeleteCategory()
@@ -114,6 +120,8 @@ export function usePageEntitiesController({
   })
   const { data: editPage } = usePage(editId ?? '')
 
+  const [revealRowId, setRevealRowId] = useState<string | null>(null)
+
   const {
     listFiltered,
     hasMetricRows,
@@ -132,7 +140,17 @@ export function usePageEntitiesController({
     search: '',
     selectedCategoryId: '',
     resetDeps: [archiveStatus],
+    revealEntityId: revealRowId,
   })
+
+  const { requestReveal, highlightRowId } = useRevealEntityRow(pageRows, revealRowId, setRevealRowId)
+
+  const formMode: PageFormMode = editId
+    ? 'edit'
+    : cloneInitialValues
+      ? 'clone'
+      : 'create'
+
   const listFilteredRef = useRef(listFiltered)
   useEffect(() => {
     listFilteredRef.current = listFiltered
@@ -173,31 +191,39 @@ export function usePageEntitiesController({
           toast.success(editId ? `${singularLabel} updated` : `${singularLabel} created`)
           setSheetOpen(false)
           setEditId(null)
+          setCloneInitialValues(null)
+          if (!editId && data.idPage) {
+            requestReveal(data.idPage)
+          }
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
-  }, [saveMutation, editId, toast, singularLabel, setEditId, setSheetOpen])
+  }, [saveMutation, editId, toast, singularLabel, setEditId, setSheetOpen, requestReveal])
 
-  const cloneMutate = cloneMutation.mutate
-  const handleClone = useCallback((idPage: string) => {
-    const sourceRow = listFiltered.find(
-      (row): row is PageGridRow => !row._isCategoryHeader && row.id === idPage,
-    )
-    const categoryIdFromSource =
-      sourceRow?.categoryId != null && String(sourceRow.categoryId) !== ''
-        ? String(sourceRow.categoryId)
-        : undefined
-    cloneMutate(
-      { idPage, pageType, categoryId: categoryIdFromSource },
-      {
-        onSuccess: () => {
-          toast.success(`${singularLabel} cloned`)
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      },
-    )
-  }, [cloneMutate, listFiltered, toast, singularLabel, pageType])
+  const handleClone = useCallback(async (idPage: string) => {
+    setCloneLoading(true)
+    try {
+      const source = await queryClient.fetchQuery({
+        queryKey: queryKeys.pages.detail(idPage),
+        queryFn: () => api.get<Page>('/data/page/find/byId/', { idPage }),
+      })
+      const draft = buildPageCloneDraft(source, pageType)
+      const row = listFiltered.find(
+        (item): item is PageGridRow => !item._isCategoryHeader && item.id === idPage,
+      )
+      if (row?.categoryId != null && String(row.categoryId) !== '') {
+        draft.categoryId = String(row.categoryId)
+      }
+      setEditId(null)
+      setCloneInitialValues(draft)
+      setSheetOpen(true)
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setCloneLoading(false)
+    }
+  }, [queryClient, pageType, listFiltered, toast, setEditId, setSheetOpen])
 
   const handleArchiveConfirmedRow = useCallback((row: PageGridRow, archive: boolean) => {
     if (row._isCategoryHeader || row.id === '__totals__') return
@@ -320,7 +346,10 @@ export function usePageEntitiesController({
 
   const handleFormOpenChange = useCallback((open: boolean) => {
     setSheetOpen(open)
-    if (!open) setEditId(null)
+    if (!open) {
+      setEditId(null)
+      setCloneInitialValues(null)
+    }
   }, [setEditId, setSheetOpen])
 
   const handleDismissDelete = useCallback(() => setDeleteId(null), [setDeleteId])
@@ -416,6 +445,10 @@ export function usePageEntitiesController({
     handleEdit,
     handleSubmit,
     handleClone,
+    formMode,
+    cloneInitialValues,
+    cloneLoading,
+    highlightRowId,
     handleArchiveConfirmedRow,
     handleConfirmArchiveDialog,
     handleDelete,
