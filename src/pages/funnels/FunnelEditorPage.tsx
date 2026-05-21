@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useCallback, useRef, useState } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useFunnel } from '@/api/hooks'
@@ -306,6 +306,10 @@ export function FunnelEditorPage() {
     }
     navigate(campaignId ? `/campaigns` : '/')
   }, [isDirty, navigate, campaignId])
+
+  if (funnelId === 'new') {
+    return <Navigate to="/campaigns" replace />
+  }
 
   if (isLoading && !isNew) {
     return (

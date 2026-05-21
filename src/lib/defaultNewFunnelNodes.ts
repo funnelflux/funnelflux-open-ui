@@ -1,6 +1,7 @@
+import { generateId } from '@/lib/id-generator'
 import { percentToPixel } from '@/lib/funnelCoords'
 import { NODE_TYPES, NODE_TYPE_LABELS, type FunnelFlowNode } from '@/types/funnel'
-import type { FunnelNode } from '@/types/entities'
+import type { Funnel, FunnelNode } from '@/types/entities'
 
 /** Canvas position for the default entrance node on new funnels (percent 0–100). */
 export const DEFAULT_ENTRANCE_PERCENT = { x: 12, y: 20 } as const
@@ -17,6 +18,32 @@ export function createDefaultEntranceApiNode(idFunnel: string, idNode: string): 
     nodeRotatorParams: { rotatorType: 'random' },
     posX: DEFAULT_ENTRANCE_PERCENT.x / 100,
     posY: DEFAULT_ENTRANCE_PERCENT.y / 100,
+    isArchived: false,
+  }
+}
+
+/** Default canvas size for new funnels (matches funnel editor save defaults). */
+export const DEFAULT_NEW_FUNNEL_CANVAS = { width: 2000, height: 1500 } as const
+
+/**
+ * Payload for POST /data/campaign/funnel/save/ when creating a funnel from the campaigns UI.
+ */
+export function buildMinimalNewFunnelPayload(idCampaign: string, funnelName: string): Funnel {
+  const idFunnel = generateId()
+  const idNode = generateId()
+  return {
+    idFunnel,
+    idCampaign,
+    funnelName,
+    defaultCostPerEntrance: '0',
+    canvasWidth: DEFAULT_NEW_FUNNEL_CANVAS.width,
+    canvasHeight: DEFAULT_NEW_FUNNEL_CANVAS.height,
+    acculumatedUrlParams: [],
+    customTokens: [],
+    incomingTrafficCostOverrides: [],
+    postbackOverrides: [],
+    nodes: [createDefaultEntranceApiNode(idFunnel, idNode)],
+    connections: [],
     isArchived: false,
   }
 }

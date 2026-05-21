@@ -25,7 +25,6 @@ import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
   useCloneCampaign,
-  useCloneFunnel,
   useDeleteCampaign,
   useDeleteFunnel,
 } from '@/api/hooks'
@@ -47,7 +46,8 @@ import {
   passesArchiveTab,
 } from '@/pages/campaigns/campaignTreeAdapter'
 import type { CampaignRow } from '@/pages/campaigns/campaignTreeAdapter'
-import { AddFunnelModal } from '@/pages/campaigns/AddFunnelModal'
+import { AddFunnelModal, type CreatedFunnelSummary } from '@/pages/campaigns/AddFunnelModal'
+import { CloneFunnelModal, type CloneFunnelSource } from '@/pages/campaigns/CloneFunnelModal'
 import { CampaignEditorModal } from '@/pages/campaigns/CampaignEditorModal'
 import {
   metricColumnIdsForScope,
@@ -122,9 +122,10 @@ export function CampaignsPage() {
   >(null)
   const [addFunnelModalOpen, setAddFunnelModalOpen] = useState(false)
   const [addFunnelModalKey, setAddFunnelModalKey] = useState(0)
+  const [cloneFunnelSource, setCloneFunnelSource] = useState<CloneFunnelSource | null>(null)
+  const [cloneFunnelModalKey, setCloneFunnelModalKey] = useState(0)
   const canEditCampaigns = useAuthStore((s) => Boolean(s.user?.permissions.campaigns.canEdit))
   const cloneCampaign = useCloneCampaign()
-  const cloneFunnel = useCloneFunnel()
   const deleteCampaign = useDeleteCampaign()
   const deleteFunnel = useDeleteFunnel()
 
@@ -232,6 +233,52 @@ export function CampaignsPage() {
     })
   }, [archiveStatus, patchStrip])
 
+  const handleFunnelCreated = useCallback((created: CreatedFunnelSummary) => {
+    const { idFunnel, funnelName, idCampaign } = created
+    patchStrip((prev): AssetTableEnginePageData<CampaignRow> | undefined => {
+      if (!prev) return prev
+      const headerIx = prev.rows.findIndex(
+        (row) => row._isCategoryHeader && row.campaignId === idCampaign,
+      )
+      if (headerIx === -1) return prev
+      const header = prev.rows[headerIx]!
+      const templateCells = findTemplateFunnelRow(prev.rows, idCampaign)?.cells
+        ?? [{ raw: '0', formatted: '-' }]
+      const newRow: CampaignRow = {
+        id: idFunnel,
+        name: funnelName,
+        cells: cellsForNewFunnel(templateCells, idFunnel, funnelName),
+        campaignId: idCampaign,
+        campaignName: header.campaignName ?? header.name,
+        funnelId: idFunnel,
+        categoryId: idCampaign,
+        isArchived: false,
+      }
+      if (!passesArchiveTab(newRow, archiveStatus)) return prev
+      let insertAt = headerIx + 1
+      while (
+        insertAt < prev.rows.length
+        && !prev.rows[insertAt]!._isCategoryHeader
+        && prev.rows[insertAt]!.campaignId === idCampaign
+      ) {
+        insertAt += 1
+      }
+      const beforeVisible = filterRowsForArchiveTab(prev.rows, archiveStatus)
+      const merged = finalizeCampaignStrip([
+        ...prev.rows.slice(0, insertAt),
+        newRow,
+        ...prev.rows.slice(insertAt),
+      ])
+      const nextRows = filterRowsForArchiveTab(merged, archiveStatus)
+      const gained = nextRows.length - beforeVisible.length
+      return {
+        ...prev,
+        rows: nextRows,
+        totalRows: Math.max(0, prev.totalRows + gained),
+      }
+    })
+  }, [archiveStatus, patchStrip])
+
   const statCols = useMemo(
     () => mapStatColsForCategoryStrip(buildColumnsFromReport<CampaignRow>(controller.columns)),
     [controller.columns],
@@ -304,40 +351,8 @@ export function CampaignsPage() {
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       })
-      return
     }
-    if (!row.funnelId) return
-    cloneFunnel.mutate(row.funnelId, {
-      onSuccess: (pair: IdNamePair) => {
-        toast.success('Funnel cloned')
-        const newId = String(pair.id ?? '')
-        const newName = String(pair.name ?? row.name)
-        patchStrip((prev): AssetTableEnginePageData<CampaignRow> | undefined => {
-          if (!prev) return prev
-          const ix = prev.rows.findIndex((r) => r.funnelId === row.funnelId)
-          if (ix === -1) return prev
-          const templateCells = prev.rows[ix]!.cells
-          const newRow: CampaignRow = {
-            id: newId,
-            name: newName,
-            cells: cellsForNewFunnel(templateCells, newId, newName),
-            campaignId: row.campaignId,
-            campaignName: row.campaignName,
-            funnelId: newId,
-            categoryId: row.campaignId,
-            isArchived: false,
-          }
-          const merged = [...prev.rows.slice(0, ix + 1), newRow, ...prev.rows.slice(ix + 1)]
-          return {
-            ...prev,
-            rows: finalizeCampaignStrip(merged),
-            totalRows: prev.totalRows + 1,
-          }
-        })
-      },
-      onError: (err) => toast.error(getErrorMessage(err)),
-    })
-  }, [archiveStatus, cloneCampaign, cloneFunnel, toast, patchStrip])
+  }, [archiveStatus, cloneCampaign, toast, patchStrip])
 
   const runDelete = useCallback((row: CampaignRow) => {
     if (row.id === '__totals__') return
@@ -460,7 +475,17 @@ export function CampaignsPage() {
 
   const requestClone = useCallback((row: CampaignRow) => {
     if (row.id === '__totals__') return
-    setPendingAction({ kind: 'clone', row })
+    if (row._isCategoryHeader) {
+      setPendingAction({ kind: 'clone', row })
+      return
+    }
+    if (!row.funnelId) return
+    setCloneFunnelModalKey((key) => key + 1)
+    setCloneFunnelSource({
+      funnelId: row.funnelId,
+      funnelName: row.name,
+      campaignId: row.campaignId,
+    })
   }, [])
 
   const requestDelete = useCallback((row: CampaignRow) => {
@@ -498,7 +523,7 @@ export function CampaignsPage() {
   const confirmTitle = useMemo(() => {
     if (!pendingAction) return ''
     if (pendingAction.kind === 'clone') {
-      return pendingAction.row._isCategoryHeader ? 'Clone Campaign' : 'Clone Funnel'
+      return 'Clone Campaign'
     }
     if (pendingAction.kind === 'delete') {
       return pendingAction.row._isCategoryHeader ? 'Delete Campaign' : 'Delete Funnel'
@@ -700,6 +725,14 @@ export function CampaignsPage() {
             key={addFunnelModalKey}
             open={addFunnelModalOpen}
             onClose={() => setAddFunnelModalOpen(false)}
+            onFunnelCreated={handleFunnelCreated}
+          />
+          <CloneFunnelModal
+            key={cloneFunnelModalKey}
+            open={cloneFunnelSource !== null}
+            source={cloneFunnelSource}
+            onClose={() => setCloneFunnelSource(null)}
+            onFunnelCloned={handleFunnelCreated}
           />
           <CampaignEditorModal
             open={campaignModal !== null}
