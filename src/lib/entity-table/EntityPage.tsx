@@ -1,7 +1,8 @@
-import type { ComponentProps, ReactNode } from 'react'
+import { useMemo, type ComponentProps, type ReactNode } from 'react'
 import { PageShell, SearchToolbar, type PageShellBodyState } from '@/components/ui-kit'
 import { DataTable } from '@/components/ui-kit/data-table'
 import type { DataTableProps } from '@/components/ui-kit/data-table'
+import { usePersistedColumnSizing } from '@/lib/entity-table/usePersistedColumnSizing'
 
 export interface EntityPageProps<TData> {
   title: string
@@ -30,11 +31,22 @@ export function EntityPage<TData>({
   bulkActions,
   overlays,
 }: EntityPageProps<TData>) {
+  const tableConfigKey = tableProps.tableConfigKey
+  const { columnSizing: storedColumnSizing, onColumnSizingChange: persistColumnSizing } =
+    usePersistedColumnSizing(tableConfigKey)
+
+  const resolvedTableProps = useMemo((): DataTableProps<TData> => ({
+    enableColumnResizing: true,
+    ...tableProps,
+    columnSizing: tableProps.columnSizing ?? storedColumnSizing,
+    onColumnSizingChange: tableProps.onColumnSizingChange ?? (tableConfigKey ? persistColumnSizing : undefined),
+  }), [tableProps, tableConfigKey, storedColumnSizing, persistColumnSizing])
+
   return (
     <PageShell fillHeight={fillHeight} title={title} bodyState={bodyState} actions={headerActions}>
       {topContent}
       <SearchToolbar {...searchToolbarProps} />
-      <DataTable<TData> {...tableProps} />
+      <DataTable<TData> {...resolvedTableProps} />
       {bulkActions}
       {overlays}
     </PageShell>

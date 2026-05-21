@@ -288,7 +288,9 @@ function DataTableInner<TData>({
 
     const flexColumns = visibleColumns.filter((col) => {
       const meta = col.columnDef.meta as Record<string, unknown> | undefined
-      return typeof meta?.flex === 'number' && meta.flex > 0
+      if (typeof meta?.flex !== 'number' || meta.flex <= 0) return false
+      if (columnSizing[col.id] != null) return false
+      return true
     })
 
     while (extra > 0.5 && flexColumns.length > 0) {
@@ -315,13 +317,11 @@ function DataTableInner<TData>({
     }
 
     return widths
-  }, [visibleColumns, scrollViewportWidth])
+  }, [visibleColumns, scrollViewportWidth, columnSizing])
 
   const totalTableWidth = useMemo(() => {
-    const columnTotal = visibleColumns.reduce((sum, col) => sum + (columnWidths.get(col.id) ?? col.getSize()), 0)
-    if (scrollViewportWidth <= 0) return columnTotal
-    return Math.min(columnTotal, Math.max(0, Math.floor(scrollViewportWidth) - 2))
-  }, [visibleColumns, columnWidths, scrollViewportWidth])
+    return visibleColumns.reduce((sum, col) => sum + (columnWidths.get(col.id) ?? col.getSize()), 0)
+  }, [visibleColumns, columnWidths])
 
   const getColWidth = useCallback(
     (col: { id: string; getSize: () => number }): number => columnWidths.get(col.id) ?? col.getSize(),

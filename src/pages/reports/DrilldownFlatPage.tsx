@@ -6,6 +6,7 @@ import { buildColumnsFromReport, countLeadingGroupingColumns } from "@/component
 import { ColumnChooser } from "@/components/shared/ColumnChooser"
 import { defaultColIds } from "@/lib/entity-table/columns/defaultColIds"
 import { useEntityGridColumnVisibility } from "@/lib/entity-table/columns/visibility"
+import { usePersistedColumnSizing } from "@/lib/entity-table/usePersistedColumnSizing"
 import {
   DrilldownToolbarProvider,
   DrilldownToolbarHeaderFilters,
@@ -153,6 +154,7 @@ export function DrilldownFlatPage() {
     DRILLDOWN_FLAT_TABLE_KEY,
     { defaultVisibleColumnIds: defaultColIds },
   )
+  const { columnSizing, onColumnSizingChange } = usePersistedColumnSizing(DRILLDOWN_FLAT_TABLE_KEY)
 
   const pinnedBottomRows = useMemo(() => {
     if (!report?.totals?.cells) return undefined
@@ -204,6 +206,8 @@ export function DrilldownFlatPage() {
             onTableInstance={setTableForChooser}
             columnVisibility={gridColumnVisibility.columnVisibility}
             onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
+            columnSizing={columnSizing}
+            onColumnSizingChange={onColumnSizingChange}
           />
         ) : (
           !reportLoading && (

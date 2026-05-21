@@ -6,6 +6,7 @@ import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
 import { ColumnChooser } from "@/components/shared/ColumnChooser"
 import { defaultColIds } from "@/lib/entity-table/columns/defaultColIds"
 import { useEntityGridColumnVisibility } from "@/lib/entity-table/columns/visibility"
+import { usePersistedColumnSizing } from "@/lib/entity-table/usePersistedColumnSizing"
 import {
   DrilldownToolbarProvider,
   DrilldownToolbarHeaderFilters,
@@ -554,6 +555,7 @@ export function DrilldownTreePage() {
     DRILLDOWN_TREE_TABLE_KEY,
     { defaultVisibleColumnIds: defaultColIds },
   )
+  const { columnSizing, onColumnSizingChange } = usePersistedColumnSizing(DRILLDOWN_TREE_TABLE_KEY)
 
   const pinnedBottomRows = useMemo(() => {
     if (!report?.totals?.cells) return undefined
@@ -617,6 +619,8 @@ export function DrilldownTreePage() {
             onTableInstance={setTableForChooser}
             columnVisibility={gridColumnVisibility.columnVisibility}
             onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
+            columnSizing={columnSizing}
+            onColumnSizingChange={onColumnSizingChange}
           />
         ) : (
           !reportLoading && (
