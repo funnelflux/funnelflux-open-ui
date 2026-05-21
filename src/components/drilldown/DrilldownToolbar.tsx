@@ -24,7 +24,8 @@ import {
   Popconfirm,
 } from '@/components/ui-kit'
 import { api } from '@/api/client'
-import { DrilldownGroupingsBar } from '@/components/drilldown/DrilldownGroupingsBar'
+import { DrilldownConfigPanel } from '@/components/drilldown/DrilldownConfigPanel'
+import { DrilldownFiltersPanel } from '@/components/drilldown/DrilldownFiltersPanel'
 import { useDrilldownStore } from '@/store/drilldown'
 import {
   useDeleteView,
@@ -32,7 +33,7 @@ import {
   useSavedViews,
   useSaveView,
 } from '@/api/hooks'
-import { getErrorMessage } from '@/lib/utils'
+import { cn, getErrorMessage } from '@/lib/utils'
 import { DATE_PRESETS, getPresetRange, type DateRange } from '@/lib/date-presets'
 import { validateGroupingStackForRequest } from '@/lib/drilldownGroupings'
 import { buildTrackingFieldMappingsForRequest } from '@/lib/urlTrackingFieldGrouping'
@@ -123,12 +124,12 @@ interface DrilldownToolbarContextValue {
     type: 'whitelist' | 'blacklist',
     values: string[],
   ) => void
-  groupingsDrawerOpen: boolean
-  openGroupingsDrawer: () => void
-  closeGroupingsDrawer: () => void
   settingsDrawerOpen: boolean
   openSettingsDrawer: () => void
   closeSettingsDrawer: () => void
+  filtersDrawerOpen: boolean
+  openFiltersDrawer: () => void
+  closeFiltersDrawer: () => void
   timeAttribution: DrilldownTimeAttribution
   setTimeAttribution: (timeAttribution: DrilldownTimeAttribution) => void
   showFilteredTraffic: boolean
@@ -165,6 +166,7 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
     timeAttribution,
     showFilteredTraffic,
     showWinners,
+    filtersEnabled,
     setTimeAttribution,
     setShowFilteredTraffic,
     setShowWinners,
@@ -178,17 +180,9 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
   const [isExporting, setIsExporting] = useState(false)
   const [saveModalOpen, setSaveModalOpen] = useState(false)
   const [saveViewName, setSaveViewName] = useState('')
-  const [groupingsDrawerOpen, setGroupingsDrawerOpen] = useState(false)
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false)
+  const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false)
   const saveViewFormId = useId()
-
-  const openGroupingsDrawer = useCallback(() => {
-    setGroupingsDrawerOpen(true)
-  }, [])
-
-  const closeGroupingsDrawer = useCallback(() => {
-    setGroupingsDrawerOpen(false)
-  }, [])
 
   const openSettingsDrawer = useCallback(() => {
     setSettingsDrawerOpen(true)
@@ -196,6 +190,14 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
 
   const closeSettingsDrawer = useCallback(() => {
     setSettingsDrawerOpen(false)
+  }, [])
+
+  const openFiltersDrawer = useCallback(() => {
+    setFiltersDrawerOpen(true)
+  }, [])
+
+  const closeFiltersDrawer = useCallback(() => {
+    setFiltersDrawerOpen(false)
   }, [])
 
   const dateTimeRangeValue = useMemo(
@@ -271,13 +273,14 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
       groupings,
       groupingFilters,
       urlTrackingFieldByLevel,
+      filtersEnabled,
     )
     if (!groupingValidation.ok) {
       toast.error(groupingValidation.message)
       return
     }
     onApply(toDrilldownRequest(groupingValidation.levels))
-  }, [groupingFilters, groupings, onApply, toast, toDrilldownRequest, urlTrackingFieldByLevel])
+  }, [filtersEnabled, groupingFilters, groupings, onApply, toast, toDrilldownRequest, urlTrackingFieldByLevel])
 
   const handleExport = useCallback(async () => {
     setIsExporting(true)
@@ -286,6 +289,7 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
         groupings,
         groupingFilters,
         urlTrackingFieldByLevel,
+        filtersEnabled,
       )
       if (!groupingValidation.ok) {
         toast.error(groupingValidation.message)
@@ -323,6 +327,7 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
   }, [
     datePickerValue.from,
     datePickerValue.to,
+    filtersEnabled,
     groupingFilters,
     groupings,
     toast,
@@ -409,12 +414,12 @@ function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolba
     availableGroupings,
     setGroupings,
     setGroupingFilter,
-    groupingsDrawerOpen,
-    openGroupingsDrawer,
-    closeGroupingsDrawer,
     settingsDrawerOpen,
     openSettingsDrawer,
     closeSettingsDrawer,
+    filtersDrawerOpen,
+    openFiltersDrawer,
+    closeFiltersDrawer,
     timeAttribution,
     setTimeAttribution,
     showFilteredTraffic,
@@ -438,8 +443,14 @@ export function DrilldownToolbarProvider({
 
 /** Date/time range + timezone — for `PageShell` `actions` (top row, right). */
 export function DrilldownToolbarHeaderFilters() {
-  const { dateTimeRangeValue, onDateTimeRangeChange, timezone, setTimezone } =
-    useDrilldownToolbarContext()
+  const {
+    dateTimeRangeValue,
+    onDateTimeRangeChange,
+    timezone,
+    setTimezone,
+    timeAttribution,
+    setTimeAttribution,
+  } = useDrilldownToolbarContext()
 
   return (
     <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2">
@@ -458,6 +469,12 @@ export function DrilldownToolbarHeaderFilters() {
         className="ff-drilldown-datetime-range [&_.ant-picker-input>input]:text-xs"
       />
       <TimezoneSelect value={timezone} onChange={setTimezone} />
+      <Select
+        value={timeAttribution}
+        onChange={(value) => setTimeAttribution(value === 'event' ? 'event' : 'entrance')}
+        className="min-w-[140px] text-xs"
+        options={TIME_ATTRIBUTION_OPTIONS}
+      />
     </div>
   )
 }
@@ -542,10 +559,45 @@ function DrilldownSettingsDrawer() {
   )
 }
 
+function DrilldownFiltersDrawer() {
+  const {
+    filtersDrawerOpen,
+    closeFiltersDrawer,
+    groupings,
+    groupingFilters,
+    setGroupingFilter,
+  } = useDrilldownToolbarContext()
+
+  const handleGroupingFilterApply = useCallback(
+    (level: number, next: { whitelist: string[]; blacklist: string[] }) => {
+      setGroupingFilter(level, 'whitelist', next.whitelist)
+      setGroupingFilter(level, 'blacklist', next.blacklist)
+    },
+    [setGroupingFilter],
+  )
+
+  return (
+    <Drawer
+      title="Grouping filters"
+      placement="right"
+      width={420}
+      open={filtersDrawerOpen}
+      onClose={closeFiltersDrawer}
+      destroyOnClose={false}
+    >
+      <DrilldownFiltersPanel
+        groupings={groupings}
+        groupingFilters={groupingFilters}
+        onFilterChange={handleGroupingFilterApply}
+      />
+    </Drawer>
+  )
+}
+
 /** Saved views dropdown (+ / manage) plus apply/export — second row with groupings (left-aligned). */
 export function DrilldownToolbarReportActions() {
   const toast = useToastApi()
-  const { timezone, dateRange } = useDrilldownStore()
+  const { timezone, dateRange, filtersEnabled, groupingFilters } = useDrilldownStore()
   const saveView = useSaveView()
   const deleteView = useDeleteView()
   const [manageOpen, setManageOpen] = useState(false)
@@ -568,8 +620,8 @@ export function DrilldownToolbarReportActions() {
     handleExport,
     isLoading,
     isExporting,
-    openGroupingsDrawer,
     openSettingsDrawer,
+    openFiltersDrawer,
   } = useDrilldownToolbarContext()
 
   const handleOpenManage = useCallback(() => {
@@ -644,6 +696,25 @@ export function DrilldownToolbarReportActions() {
     [savedViews],
   )
 
+  const filtersButtonTitle = useMemo(() => {
+    if (!filtersEnabled) {
+      return 'Configure grouping filters'
+    }
+    let whitelistLevels = 0
+    let blacklistLevels = 0
+    for (const level of Object.values(groupingFilters)) {
+      if ((level.whitelist?.length ?? 0) > 0) whitelistLevels++
+      if ((level.blacklist?.length ?? 0) > 0) blacklistLevels++
+    }
+    if (whitelistLevels === 0 && blacklistLevels === 0) {
+      return 'Filters are on — will apply on Apply (no restrictions configured yet)'
+    }
+    const parts: string[] = []
+    if (whitelistLevels > 0) parts.push(`${whitelistLevels} whitelist`)
+    if (blacklistLevels > 0) parts.push(`${blacklistLevels} blacklist`)
+    return `Filters are on — ${parts.join(', ')} — will apply on Apply`
+  }, [filtersEnabled, groupingFilters])
+
   return (
     <div className="flex flex-wrap items-center gap-2 shrink-0">
       <div className="flex items-center gap-1.5 shrink-0">
@@ -696,12 +767,25 @@ export function DrilldownToolbarReportActions() {
       </Button>
       <Button
         htmlType="button"
-        className="text-xs shrink-0"
-        iconName="layers"
+        className={cn(
+          'text-xs shrink-0',
+          filtersEnabled && '!border-primary/50 !text-primary',
+        )}
+        iconName="filter"
         iconSize="sm"
-        onClick={openGroupingsDrawer}
+        onClick={openFiltersDrawer}
+        title={filtersButtonTitle}
+        aria-label={filtersEnabled ? 'Filters (on)' : 'Filters'}
       >
-        Edit levels
+        Filters
+        {filtersEnabled ? (
+          <span
+            className="ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 py-px text-[10px] font-semibold leading-tight text-primary-foreground"
+            aria-hidden
+          >
+            On
+          </span>
+        ) : null}
       </Button>
       <Button
         htmlType="button"
@@ -713,6 +797,7 @@ export function DrilldownToolbarReportActions() {
         Settings
       </Button>
 
+      <DrilldownFiltersDrawer />
       <DrilldownSettingsDrawer />
 
       <Modal
@@ -863,41 +948,30 @@ export function DrilldownToolbarControls() {
   )
 }
 
-/** Group-by cascade — use on the second toolbar row next to `DrilldownToolbarReportActions`. */
-export function DrilldownToolbarGroupings() {
+/** Groupings + tracking field strip above the table. */
+export function DrilldownToolbarConfigPanel() {
   const {
     groupings,
     groupingFilters,
     availableGroupings,
     setGroupings,
-    setGroupingFilter,
-    groupingsDrawerOpen,
-    closeGroupingsDrawer,
   } = useDrilldownToolbarContext()
   const replaceGroupingsStack = useDrilldownStore((s) => s.replaceGroupingsStack)
 
-  const handleGroupingFilterApply = useCallback(
-    (level: number, next: { whitelist: string[]; blacklist: string[] }) => {
-      setGroupingFilter(level, 'whitelist', next.whitelist)
-      setGroupingFilter(level, 'blacklist', next.blacklist)
-    },
-    [setGroupingFilter],
-  )
-
   return (
-    <div className="flex flex-wrap items-center justify-start gap-2 min-h-[2.25rem] min-w-0 flex-1">
-      <DrilldownGroupingsBar
-        groupings={groupings}
-        groupingFilters={groupingFilters}
-        availableGroupings={availableGroupings ?? []}
-        onGroupingsChange={setGroupings}
-        onReplaceStack={replaceGroupingsStack}
-        onFilterChange={handleGroupingFilterApply}
-        drawerOpen={groupingsDrawerOpen}
-        onCloseDrawer={closeGroupingsDrawer}
-      />
-    </div>
+    <DrilldownConfigPanel
+      groupings={groupings}
+      groupingFilters={groupingFilters}
+      availableGroupings={availableGroupings ?? []}
+      onGroupingsChange={setGroupings}
+      onReplaceStack={replaceGroupingsStack}
+    />
   )
+}
+
+/** @deprecated Use {@link DrilldownToolbarConfigPanel} above the table. */
+export function DrilldownToolbarGroupings() {
+  return <DrilldownToolbarConfigPanel />
 }
 
 /** Standalone layout (legacy); matches `PageShell` + split rows when not using the shell. */
@@ -910,7 +984,6 @@ export function DrilldownToolbar(props: DrilldownToolbarProps) {
         </div>
         <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-2 w-full">
           <DrilldownToolbarReportActions />
-          <DrilldownToolbarGroupings />
         </div>
       </div>
     </DrilldownToolbarProvider>

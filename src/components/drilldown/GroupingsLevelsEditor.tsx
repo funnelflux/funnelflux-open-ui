@@ -277,11 +277,6 @@ export function GroupingsLevelsEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs text-muted-foreground">
-        Add up to {MAX_DRILLDOWN_GROUPING_LEVELS} levels. Order matters for the report hierarchy. For{' '}
-        <span className="font-medium">URL tracking field</span>, use the list button beside the filter to
-        choose C1, C2, etc.
-      </p>
       <div className="flex flex-col gap-4">
         {groupings.map((grouping, index) => (
           <GroupingLevelEditorRow

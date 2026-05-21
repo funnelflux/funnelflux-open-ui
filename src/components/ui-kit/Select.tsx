@@ -436,7 +436,7 @@ export interface SelectOptionGroup {
   options: SelectOption[]
 }
 
-export interface GroupedSelectProps extends Omit<AntdSelectProps, 'options' | 'filterOption' | 'mode' | 'size'> {
+export interface GroupedSelectProps extends Omit<AntdSelectProps, 'options' | 'filterOption' | 'size'> {
   optionGroups: SelectOptionGroup[]
   size?: UiSelectSize
 }

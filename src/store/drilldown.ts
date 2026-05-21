@@ -15,6 +15,8 @@ interface DrilldownState {
   timeAttribution: DrilldownTimeAttribution
   showFilteredTraffic: boolean
   showWinners: boolean
+  /** When false, whitelist/blacklist filters are not sent on Apply/export even if stored. */
+  filtersEnabled: boolean
   setGroupings: (g: string[]) => void
   /** Replace groupings and filters together (e.g. after removing a middle level and reindexing filters). */
   replaceGroupingsStack: (
@@ -36,6 +38,7 @@ interface DrilldownState {
   setTimeAttribution: (timeAttribution: DrilldownTimeAttribution) => void
   setShowFilteredTraffic: (showFilteredTraffic: boolean) => void
   setShowWinners: (showWinners: boolean) => void
+  setFiltersEnabled: (filtersEnabled: boolean) => void
 }
 
 export const useDrilldownStore = create<DrilldownState>()(
@@ -50,6 +53,7 @@ export const useDrilldownStore = create<DrilldownState>()(
       timeAttribution: 'entrance',
       showFilteredTraffic: false,
       showWinners: false,
+      filtersEnabled: false,
       setGroupings: (groupings) => set({ groupings }),
       replaceGroupingsStack: (groupings, groupingFilters, urlTrackingFieldByLevel) =>
         set((state) => ({
@@ -87,6 +91,7 @@ export const useDrilldownStore = create<DrilldownState>()(
       setTimeAttribution: (timeAttribution) => set({ timeAttribution }),
       setShowFilteredTraffic: (showFilteredTraffic) => set({ showFilteredTraffic }),
       setShowWinners: (showWinners) => set({ showWinners }),
+      setFiltersEnabled: (filtersEnabled) => set({ filtersEnabled }),
     }),
     {
       name: 'ff-drilldown',
@@ -99,6 +104,7 @@ export const useDrilldownStore = create<DrilldownState>()(
           timeAttribution: p?.timeAttribution === 'event' ? 'event' : current.timeAttribution,
           showFilteredTraffic: p?.showFilteredTraffic ?? current.showFilteredTraffic,
           showWinners: p?.showWinners ?? current.showWinners,
+          filtersEnabled: p?.filtersEnabled ?? current.filtersEnabled,
         }
       },
     },

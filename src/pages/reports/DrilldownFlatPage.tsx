@@ -11,7 +11,7 @@ import {
   DrilldownToolbarProvider,
   DrilldownToolbarHeaderFilters,
   DrilldownToolbarReportActions,
-  DrilldownToolbarGroupings,
+  DrilldownToolbarConfigPanel,
 } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReportQuery } from "@/api/hooks"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
@@ -190,30 +190,32 @@ export function DrilldownFlatPage() {
               onApply={handleApplyColumns}
             />
           ) : null}
-          <DrilldownToolbarGroupings />
         </div>
-        {report ? (
-          <DataTable
-            data={flatData}
-            columns={columnDefs}
-            loading={reportLoading}
-            getRowId={drilldownFlatRowId}
-            sorting={sorting}
-            onSortingChange={handleSortingChange}
-            manualSorting
-            pinnedBottomRows={pinnedBottomRows}
-            tableRef={tableRef}
-            onTableInstance={setTableForChooser}
-            columnVisibility={gridColumnVisibility.columnVisibility}
-            onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
-            columnSizing={columnSizing}
-            onColumnSizingChange={onColumnSizingChange}
-          />
-        ) : (
-          !reportLoading && (
-            <EmptyState message="Select your groupings and date range, then click Apply to generate a report." />
-          )
-        )}
+        <DrilldownToolbarConfigPanel />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {report ? (
+            <DataTable
+              data={flatData}
+              columns={columnDefs}
+              loading={reportLoading}
+              getRowId={drilldownFlatRowId}
+              sorting={sorting}
+              onSortingChange={handleSortingChange}
+              manualSorting
+              pinnedBottomRows={pinnedBottomRows}
+              tableRef={tableRef}
+              onTableInstance={setTableForChooser}
+              columnVisibility={gridColumnVisibility.columnVisibility}
+              onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
+              columnSizing={columnSizing}
+              onColumnSizingChange={onColumnSizingChange}
+            />
+          ) : (
+            !reportLoading && (
+              <EmptyState message="Choose groupings above, then click Apply to generate a report." />
+            )
+          )}
+        </div>
       </PageShell>
     </DrilldownToolbarProvider>
   )

@@ -11,12 +11,13 @@ import {
   DrilldownToolbarProvider,
   DrilldownToolbarHeaderFilters,
   DrilldownToolbarReportActions,
-  DrilldownToolbarGroupings,
+  DrilldownToolbarConfigPanel,
 } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReportQuery } from "@/api/hooks"
 import { api } from "@/api/client"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
+import { useDrilldownStore } from "@/store/drilldown"
 import { reportRowToCells } from "@/lib/reportRowCells"
 import { metricsForColumnIds, visibleMetricColumnIdsFromHidden, withSortingMetricIds } from "@/lib/drilldownMetrics"
 import { getErrorMessage } from "@/lib/utils"
@@ -252,6 +253,7 @@ function setRowExpandError(rows: TreeRowData[], treePath: string, message: strin
 }
 
 export function DrilldownTreePage() {
+  const filtersEnabled = useDrilldownStore((s) => s.filtersEnabled)
   const setTableSorting = useTableConfigStore((s) => s.setSorting)
   const [treeData, setTreeData] = useState<TreeRowData[]>([])
   const [lastRequest, setLastRequest] = useState<DrilldownRequest | null>(null)
@@ -437,8 +439,12 @@ export function DrilldownTreePage() {
         const levelKey = levelKeys[idx]
         return {
           groupBy: g.groupBy,
-          whitelistFilters: levelKey ? [levelKey] : [...(g.whitelistFilters ?? [])],
-          blacklistFilters: [...(g.blacklistFilters ?? [])],
+          whitelistFilters: levelKey
+            ? [levelKey]
+            : filtersEnabled
+              ? [...(g.whitelistFilters ?? [])]
+              : [],
+          blacklistFilters: filtersEnabled ? [...(g.blacklistFilters ?? [])] : [],
         }
       })
 
@@ -511,7 +517,7 @@ export function DrilldownTreePage() {
         setTreeData((prev) => setRowExpandError(prev, row.treePath, getErrorMessage(err)))
       }
     },
-    [lastRequest, planGroupings],
+    [filtersEnabled, lastRequest, planGroupings],
   )
 
   const canLazyExpandRow = useCallback(
@@ -597,36 +603,38 @@ export function DrilldownTreePage() {
               onApply={handleApplyColumns}
             />
           ) : null}
-          <DrilldownToolbarGroupings />
         </div>
-        {report ? (
-          <DataTable
-            data={treeData}
-            columns={columnDefs}
-            loading={reportLoading}
-            getRowId={drilldownTreeRowId}
-            sorting={sorting}
-            onSortingChange={handleSortingChange}
-            manualSorting
-            treeMode
-            getSubRows={getSubRows}
-            onExpandRow={handleExpandRow}
-            canLazyExpandRow={canLazyExpandRow}
-            expanded={expanded}
-            onExpandedChange={setExpanded}
-            pinnedBottomRows={pinnedBottomRows}
-            tableRef={tableRef}
-            onTableInstance={setTableForChooser}
-            columnVisibility={gridColumnVisibility.columnVisibility}
-            onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
-            columnSizing={columnSizing}
-            onColumnSizingChange={onColumnSizingChange}
-          />
-        ) : (
-          !reportLoading && (
-            <EmptyState message="Select your groupings and date range, then click Apply to generate a report." />
-          )
-        )}
+        <DrilldownToolbarConfigPanel />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {report ? (
+            <DataTable
+              data={treeData}
+              columns={columnDefs}
+              loading={reportLoading}
+              getRowId={drilldownTreeRowId}
+              sorting={sorting}
+              onSortingChange={handleSortingChange}
+              manualSorting
+              treeMode
+              getSubRows={getSubRows}
+              onExpandRow={handleExpandRow}
+              canLazyExpandRow={canLazyExpandRow}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              pinnedBottomRows={pinnedBottomRows}
+              tableRef={tableRef}
+              onTableInstance={setTableForChooser}
+              columnVisibility={gridColumnVisibility.columnVisibility}
+              onColumnVisibilityChange={gridColumnVisibility.onColumnVisibilityChange}
+              columnSizing={columnSizing}
+              onColumnSizingChange={onColumnSizingChange}
+            />
+          ) : (
+            !reportLoading && (
+              <EmptyState message="Choose groupings above, then click Apply to generate a report." />
+            )
+          )}
+        </div>
       </PageShell>
     </DrilldownToolbarProvider>
   )

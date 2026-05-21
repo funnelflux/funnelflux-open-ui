@@ -163,6 +163,7 @@ export function validateGroupingStackForRequest(
   groupings: string[],
   groupingFilters: Record<number, { whitelist: string[]; blacklist: string[] }>,
   urlTrackingFieldByLevel?: Record<number, UrlTrackingFieldLevelMeta | null | undefined>,
+  filtersEnabled = false,
 ):
   | {
       ok: true
@@ -206,8 +207,8 @@ export function validateGroupingStackForRequest(
 
   const levels = active.map((groupBy, index) => ({
     groupBy,
-    whitelistFilters: groupingFilters[index]?.whitelist ?? [],
-    blacklistFilters: groupingFilters[index]?.blacklist ?? [],
+    whitelistFilters: filtersEnabled ? (groupingFilters[index]?.whitelist ?? []) : [],
+    blacklistFilters: filtersEnabled ? (groupingFilters[index]?.blacklist ?? []) : [],
   }))
   return { ok: true, levels }
 }
