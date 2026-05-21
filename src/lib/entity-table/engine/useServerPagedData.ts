@@ -22,6 +22,8 @@ export interface AssetTableEngineLoadArgs {
   pageIndex: number
   pageSize: number
   reportMetrics?: string[]
+  /** When set, loaders may search the full dataset (not only the current server page). */
+  search?: string
 }
 
 export interface UseAssetTableEngineOptions<TRow extends EntityGridRow> {
@@ -38,6 +40,8 @@ export interface UseAssetTableEngineOptions<TRow extends EntityGridRow> {
   loadPageData: (args: AssetTableEngineLoadArgs) => Promise<AssetTableEnginePageData<TRow>>
   filterRows?: (rows: TRow[], searchLower: string) => TRow[]
   sortRows?: (rows: TRow[], columns: ReportColumn[], sorting: SortingState) => TRow[]
+  /** When true, `loadPageData` applies search across the full dataset; skip client-side `filterRows`. */
+  applySearchInLoadPage?: boolean
   /** When false, the page query does not run (used when composing multiple engines behind one facade). */
   enabled?: boolean
 }
@@ -63,6 +67,7 @@ export function useAssetTableEngine<TRow extends EntityGridRow>(
     loadPageData,
     filterRows,
     sortRows,
+    applySearchInLoadPage = false,
     enabled = true,
   } = options
 
@@ -84,6 +89,7 @@ export function useAssetTableEngine<TRow extends EntityGridRow>(
         pageIndex,
         pageSize,
         reportMetrics ?? 'allMetrics',
+        search.trim() || '',
       ] as const,
     [
       queryKeyPrefix,
@@ -94,6 +100,7 @@ export function useAssetTableEngine<TRow extends EntityGridRow>(
       pageIndex,
       pageSize,
       reportMetrics,
+      search,
     ],
   )
 
@@ -106,6 +113,7 @@ export function useAssetTableEngine<TRow extends EntityGridRow>(
       pageIndex,
       pageSize,
       reportMetrics,
+      search,
     }),
     placeholderData: (previousData) => previousData,
     enabled,
@@ -119,10 +127,10 @@ export function useAssetTableEngine<TRow extends EntityGridRow>(
 
   const filteredRows = useMemo(() => {
     const searchLower = search.trim().toLowerCase()
-    if (!searchLower) return rows
+    if (!searchLower || applySearchInLoadPage) return rows
     if (filterRows) return filterRows(rows, searchLower)
     return rows.filter((row) => row.name.toLowerCase().includes(searchLower))
-  }, [rows, search, filterRows])
+  }, [rows, search, filterRows, applySearchInLoadPage])
 
   const tableRows = useMemo(
     () => (sortRows ? sortRows(filteredRows, columns, sorting) : sortAssetTableRows(filteredRows, columns, sorting)),

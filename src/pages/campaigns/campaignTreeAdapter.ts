@@ -1,19 +1,11 @@
-import { api } from '@/api/client'
+import type { QueryClient } from '@tanstack/react-query'
 import { fetchFlatDrilldownPage } from '@/api/drilldown'
+import { queryKeys } from '@/api/queryKeys'
 import { buildCampaignTreeDrilldownRequest } from '@/lib/entity-table/data/request'
 import type { AssetTableEngineLoadArgs, AssetTableEnginePageData } from '@/lib/entity-table/engine/useServerPagedData'
-import type { Campaign } from '@/types/entities'
-import type { DrilldownRequest, ReportCell } from '@/types/stats'
-
-interface CampaignHierarchyCampaign {
-  id: string
-  name: string
-  funnels: Array<{ id: string; name: string }>
-}
-
-interface CampaignHierarchyResponse {
-  campaigns: CampaignHierarchyCampaign[]
-}
+import { buildCampaignTreePageData, hierarchyOnlyReport } from '@/pages/campaigns/campaignTreeMerge'
+import { fetchCampaignTreeStaticData } from '@/pages/campaigns/campaignTreeStatic'
+import type { ReportCell } from '@/types/stats'
 
 export interface CampaignRow {
   id: string
@@ -120,92 +112,42 @@ export function cellsForNewFunnel(templateCells: ReportCell[], funnelId: string,
   )
 }
 
-export function createCampaignTreeLoadPageData(archiveStatus: CampaignArchiveTab) {
+export function createCampaignTreeLoadPageData(
+  archiveStatus: CampaignArchiveTab,
+  queryClient: QueryClient,
+) {
   return async (args: AssetTableEngineLoadArgs): Promise<AssetTableEnginePageData<CampaignRow>> => {
-    const drilldownBody: DrilldownRequest = buildCampaignTreeDrilldownRequest({
+    const searchLower = args.search?.trim().toLowerCase() ?? ''
+    const drilldownParams = {
       dateFrom: args.dateFrom,
       dateTo: args.dateTo,
       timezone: args.timezone,
-      groupBy: 'Element: Funnel',
-      pageIndex: args.pageIndex,
-      pageSize: args.pageSize,
+      groupBy: 'Element: Funnel' as const,
       ...(args.reportMetrics?.length ? { metrics: args.reportMetrics } : {}),
+    }
+
+    const staticData = await queryClient.fetchQuery({
+      queryKey: queryKeys.campaignStrip.static(archiveStatus),
+      queryFn: () => fetchCampaignTreeStaticData(archiveStatus),
     })
 
-    const [hierarchy, report, campaignsByStatus] = await Promise.all([
-      api.get<CampaignHierarchyResponse>('/ui/campaigns/hierarchy/').catch(async () =>
-        api.post<CampaignHierarchyResponse>('/ui/campaigns/hierarchy/', undefined)),
-      fetchFlatDrilldownPage(drilldownBody, { pageSize: drilldownBody.paging?.length }),
-      api.get<Campaign[]>('/data/campaign/find/byStatus/', { status: archiveStatus }),
-    ])
-
-    const campaignArchivedById = new Map<string, boolean>()
-    for (const campaign of campaignsByStatus ?? []) {
-      campaignArchivedById.set(String(campaign.idCampaign), Boolean(campaign.isArchived))
+    if (searchLower) {
+      return buildCampaignTreePageData(
+        staticData,
+        hierarchyOnlyReport(args.reportMetrics),
+        args,
+      )
     }
 
-    const funnelMap = new Map<string, { campaignId: string; campaignName: string; funnelName: string }>()
-    for (const campaign of hierarchy.campaigns ?? []) {
-      const campaignId = String(campaign.id)
-      if (!campaignArchivedById.has(campaignId)) continue
-      for (const funnel of campaign.funnels ?? []) {
-        funnelMap.set(String(funnel.id), {
-          campaignId,
-          campaignName: campaign.name,
-          funnelName: funnel.name,
-        })
-      }
-    }
+    const report = await fetchFlatDrilldownPage(
+      buildCampaignTreeDrilldownRequest({
+        ...drilldownParams,
+        pageIndex: args.pageIndex,
+        pageSize: args.pageSize,
+      }),
+      { pageSize: args.pageSize },
+    )
 
-    const grouped = new Map<string, { header: CampaignRow; items: CampaignRow[] }>()
-    for (const reportRow of report.rows ?? []) {
-      const cells = reportRow.cells
-      if (!cells?.length) continue
-      const funnelId = String(cells[0]?.raw ?? '')
-      if (!funnelId) continue
-      const meta = funnelMap.get(funnelId)
-      if (!meta) continue
-      const row: CampaignRow = {
-        id: funnelId,
-        name: cells[0]?.formatted ?? meta.funnelName,
-        cells,
-        campaignId: meta.campaignId,
-        campaignName: meta.campaignName,
-        funnelId,
-        categoryId: meta.campaignId,
-        isArchived: campaignArchivedById.get(meta.campaignId) ?? false,
-      }
-      const existing = grouped.get(meta.campaignId)
-      if (existing) {
-        existing.items.push(row)
-      } else {
-        grouped.set(meta.campaignId, {
-          header: {
-            id: `campaign:${meta.campaignId}`,
-            name: meta.campaignName,
-            cells: [{ raw: meta.campaignId, formatted: meta.campaignName }],
-            campaignId: meta.campaignId,
-            campaignName: meta.campaignName,
-            categoryId: meta.campaignId,
-            _categoryId: meta.campaignId,
-            _isCategoryHeader: true,
-            isArchived: campaignArchivedById.get(meta.campaignId) ?? false,
-          },
-          items: [row],
-        })
-      }
-    }
-
-    const rows: CampaignRow[] = []
-    for (const segment of grouped.values()) {
-      rows.push(segment.header, ...segment.items)
-    }
-
-    return {
-      rows,
-      columns: report.columns ?? [],
-      totalsCells: report.totals?.cells ?? null,
-      totalRows: report.rowsTotal ?? report.paging?.totalRecords ?? report.rows?.length ?? 0,
-    }
+    return buildCampaignTreePageData(staticData, report, args)
   }
 }

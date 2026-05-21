@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { PaginationState, RowSelectionState, Table, Updater, VisibilityState } from '@tanstack/react-table'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
   Alert,
@@ -99,6 +100,7 @@ async function archiveFunnelRemote(funnelId: string, archive: boolean): Promise<
 
 
 export function CampaignsPage() {
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const toast = useToastApi()
   const tableRef = useRef<Table<CampaignRow> | null>(null)
@@ -146,7 +148,10 @@ export function CampaignsPage() {
     return selected
   }, [metricColumnIds, tableConfig.columnVisibility.id])
 
-  const loadPageData = useMemo(() => createCampaignTreeLoadPageData(archiveStatus), [archiveStatus])
+  const loadPageData = useMemo(
+    () => createCampaignTreeLoadPageData(archiveStatus, queryClient),
+    [archiveStatus, queryClient],
+  )
 
   const controller = useEntityTable<CampaignRow>({
     mode: 'server-paged',
@@ -161,6 +166,7 @@ export function CampaignsPage() {
     search,
     reportMetrics,
     loadPageData,
+    applySearchInLoadPage: true,
     filterRows: filterCampaignStripRows,
     // Keep campaign strip headers adjacent to their funnels.
     sortRows: (rows) => rows,
@@ -234,6 +240,7 @@ export function CampaignsPage() {
   }, [archiveStatus, patchStrip])
 
   const handleFunnelCreated = useCallback((created: CreatedFunnelSummary) => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.campaignStrip.static(archiveStatus) })
     const { idFunnel, funnelName, idCampaign } = created
     patchStrip((prev): AssetTableEnginePageData<CampaignRow> | undefined => {
       if (!prev) return prev
@@ -277,7 +284,7 @@ export function CampaignsPage() {
         totalRows: Math.max(0, prev.totalRows + gained),
       }
     })
-  }, [archiveStatus, patchStrip])
+  }, [archiveStatus, patchStrip, queryClient])
 
   const statCols = useMemo(
     () => mapStatColsForCategoryStrip(buildColumnsFromReport<CampaignRow>(controller.columns)),
@@ -598,6 +605,11 @@ export function CampaignsPage() {
     setPagination((previous) => ({ ...previous, pageIndex: 0 }))
   }, [])
 
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value)
+    setPagination((previous) => ({ ...previous, pageIndex: 0 }))
+  }, [])
+
   const handlePaginationChange = useCallback((nextPagination: PaginationState) => {
     setPagination({
       pageIndex: Math.max(0, nextPagination.pageIndex),
@@ -653,7 +665,7 @@ export function CampaignsPage() {
       ) : null}
       searchToolbarProps={{
         value: search,
-        onChange: setSearch,
+        onChange: handleSearchChange,
         placeholder: 'Search campaigns...',
         onRefresh: () => void controller.reload(),
         refreshLoading: controller.isFetching,
