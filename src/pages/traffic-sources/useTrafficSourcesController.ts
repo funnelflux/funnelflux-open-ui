@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { api } from '@/api/client'
+import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 import type { RowSelectionState, Table, Updater } from '@tanstack/react-table'
 import { useToastApi } from '@/components/ui-kit'
 import {
@@ -6,7 +9,6 @@ import {
   useAssignTrafficSourcesToCategory,
   useBulkDeleteTrafficSources,
   useCategories,
-  useCloneTrafficSource,
   useDeleteCategory,
   useDeleteTrafficSource,
   useSaveCategory,
@@ -31,13 +33,15 @@ import { useCategoryStripTableFlow } from '@/hooks/useCategoryStripTableFlow'
 import { getErrorMessage } from '@/lib/utils'
 import type { DateRange } from '@/lib/date-presets'
 import type { TrafficSource } from '@/types/entities'
-import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 import { buildColumnsFromReport } from '@/components/ui-kit/data-table'
+import { buildTrafficSourceCloneDraft } from '@/lib/trafficSourceCloneDraft'
+import type { TrafficSourceFormMode } from '@/components/forms/TrafficSourceForm'
 
 const TABLE_CONFIG_KEY = 'traffic-sources'
 const TRAFFICSOURCE_CATEGORY_ENTITY = 'trafficsource' as const
 
 export function useTrafficSourcesController() {
+  const queryClient = useQueryClient()
   const toast = useToastApi()
   const singularLabel = 'Traffic Source'
   const singularLower = singularLabel.toLowerCase()
@@ -54,8 +58,9 @@ export function useTrafficSourcesController() {
   const { data: categories } = useCategories(TRAFFICSOURCE_CATEGORY_ENTITY)
   const saveMutation = useSaveTrafficSource()
   const deleteMutation = useDeleteTrafficSource()
-  const cloneMutation = useCloneTrafficSource()
   const archiveMutation = useArchiveTrafficSource()
+  const [cloneInitialValues, setCloneInitialValues] = useState<TrafficSourceFormData | null>(null)
+  const [cloneLoading, setCloneLoading] = useState(false)
   const saveCategoryMutation = useSaveCategory()
   const deleteCategoryMutation = useDeleteCategory()
   const bulkDeleteTrafficMutation = useBulkDeleteTrafficSources()
@@ -162,30 +167,42 @@ export function useTrafficSourcesController() {
           toast.success(editId ? `${singularLabel} updated` : `${singularLabel} created`)
           setSheetOpen(false)
           setEditId(null)
+          setCloneInitialValues(null)
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
   }, [saveMutation, editId, toast, singularLabel, setEditId, setSheetOpen])
 
-  const cloneMutate = cloneMutation.mutate
-  const handleClone = useCallback((id: string) => {
-    const row = listFiltered.find(
-      (item): item is CategoryStripGridRow => !item._isCategoryHeader && item.id === id,
-    )
-    cloneMutate(
-      {
-        idTrafficSource: id,
-        categoryId: row?.categoryId != null ? String(row.categoryId) : undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${singularLabel} cloned`)
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      },
-    )
-  }, [cloneMutate, listFiltered, toast, singularLabel])
+  const handleClone = useCallback(async (id: string) => {
+    setCloneLoading(true)
+    try {
+      const source = await queryClient.fetchQuery({
+        queryKey: queryKeys.trafficSources.detail(id),
+        queryFn: () => api.get<TrafficSource>('/data/trafficsource/find/byId/', { idTrafficSource: id }),
+      })
+      const draft = buildTrafficSourceCloneDraft(source)
+      const row = listFiltered.find(
+        (item): item is CategoryStripGridRow => !item._isCategoryHeader && item.id === id,
+      )
+      if (row?.categoryId != null && String(row.categoryId) !== '') {
+        draft.idCategory = String(row.categoryId)
+      }
+      setEditId(null)
+      setCloneInitialValues(draft)
+      setSheetOpen(true)
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setCloneLoading(false)
+    }
+  }, [queryClient, listFiltered, toast, setEditId, setSheetOpen])
+
+  const formMode: TrafficSourceFormMode = editId
+    ? 'edit'
+    : cloneInitialValues
+      ? 'clone'
+      : 'create'
 
   const handleArchiveConfirmedRow = useCallback((row: CategoryStripGridRow, archive: boolean) => {
     if (row._isCategoryHeader || row.id === '__totals__') return
@@ -333,7 +350,10 @@ export function useTrafficSourcesController() {
 
   const handleFormOpenChange = useCallback((open: boolean) => {
     setSheetOpen(open)
-    if (!open) setEditId(null)
+    if (!open) {
+      setEditId(null)
+      setCloneInitialValues(null)
+    }
   }, [setEditId, setSheetOpen])
 
   const handleDismissDelete = useCallback(() => setDeleteId(null), [setDeleteId])
@@ -390,6 +410,9 @@ export function useTrafficSourcesController() {
     handleEdit,
     handleSubmit,
     handleClone,
+    formMode,
+    cloneInitialValues,
+    cloneLoading,
     handleArchiveConfirmedRow,
     handleConfirmArchiveDialog,
     handleDelete,

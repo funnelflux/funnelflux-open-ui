@@ -9,10 +9,15 @@ import { useTrafficSourceTemplates, useLoadTrafficSourceTemplate, useCategories 
 import type { TrafficSource } from '@/types/entities'
 import { generateEntityId } from '@/lib/id-generator'
 
+export type TrafficSourceFormMode = 'create' | 'edit' | 'clone'
+
 interface TrafficSourceFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  mode?: TrafficSourceFormMode
   initialData?: TrafficSource | null
+  /** Prefill for create/clone (new entity); ignored when `mode` is `edit`. */
+  createInitialValues?: TrafficSourceFormData
   onSubmit: (data: TrafficSourceFormData) => void
   isSubmitting?: boolean
 }
@@ -50,7 +55,9 @@ function toFormDefaultCostField(value: string | number | undefined): string {
 export function TrafficSourceForm({
   open,
   onOpenChange,
+  mode: modeProp,
   initialData,
+  createInitialValues,
   onSubmit,
   isSubmitting,
 }: TrafficSourceFormProps) {
@@ -74,7 +81,10 @@ export function TrafficSourceForm({
 
   const formId = useId()
   const postbackType = useWatch({ control, name: 'postback.postbackType' })
-  const isEditing = !!initialData?.idTrafficSource
+  const mode: TrafficSourceFormMode =
+    modeProp ?? (initialData?.idTrafficSource ? 'edit' : 'create')
+  const isEditing = mode === 'edit'
+  const isClone = mode === 'clone'
 
   const categorySelectOptions = useMemo(
     () =>
@@ -90,26 +100,29 @@ export function TrafficSourceForm({
   )
 
   useEffect(() => {
-    if (open) {
-      if (initialData) {
-        reset({
-          idTrafficSource: initialData.idTrafficSource,
-          trafficSourceName: initialData.trafficSourceName,
-          costType: initialData.costType,
-          defaultCost: toFormDefaultCostField(initialData.defaultCost),
-          trackingFields: initialData.trackingFields ?? [],
-          postback: {
-            postbackType: initialData.postback?.postbackType ?? 'none',
-            postbackCode: initialData.postback?.postbackCode ?? '',
-          },
-          isArchived: initialData.isArchived,
-          idCategory: categoryIdForForm(initialData, categories),
-        })
-      } else {
-        reset({ ...defaultValues, idTrafficSource: generateEntityId() })
-      }
+    if (!open) return
+    if (isEditing && initialData) {
+      reset({
+        idTrafficSource: initialData.idTrafficSource,
+        trafficSourceName: initialData.trafficSourceName,
+        costType: initialData.costType,
+        defaultCost: toFormDefaultCostField(initialData.defaultCost),
+        trackingFields: initialData.trackingFields ?? [],
+        postback: {
+          postbackType: initialData.postback?.postbackType ?? 'none',
+          postbackCode: initialData.postback?.postbackCode ?? '',
+        },
+        isArchived: initialData.isArchived,
+        idCategory: categoryIdForForm(initialData, categories),
+      })
+      return
     }
-  }, [open, initialData, categories, reset])
+    if (createInitialValues) {
+      reset(createInitialValues)
+      return
+    }
+    reset({ ...defaultValues, idTrafficSource: generateEntityId() })
+  }, [open, isEditing, initialData, createInitialValues, categories, reset])
 
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange])
 
@@ -133,8 +146,12 @@ export function TrafficSourceForm({
   }, [getValues, loadTemplateMutate, reset])
 
   const modalTitle = useMemo(() => {
-    const title = isEditing ? 'Edit Traffic Source' : 'Add Traffic Source'
-    if (isEditing || templateOptions.length === 0) return title
+    const title = isEditing
+      ? 'Edit Traffic Source'
+      : isClone
+        ? 'Clone Traffic Source'
+        : 'Add Traffic Source'
+    if (isEditing || isClone || templateOptions.length === 0) return title
 
     return (
       <div className="flex flex-col gap-3 pr-10 sm:flex-row sm:items-center sm:justify-between">
@@ -153,7 +170,7 @@ export function TrafficSourceForm({
         </div>
       </div>
     )
-  }, [handlePickTemplate, isEditing, templateOptions, templateSelectValue])
+  }, [handlePickTemplate, isClone, isEditing, templateOptions, templateSelectValue])
 
   return (
     <Modal

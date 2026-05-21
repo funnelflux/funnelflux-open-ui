@@ -1,6 +1,7 @@
 import { ConfirmModal, Input, Modal } from '@/components/ui-kit'
 import { TrafficSourceForm } from '@/components/forms/TrafficSourceForm'
 import type { TrafficSource } from '@/types/entities'
+import type { TrafficSourceFormMode } from '@/components/forms/TrafficSourceForm'
 import type { TrafficSourceFormData } from '@/schemas/trafficSource'
 
 interface TrafficSourcesDialogsProps {
@@ -10,6 +11,9 @@ interface TrafficSourcesDialogsProps {
   onFormOpenChange: (open: boolean) => void
   editId: string | null
   editSource: TrafficSource | undefined
+  formMode: TrafficSourceFormMode
+  cloneInitialValues: TrafficSourceFormData | null
+  cloneLoading: boolean
   onSubmit: (data: TrafficSourceFormData) => void
   savePending: boolean
   deleteId: string | null
@@ -39,6 +43,9 @@ export function TrafficSourcesDialogs({
   onFormOpenChange,
   editId,
   editSource,
+  formMode,
+  cloneInitialValues,
+  cloneLoading,
   onSubmit,
   savePending,
   deleteId,
@@ -65,9 +72,11 @@ export function TrafficSourcesDialogs({
       <TrafficSourceForm
         open={sheetOpen}
         onOpenChange={onFormOpenChange}
+        mode={formMode}
         initialData={editId ? editSource : undefined}
+        createInitialValues={cloneInitialValues ?? undefined}
         onSubmit={onSubmit}
-        isSubmitting={savePending}
+        isSubmitting={savePending || cloneLoading}
       />
 
       <ConfirmModal

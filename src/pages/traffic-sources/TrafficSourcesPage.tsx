@@ -148,6 +148,9 @@ export function TrafficSourcesPage() {
           onFormOpenChange={controller.handleFormOpenChange}
           editId={controller.editId}
           editSource={controller.editSource}
+          formMode={controller.formMode}
+          cloneInitialValues={controller.cloneInitialValues}
+          cloneLoading={controller.cloneLoading}
           onSubmit={controller.handleSubmit}
           savePending={controller.saveMutation.isPending}
           deleteId={controller.deleteId}
