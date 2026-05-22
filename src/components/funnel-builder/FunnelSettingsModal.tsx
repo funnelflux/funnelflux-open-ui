@@ -24,7 +24,7 @@ export function FunnelSettingsModal({
       onCancel={onClose}
       destroyOnHidden
       maskClosable={!isSaving}
-      width="min(1200px, 96vw)"
+      width="min(720px, 94vw)"
       zIndex={1100}
       layoutVariant="form"
       title={

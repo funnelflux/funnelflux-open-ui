@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { Fragment, useCallback, useMemo } from 'react'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { Button, Field, Input, Select } from '@/components/ui-kit'
 import type { FunnelKeyValuePair, FunnelPostbackOverrideRow } from '@/types/funnel'
@@ -27,7 +27,14 @@ function linesToKv(text: string): FunnelKeyValuePair[] {
     .filter((r) => r.key !== '' || r.value !== '')
 }
 
-export function FunnelAdvancedSettings({ className }: { className?: string }) {
+export function FunnelAdvancedSettings({
+  className,
+  embedded = false,
+}: {
+  className?: string
+  /** When true, omit outer card chrome (for Collapse panels). */
+  embedded?: boolean
+}) {
   const meta = useFunnelEditorStore((s) => s.meta)
   const updateMeta = useFunnelEditorStore((s) => s.updateMeta)
 
@@ -77,22 +84,8 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
     updateMeta({ postbackOverrides: meta.postbackOverrides.filter((_, i) => i !== index) })
   }
 
-  return (
-    <section
-      className={cn(
-        'rounded-lg border bg-card text-card-foreground shadow-sm',
-        className,
-      )}
-    >
-      <div className="border-b px-4 py-3">
-        <h2 className="text-sm font-semibold">Advanced settings</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Tokens, URL accumulation, traffic cost and postback overrides (V2 API). Other legacy-only options
-          stay in the classic admin.
-        </p>
-      </div>
-
-      <div className="p-4 space-y-8">
+  const body = (
+    <div className={cn('space-y-8', embedded ? 'pt-1' : 'p-4')}>
         <div className="grid gap-6 lg:grid-cols-2">
           <Field
             title="Custom tokens"
@@ -131,35 +124,46 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
               Add override
             </Button>
           </div>
-          <div className="space-y-2">
-            {meta.incomingTrafficCostOverrides.length === 0 && (
-              <p className="text-xs text-muted-foreground italic">No overrides — traffic uses default costs.</p>
-            )}
-            {meta.incomingTrafficCostOverrides.map((row, i) => (
-              <div key={i} className="flex flex-wrap items-center gap-2">
-                <Input
-                  placeholder="Traffic source ID"
-                  className="font-mono text-xs flex-1 min-w-[140px]"
-                  value={row.key}
-                  onChange={(e) => updateCostRow(i, 'key', e.target.value)}
-                />
-                <Input
-                  placeholder="Cost"
-                  className="w-28 font-mono text-xs"
-                  value={row.value}
-                  onChange={(e) => updateCostRow(i, 'value', e.target.value)}
-                />
-                <Button
-                  htmlType="button"
-                  type="text"
-                  danger
-                  className="shrink-0"
-                  iconName="trash-2"
-                  onClick={() => removeCostRow(i)}
-                />
-              </div>
-            ))}
-          </div>
+          {meta.incomingTrafficCostOverrides.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">No overrides — traffic uses default costs.</p>
+          ) : (
+            <div
+              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2"
+              aria-label="Incoming traffic cost overrides"
+            >
+              <span className="min-w-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Traffic source ID
+              </span>
+              <span className="min-w-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Cost
+              </span>
+              <span aria-hidden="true" />
+              {meta.incomingTrafficCostOverrides.map((row, i) => (
+                <Fragment key={i}>
+                  <Input
+                    placeholder="Traffic source ID"
+                    className="min-w-0 w-full font-mono text-xs"
+                    value={row.key}
+                    onChange={(e) => updateCostRow(i, 'key', e.target.value)}
+                  />
+                  <Input
+                    placeholder="Cost"
+                    className="min-w-0 w-full font-mono text-xs"
+                    value={row.value}
+                    onChange={(e) => updateCostRow(i, 'value', e.target.value)}
+                  />
+                  <Button
+                    htmlType="button"
+                    type="text"
+                    danger
+                    className="!mx-0 justify-self-center"
+                    iconName="trash-2"
+                    onClick={() => removeCostRow(i)}
+                  />
+                </Fragment>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -220,12 +224,33 @@ export function FunnelAdvancedSettings({ className }: { className?: string }) {
           </div>
         </div>
 
-        <p className="text-[11px] text-muted-foreground border-t pt-4 leading-relaxed">
-          <strong className="text-foreground/90">Legacy admin only:</strong> organic tracking JS snippets, IP anonymizer
-          profile, and default tracking domain are not on the public V2 <code className="font-mono">Funnel</code> model —
-          configure them in the classic PHP admin if you need them.
+      <p className="text-[11px] text-muted-foreground border-t pt-4 leading-relaxed">
+        <strong className="text-foreground/90">Legacy admin only:</strong> organic tracking JS snippets, IP anonymizer
+        profile, and default tracking domain are not on the public V2 <code className="font-mono">Funnel</code> model —
+        configure them in the classic PHP admin if you need them.
+      </p>
+    </div>
+  )
+
+  if (embedded) {
+    return <div className={className}>{body}</div>
+  }
+
+  return (
+    <section
+      className={cn(
+        'rounded-lg border bg-card text-card-foreground shadow-sm',
+        className,
+      )}
+    >
+      <div className="border-b px-4 py-3">
+        <h2 className="text-sm font-semibold">Advanced settings</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Tokens, URL accumulation, traffic cost and postback overrides (V2 API). Other legacy-only options
+          stay in the classic admin.
         </p>
       </div>
+      {body}
     </section>
   )
 }

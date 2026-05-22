@@ -1,5 +1,5 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
-import { Button, Field, Input, InputNumber, Select } from '@/components/ui-kit'
+import { useMemo, type ChangeEvent } from 'react'
+import { Collapse, Field, Input, InputNumber, Select } from '@/components/ui-kit'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { useCampaignsList } from '@/api/hooks'
 import { FunnelAdvancedSettings } from '@/components/funnel-builder/FunnelAdvancedSettings'
@@ -13,8 +13,6 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
   const updateMeta = useFunnelEditorStore((s) => s.updateMeta)
   const { data: campaigns } = useCampaignsList()
 
-  const [advancedOpen, setAdvancedOpen] = useState(false)
-
   const campaignOptions = useMemo(
     () => campaigns?.map((c) => ({ label: c.name, value: c.id })) ?? [],
     [campaigns],
@@ -25,7 +23,7 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
       <Field title="Funnel name" htmlFor="funnel-settings-name" required>
         <Input
           id="funnel-settings-name"
-          className="max-w-3xl"
+          className="w-full"
           value={meta.funnelName}
           onChange={(e: ChangeEvent<HTMLInputElement>) => updateMeta({ funnelName: e.target.value })}
           placeholder="Funnel name"
@@ -33,7 +31,7 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
         />
       </Field>
 
-      <div className="grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Field
           title="Default cost per entrance"
           htmlFor="funnel-settings-cost"
@@ -58,7 +56,7 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
         </Field>
       </div>
 
-      <Field title="Notes" htmlFor="funnel-settings-notes" className="max-w-3xl">
+      <Field title="Notes" htmlFor="funnel-settings-notes">
         <Input.TextArea
           id="funnel-settings-notes"
           className="min-h-[5.5rem] resize-y text-sm"
@@ -69,7 +67,7 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
         />
       </Field>
 
-      <div className="grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Field
           title="Campaign name"
           description={!isNew ? 'Campaign is fixed after the funnel is created.' : undefined}
@@ -93,24 +91,30 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
         </Field>
       </div>
 
-      <div className="border-t pt-2">
-        <Button
-          htmlType="button"
-          type="text"
-          className="w-full justify-start px-0 font-medium"
-          onClick={() => setAdvancedOpen((o) => !o)}
-          iconName={advancedOpen ? 'chevron-down' : 'chevron-right'}
-          iconSize="md"
-        >
-          Advanced settings
-        </Button>
-
-        {advancedOpen && (
-          <div className="mt-3 rounded-lg border bg-muted/10 p-3">
-            <FunnelAdvancedSettings className="border-0 bg-transparent shadow-none" />
-          </div>
-        )}
-      </div>
+      <Collapse
+        bordered={false}
+        expandIconPosition="end"
+        className={[
+          'rounded-lg border border-border/70 bg-muted/25 shadow-sm',
+          '[&_.ant-collapse-item]:border-0',
+          '[&_.ant-collapse-header]:!items-center [&_.ant-collapse-header]:!rounded-t-lg [&_.ant-collapse-header]:!py-3.5 [&_.ant-collapse-header]:!px-4',
+          '[&_.ant-collapse-content-box]:!px-4 [&_.ant-collapse-content-box]:!pb-4',
+        ].join(' ')}
+        items={[
+          {
+            key: 'advanced',
+            label: (
+              <div className="flex min-w-0 flex-col gap-0.5 pr-2 text-left">
+                <span className="text-sm font-semibold text-foreground">Advanced settings</span>
+                <span className="text-xs font-normal leading-snug text-muted-foreground">
+                  Custom tokens, URL params, traffic cost overrides, and postback overrides
+                </span>
+              </div>
+            ),
+            children: <FunnelAdvancedSettings embedded />,
+          },
+        ]}
+      />
     </div>
   )
 }
