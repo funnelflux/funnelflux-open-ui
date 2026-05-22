@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import { NODE_TYPES, NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { EntityPickerDialog, type EntityPickerDialogProps } from './EntityPickerDialog'
+import { useClampedFixedMenu } from '@/hooks/useClampedFixedMenu'
+import { computeSubmenuPlacement } from '@/lib/clampFixedPositionToViewport'
 
 interface CanvasContextMenuProps {
   screenPosition: { x: number; y: number } | null
@@ -20,7 +22,36 @@ export function CanvasContextMenu({
   onPlacedNodeOpenEditor,
 }: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
+  const advancedTriggerRef = useRef<HTMLDivElement>(null)
+  const advancedMenuRef = useRef<HTMLDivElement>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  useClampedFixedMenu(screenPosition, menuRef, showAdvanced ? 'advanced-open' : 'advanced-closed')
+
+  useLayoutEffect(() => {
+    if (!showAdvanced) return
+    const trigger = advancedTriggerRef.current
+    const submenu = advancedMenuRef.current
+    if (!trigger || !submenu) return
+
+    function applyPlacement() {
+      const triggerEl = advancedTriggerRef.current
+      const submenuEl = advancedMenuRef.current
+      if (!triggerEl || !submenuEl) return
+      const submenuSize = submenuEl.getBoundingClientRect()
+      const placement = computeSubmenuPlacement(triggerEl.getBoundingClientRect(), {
+        width: submenuSize.width,
+        height: submenuSize.height,
+      })
+      submenuEl.classList.toggle('left-full', placement.horizontal === 'end')
+      submenuEl.classList.toggle('right-full', placement.horizontal === 'start')
+      submenuEl.style.top = `${placement.top}px`
+    }
+
+    applyPlacement()
+    window.addEventListener('resize', applyPlacement)
+    return () => window.removeEventListener('resize', applyPlacement)
+  }, [showAdvanced, screenPosition])
+
   const [pickerState, setPickerState] = useState<{
     open: boolean
     entityType: EntityPickerDialogProps['entityType']
@@ -133,7 +164,11 @@ export function CanvasContextMenu({
       <div
         ref={menuRef}
         className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
-        style={{ left: screenPosition.x, top: screenPosition.y }}
+        style={{
+          left: screenPosition.x,
+          top: screenPosition.y,
+          visibility: 'hidden',
+        }}
       >
         <MenuItem
           icon={<Icon name="file-text" size="md" />}
@@ -165,6 +200,7 @@ export function CanvasContextMenu({
 
         {/* Advanced submenu */}
         <div
+          ref={advancedTriggerRef}
           className="relative"
           onMouseEnter={() => setShowAdvanced(true)}
           onMouseLeave={() => setShowAdvanced(false)}
@@ -178,7 +214,10 @@ export function CanvasContextMenu({
           </div>
 
           {showAdvanced && (
-            <div className="absolute left-full top-0 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[160px] text-sm">
+            <div
+              ref={advancedMenuRef}
+              className="absolute left-full bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[160px] text-sm"
+            >
               <MenuItem
                 icon={<Icon name="code" size="md" />}
                 label="Add JS Code"

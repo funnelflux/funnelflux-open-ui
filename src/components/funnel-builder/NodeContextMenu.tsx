@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { NODE_TYPES, NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { generateId } from '@/lib/id-generator'
+import { useClampedFixedMenu } from '@/hooks/useClampedFixedMenu'
 
 interface NodeContextMenuProps {
   nodeId: string | null
@@ -24,6 +25,13 @@ export function NodeContextMenu({
 
   const node = useFunnelEditorStore((s) =>
     nodeId ? s.nodes.find((n) => n.id === nodeId) : undefined,
+  )
+  const nodeType = node?.data.nodeType
+  const isRoot = nodeType === NODE_TYPES.root
+  useClampedFixedMenu(
+    position,
+    menuRef,
+    `${nodeId ?? ''}:${nodeType ?? ''}:${isRoot}:${Boolean(onSendTrafficHere)}`,
   )
 
   useEffect(() => {
@@ -47,9 +55,6 @@ export function NodeContextMenu({
   }, [position, onClose])
 
   if (!position || !nodeId || !node) return null
-
-  const nodeType = node.data.nodeType
-  const isRoot = nodeType === NODE_TYPES.root
 
   function handleDelete() {
     useFunnelEditorStore.getState().removeNode(nodeId!)
@@ -81,13 +86,17 @@ export function NodeContextMenu({
     onClose()
   }
 
-  const editLabel = getEditLabel(nodeType)
+  const editLabel = getEditLabel(node.data.nodeType)
 
   return (
     <div
       ref={menuRef}
       className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
-      style={{ left: position.x, top: position.y }}
+      style={{
+        left: position.x,
+        top: position.y,
+        visibility: 'hidden',
+      }}
     >
       {onSendTrafficHere && (
         <MenuItem icon={<Icon name="send" size="md" />} label="Send Traffic Here" onClick={handleSendTrafficHere} />

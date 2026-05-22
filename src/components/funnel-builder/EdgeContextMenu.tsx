@@ -5,6 +5,7 @@ import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { Checkbox } from '@/components/ui-kit'
 import { NODE_TYPES } from '@/types/funnel'
 import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
+import { useClampedFixedMenu } from '@/hooks/useClampedFixedMenu'
 import {
   clampOnDoneNumber,
   firstFreeOnDoneSlot,
@@ -70,6 +71,9 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
       siblingCount: siblings.length,
     }
   }, [edge, edgeId, allEdges])
+
+  const edgeType = edge?.data?.edgeType
+  useClampedFixedMenu(position, menuRef, `${edgeId ?? ''}:${edgeType ?? ''}`)
 
   if (!position || !edgeId || !edge) return null
 
@@ -139,7 +143,11 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
     <div
       ref={menuRef}
       className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[200px] text-sm"
-      style={{ left: position.x, top: position.y }}
+      style={{
+        left: position.x,
+        top: position.y,
+        visibility: 'hidden',
+      }}
     >
       {isWeighted && weightInfo && (
         <>
