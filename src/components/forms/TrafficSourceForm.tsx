@@ -311,7 +311,11 @@ export function TrafficSourceForm({
             </FormField>
 
             {postbackType !== 'none' && (
-              <FormField label={postbackType === 'javascript' ? 'JavaScript Code' : 'Postback URL'} htmlFor="postbackCode">
+              <FormField
+                label={postbackType === 'javascript' ? 'JavaScript Code' : 'Postback URL'}
+                htmlFor="postbackCode"
+                error={errors.postback?.postbackCode?.message}
+              >
                 <Controller
                   control={control}
                   name="postback.postbackCode"

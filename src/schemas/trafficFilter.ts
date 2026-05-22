@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+import { HTTP_URL_ERROR, isValidHttpUrl } from '@/lib/validateHttpUrl'
 
 export type { TrafficFilter } from '@/types/entities'
 
@@ -44,12 +45,11 @@ export const trafficFilterSchema = z.object({
   }
 
   if (value.redirectToURL) {
-    const parsed = z.url().safeParse(value.redirectToURL)
-    if (!parsed.success) {
+    if (!isValidHttpUrl(value.redirectToURL)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['redirectToURL'],
-        message: 'Redirect URL must be a valid URL (including http:// or https://).',
+        message: HTTP_URL_ERROR,
       })
     }
   }

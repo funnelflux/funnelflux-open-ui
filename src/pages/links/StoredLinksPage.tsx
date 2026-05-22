@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Button, Input, Modal, PageShell, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Button, Input, Modal, PageShell, ConfirmModal, useToastApi, FormField } from '@/components/ui-kit'
 import { DataTable } from '@/components/ui-kit/data-table'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn, entityRowId } from '@/components/ui-kit/data-table'
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/api/hooks'
 import type { StoredLink } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
+import { getHttpUrlError } from '@/lib/validateHttpUrl'
 
 export function StoredLinksPage() {
   const toast = useToastApi()
@@ -27,11 +28,13 @@ export function StoredLinksPage() {
   // Form state
   const [formName, setFormName] = useState('')
   const [formUrl, setFormUrl] = useState('')
+  const [formUrlError, setFormUrlError] = useState<string | undefined>()
 
   function openCreate() {
     setEditingLink(null)
     setFormName('')
     setFormUrl('')
+    setFormUrlError(undefined)
     setSheetOpen(true)
   }
 
@@ -39,15 +42,27 @@ export function StoredLinksPage() {
     setEditingLink(link)
     setFormName(link.name)
     setFormUrl(link.targetURL)
+    setFormUrlError(undefined)
     setSheetOpen(true)
   }, [])
+
+  const handleFormUrlChange = useCallback((value: string) => {
+    setFormUrl(value)
+    setFormUrlError(getHttpUrlError(value))
+  }, [])
+
+  const handleFormUrlBlur = useCallback(() => {
+    setFormUrlError(getHttpUrlError(formUrl))
+  }, [formUrl])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const trimmedName = formName.trim()
     const trimmedUrl = formUrl.trim()
-    if (!trimmedName || !trimmedUrl) {
-      toast.error('Name and URL are required')
+    const urlError = getHttpUrlError(trimmedUrl)
+    setFormUrlError(urlError)
+    if (!trimmedName || urlError) {
+      if (!trimmedName) toast.error('Name is required')
       return
     }
 
@@ -162,15 +177,15 @@ export function StoredLinksPage() {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="link-url" className="text-sm font-medium">URL</label>
+          <FormField label="URL" htmlFor="link-url" error={formUrlError}>
             <Input
               id="link-url"
               value={formUrl}
-              onChange={(e) => setFormUrl(e.target.value)}
+              onChange={(e) => handleFormUrlChange(e.target.value)}
+              onBlur={handleFormUrlBlur}
               placeholder="https://..."
             />
-          </div>
+          </FormField>
 
           <Button
             type="primary"

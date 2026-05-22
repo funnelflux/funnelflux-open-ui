@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+import { httpUrlStringSchema } from '@/lib/validateHttpUrl'
 
 export type { FunnelNodePageParams, Page } from '@/types/entities'
 
@@ -12,7 +13,7 @@ export const landerNodeEditSchema = z.object({
   idPage: z.string().optional(),
   pageType: z.literal('lander'),
   pageName: z.string().min(1, 'Name is required'),
-  url: z.string().min(1, 'URL is required'),
+  url: httpUrlStringSchema,
   redirectType: z.enum(['301', '307', 'umr', 'fluxify']),
   tags: z.array(z.string()),
   notes: z.string().optional(),

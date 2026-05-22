@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+import { HTTP_URL_ERROR, isValidHttpUrl } from '@/lib/validateHttpUrl'
 
 export type { TrafficSource } from '@/types/entities'
 
@@ -15,10 +16,19 @@ export const trafficSourceSchema = z.object({
   trackingFields: z.array(
     z.object({ key: z.string(), value: z.string() }),
   ),
-  postback: z.object({
-    postbackType: z.enum(['none', 'postbackUrl', 'pixelUrl', 'javascript']),
-    postbackCode: z.string(),
-  }),
+  postback: z
+    .object({
+      postbackType: z.enum(['none', 'postbackUrl', 'pixelUrl', 'javascript']),
+      postbackCode: z.string(),
+    })
+    .superRefine((postback, ctx) => {
+      const code = postback.postbackCode.trim()
+      if (!code) return
+      if (postback.postbackType !== 'postbackUrl' && postback.postbackType !== 'pixelUrl') return
+      if (!isValidHttpUrl(code)) {
+        ctx.addIssue({ code: 'custom', message: HTTP_URL_ERROR, path: ['postbackCode'] })
+      }
+    }),
   /** Empty = uncategorized. Sent on save as `idCategory` for the v2 TrafficSource model. */
   idCategory: z.string().optional(),
   isArchived: z.boolean().optional(),

@@ -1,10 +1,7 @@
 import { z } from 'zod/v4'
+import { HTTP_URL_ERROR, httpUrlStringSchema, isValidHttpUrl } from '@/lib/validateHttpUrl'
 
 export type { FluxifyParams, OfferParams, Page } from '@/types/entities'
-
-const linkRewriterParamsSchema = z.object({
-  map: z.array(z.object({ key: z.string(), value: z.string() })),
-})
 
 const contentRewriterParamsSchema = z.object({
   map: z.array(z.object({ key: z.string(), value: z.string() })),
@@ -13,9 +10,25 @@ const contentRewriterParamsSchema = z.object({
 })
 
 const referrerAndUASpooferParamsSchema = z.object({
-  referrers: z.array(z.string()),
+  referrers: z.array(
+    z.string().trim().refine(isValidHttpUrl, { message: HTTP_URL_ERROR }),
+  ),
   userAgents: z.array(z.string()),
 })
+
+const urlKeyValuePairSchema = z
+  .object({
+    key: z.string(),
+    value: z.string(),
+  })
+  .superRefine((pair, ctx) => {
+    if (pair.key.trim() && !isValidHttpUrl(pair.key)) {
+      ctx.addIssue({ code: 'custom', message: HTTP_URL_ERROR, path: ['key'] })
+    }
+    if (pair.value.trim() && !isValidHttpUrl(pair.value)) {
+      ctx.addIssue({ code: 'custom', message: HTTP_URL_ERROR, path: ['value'] })
+    }
+  })
 
 /** Mirrors {@link FluxifyParams} for form validation. */
 const fluxifyParamsSchema = z.object({
@@ -27,7 +40,11 @@ const fluxifyParamsSchema = z.object({
   enableExitPopupBreaker: z.boolean(),
   enableAnalyticsBreaker: z.boolean(),
   enableReferrerAndUASpoofer: z.boolean(),
-  linkRewriterParams: linkRewriterParamsSchema.optional(),
+  linkRewriterParams: z
+    .object({
+      map: z.array(urlKeyValuePairSchema),
+    })
+    .optional(),
   contentRewriterParams: contentRewriterParamsSchema.optional(),
   referrerAndUASpooferParams: referrerAndUASpooferParamsSchema.optional(),
 })
@@ -41,7 +58,7 @@ export const pageSchema = z.object({
   idPage: z.string().min(1, 'ID is required'),
   pageType: z.enum(['lander', 'offer']),
   pageName: z.string().min(1, 'Name is required'),
-  url: z.string().min(1, 'URL is required'),
+  url: httpUrlStringSchema,
   redirectType: z.enum(['301', '307', 'umr', 'fluxify']),
   categoryId: z.string().optional(),
   numberOfActions: z.coerce.number().min(1).max(64).optional(),

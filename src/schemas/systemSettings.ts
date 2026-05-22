@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+import { optionalHttpUrlStringSchema } from '@/lib/validateHttpUrl'
 import type { RedirectMethod } from '@/types/ui'
 
 export type { SystemSettings } from '@/types/ui'
@@ -18,7 +19,7 @@ const redirectMethodMethodSchema = z.enum(REDIRECT_METHOD_LITERALS)
  */
 export const systemSettingsSchema = z.object({
   forceHTTPS: z.boolean(),
-  defaultHomePageURL: z.string(),
+  defaultHomePageURL: optionalHttpUrlStringSchema,
   autoExpandCampaigns: z.boolean(),
   offersDefaultRedirect: z.object({
     type: redirectMethodMethodSchema,

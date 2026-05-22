@@ -1,6 +1,7 @@
-import { lazy, Suspense, useState, type ReactNode } from 'react'
-import { Form } from '@/components/ui-kit'
-import { Input, Modal } from '@/components/ui-kit'
+import { lazy, Suspense, useCallback, useEffect, type ReactNode } from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { FormField, Input, Modal } from '@/components/ui-kit'
 import {
   NODE_TYPES,
   NODE_TYPE_LABELS,
@@ -9,6 +10,10 @@ import {
   type NodeTypeValue,
 } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
+import {
+  externalUrlNodeFormSchema,
+  type ExternalUrlNodeFormData,
+} from '@/schemas/externalUrlNode'
 
 const LanderNodeEditModal = lazy(() =>
   import('./LanderNodeEditModal').then((module) => ({
@@ -60,18 +65,34 @@ function GenericNodePropertiesModal({
 }) {
   const updateNodeData = useFunnelEditorStore((s) => s.updateNodeData)
   const nt = node.data.nodeType
+  const params = node.data.params as ExternalUrlNodeParams
 
-  const [label, setLabel] = useState(() => node.data.label ?? '')
+  const form = useForm<ExternalUrlNodeFormData>({
+    resolver: zodResolver(externalUrlNodeFormSchema),
+    defaultValues: {
+      label: node.data.label ?? '',
+      url: params.url ?? '',
+    },
+  })
 
-  // External URL
-  const [url, setUrl] = useState(() => (node.data.params as ExternalUrlNodeParams).url ?? '')
+  useEffect(() => {
+    if (!open) return
+    form.reset({
+      label: node.data.label ?? '',
+      url: (node.data.params as ExternalUrlNodeParams).url ?? '',
+    })
+  }, [open, node, form])
 
-  const handleOk = () => {
-    const baseData: Record<string, unknown> = { label }
+  const handleOk = useCallback(async () => {
+    const valid = await form.trigger()
+    if (!valid) return false
+
+    const data = form.getValues()
+    const baseData: Record<string, unknown> = { label: data.label }
 
     switch (nt) {
       case NODE_TYPES.externalUrl:
-        baseData.params = { ...((node.data.params as object) ?? {}), url }
+        baseData.params = { ...((node.data.params as object) ?? {}), url: data.url }
         break
       default:
         baseData.params = node.data.params
@@ -80,7 +101,8 @@ function GenericNodePropertiesModal({
 
     updateNodeData(nodeId, baseData)
     onClose()
-  }
+    return undefined
+  }, [form, node, nodeId, nt, onClose, updateNodeData])
 
   const title = `Edit ${NODE_TYPE_LABELS[nt as NodeTypeValue] ?? 'Node'}`
 
@@ -94,18 +116,46 @@ function GenericNodePropertiesModal({
       okText="Apply"
       destroyOnHidden
     >
-      <Form layout="vertical" className="pt-2">
-        <Form.Item label="Label">
-          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Display name" />
-        </Form.Item>
+      <div className="space-y-4 pt-2">
+        <FormField label="Label" htmlFor="external-url-label">
+          <Controller
+            control={form.control}
+            name="label"
+            render={({ field }) => (
+              <Input
+                id="external-url-label"
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+                placeholder="Display name"
+              />
+            )}
+          />
+        </FormField>
 
         {nt === NODE_TYPES.externalUrl && (
-          <Form.Item label="URL" extra="Full redirect URL including https://">
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" />
-          </Form.Item>
+          <FormField
+            label="URL"
+            htmlFor="external-url"
+            error={form.formState.errors.url?.message}
+            help="Full redirect URL including https://"
+          >
+            <Controller
+              control={form.control}
+              name="url"
+              render={({ field }) => (
+                <Input
+                  id="external-url"
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  onBlur={field.onBlur}
+                  placeholder="https://example.com"
+                />
+              )}
+            />
+          </FormField>
         )}
-
-      </Form>
+      </div>
     </Modal>
   )
 }
