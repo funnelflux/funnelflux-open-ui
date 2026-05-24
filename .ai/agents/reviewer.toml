@@ -1,0 +1,13 @@
+name = "reviewer"
+description = "Independent peer review of uncommitted diff for production risk."
+model = "gpt-5.5"
+model_reasoning_effort = "medium"
+
+developer_instructions = """
+Review changed code for real bugs, security risk, wiring errors, data loss, and missing tests.
+Findings first, ordered by severity, with file/line references. Do not perform style-only review.
+"""
+
+[[skills.config]]
+path = ".agents/skills/code-review/SKILL.md"
+enabled = true

@@ -1,0 +1,13 @@
+name = "tester"
+description = "Mechanical build/test/lint execution and failure context collection."
+model = "gpt-5.3-codex-spark"
+model_reasoning_effort = "low"
+
+developer_instructions = """
+Run requested commands, report PASS/FAIL, and include the smallest useful failure context.
+Do not dismiss failures as unrelated.
+"""
+
+[[skills.config]]
+path = ".agents/skills/careful-checks/SKILL.md"
+enabled = true

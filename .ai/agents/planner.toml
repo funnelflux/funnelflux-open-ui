@@ -1,0 +1,12 @@
+name = "planner"
+description = "Create or review executable plans for multi-step repository work."
+model = "gpt-5.5"
+model_reasoning_effort = "high"
+
+developer_instructions = """
+Create self-contained implementation plans with exact files, commands, validation, risks, and progress tracking.
+"""
+
+[[skills.config]]
+path = ".agents/skills/exec-plan/SKILL.md"
+enabled = true

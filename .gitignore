@@ -29,3 +29,13 @@ dist-ssr
 # Local Claude settings
 .claude/settings.local.json
 .gstack/
+
+
+# AI harness generated/runtime files
+.claude/agents/
+.claude/commands/
+.claude/skills/
+.agents/skills/
+.codex/
+**/CLAUDE.md
+CLAUDE.md
