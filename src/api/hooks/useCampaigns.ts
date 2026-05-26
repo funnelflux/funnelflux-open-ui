@@ -35,7 +35,7 @@ export function useCampaigns(status: 'active' | 'archived' | 'all' = 'all') {
   })
 }
 
-export function useCampaignsList() {
+export function useCampaignsList(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.campaigns.list({ simple: 'true' }),
     queryFn: () =>
@@ -45,6 +45,7 @@ export function useCampaignsList() {
           id: String(campaign.id),
         })),
       ),
+    enabled: options?.enabled ?? true,
   })
 }
 

@@ -2,7 +2,7 @@
 
 Architecture doc: `docs/ENTITY_TABLE_ARCHITECTURE.md`
 
-Focused helpers for **list + drilldown stats** flows used by Campaigns, Landers, Offers, Offer Sources, and Traffic Sources.
+Focused helpers for **backend drilldown stats** flows used by Campaigns, Landers, Offers, Offer Sources, and Traffic Sources.
 
 ## What lives here
 
@@ -18,19 +18,19 @@ Focused helpers for **list + drilldown stats** flows used by Campaigns, Landers,
 
 ## What adapters / pages own
 
-- Entity list endpoints, archive tabs, category strips, CRUD modals, navigation.
+- Archive tabs, category strips, CRUD modals, navigation, and non-reporting list views.
 - Campaign-specific hierarchy/report mapping now lives inside `pages/campaigns/CampaignsPage.tsx`.
 - Table UI configuration (`EntityPage`, column chooser, bulk actions).
 
 ## Request / cache / sort / page lifecycle (flat grids)
 
-1. **List query**: load entities (MySQL) — key includes list endpoint + params.
-2. **Stats query**: `useEntityGrid` calls `fetchFlatAssetDrilldownReport` with `groupBy`, date range, timezone, optional metric subset.
-3. **Merge**: `buildMergedRows` attaches cells to each entity row.
+1. **Stats query**: `useEntityGrid` calls `fetchFlatAssetDrilldownReport` with backend-owned missing-asset rows (`includeMissingAssets: true`), `assetStatus`, compact response format, and an explicit metric subset.
+2. **Rows**: `reportRowsToEntityGridRows` adapts returned drilldown rows directly; metric pages do not synthesize zero rows from list endpoints.
+3. **Lists**: lightweight asset list endpoints stay for selectors, filters, edit-only tables, and non-metric flows.
 4. **Local sort**: Category-strip pages use `sortAssetTableRows` on the filtered row set (numeric-aware).
 5. **Paging**: Client pagination over category segments or plain row lists.
 
-React Query stats keys must include everything that shapes the drilldown: `groupBy`, date range, timezone, metrics.
+React Query stats keys must include everything that shapes the drilldown: `groupBy`, grouped dimensions, date range, timezone, metrics, `includeMissingAssets`, and `assetStatus`.
 
 ## Campaign tree (paged server drilldown)
 
@@ -43,11 +43,11 @@ React Query stats keys must include everything that shapes the drilldown: `group
 
 | Mode | When |
 |------|------|
-| **Full flat drilldown** | Landers, offers, traffic sources, offer sources — all entities need stats merged; internal paging may batch requests. |
+| **Full flat drilldown** | Landers, offers, traffic sources, offer sources — backend returns analytics rows plus supported missing assets; internal paging may batch requests. |
 | **Paged funnel drilldown** | Campaigns — too many funnels to load at once; one page of funnel rows per table page. |
 
 ## Adding a new flat asset page
 
-1. Pass list endpoint + `groupBy` + metric visibility into **`useEntityGrid`** (or `useEntityPage` wrapper).
+1. Pass `groupBy`/`groupings` + metric visibility into **`useEntityGrid`** (or `useEntityPage` wrapper).
 2. Keep CRUD and UI in the page controller.
 3. If you add a custom strip/paging layer, reuse `sortAssetTableRows` after filters.

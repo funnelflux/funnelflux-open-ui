@@ -10,12 +10,21 @@ const FUNNEL_GROUPING = 'Element: Funnel'
  * No paging — {@link fetchAllFlatDrilldownRows} may page internally.
  */
 export function buildFlatAssetDrilldownRequest(params: EntityGridDrilldownParams): DrilldownRequest {
-  const { dateFrom, dateTo, timezone, groupBy, metrics } = params
+  const { dateFrom, dateTo, timezone, groupBy, groupings, metrics, includeMissingAssets, assetStatus } = params
+  const requestGroupings = (groupings?.length ? groupings : [groupBy]).map((grouping) => ({
+    groupBy: grouping,
+    whitelistFilters: [],
+    blacklistFilters: [],
+  }))
   return {
     timeRange: toApiDateTimeRange(dateFrom, dateTo),
     timeZone: { name: timezone },
-    groupings: [{ groupBy, whitelistFilters: [], blacklistFilters: [] }],
-    options: { viewType: 'flat' },
+    groupings: requestGroupings,
+    options: {
+      viewType: 'flat',
+      ...(includeMissingAssets ? { includeMissingAssets: true, assetStatus: assetStatus ?? 'active' } : {}),
+    },
+    responseFormat: 'compact-v1',
     ...(metrics?.length ? { metrics } : {}),
   }
 }
@@ -31,6 +40,7 @@ export function buildCampaignTreeDrilldownRequest(params: CampaignTreeDrilldownP
     timeZone: { name: timezone },
     groupings: [{ groupBy: FUNNEL_GROUPING, whitelistFilters: [], blacklistFilters: [] }],
     options: { viewType: 'flat' },
+    responseFormat: 'compact-v1',
     paging: {
       start: pageIndex * length,
       length,

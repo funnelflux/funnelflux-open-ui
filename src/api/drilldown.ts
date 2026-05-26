@@ -1,5 +1,5 @@
 import { api } from '@/api/client'
-import type { DrilldownRequest, Report } from '@/types/stats'
+import type { DrilldownRequest, Report, ReportCell, ReportRow } from '@/types/stats'
 import { parseDrilldownReport } from '@/schemas/apiBoundaries'
 
 const DEFAULT_DRILLDOWN_PAGE_SIZE = 2000
@@ -35,6 +35,44 @@ function withPaging(
   }
 }
 
+function normalizeCompactCell(cell: unknown): ReportCell {
+  if (Array.isArray(cell)) {
+    return {
+      formatted: String(cell[0] ?? ''),
+      raw: cell[1] == null ? '' : (cell[1] as string | number),
+    }
+  }
+  if (cell && typeof cell === 'object') {
+    const objectCell = cell as Partial<ReportCell>
+    return {
+      formatted: String(objectCell.formatted ?? ''),
+      raw: objectCell.raw == null ? '' : objectCell.raw,
+    }
+  }
+  return { formatted: '', raw: '' }
+}
+
+function normalizeCompactRow(row: ReportRow): ReportRow {
+  return {
+    ...row,
+    cells: (row.cells as unknown[]).map(normalizeCompactCell),
+    children: row.children?.map(normalizeCompactRow),
+  }
+}
+
+function normalizeCompactReport(report: Report): Report {
+  return {
+    ...report,
+    rows: (report.rows ?? []).map(normalizeCompactRow),
+    totals: report.totals
+      ? {
+          ...report.totals,
+          cells: (report.totals.cells as unknown[]).map(normalizeCompactCell),
+        }
+      : report.totals,
+  }
+}
+
 export async function fetchFlatDrilldownPage(
   request: DrilldownRequest,
   options?: { pageSize?: number; signal?: AbortSignal },
@@ -48,7 +86,7 @@ export async function fetchFlatDrilldownPage(
     signal,
   )
   parseDrilldownReport(report)
-  return report
+  return request.responseFormat === 'compact-v1' ? normalizeCompactReport(report) : report
 }
 
 export async function fetchAllFlatDrilldownRows(
@@ -64,9 +102,10 @@ export async function fetchAllFlatDrilldownRows(
     signal,
   )
   parseDrilldownReport(firstPage)
+  const normalizedFirstPage = request.responseFormat === 'compact-v1' ? normalizeCompactReport(firstPage) : firstPage
 
-  const rows = [...(firstPage.rows ?? [])]
-  let rowsTotal = effectiveRowsTotal(firstPage)
+  const rows = [...(normalizedFirstPage.rows ?? [])]
+  let rowsTotal = effectiveRowsTotal(normalizedFirstPage)
   let lastPageSize = rows.length
   let nextStart = initialStart + lastPageSize
 
@@ -83,7 +122,8 @@ export async function fetchAllFlatDrilldownRows(
       signal,
     )
     parseDrilldownReport(page)
-    const pageRows = page.rows ?? []
+    const normalizedPage = request.responseFormat === 'compact-v1' ? normalizeCompactReport(page) : page
+    const pageRows = normalizedPage.rows ?? []
     if (pageRows.length === 0) break
 
     rows.push(...pageRows)
@@ -91,14 +131,14 @@ export async function fetchAllFlatDrilldownRows(
     nextStart += pageRows.length
 
     if (rowsTotal === undefined) {
-      rowsTotal = effectiveRowsTotal(page)
+      rowsTotal = effectiveRowsTotal(normalizedPage)
     }
   }
 
   const totalRows = rowsTotal ?? rows.length
 
   return {
-    ...firstPage,
+    ...normalizedFirstPage,
     rows,
     rowsReturned: rows.length,
     rowsTotal: totalRows,

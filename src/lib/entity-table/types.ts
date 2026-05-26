@@ -1,4 +1,5 @@
 import type { DrilldownRequest } from '@/types/stats'
+import type { ArchiveStatus } from '@/components/shared/ArchiveToggle'
 
 /**
  * **Flat asset grid** loads the full entity list plus a flat drilldown report, then merges by id.
@@ -14,8 +15,11 @@ export interface EntityGridDrilldownParams {
   dateTo: Date
   timezone: string
   groupBy: string
+  groupings?: readonly string[]
   /** API metric names; omit for all metrics. */
   metrics?: string[]
+  includeMissingAssets?: boolean
+  assetStatus?: ArchiveStatus
 }
 
 export interface CampaignTreeDrilldownParams extends EntityGridDrilldownParams {

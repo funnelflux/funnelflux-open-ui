@@ -1,86 +1,142 @@
 # FunnelFlux Open UI
 
-Open-source React UI for the [FunnelFlux](https://funnelflux.com) tracking platform. This is the v2 frontend that provides campaign management, visual funnel building, reporting, and analytics dashboards.
+A modern **React 19 + TypeScript** admin UI for the
+[FunnelFlux](https://funnelflux.com) self-hosted tracking platform. It provides
+campaign management, a visual funnel builder, reporting, drilldown analytics, and
+dashboards — and is served by the FunnelFlux self-hosted application under the
+`/v2-ui/` path.
+
+> **License:** [Elastic License 2.0](./LICENSE) (source-available). You may use,
+> modify, self-host, and redistribute this software freely. You may **not** resell
+> it or offer it to third parties as a hosted/managed commercial service. See
+> [License](#license).
+
+## How this repo fits FunnelFlux self-hosted
+
+This is a standalone repository that lives as a **git submodule** at
+`funnelflux-open-ui/` inside the [FunnelFlux self-hosted] application. You clone
+or update it independently, build it, and the output is deployed to the parent's
+`v2-ui/` folder. See [Installing & updating in your FunnelFlux install](#installing--updating-in-your-funnelflux-install).
 
 ## Tech Stack
 
 - **React 19** + **TypeScript 5.9** — UI framework
 - **Vite 8** — build tooling and dev server
-- **pnpm 10.11** — package manager (locked in `package.json`)
 - **Ant Design 6** — component library (wrapped in `src/components/ui-kit/`)
 - **TanStack React Query 5** — server state and data fetching
-- **Zustand 5** — client-side UI state management
-- **Tailwind CSS 4** — utility-first styling
-- **react-hook-form 7** + **Zod 4** — form state and validation
+- **Zustand 5** — client-side UI state
+- **Tailwind CSS 4** + CSS design tokens — styling
+- **react-hook-form 7** + **Zod 4** — forms and validation
 - **@xyflow/react 12** — visual funnel builder canvas
-- **Recharts 3** — charts and data visualization
+- **Recharts 3** — charts
 - **date-fns 4** — date manipulation
 
 ## Prerequisites
 
 - **Node.js 22+**
-- **pnpm 10.11.1** (use Corepack: `corepack enable && corepack prepare pnpm@10.11.1 --activate`)
-- A running FunnelFlux backend on port 8080 (for development)
+- **pnpm** (this project is pinned to a specific pnpm version via
+  `package.json#packageManager`). Install with `corepack enable` or see
+  [pnpm.io/installation](https://pnpm.io/installation). Do **not** use `npm` or `yarn`.
+- A running FunnelFlux self-hosted backend (default `http://localhost:8080`) for development.
 
-## Setup
+## Quick Start (development)
 
 ```bash
-git clone https://github.com/nicosistemas/funnelflux-open-ui.git
+git clone https://github.com/funnelflux/funnelflux-open-ui.git
 cd funnelflux-open-ui
 pnpm install
-cp .env.example .env   # configure API endpoint and other settings
-pnpm run dev
+cp .env.example .env     # configure API endpoint / base path if needed
+pnpm run dev             # Vite dev server on http://localhost:5173
 ```
 
-## Development
+The dev server proxies `/admin/*` (PHP login + V2 API) to your backend so session
+cookies share an origin. Configure the target via `VITE_DEV_API_TARGET` (see
+`.env.example`).
+
+## Common Scripts
 
 ```bash
-pnpm run dev       # start Vite dev server on http://localhost:5173
+pnpm run dev        # dev server (port 5173)
+pnpm run build      # tsc -b && vite build → dist/
+pnpm run preview    # serve the built dist/
+pnpm run lint       # ESLint
+pnpm test           # vitest (single pass)
+pnpm run test:watch # vitest watch mode
 ```
 
-The dev server proxies `/admin/*` requests to `http://localhost:8080`, so you need the FunnelFlux backend running locally. The UI is served under the `/v2-ui/` base path.
+## Project Layout & Conventions
 
-## Build
+The full architecture, directory map, state-management rules, performance rules,
+and coding conventions live in **[`AGENTS.md`](./AGENTS.md)** (the canonical guide,
+also consumed by AI coding assistants). Start there before making changes.
+
+## Installing & updating in your FunnelFlux install
+
+The UI ships as a submodule of FunnelFlux self-hosted. You can either **track the
+latest** code or **pin to a released version** (recommended for production).
+
+### Option A — Pin to a released version (recommended)
+
+Releases are tagged using [semantic versioning](https://semver.org/) (`vMAJOR.MINOR.PATCH`).
+Pinning to a tag gives you a stable, reproducible build:
 
 ```bash
-pnpm run build     # runs tsc -b && vite build, outputs to dist/
+cd funnelflux-open-ui
+git fetch --tags
+git checkout v1.2.0          # replace with the version you want
 ```
 
-The build output in `dist/` is deployed into the parent FunnelFlux application's `v2-ui/` folder.
-
-## Testing
+### Option B — Track the latest
 
 ```bash
-pnpm test
-pnpm run test:watch
+cd funnelflux-open-ui
+git checkout master
+git pull origin master       # latest reviewed code on the default branch
 ```
 
-## Linting
+> Browse available versions on the
+> [Releases page](https://github.com/funnelflux/funnelflux-open-ui/releases) or with
+> `git tag --list`.
+
+### Build & deploy into the parent
+
+From the **FunnelFlux self-hosted root**, run the bundled build script, which
+builds this UI and deploys the output into `v2-ui/`:
 
 ```bash
-pnpm run lint      # ESLint
+./build-v2-ui.sh
 ```
 
-## Key directories
+Or build manually from this directory (output lands in `dist/`, which the parent
+serves under `/v2-ui/`):
 
-| Path | Purpose |
-|------|---------|
-| `src/components/ui-kit/` | Design system (Ant Design wrappers) |
-| `src/components/ui-kit/data-table/` | DataTable + column helpers |
-| `src/components/funnel-builder/` | Visual funnel editor |
-| `src/lib/entity-table/` | Shared list + drilldown stats engine |
-| `src/lib/funnel-graph/` | Funnel validation and hydration helpers |
-| `src/api/hooks/` | React Query hooks (one file per entity) |
-| `src/pages/` | Page components and controllers |
+```bash
+cd funnelflux-open-ui
+pnpm install
+pnpm run build
+```
+
+After deploying, clear OPcache on the backend if your install requires it
+(`curl http://<your-host>/admin/clear-opcache.php`).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, directory structure, and coding patterns. For full project conventions, see [CLAUDE.md](CLAUDE.md).
+Contributions are welcome via **fork & pull request** — see
+[CONTRIBUTING.md](./CONTRIBUTING.md). Please open an
+[issue](https://github.com/funnelflux/funnelflux-open-ui/issues) or a
+[discussion](https://github.com/funnelflux/funnelflux-open-ui/discussions) first
+for anything non-trivial.
 
-## Architecture
+## Security
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design decisions and system architecture.
+Found a vulnerability? Please report it privately — see [SECURITY.md](./SECURITY.md).
+Do not open a public issue for security problems.
 
 ## License
 
-MIT
+Distributed under the **[Elastic License 2.0](./LICENSE)**. In short: free to use,
+modify, self-host, and redistribute — but you may not resell the software or offer
+it to others as a hosted/managed commercial service. This is a *source-available*
+license, not an OSI-approved open-source license.
+
+[FunnelFlux self-hosted]: https://funnelflux.com

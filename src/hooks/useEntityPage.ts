@@ -17,6 +17,7 @@ export interface UseEntityPageOptions {
    */
   archiveListFilter?: 'trafficsource' | 'status'
   groupBy: string
+  groupings?: readonly string[]
   mapListToEntities?: (items: unknown[]) => ListEntity[]
   metricStorageKey?: string
   defaultVisibleColumnIds?: readonly string[]
@@ -32,6 +33,7 @@ export function useEntityPage(options: UseEntityPageOptions) {
     queryKeyPrefix,
     listEndpoint,
     groupBy,
+    groupings,
     mapListToEntities,
     metricStorageKey,
     defaultVisibleColumnIds,
@@ -53,12 +55,15 @@ export function useEntityPage(options: UseEntityPageOptions) {
     queryKeyPrefix,
     listEndpoint,
     groupBy,
+    groupings,
     mapListToEntities,
     listParams: tableState.listParamsForQuery,
     dateFrom: tableState.dateRange.from,
     dateTo: tableState.dateRange.to,
     timezone: tableState.tz,
     metricColumnIds,
+    includeMissingAssets: true,
+    assetStatus: tableState.archiveStatus,
     enabled,
   })
 

@@ -37,7 +37,7 @@ export function AddFunnelModal({
   const [campaignId, setCampaignId] = useState<string | undefined>(initialCampaignId)
   const [funnelName, setFunnelName] = useState('')
   const [createIntent, setCreateIntent] = useState<CreateIntent | null>(null)
-  const { data: campaigns, isLoading: campaignsLoading } = useCampaignsList()
+  const { data: campaigns, isLoading: campaignsLoading } = useCampaignsList({ enabled: open })
 
   const campaignOptions = useMemo(
     () => (campaigns ?? []).map((campaign) => ({ label: campaign.name, value: campaign.id })),

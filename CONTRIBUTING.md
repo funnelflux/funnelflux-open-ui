@@ -1,176 +1,190 @@
 # Contributing to FunnelFlux Open UI
 
-Thank you for your interest in contributing. This guide covers the development setup, project conventions, and patterns you should follow.
+Thanks for your interest in improving the FunnelFlux Open UI! This guide covers
+how to propose changes, set up your environment, and the conventions to follow.
 
-For the full rule set (performance, API guardrails, verification checklist), see [CLAUDE.md](CLAUDE.md). Enforced conventions also live in `.cursor/rules/`.
+> **License note:** this project is **source-available** under the
+> [Elastic License 2.0](./LICENSE) — free to use, modify, self-host, and
+> redistribute, but **not** to resell or offer as a hosted/managed commercial
+> service. By contributing you agree your contributions are licensed under the
+> same terms (see [Contribution licensing](#contribution-licensing)).
+
+## Ways to Contribute
+
+- **Report a bug** or **request a feature** —
+  [open an issue](https://github.com/funnelflux/funnelflux-open-ui/issues/new/choose).
+- **Ask a question / discuss an idea** —
+  [Discussions](https://github.com/funnelflux/funnelflux-open-ui/discussions).
+- **Submit code** — via a pull request from your fork (see below).
+
+## Contribution Workflow (Fork & Pull Request)
+
+You cannot push directly to this repository. Every change lands through a pull
+request that a maintainer reviews and merges.
+
+1. **Fork** the repo to your own account.
+2. **Clone** your fork and branch off the default branch:
+   ```bash
+   git clone https://github.com/<your-username>/funnelflux-open-ui.git
+   cd funnelflux-open-ui
+   git checkout -b feat/short-description    # or fix/..., docs/...
+   ```
+3. **Make your changes**, following the conventions below and the full guide in
+   [`AGENTS.md`](./AGENTS.md).
+4. **Verify locally** — CI runs these exact checks and they must pass:
+   ```bash
+   pnpm install
+   pnpm run lint
+   pnpm run build
+   pnpm test
+   ```
+5. **Commit** using [Conventional Commits](#commit-message-convention) and sign
+   off (`-s`) to certify the DCO:
+   ```bash
+   git commit -s -m "feat(table): add column pinning"
+   ```
+6. **Push** to your fork and **open a pull request** against this repo's default
+   branch; fill out the PR template.
+7. A maintainer reviews. Push more commits to the same branch to address
+   feedback. Once approved and CI is green, a maintainer merges.
 
 ## Development Setup
 
-1. **Prerequisites**: Node.js 22+, **pnpm 10.11.1** (locked via `package.json#packageManager`)
-2. Clone the repository and install dependencies:
+- **Prerequisites:** Node.js 22+, and **pnpm** (pinned via
+  `package.json#packageManager`; `corepack enable` is the easiest way to get the
+  right version). Do **not** use `npm` or `yarn` — the lockfile is `pnpm-lock.yaml`.
 
 ```bash
-git clone https://github.com/nicosistemas/funnelflux-open-ui.git
-cd funnelflux-open-ui
 pnpm install
+cp .env.example .env    # configure API endpoint / base path if needed
+pnpm run dev            # Vite dev server on http://localhost:5173
 ```
 
-3. Copy `.env.example` to `.env` and configure as needed.
-4. Start the dev server:
+The dev server proxies `/admin/*` to a running FunnelFlux self-hosted backend
+(default `http://localhost:8080`, configurable via `VITE_DEV_API_TARGET`). You
+need that backend running for the UI to function.
+
+### AI assistant config (optional)
+
+If you use an AI coding assistant (Cursor, Claude Code, etc.), run the sync
+script once to materialize tool-specific config from the canonical sources in
+`.ai/` and `AGENTS.md`. The generated folders (`.cursor/`, `.claude/`, …) are
+git-ignored:
 
 ```bash
-pnpm run dev
+./scripts/sync-ai-config.sh
 ```
 
-The Vite dev server runs on `http://localhost:5173` and proxies API requests (`/admin/*`) to `http://localhost:8080`. You need the FunnelFlux backend running locally for the UI to function.
+## Commit Message Convention
 
-## Directory Structure
+This project uses **[Conventional Commits](https://www.conventionalcommits.org/)**.
+Releases, version bumps, and the changelog are generated automatically from commit
+messages, so this is required:
+
+```
+<type>(<optional scope>): <description>
+```
+
+Common types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`,
+`chore`. A `feat` produces a minor version bump; a `fix` a patch bump. Add `!`
+(e.g. `feat!:`) or a `BREAKING CHANGE:` footer for a major bump.
+
+```
+feat(funnel-builder): add condition node duplication
+fix(api): parse bigint metrics safely in drilldown
+docs: clarify pull-latest vs pull-tag workflow
+```
+
+## Project Structure
+
+The authoritative directory map and architecture notes live in
+[`AGENTS.md`](./AGENTS.md). High level:
 
 | Directory | Purpose |
 |-----------|---------|
-| `src/api/` | API client (`client.ts`), query keys, and React Query hooks |
-| `src/api/hooks/` | One hook file per entity (e.g., `useCampaigns.ts`, `useFunnels.ts`) |
-| `src/components/ui-kit/` | Design system primitives (Button, Modal, Select, etc.) |
-| `src/components/ui-kit/data-table/` | DataTable + column helpers (import from here, not the ui-kit barrel) |
-| `src/components/shared/` | Composed components used across pages (ColumnChooser, DateRangePicker, etc.) |
-| `src/components/forms/` | Entity-specific form components |
-| `src/components/funnel-builder/` | Visual funnel canvas, nodes, edges, and context menus |
+| `src/api/` | API client (`client.ts`), `queryKeys.ts`, and React Query hooks |
+| `src/api/hooks/` | One hook file per entity (`useCampaigns.ts`, `useFunnels.ts`, …) |
+| `src/components/ui-kit/` | Design-system primitives wrapping Ant Design (Button, Modal, Select, `data-table/`, …) |
+| `src/components/shared/` | Composed components reused across pages |
+| `src/components/forms/` | Entity-specific forms (react-hook-form + Zod) |
+| `src/components/funnel-builder/` | Visual funnel canvas, nodes, edges, context menus |
 | `src/components/layout/` | App shell and navigation |
-| `src/components/dashboard/` | Dashboard-specific components |
-| `src/components/drilldown/` | Drilldown reporting components |
+| `src/components/dashboard/`, `src/components/drilldown/` | Section-specific components |
 | `src/pages/` | Page-level components, one directory per section |
-| `src/pages/<feature>/use*Controller.ts` | Page orchestration hooks (state, mutations, grid handlers) |
 | `src/store/` | Zustand stores (auth, dashboard, drilldown, funnelEditor, tableConfig, theme) |
 | `src/schemas/` | Zod validation schemas, one per entity |
-| `src/types/` | TypeScript type definitions (api, entities, funnel, stats, ui) |
-| `src/hooks/` | Custom React hooks (useAuth, useNotifications) |
-| `src/lib/` | Utilities and shared engines |
-| `src/lib/entity-table/` | Entity list + drilldown stats table engine |
-| `src/lib/funnel-graph/` | Funnel graph validation and hydration coercion |
+| `src/types/` | TypeScript types (api, entities, funnel, stats, ui) |
+| `src/lib/` | Utilities, theming, entity-table engine helpers |
 | `docs/` | Specs, API guides, architecture docs |
-| `docs/api-specs/` | OpenAPI YAML specs (data-api, stats-api, ui-api) |
 
 ## Patterns to Follow
 
-### State Management
+### State management
+- **Server data → TanStack React Query** (hooks in `src/api/hooks/`): caching,
+  refetching, loading/error states.
+- **Client UI state → Zustand** (`src/store/`): auth, theme, drilldown filters,
+  funnel canvas, persisted table config.
+- Don't use React Query for purely local UI state, or Zustand for server data.
 
-- **Server data**: Use **TanStack React Query** for all data fetched from the API. This handles caching, background refetching, and loading/error states.
-- **UI-only state**: Use **Zustand** stores for client-side state that does not come from the server (e.g., auth status, theme preferences, funnel editor canvas state, drilldown filters).
-- Do not use React Query for state that is purely local to the UI, and do not use Zustand for server-fetched data.
+### UI components & styling
+- Import design-system primitives from **`@/components/ui-kit`**; import
+  `DataTable` and column helpers from `@/components/ui-kit/data-table`.
+- These wrap **Ant Design** — do not add shadcn/ui, MUI, or other libraries.
+- Use **Tailwind** utilities for layout and **CSS design tokens**
+  (`src/styles/design-tokens.css`) for colors/spacing — no hardcoded hex outside
+  token files. Compose classes with `clsx` / `tailwind-merge`.
 
-### UI Components
+### Dates
+- Use **date-fns** (+ `@date-fns/tz`) for all date math. `dayjs` is present only
+  transitively for Ant Design's DatePicker — do **not** import it in app code.
 
-- Use components from `@/components/ui-kit` for design system primitives (Button, Modal, Input, etc.).
-- Import `DataTable` and column helpers from `@/components/ui-kit/data-table` (not from the ui-kit barrel).
-- Use components from `@/components/shared/` for composed, reusable pieces (ColumnChooser, DateRangePicker, BulkActionsBar, etc.).
-- Do not import from `antd` outside `src/components/ui-kit/`. Do not introduce shadcn/ui, Material UI, or other component libraries.
+### Imports
+- Always use the **`@/`** alias for imports within `src/` — no `../../../` chains.
 
-### Styling
+### New entity pages / API hooks
+- Follow `src/pages/campaigns/CampaignsPage.tsx` as the canonical entity-page
+  example and the entity-table engine in `src/lib/entity-table/`.
+- Add new React Query keys to `src/api/queryKeys.ts` (no ad-hoc key arrays).
+- Use `api.postDrilldown(...)` for drilldown requests (bigint-safe parsing).
 
-- Use **Tailwind CSS** utility classes for layout and styling.
-- Use design tokens from `src/styles/design-tokens.css` for colors and spacing when available. Do not hardcode hex color values outside of token files.
-- Use `clsx` or `tailwind-merge` for conditional class composition.
+## Performance Rules (mandatory)
 
-### Date Handling
+Tables render thousands of rows; unstable references cascade into UI freezes.
 
-- Use **date-fns** for all date manipulation (formatting, parsing, comparison, arithmetic).
-- `dayjs` exists in the dependency tree only because Ant Design's DatePicker uses it internally. Do not use dayjs directly in application code.
+1. **Memoize `columnDefs`** with `useMemo` and stable deps.
+2. **Use `useRef` for callbacks** referenced inside memoized values (mutations,
+   toast, reload change identity every render).
+3. **Never put derived arrays/objects** (`.filter()`, `.map()`, spreads) in
+   `useEffect` dependencies.
+4. **Guard expensive effects** — diff previous vs current state before calling
+   grid APIs, localStorage, or the network.
 
-### New Entity Pages
-
-Follow the thin-page + controller pattern:
-
-| Pattern | Reference |
-|---------|-----------|
-| Simple entity page | `src/pages/offer-sources/OfferSourcesPage.tsx` + `useOfferSourcesController.ts` |
-| Campaign tree (server-paged) | `src/pages/campaigns/CampaignsPage.tsx` + `useCampaignsController.ts` |
-| Shared offers/landers shell | `src/pages/PageEntitiesPage.tsx` + `usePageEntitiesController.ts` |
-
-Steps for a new entity:
-
-1. Create a directory under `src/pages/` for the entity.
-2. Add a `use*Controller.ts` hook for data fetching, mutations, and table state.
-3. Keep the page component as a thin JSX shell wiring the controller to `EntityPage`.
-4. Add Zod schemas in `src/schemas/` for form validation.
-5. Add API hooks in `src/api/hooks/` and query keys in `src/api/queryKeys.ts`.
-
-### New API Hooks
-
-Each entity gets its own hook file in `src/api/hooks/`. Follow the existing pattern in files like `useCampaigns.ts`:
-
-- Export query hooks (`useQuery`-based) for fetching data.
-- Export mutation hooks (`useMutation`-based) for create, update, delete, and clone operations.
-- Use the shared API client from `@/api/client.ts`.
-- Add query keys to `src/api/queryKeys.ts` (no ad hoc literal key arrays).
-- Re-export from `src/api/hooks/index.ts`.
-
-### Import Aliases
-
-Always use the `@/` import alias for imports within `src/`. This is configured in both `vite.config.ts` and `tsconfig.json`.
-
-```tsx
-// Correct
-import { Button } from '@/components/ui-kit'
-import { DataTable } from '@/components/ui-kit/data-table'
-
-// Wrong
-import { Button } from '../../../components/ui-kit/Button'
-import { Select } from 'antd'
-```
-
-## Component Directory Guide
-
-### `src/components/ui-kit/`
-
-Design system primitives — low-level building blocks like Button, Modal, Input, Select, Tabs, Tooltip. These wrap Ant Design components with project-specific defaults. Changes here affect the entire application.
-
-### `src/components/ui-kit/data-table/`
-
-High-performance table system built on TanStack Table + react-virtual. Import `DataTable`, column helpers, and registry utilities from here.
-
-### `src/components/shared/`
-
-Composed components that combine multiple primitives and are reused across different pages. Examples: ColumnChooser, DateRangePicker, BulkActionsBar, ArchiveToggle.
-
-### `src/components/forms/`
-
-Entity-specific form components. Each form is tightly coupled to a single entity type and its Zod schema. Examples: PageForm, TrafficSourceForm. These use react-hook-form with Zod resolvers.
-
-### `src/components/funnel-builder/`
-
-Everything related to the visual funnel canvas: the canvas itself (FunnelCanvas), custom nodes, custom edges, context menus, condition editors, and the entity picker dialog. Built on @xyflow/react.
-
-## Performance Rules
-
-Tables in this application can render thousands of rows. Unstable references in hooks and effects cause cascading re-renders and can freeze the UI. These rules are mandatory:
-
-1. **Memoize column definitions** — always wrap `columnDefs` arrays in `useMemo` with stable dependencies.
-2. **Use refs for callbacks in memoized values** — action handlers that reference mutations or toast functions change identity every render. Use `useRef` to hold the latest callback and reference the ref in memoized values.
-3. **Never put derived arrays/objects in `useEffect` dependencies** — `.filter()`, `.map()`, and spread operators create new references every render.
-4. **Guard expensive API calls in effects** — if a `useEffect` calls grid APIs or writes to localStorage, diff previous vs. current state and only act on actual changes.
-
-See the "Performance Rules for Hooks & Effects" section in `CLAUDE.md` for detailed examples.
-
-## Running Tests
-
-```bash
-pnpm test            # run test suite
-pnpm run test:watch  # run tests in watch mode
-```
+See the "Performance Rules for Hooks & Effects" section in [`AGENTS.md`](./AGENTS.md)
+for worked examples.
 
 ## Pull Request Checklist
 
-Before submitting a pull request, verify:
-
-- [ ] `pnpm run build` passes with no errors
-- [ ] `pnpm run lint` passes with no warnings or errors
+- [ ] `pnpm run build` passes
+- [ ] `pnpm run lint` passes
 - [ ] `pnpm test` passes
+- [ ] Commits follow Conventional Commits and are signed off (`git commit -s`)
 - [ ] No TODO placeholders remain in completed code
 - [ ] Changes are scoped to what was requested
-- [ ] New components follow existing patterns (check similar pages/components)
-- [ ] Design tokens used for colors/spacing — no hardcoded hex values outside token files
-- [ ] No unstable references in `useEffect` dependencies (no inline `.filter()`, `.map()`, object literals)
-- [ ] `columnDefs` and expensive computations wrapped in `useMemo` with stable dependencies
-- [ ] Action handlers in memoized column definitions use the `useRef` pattern
-- [ ] Import alias `@/` used for all `src/` imports
-- [ ] Used `pnpm` (never `npm` or `yarn`) for any dependency changes
+- [ ] New components follow existing patterns
+- [ ] Design tokens used for colors/spacing — no hardcoded hex outside token files
+- [ ] No unstable references in `useEffect` deps; `columnDefs` memoized; action
+      handlers use the `useRef` pattern
+- [ ] `@/` import alias used for all `src/` imports
+- [ ] Used `pnpm` (never `npm`/`yarn`) for any dependency changes
+
+## Contribution Licensing
+
+By submitting a contribution you certify the
+[Developer Certificate of Origin](https://developercertificate.org/) — that you
+wrote it or have the right to submit it — and you agree it is licensed under the
+[Elastic License 2.0](./LICENSE). Sign off your commits with `git commit -s`.
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). By
+participating you agree to uphold it.

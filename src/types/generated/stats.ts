@@ -59,6 +59,9 @@ export interface MetricNames {
 export interface RequestPaging {
   start?: number;
   length?: number;
+  offset?: number;
+  limit?: number;
+  rowsCount?: number;
 }
 
 export interface FilterColumn {
@@ -82,6 +85,9 @@ export interface RequestSorting {
 export interface RequestOptions {
   viewType?: 'flat' | 'tree' | 'mixed';
   showArchivedAssets?: boolean;
+  includeMissingAssets?: boolean;
+  assetStatus?: 'active' | 'archived' | 'all';
+  showUnknown?: boolean;
   showFilteredTraffic?: boolean;
   onlyConvertedHits?: boolean;
   computeCTRConfidenceRate?: boolean;
@@ -92,6 +98,7 @@ export interface RequestOptions {
   idCampaignFilter?: string | null;
   idFunnelFilter?: string | null;
   idTrafficSourceFilter?: string | null;
+  flattened?: boolean;
 }
 
 export interface DrilldownRequest {
@@ -103,7 +110,9 @@ export interface DrilldownRequest {
   paging?: RequestPaging;
   sorting?: RequestSorting;
   options?: RequestOptions;
+  trackingFieldMappings?: Record<string, unknown>;
   metrics?: string[];
+  responseFormat?: 'standard' | 'compact-v1';
 }
 
 export interface ConfidenceRate {
@@ -118,7 +127,7 @@ export interface ReportColumn {
 
 export interface ReportCell {
   formatted: string;
-  raw: string;
+  raw: unknown;
 }
 
 export interface ReportRow {
@@ -130,6 +139,7 @@ export interface ReportRow {
   epvConfidenceRate?: ConfidenceRate;
   children?: ReportRow[];
   parentRowId?: string;
+  formatter_tree_row_group_by?: string;
 }
 
 export interface Report {
@@ -138,6 +148,7 @@ export interface Report {
   totals: ReportRow;
   rowsReturned: number;
   rowsTotal: number;
+  sqlLog?: string[];
 }
 
 export interface ApiDateTimeRange {
@@ -154,12 +165,31 @@ export interface IntegerValue {
   value?: number;
 }
 
+export interface TrackingFieldMapping {
+  id: string;
+}
+
 export interface CsvExportRequest {
-  drilldownRequest: DrilldownRequest;
+  drilldownRequest: CsvDrilldownRequest;
   filename?: string;
   offset?: number;
   limit?: number;
   addHeader?: boolean;
+}
+
+export interface CsvDrilldownRequest {
+  timeStart: number;
+  timeEnd: number;
+  timeZone?: ApiTimeZone;
+  groupings?: Grouping[];
+  topLevelFilters?: Grouping[];
+  columnFilters?: RequestColumnFilters;
+  paging?: RequestPaging;
+  sorting?: RequestSorting;
+  options?: RequestOptions;
+  trackingFieldMappings?: Record<string, unknown>;
+  metrics?: string[];
+  responseFormat?: 'standard' | 'compact-v1';
 }
 
 export interface CsvExportResponse {

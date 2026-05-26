@@ -13,6 +13,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "sync:stats-openapi": "node scripts/sync-stats-openapi.mjs",
+    "generate:stats-types": "pnpm sync:stats-openapi && pnpm generate-types",
+    "sync:api": "pnpm generate:stats-types",
     "generate-types": "node scripts/generate-types.mjs",
     "check-generated-types": "node scripts/generate-types.mjs && git diff --exit-code -- src/types/generated"
   },

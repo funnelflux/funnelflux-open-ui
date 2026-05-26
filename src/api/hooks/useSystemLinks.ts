@@ -3,7 +3,7 @@ import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { IdName } from '@/types/entities'
 import type { SystemLinkRequest, SystemLinksData } from '@/types/ui'
-import { normalizeDomainsFromApiList } from '@/lib/normalizeDomainsFromApi'
+import { normalizeDomainsFromApiList, normalizeDomainValue } from '@/lib/normalizeDomainsFromApi'
 
 /** List row from `/data/trafficsource/list/` (id, name, defaultCostPerEntrance, costType). */
 export interface TrafficSourceOption extends IdName {
@@ -15,10 +15,11 @@ export function useSystemLinksData() {
   return useQuery({
     queryKey: queryKeys.systemLinks.all,
     queryFn: async () => {
-      const [campaigns, trafficSources, domainsRaw, systemLinks] = await Promise.all([
+      const [campaigns, trafficSources, domainsRaw, trackingDefaultRaw, systemLinks] = await Promise.all([
         api.get<IdName[]>('/data/campaign/list/'),
         api.get<TrafficSourceOption[]>('/data/trafficsource/list/'),
         api.get<unknown>('/system/domain/list/'),
+        api.get<unknown>('/system/domain/default/'),
         api.post<SystemLinksData>('/ui/systemlinks/load/', {
           elements: [
             'actionURL',
@@ -39,7 +40,7 @@ export function useSystemLinksData() {
           ...trafficSource,
           id: String(trafficSource.id),
         })),
-        domains: normalizeDomainsFromApiList(domainsRaw),
+        domains: normalizeDomainsFromApiList(domainsRaw, normalizeDomainValue(trackingDefaultRaw)),
         actionURL: systemLinks.actionURL ?? '',
         postbackURL: systemLinks.postbackURL ?? '',
         conversionIframe: systemLinks.conversionIframe ?? '',

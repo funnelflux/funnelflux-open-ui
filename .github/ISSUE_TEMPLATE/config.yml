@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/funnelflux/funnelflux-open-ui/discussions
+    about: Ask questions, share ideas, or discuss usage here.
+  - name: Security vulnerability
+    url: https://github.com/funnelflux/funnelflux-open-ui/security/advisories/new
+    about: Report security issues privately — do not open a public issue.

@@ -18,6 +18,13 @@
   min-height: 0;
 }
 
+.dashboard-top-table-grid {
+  flex: 0 0 248px;
+  height: 248px;
+  max-height: 248px;
+  min-height: 248px;
+}
+
 /* Scroll container: handles both vertical and horizontal scroll */
 .dt-scroll-container {
   position: relative;

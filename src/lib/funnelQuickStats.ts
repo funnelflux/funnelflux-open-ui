@@ -291,10 +291,14 @@ export function buildQuickStatsLoadBody(
   }
 }
 
-export function getCell(row: ReportRow, index: number): ReportCell {
+export function getCell(row: { cells?: unknown[] }, index: number): ReportCell {
   const raw = row as unknown as Record<string, unknown>
   if (Array.isArray(row.cells)) {
-    return row.cells[index] ?? { raw: '', formatted: '' }
+    const cell = row.cells[index] as Partial<ReportCell> | undefined
+    return {
+      raw: cell?.raw == null ? '' : cell.raw,
+      formatted: String(cell?.formatted ?? ''),
+    }
   }
   const c = raw[String(index)] as ReportCell | undefined
   return c ?? { raw: '', formatted: '' }

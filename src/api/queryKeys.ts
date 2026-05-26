@@ -63,6 +63,8 @@ export const queryKeys = {
   domains: {
     all: ['domains'] as const,
     list: () => [...queryKeys.domains.all, 'list'] as const,
+    trackingDefault: () => [...queryKeys.domains.all, 'trackingDefault'] as const,
+    webRoot: () => [...queryKeys.domains.all, 'webRoot'] as const,
   },
   inbox: {
     all: ['inbox'] as const,

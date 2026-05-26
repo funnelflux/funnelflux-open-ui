@@ -17,7 +17,9 @@ const JSON_REQUEST_HEADERS = {
  * changes alongside V2 API updates.
  */
 function parseStatsJsonPreserveLargeIntRaw(text: string): unknown {
-  const fixed = text.replace(/"raw"\s*:\s*(\d{16,})(\s*)([,}]|])/g, '"raw":"$1"$2$3')
+  const fixed = text
+    .replace(/"raw"\s*:\s*(\d{16,})(\s*)([,}]|])/g, '"raw":"$1"$2$3')
+    .replace(/(\[\s*"(?:(?:\\.)|[^"\\])*"\s*,\s*)(\d{16,})(\s*\])/g, '$1"$2"$3')
   return JSON.parse(fixed)
 }
 

@@ -281,8 +281,9 @@ export function DashboardTopTable({
         ) : null}
       </div>
       <DataTable<DashboardTopTableFlatRow>
-        className="h-[248px] min-h-0 shrink-0 flex-none"
+        className="dashboard-top-table-grid"
         height={DASHBOARD_TOP_TABLE_HEIGHT}
+        maxHeight={DASHBOARD_TOP_TABLE_HEIGHT}
         data={flatData}
         columns={columnDefs}
         loading={!fetchEnabled || loading}

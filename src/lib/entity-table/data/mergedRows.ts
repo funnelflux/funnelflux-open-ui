@@ -1,4 +1,4 @@
-import type { ReportCell, ReportColumn } from '@/types/stats'
+import type { ReportCell, ReportColumn, ReportRow } from '@/types/stats'
 import type { OfferSource, Page, TrafficSource } from '@/types/entities'
 import { getColumnMeta, resolveApiColumnId } from '@/components/ui-kit/data-table'
 
@@ -87,6 +87,41 @@ export function buildMergedRows(
 export function buildTotalsRow(totalsCells: ReportCell[] | null): EntityGridRow | null {
   if (!totalsCells) return null
   return { id: '__totals__', name: 'Totals', cells: totalsCells }
+}
+
+function countLeadingGroupingColumns(columns: ReportColumn[]): number {
+  let count = 0
+  for (const column of columns) {
+    if (column.type !== 'grouping') break
+    count++
+  }
+  return count
+}
+
+export function reportRowsToEntityGridRows(rows: ReportRow[], reportColumns: ReportColumn[]): EntityGridRow[] {
+  const groupingCount = countLeadingGroupingColumns(reportColumns)
+  const entityCellIndex = Math.max(0, groupingCount - 1)
+  const categoryCellIndex =
+    reportColumns[0]?.type === 'grouping' && reportColumns[0]?.name === 'Element: Lander-Offer Category'
+      ? 0
+      : -1
+
+  return rows.map((row, index) => {
+    const entityCell = row.cells[entityCellIndex]
+    const id = String(entityCell?.raw ?? row.rowId ?? index)
+    const entity: EntityGridRow = {
+      id,
+      name: entityCell?.formatted ?? id,
+      cells: row.cells,
+    }
+    if (categoryCellIndex >= 0) {
+      const categoryId = row.cells[categoryCellIndex]?.raw
+      if (categoryId != null && String(categoryId) !== '') {
+        entity.categoryId = String(categoryId)
+      }
+    }
+    return entity
+  })
 }
 
 export function pagesToListEntities(pages: Page[]): ListEntity[] {

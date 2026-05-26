@@ -111,6 +111,7 @@ export function usePageEntitiesController({
     queryKeyPrefix: queryKeys.pages.all,
     listEndpoint: '/data/page/find/byStatus/',
     groupBy,
+    groupings: ['Element: Lander-Offer Category', groupBy],
     listParams: { pageType },
     archiveListFilter: 'status',
     mapListToEntities: (items) => pagesToListEntities(items as Page[]),

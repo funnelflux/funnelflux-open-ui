@@ -73,6 +73,19 @@ describe('ApiClient', () => {
     expect(data).toEqual({})
   })
 
+  it('preserves large compact drilldown raw values as strings', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        '{"rows":[{"rowId":"r1","cells":[["Traffic",17000000000000001],{"formatted":"Metric","raw":17000000000000002}]}]}',
+    }) as unknown as typeof fetch
+    const client = new ApiClient()
+    const data = await client.postDrilldown<{ rows: Array<{ cells: Array<unknown[] | { raw: unknown }> }> }>()
+    expect((data.rows[0].cells[0] as unknown[])[1]).toBe('17000000000000001')
+    expect((data.rows[0].cells[1] as { raw: unknown }).raw).toBe('17000000000000002')
+  })
+
   it('throws NetworkError when fetch throws', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('offline')) as unknown as typeof fetch
     const client = new ApiClient()
