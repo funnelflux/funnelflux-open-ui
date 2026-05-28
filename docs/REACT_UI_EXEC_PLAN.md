@@ -1195,7 +1195,10 @@ Same cascade wizard as System Links, plus:
 | `POST /system/domain/save/` | POST | Create domain |
 | `PUT /system/domain/save/` | PUT | Update domain |
 | `DELETE /system/domain/delete/` | DELETE | Delete domain |
-| `PUT /system/domain/default/` | PUT | Set default domain |
+| `GET /system/domain/default/` | GET | Get default tracking domain |
+| `PUT /system/domain/default/` | PUT | Set default tracking domain |
+| `GET /system/domain/webroot/` | GET | Get login / license domain |
+| `PUT /system/domain/webroot/` | PUT | Set login / license domain and attach license |
 
 #### UI Components (Form)
 
@@ -1210,7 +1213,9 @@ Same cascade wizard as System Links, plus:
 | API Key | Text | V2 API authentication key |
 | ClickBank Secret Key | Text | For ClickBank integration |
 | License Key | Read-only | With "Assign New" button |
-| Default Domain | Dropdown | With Create/Edit/Delete |
+| Domain Inventory | List/Form | Add, edit, and delete known domains only |
+| Default Tracking Domain | Dropdown | Controls generated tracking/link URLs |
+| Login / License Domain | Dropdown | Controls `application.webRoot` and license domain attachment |
 | Force HTTPS | Toggle | Force all URLs to HTTPS |
 | Auto-expand Campaigns | Toggle | Auto-expand campaign rows in list |
 
@@ -1649,8 +1654,10 @@ Read-only security audit table.
 |--------|----------|---------|
 | GET | `/system/settings/version/` | Version number |
 | GET | `/system/domain/list/` | List domains |
-| GET | `/system/domain/default/` | Get default domain |
-| PUT | `/system/domain/default/` | Set default domain |
+| GET | `/system/domain/default/` | Get default tracking domain |
+| PUT | `/system/domain/default/` | Set default tracking domain |
+| GET | `/system/domain/webroot/` | Get login / license domain |
+| PUT | `/system/domain/webroot/` | Set login / license domain and attach license |
 | POST | `/system/domain/save/` | Create domain |
 | PUT | `/system/domain/save/` | Update domain |
 | DELETE | `/system/domain/delete/` | Delete domain |

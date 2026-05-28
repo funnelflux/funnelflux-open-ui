@@ -1,5 +1,6 @@
 // Re-export generated types used by API consumers
 export type {
+  AdminUserPasswordSetRequest,
   UserProfileUpdate,
   UserPasswordChangeRequest,
   SessionInfo,

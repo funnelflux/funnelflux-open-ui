@@ -59,7 +59,7 @@ export interface Postback {
 }
 
 export interface FunnelNodeRotatorParams {
-  rotatorType?: 'random' | 'session';
+  rotatorType?: 'random' | 'Session';
 }
 
 export interface FunnelNodePageParams {
@@ -81,7 +81,7 @@ export interface FunnelNodeConditionParams {
 }
 
 export interface FunnelNodeVisitorTagParams {
-  tags: string[];
+  tags?: string[];
 }
 
 export interface FunnelNode {
@@ -297,6 +297,15 @@ export interface ApiTime {
 export interface IdNamePair {
   id?: string;
   name?: string;
+  isArchived?: boolean;
+  status?: 'active' | 'archived';
+  categoryId?: string;
+  categoryName?: string;
+  pageType?: 'lander' | 'offer';
+  idCampaign?: string;
+  campaignName?: string;
+  defaultCostPerEntrance?: number;
+  costType?: string;
 }
 
 export interface BulkIds {
@@ -335,7 +344,7 @@ export interface FunnelMoveRequest {
 }
 
 export interface TagCreateRequest {
-  tags: string[];
+  tags?: string[];
 }
 
 export interface TagUpdateRequest {

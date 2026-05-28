@@ -1,29 +1,37 @@
 swagger: '2.0'
 info:
   title: FunnelFlux System API
-  description: API endpoints to manage System settings
+  description: Manage installation-level system settings, tracking links, pixels, custom domains, and version information.
   version: "2.0.0"
 schemes:
   - http
   - https
-host: ff-domain.com
+host: YOUR_FUNNELFLUX_DOMAIN
 basePath: /admin/api/v2
 consumes:
   - application/json
 produces:
   - application/json
+securityDefinitions:
+  ApiKeyQuery:
+    type: apiKey
+    name: apiKey
+    in: query
+    description: FunnelFlux API key passed as the `apiKey` query parameter.
+security:
+  - ApiKeyQuery: []
 tags:
-  - name: settings
-    description: API endpoints to manage your settings
-  - name: domains
-    description: API endpoints to manage your additional domain names
-  - name: links
-    description: API endpoints to manage your links and pixels
+  - name: Settings
+    description: Installation settings and version information.
+  - name: Domains
+    description: Custom tracking domains.
+  - name: Links
+    description: Tracking links, pixels, and URL helpers.
 paths:
   /system/settings/version/index.php:
     get:
       tags:
-        - settings
+        - Settings
       description: Get installed version number
       parameters:
         - name: apiKey
@@ -45,7 +53,7 @@ paths:
   /system/links/entrance/index.php:
     get:
       tags:
-        - links
+        - Links
       description: Get a tracking URL
       parameters:
         - name: apiKey
@@ -93,7 +101,7 @@ paths:
             $ref: '#/definitions/Error'
     post:
       tags:
-        - links
+        - Links
       description: Get a tracking URL (POST variant — parameters in body)
       parameters:
         - name: apiKey
@@ -141,7 +149,7 @@ paths:
   /system/links/action/index.php:
     get:
       tags:
-        - links
+        - Links
       description: Get an action click URL
       parameters:
         - name: apiKey
@@ -182,7 +190,7 @@ paths:
             $ref: '#/definitions/Error'
     post:
       tags:
-        - links
+        - Links
       description: Get an action click URL (POST variant — parameters in body)
       parameters:
         - name: apiKey
@@ -226,7 +234,7 @@ paths:
   /system/links/no-redirect-js/index.php:
     get:
       tags:
-        - links
+        - Links
       description: Get the no-redirect JS script
       parameters:
         - name: apiKey
@@ -259,7 +267,7 @@ paths:
             $ref: '#/definitions/Error'
     post:
       tags:
-        - links
+        - Links
       description: Get the no-redirect JS script (POST variant — parameters in body)
       parameters:
         - name: apiKey
@@ -295,7 +303,7 @@ paths:
   /system/links/decode/index.php:
     get:
       tags:
-        - links
+        - Links
       description: Decode a flux_fts parameter to get the funnel ID and traffic source ID
       parameters:
         - name: apiKey
@@ -335,7 +343,7 @@ paths:
             $ref: '#/definitions/Error'
     post:
       tags:
-        - links
+        - Links
       description: Decode a flux_fts parameter to get the funnel ID and traffic source ID (POST variant — parameters in body)
       parameters:
         - name: apiKey
@@ -378,7 +386,7 @@ paths:
   /system/domain/save/index.php:
     post:
       tags:
-        - domains
+        - Domains
       description: Add a new domain name
       parameters:
         - name: apiKey
@@ -402,7 +410,7 @@ paths:
             $ref: '#/definitions/Error'
     put:
       tags:
-        - domains
+        - Domains
       description: Update an existing domain name
       parameters:
         - name: apiKey
@@ -434,7 +442,7 @@ paths:
   /system/domain/delete/index.php:
     delete:
       tags:
-        - domains
+        - Domains
       description: Delete the specified domain
       parameters:
         - name: apiKey
@@ -461,7 +469,7 @@ paths:
   /system/domain/list/index.php:
     get:
       tags:
-        - domains
+        - Domains
       description: Get the list of all recorded domain names
       parameters:
         - name: apiKey
@@ -486,7 +494,7 @@ paths:
   /system/domain/default/index.php:
     get:
       tags:
-        - domains
+        - Domains
       description: Get the default domain name
       parameters:
         - name: apiKey
@@ -507,7 +515,7 @@ paths:
             $ref: '#/definitions/Error'            
     put:
       tags:
-        - domains
+        - Domains
       description: Set an existing domain name as the default one
       parameters:
         - name: apiKey

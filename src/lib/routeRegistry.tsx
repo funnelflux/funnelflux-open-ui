@@ -94,6 +94,10 @@ const UserManagementPage = lazyNamed(
   'UserManagementPage',
 )
 const UserEditPage = lazyNamed(() => import('@/pages/settings/UserEditPage'), 'UserEditPage')
+const AccountSettingsPage = lazyNamed(
+  () => import('@/pages/settings/AccountSettingsPage'),
+  'AccountSettingsPage',
+)
 const AccessLogPage = lazyNamed(() => import('@/pages/settings/AccessLogPage'), 'AccessLogPage')
 const GlobalConditionsPage = lazyNamed(
   () => import('@/pages/settings/GlobalConditionsPage'),
@@ -427,13 +431,25 @@ export const ROUTE_ENTRIES: readonly RouteEntry[] = [
     layout: 'app',
   },
   {
+    path: 'account',
+    Component: AccountSettingsPage,
+    permission: canAccessAuthenticatedOnly,
+    nav: {
+      group: 'user',
+      label: 'Account Settings',
+      order: 0,
+      icon: 'user',
+    },
+    layout: 'app',
+  },
+  {
     path: 'inbox',
     Component: InboxPage,
     permission: canAccessAuthenticatedOnly,
     nav: {
       group: 'user',
       label: 'Inbox',
-      order: 0,
+      order: 1,
       icon: 'inbox',
     },
     defaultRoutePriority: 1,

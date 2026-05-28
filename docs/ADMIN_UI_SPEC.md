@@ -742,7 +742,9 @@ Shows: "X Entrances Will Be Deleted Permanently"
 | Landers' Default Redirect | Dropdown | Default redirect type for new landers |
 | Default Home Page | Text URL | Fallback URL (empty = 404) |
 | Threshold % for Winners | Number | Statistical confidence threshold |
-| Default Domain | Dropdown + Add/Edit/Delete | Primary tracking domain |
+| Domain Inventory | List/Form | Add, edit, and delete known domains only |
+| Default Tracking Domain | Dropdown | Domain used for generated tracking links |
+| Login / License Domain | Dropdown | Domain used for `application.webRoot` and license attachment |
 | ClickBank API Key | Text | For ClickBank integration |
 | API Key | Text | V2 API authentication key |
 

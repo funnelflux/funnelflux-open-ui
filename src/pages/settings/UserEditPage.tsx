@@ -8,7 +8,7 @@ import { PermissionsGrid } from '@/components/settings/PermissionsGrid'
 import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import type { Permissions } from '@/types/api'
+import type { AdminUserPasswordSetRequest, Permissions } from '@/types/api'
 import type { ManagedUser, UserManagementData } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 import { userEditSchema, type UserEditFormData } from '@/schemas/userEdit'
@@ -250,10 +250,11 @@ export function UserEditPage() {
       }
 
       if (data.password && savedUserId) {
-        await api.put('/ui/userprofile/changePassword/', {
+        const passwordPayload: AdminUserPasswordSetRequest = {
           idUser: savedUserId,
           newPassword: data.password,
-        })
+        }
+        await api.put('/ui/userprofile/changePassword/', passwordPayload)
       }
 
       toast.success('User saved')

@@ -1,69 +1,77 @@
 swagger: '2.0'
 info:
   title: FunnelFlux UI API
-  description: API endpoints for the front end. Browser callers can authenticate with an existing PHP admin session; the apiKey query parameter remains available for legacy and automation callers.
+  description: Endpoints used by the FunnelFlux admin interface. Browser callers can authenticate with an existing PHP admin session; API key authentication remains available for legacy and automation callers.
   version: "2.0.0"
 schemes:
   - http
   - https
-host: ff-domain.com
+host: YOUR_FUNNELFLUX_DOMAIN
 basePath: /admin/api/v2
 consumes:
   - application/json
 produces:
   - application/json
+securityDefinitions:
+  ApiKeyQuery:
+    type: apiKey
+    name: apiKey
+    in: query
+    description: FunnelFlux API key passed as the `apiKey` query parameter.
+security:
+  - ApiKeyQuery: []
 tags:
-  - name: dashboard
-    description: API endpoints for the dashboard
-  - name: campaigns
-    description: API endpoints for the campaigns page
-  - name: trafficsources
-    description: API endpoints for the traffic sources page
-  - name: offersources
-    description: API endpoints for the offer sources page
-  - name: offers
-    description: API endpoints for the offers page
-  - name: landers
-    description: API endpoints for the landers page
-  - name: quickstats
-    description: API endpoints for the campaign and funnel quick stats
-  - name: drilldowns
-    description: API endpoints for the drilldown stats
-  - name: systemupdates
-    description: API endpoints for the system updates page
-  - name: accesslog
-    description: API endpoints for the access log page
-  - name: inbox
-    description: API endpoints for the inbox page
-  - name: userprofile
-    description: API endpoints for the user profile page
-  - name: usermanagement
-    description: API endpoints for the user management page
-  - name: storedlinks
-    description: API endpoints for the stored links page
-  - name: systemlinks
-    description: API endpoints for the system links page
-  - name: systemsettings
-    description: API endpoints for the system settings page
-  - name: updateconversions
-    description: API endpoints for the conversions update page    
-  - name: updatecost
-    description: API endpoints for the cost update page    
-  - name: trafficfilters
-    description: API endpoints for the traffic filters page
-  - name: resetstats
-    description: API endpoints for the reset stats page
-  - name: session
-    description: API endpoints for managing the logged in user's session
-  - name: auth
-    description: API endpoints for authentication and session management
-  - name: misc
-    description: API endpoints to manage misc data
+  - name: Dashboard
+    description: Dashboard summary data.
+  - name: Campaigns
+    description: Campaign and funnel group endpoints.
+  - name: Traffic Sources
+    description: Traffic source management.
+  - name: Offer Sources
+    description: Offer source management.
+  - name: Offers
+    description: Offer management.
+  - name: Landers
+    description: Landing page management.
+  - name: Quick Stats
+    description: Quick stats for campaigns and funnels.
+  - name: Drilldowns
+    description: Drilldown reporting data used by the admin interface.
+  - name: System Updates
+    description: System update views and actions.
+  - name: Access Log
+    description: Access log views and supporting data.
+  - name: Inbox
+    description: Admin inbox data.
+  - name: User Profile
+    description: Logged-in user profile data.
+  - name: User Management
+    description: User management views and actions.
+  - name: Stored Links
+    description: Stored tracking links.
+  - name: System Links
+    description: System link helpers.
+  - name: System Settings
+    description: System settings used by the admin interface.
+  - name: Update Conversions
+    description: Conversion upload and update workflows.
+  - name: Update Cost
+    description: Cost upload and update workflows.
+  - name: Traffic Filters
+    description: Traffic filter management.
+  - name: Reset Stats
+    description: Stats reset workflows.
+  - name: Session
+    description: Logged-in user session helpers.
+  - name: Authentication
+    description: Authentication and admin session endpoints.
+  - name: Miscellaneous
+    description: Shared utility endpoints used by the admin interface.
 paths:
   /ui/misc/load/index.php:
     post:
       tags:
-        - misc
+        - Miscellaneous
       description: Get misc data that don't fit anywhere else for now (temporary)
       parameters:
         - name: apiKey
@@ -90,7 +98,7 @@ paths:
   /ui/session/tracking/delete/index.php:
     delete:
       tags:
-        - session
+        - Session
       description: Clear the user's tracking session
       parameters:
         - name: apiKey
@@ -110,7 +118,7 @@ paths:
   /ui/resetstats/load/index.php:
     get:
       tags:
-        - resetstats
+        - Reset Stats
       description: Get the data needed by the reset stats page
       parameters:
         - name: apiKey
@@ -132,7 +140,7 @@ paths:
   /ui/resetstats/calculate/index.php:
     post:
       tags:
-        - resetstats
+        - Reset Stats
       description: Calculate how many hits would be deleted based on the provided options.
       parameters:
         - name: apiKey
@@ -159,7 +167,7 @@ paths:
   /ui/resetstats/delete/index.php:
     delete:
       tags:
-        - resetstats
+        - Reset Stats
       description: Delete hits based on the provided options.
       parameters:
         - name: apiKey
@@ -184,7 +192,7 @@ paths:
   /ui/trafficfilters/load/index.php:
     get:
       tags:
-        - trafficfilters
+        - Traffic Filters
       description: Get the data needed by the traffic filters page
       parameters:
         - name: apiKey
@@ -206,7 +214,7 @@ paths:
   /ui/trafficfilters/save/index.php:
     put:
       tags:
-        - trafficfilters
+        - Traffic Filters
       description: Update an existing traffic filter or create a new one.
       parameters:
         - name: apiKey
@@ -231,7 +239,7 @@ paths:
   /ui/trafficfilters/delete/index.php:
     delete:
       tags:
-        - trafficfilters
+        - Traffic Filters
       description: Delete a traffic filter from database.
       parameters:
         - name: apiKey
@@ -258,7 +266,7 @@ paths:
   /ui/updatecost/load/index.php:
     get:
       tags:
-        - updatecost
+        - Update Cost
       description: Get the data needed by the cost update page
       parameters:
         - name: apiKey
@@ -280,7 +288,7 @@ paths:
   /ui/updatecost/upload/index.php:
     put:
       tags:
-        - updatecost
+        - Update Cost
       description: Upload new traffic cost
       parameters:
         - name: apiKey
@@ -305,7 +313,7 @@ paths:
   /ui/updateconversions/upload/index.php:
     put:
       tags:
-        - updateconversions
+        - Update Conversions
       description: Upload new conversion entries
       parameters:
         - name: apiKey
@@ -330,7 +338,7 @@ paths:
   /ui/systemsettings/load/index.php:
     get:
       tags:
-        - systemsettings
+        - System Settings
       description: Loads the data needed by the system settings page
       parameters:
         - name: apiKey
@@ -352,7 +360,7 @@ paths:
   /ui/systemsettings/save/index.php:
     put:
       tags:
-        - systemsettings
+        - System Settings
       description: Saves the system settings
       parameters:
         - name: apiKey
@@ -377,7 +385,7 @@ paths:
   /ui/systemlinks/load/index.php:
     post:
       tags:
-        - systemlinks
+        - System Links
       description: Loads the data needed by the system links page
       parameters:
         - name: apiKey
@@ -404,7 +412,7 @@ paths:
   /ui/storedlinks/load/index.php:
     post:
       tags:
-        - storedlinks
+        - Stored Links
       description: Loads the data needed by the stored links page
       parameters:
         - name: apiKey
@@ -431,7 +439,7 @@ paths:
   /ui/storedlinks/save/index.php:
     put:
       tags:
-        - storedlinks
+        - Stored Links
       description: Save a stored link. If a stored link with the same id already exists, it gets updated. Otherwise a new one is created.
       parameters:
         - name: apiKey
@@ -456,7 +464,7 @@ paths:
   /ui/storedlinks/reset/index.php:
     put:
       tags:
-        - storedlinks
+        - Stored Links
       description: Reset the number of visits of a stored link.
       parameters:
         - name: apiKey
@@ -483,7 +491,7 @@ paths:
   /ui/storedlinks/delete/index.php:
     delete:
       tags:
-        - storedlinks
+        - Stored Links
       description: Delete a stored link from database.
       parameters:
         - name: apiKey
@@ -510,7 +518,7 @@ paths:
   /ui/usermanagement/load/index.php:
     get:
       tags:
-        - usermanagement
+        - User Management
       description: Loads the data needed by the user management page
       parameters:
         - name: apiKey
@@ -532,7 +540,7 @@ paths:
   /ui/usermanagement/changeUsersStatus/index.php:
     put:
       tags:
-        - inbox
+        - Inbox
       description: Changes the 'enabled' status of the specified users
       parameters:
         - name: apiKey
@@ -564,7 +572,7 @@ paths:
   /ui/usermanagement/delete/index.php:
     delete:
       tags:
-        - inbox
+        - Inbox
       description: Delete the specified users from the database.
       parameters:
         - name: apiKey
@@ -591,7 +599,7 @@ paths:
   /ui/userprofile/load/index.php:
     get:
       tags:
-        - userprofile
+        - User Profile
       description: Loads the data needed by the user profile page. Supports either a valid PHP admin session or an apiKey query parameter.
       parameters:
         - name: apiKey
@@ -620,7 +628,7 @@ paths:
   /ui/userprofile/loggedin/load/index.php:
     get:
       tags:
-        - userprofile
+        - User Profile
       description: Loads the UserProfile of the logged in user. Supports either a valid PHP admin session or an apiKey query parameter.
       parameters:
         - name: apiKey
@@ -644,7 +652,7 @@ paths:
   /ui/userprofile/save/index.php:
     put:
       tags:
-        - userprofile
+        - User Profile
       description: Saves the provided user profile. If a user with the provided id already exists, its settings will be updated. If there is no user with the provided id, then a new one will be created. This endpoint does not update passwords; use /ui/userprofile/changePassword/index.php for password changes. Note that the avatarURL is not saved. You must use the avatar/upload/ endpoint for this. Supports either a valid PHP admin session or an apiKey query parameter.
       parameters:
         - name: apiKey
@@ -667,10 +675,31 @@ paths:
           schema:
             $ref: '#/definitions/Error'
   /ui/userprofile/changePassword/index.php:
+    post:
+      tags:
+        - User Profile
+      description: Authenticated users can only change their own password. The old password is verified, the new password is saved with password_hash(), and the session password hash is refreshed so the user stays logged in. Backend validation errors are returned.
+      parameters:
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/UserPasswordChangeRequest'
+      responses:
+        200:
+          description: Password changed successfully.
+        401:
+          description: No valid session
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
     put:
       tags:
-        - userprofile
-      description: Changes a user's password. Supports either a valid PHP admin session or an apiKey query parameter. Non-admin session users can only change their own password and must provide oldPassword.
+        - User Profile
+      description: Admin or automation password set operation. Supports either an admin PHP session or an apiKey query parameter. Session users must be admins to change another user's password; non-admin session users can only change their own password and must provide oldPassword.
       parameters:
         - name: apiKey
           required: false
@@ -681,7 +710,7 @@ paths:
           required: true
           in: body
           schema:
-            $ref: '#/definitions/UserPasswordChangeRequest'
+            $ref: '#/definitions/AdminUserPasswordSetRequest'
       responses:
         200:
           description: Password changed successfully.
@@ -696,7 +725,7 @@ paths:
   /ui/inbox/load/index.php:
     get:
       tags:
-        - inbox
+        - Inbox
       description: Loads the data needed by the inbox page
       parameters:
         - name: apiKey
@@ -718,7 +747,7 @@ paths:
   /ui/inbox/message/load/index.php:
     get:
       tags:
-        - inbox
+        - Inbox
       description: Loads a specific message from the inbox
       parameters:
         - name: apiKey
@@ -747,7 +776,7 @@ paths:
   /ui/inbox/message/changeReadStatus/index.php:
     put:
       tags:
-        - inbox
+        - Inbox
       description: Changes the read status of the specified messages
       parameters:
         - name: apiKey
@@ -779,7 +808,7 @@ paths:
   /ui/inbox/message/delete/index.php:
     delete:
       tags:
-        - inbox
+        - Inbox
       description: Delete the specified messages from the database.
       parameters:
         - name: apiKey
@@ -806,7 +835,7 @@ paths:
   /ui/inbox/notifications/load/index.php:
     get:
       tags:
-        - inbox
+        - Inbox
       description: Get information about current notifications
       parameters:
         - name: apiKey
@@ -828,7 +857,7 @@ paths:
   /ui/accesslog/load/index.php:
     get:
       tags:
-        - accesslog
+        - Access Log
       description: Loads the data needed by the access log page
       parameters:
         - name: apiKey
@@ -850,7 +879,7 @@ paths:
   /ui/systemupdates/load/index.php:
     get:
       tags:
-        - systemupdates
+        - System Updates
       description: Loads the data needed by the system updates page
       parameters:
         - name: apiKey
@@ -882,7 +911,7 @@ paths:
   /ui/systemupdates/install/index.php:
     post:
       tags:
-        - systemupdates
+        - System Updates
       description: Launch a system update
       parameters:
         - name: apiKey
@@ -909,7 +938,7 @@ paths:
   /ui/drilldowns/load/index.php:
     post:
       tags:
-        - drilldowns
+        - Drilldowns
       description: Loads the data needed by the drilldowns page. 
       parameters:
         - name: apiKey
@@ -934,9 +963,9 @@ paths:
           schema:
             $ref: '#/definitions/Error'
   /ui/drilldowns/view/save/index.php:
-    put:
+    post:
       tags:
-        - drilldowns
+        - Drilldowns
       description: Saves the specified view. If a view with this id already exists, then it is replaced. Otherwise a new one is created.
       parameters:
         - name: apiKey
@@ -948,10 +977,38 @@ paths:
           required: true
           in: body
           schema:
-            $ref: '#/definitions/DrilldownView'
+            $ref: '#/definitions/DrilldownViewSaveRequest'
       responses:
         200:
-          description: View saved successfully. 
+          description: View saved successfully.
+          schema:
+            $ref: '#/definitions/DrilldownViewSaveResponse'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      tags:
+        - Drilldowns
+      description: Saves the specified view. If a view with this id already exists, then it is replaced. Otherwise a new one is created.
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: body
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/DrilldownViewSaveRequest'
+      responses:
+        200:
+          description: View saved successfully.
+          schema:
+            $ref: '#/definitions/DrilldownViewSaveResponse'
         403:
           description: Not authorized
         default:
@@ -961,7 +1018,7 @@ paths:
   /ui/drilldowns/view/delete/index.php:
     delete:
       tags:
-        - drilldowns
+        - Drilldowns
       description: Deletes the specified view.
       parameters:
         - name: apiKey
@@ -986,7 +1043,7 @@ paths:
   /ui/quickstats/load/index.php:
     post:
       tags:
-        - quickstats
+        - Quick Stats
       description: Loads the data needed by the quickstats page. If options are given, it also saves them to be used as the default ones. Right now, only the currentPeriod from the options is being saved.
       parameters:
         - name: apiKey
@@ -1013,7 +1070,7 @@ paths:
   /ui/offers/load/index.php:
     post:
       tags:
-        - offers
+        - Offers
       description: Loads the data needed by the offers page
       parameters:
         - name: apiKey
@@ -1035,7 +1092,7 @@ paths:
   /ui/offers/save/offersOptions/index.php:
     put:
       tags:
-        - offers
+        - Offers
       description: Saves offers' page options
       parameters:
         - name: apiKey
@@ -1060,7 +1117,7 @@ paths:
   /ui/landers/load/index.php:
     post:
       tags:
-        - landers
+        - Landers
       description: Loads the data needed by the landers page
       parameters:
         - name: apiKey
@@ -1082,7 +1139,7 @@ paths:
   /ui/landers/save/landersOptions/index.php:
     put:
       tags:
-        - landers
+        - Landers
       description: Saves landers' page options
       parameters:
         - name: apiKey
@@ -1107,7 +1164,7 @@ paths:
   /ui/offersources/load/index.php:
     post:
       tags:
-        - offersources
+        - Offer Sources
       description: Loads the data needed by the offer sources page
       parameters:
         - name: apiKey
@@ -1129,7 +1186,7 @@ paths:
   /ui/offersources/save/offerSourcesOptions/index.php:
     put:
       tags:
-        - offersources
+        - Offer Sources
       description: Saves offer sources' page options
       parameters:
         - name: apiKey
@@ -1154,7 +1211,7 @@ paths:
   /ui/trafficsources/load/index.php:
     post:
       tags:
-        - trafficsources
+        - Traffic Sources
       description: Loads the data needed by the traffic sources page
       parameters:
         - name: apiKey
@@ -1176,7 +1233,7 @@ paths:
   /ui/trafficsources/save/trafficSourcesOptions/index.php:
     put:
       tags:
-        - trafficsources
+        - Traffic Sources
       description: Saves traffic sources' page options
       parameters:
         - name: apiKey
@@ -1201,7 +1258,7 @@ paths:
   /ui/campaigns/load/index.php:
     post:
       tags:
-        - campaigns
+        - Campaigns
       description: Loads the data needed by the campaigns page
       parameters:
         - name: apiKey
@@ -1223,7 +1280,7 @@ paths:
   /ui/campaigns/hierarchy/index.php:
     get:
       tags:
-        - campaigns
+        - Campaigns
       description: >-
         MySQL campaign→funnel tree (current structure). Pair with a flat
         Element:Funnel drilldown so management UIs reflect funnel moves immediately
@@ -1247,7 +1304,7 @@ paths:
             $ref: '#/definitions/Error'
     post:
       tags:
-        - campaigns
+        - Campaigns
       description: Same as GET (session-friendly).
       parameters:
         - name: apiKey
@@ -1269,7 +1326,7 @@ paths:
   /ui/campaigns/save/campaignsOptions/index.php:
     put:
       tags:
-        - campaigns
+        - Campaigns
       description: Saves campaigns' page options
       parameters:
         - name: apiKey
@@ -1294,7 +1351,7 @@ paths:
   /ui/dashboard/load/index.php:
     post:
       tags:
-        - dashboard
+        - Dashboard
       description: Loads the data needed by the dashboard
       parameters:
         - name: apiKey
@@ -1321,7 +1378,7 @@ paths:
   /ui/auth/session/index.php:
     get:
       tags:
-        - auth
+        - Authentication
       description: Check the current authentication session. Returns session info if the user is authenticated via a PHP session. Does not accept apiKey — session-based auth only.
       responses:
         200:
@@ -1341,7 +1398,7 @@ paths:
   /ui/inbox/notifications/check/index.php:
     get:
       tags:
-        - inbox
+        - Inbox
       description: Check for unread notifications and forced popups
       parameters:
         - name: apiKey
@@ -1363,7 +1420,7 @@ paths:
   /ui/usermanagement/rights/index.php:
     get:
       tags:
-        - usermanagement
+        - User Management
       description: Get access rights for a specific user
       parameters:
         - name: apiKey
@@ -1392,7 +1449,7 @@ paths:
   /ui/usermanagement/copyRights/index.php:
     post:
       tags:
-        - usermanagement
+        - User Management
       description: Copy access rights from one user to another
       parameters:
         - name: apiKey
@@ -1981,11 +2038,11 @@ definitions:
     type: object
     required:
       - stats
-      - campaigns
+      - Campaigns
       - trafficSources
       - offerSources
-      - offers
-      - landers
+      - Offers
+      - Landers
       - systemLinks
       - storedLinks
       - trafficFilters
@@ -2079,14 +2136,27 @@ definitions:
   UserPasswordChangeRequest:
     type: object
     required:
+      - oldPassword
+      - newPassword
+      - newPasswordConfirmation
+    properties:
+      oldPassword:
+        type: string
+      newPassword:
+        type: string
+      newPasswordConfirmation:
+        type: string
+  AdminUserPasswordSetRequest:
+    type: object
+    required:
       - idUser
       - newPassword
     properties:
       idUser:
         type: string
-      oldPassword:
-        type: string
       newPassword:
+        type: string
+      oldPassword:
         type: string
   UserManagementRow:
     type: object
@@ -2283,13 +2353,13 @@ definitions:
     required:
       - id
       - name
-      - groupBys
+      - groupings
     properties:
       id:
         type: string
       name:
         type: string
-      groupBys:
+      groupings:
         type: array
         items: {
            $ref: '#/definitions/DrilldownGroupBy'
@@ -2301,6 +2371,45 @@ definitions:
         }
         default: null
         description: If provided, then these metric columns must replace the currently visible columns. If not provided, the default columns must become visible.
+  DrilldownViewSetting:
+    type: object
+    required:
+      - by
+    properties:
+      by:
+        type: string
+        description: Grouping name.
+      id:
+        type: string
+        description: Optional grouping filter id.
+  DrilldownViewSaveRequest:
+    type: object
+    required:
+      - name
+      - settings
+    properties:
+      idView:
+        type: string
+        description: Existing view id. Omit or null to create a new view.
+      name:
+        type: string
+      settings:
+        type: array
+        items: {
+          $ref: '#/definitions/DrilldownViewSetting'
+        }
+      columns:
+        type: array
+        items: {
+          type: boolean
+        }
+        default: []
+        description: Visibility flags keyed by metric column index.
+  DrilldownViewSaveResponse:
+    type: object
+    properties:
+      idView:
+        type: string
   ReportPaging:
     type: object
     properties:
@@ -2605,7 +2714,7 @@ definitions:
     required:
       - id
       - name
-      - funnels
+      - Funnels
     properties:
       id:
         type: string
@@ -2618,7 +2727,7 @@ definitions:
   CampaignHierarchyResponse:
     type: object
     required:
-      - campaigns
+      - Campaigns
     properties:
       campaigns:
         type: array
@@ -2818,7 +2927,7 @@ definitions:
         description: Confidence rate of being the winner. -1 means not calculated
         type: number
         format: double
-        minimum: 0.0
+        minimum: -1.0
         maximum: 1.0
   ReportColumn:
     type: object
@@ -2849,8 +2958,8 @@ definitions:
         description: "Cell's value formatted like 'Google Adwords', '0.23%' or 'N/A'."
         type: string
       raw:
-        description: "Non formatted cell's value like 0.213245454 for the ctr etc ... null means 'N/A'. If the cell is from a grouping column, then this value represents its id."
-        type: string
+        description: "Non formatted cell's value like 0.213245454 for the ctr etc ... null means 'N/A'. If the cell is from a grouping column, then this value represents its id. Runtime values may be string, number, or null."
+        x-nullable: true
   ReportRow:
     type: object
     required:
@@ -2878,6 +2987,13 @@ definitions:
         items: {
           $ref: '#/definitions/ReportRow'
         }
+      parentRowId:
+        type: string
+        x-nullable: true
+        description: Id of the parent row or null if none.
+      formatter_tree_row_group_by:
+        type: string
+        description: Internal tree formatter grouping marker that can be present on tree rows.
   Report:
     type: object
     required:

@@ -190,11 +190,11 @@ export interface PermissionsSystemUpdates {
 
 export interface Permissions {
   stats: PermissionsStats;
-  campaigns: PermissionsAssetType1;
+  campaigns?: PermissionsAssetType1;
   trafficSources: PermissionsAssetType1;
   offerSources: PermissionsAssetType1;
-  offers: PermissionsAssetType2;
-  landers: PermissionsAssetType2;
+  offers?: PermissionsAssetType2;
+  landers?: PermissionsAssetType2;
   systemLinks: PermissionsBasicView;
   storedLinks: PermissionsStoredLinks;
   trafficFilters: PermissionsTrafficFilters;
@@ -227,9 +227,15 @@ export interface UserProfileUpdate {
 }
 
 export interface UserPasswordChangeRequest {
-  idUser: string;
-  oldPassword?: string;
+  oldPassword: string;
   newPassword: string;
+  newPasswordConfirmation: string;
+}
+
+export interface AdminUserPasswordSetRequest {
+  idUser: string;
+  newPassword: string;
+  oldPassword?: string;
 }
 
 export interface UserManagementRow {
@@ -308,8 +314,24 @@ export interface DrilldownGroupBy {
 export interface DrilldownView {
   id: string;
   name: string;
-  groupBys: DrilldownGroupBy[];
+  groupings: DrilldownGroupBy[];
   metricColumns?: string[];
+}
+
+export interface DrilldownViewSetting {
+  by: string;
+  id?: string;
+}
+
+export interface DrilldownViewSaveRequest {
+  idView?: string;
+  name: string;
+  settings: DrilldownViewSetting[];
+  columns?: boolean[];
+}
+
+export interface DrilldownViewSaveResponse {
+  idView?: string;
 }
 
 export interface ReportPaging {
@@ -415,11 +437,11 @@ export interface CampaignHierarchyItem {
 export interface CampaignHierarchyCampaign {
   id: string;
   name: string;
-  funnels: CampaignHierarchyItem[];
+  funnels?: CampaignHierarchyItem[];
 }
 
 export interface CampaignHierarchyResponse {
-  campaigns: CampaignHierarchyCampaign[];
+  campaigns?: CampaignHierarchyCampaign[];
 }
 
 export interface DashboardElements {

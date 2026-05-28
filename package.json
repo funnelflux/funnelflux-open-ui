@@ -13,11 +13,12 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sync:stats-openapi": "node scripts/sync-stats-openapi.mjs",
-    "generate:stats-types": "pnpm sync:stats-openapi && pnpm generate-types",
+    "sync:openapi": "node scripts/sync-openapi-specs.mjs",
+    "sync:stats-openapi": "pnpm sync:openapi",
+    "generate:stats-types": "pnpm sync:openapi && pnpm generate-types",
     "sync:api": "pnpm generate:stats-types",
     "generate-types": "node scripts/generate-types.mjs",
-    "check-generated-types": "node scripts/generate-types.mjs && git diff --exit-code -- src/types/generated"
+    "check-generated-types": "pnpm sync:openapi && node scripts/generate-types.mjs && git diff --exit-code -- docs/api-specs src/types/generated"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.5",

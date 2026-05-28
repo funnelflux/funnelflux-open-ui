@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/auth'
 import { Dropdown, type MenuProps } from '@/components/ui-kit/Dropdown'
 import { Icon } from '@/components/ui-kit/icons'
@@ -205,9 +206,11 @@ function SettingsDropdown({ settingsLinks }: { settingsLinks: NavLinkItem[] }) {
 function UserDropdown({ userLinks }: { userLinks: NavLinkItem[] }) {
   const user = useAuthStore((s) => s.user)
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const queryClient = useQueryClient()
 
   const handleLogout = () => {
     clearAuth()
+    queryClient.clear()
     const basePath = import.meta.env.VITE_BASE_PATH_PREFIX || ''
     window.location.href = `${basePath}/admin/login.php?logout=1`
   }
