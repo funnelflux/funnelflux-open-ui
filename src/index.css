@@ -1,96 +1,106 @@
+@import "./styles/design-tokens.css";
 @import "tailwindcss";
+
+/* Fonts — swap these imports to change the app's typefaces */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
+/* Map Tailwind color utilities to design-token CSS variables */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-sunken: var(--surface-sunken);
   --color-border: var(--border);
-  --color-input: var(--input);
+  --color-border-strong: var(--border-strong);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-fg);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-fg);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-fg);
+  --color-nav-bg: var(--nav-bg);
+  --color-nav-fg: var(--nav-fg);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-success: var(--ff-success);
+  --color-warning: var(--ff-warning);
+  --color-error: var(--ff-error);
+  --color-info: var(--ff-info);
+  --color-profit: var(--ff-profit);
+  --color-loss: var(--ff-loss);
 
-  --animate-accordion-down: accordion-down 0.2s ease-out;
-  --animate-accordion-up: accordion-up 0.2s ease-out;
+  /* Raw palette available as utilities (e.g., bg-gray-50) */
+  --color-gray-0: var(--ff-gray-0);
+  --color-gray-50: var(--ff-gray-50);
+  --color-gray-100: var(--ff-gray-100);
+  --color-gray-200: var(--ff-gray-200);
+  --color-gray-300: var(--ff-gray-300);
+  --color-gray-400: var(--ff-gray-400);
+  --color-gray-500: var(--ff-gray-500);
+  --color-gray-600: var(--ff-gray-600);
+  --color-gray-700: var(--ff-gray-700);
+  --color-gray-800: var(--ff-gray-800);
+  --color-gray-900: var(--ff-gray-900);
+  --color-gray-950: var(--ff-gray-950);
+
+  --color-blue-50: var(--ff-blue-50);
+  --color-blue-100: var(--ff-blue-100);
+  --color-blue-500: var(--ff-blue-500);
+  --color-blue-600: var(--ff-blue-600);
+  --color-blue-700: var(--ff-blue-700);
 }
 
-@keyframes accordion-down {
-  from { height: 0; }
-  to { height: var(--radix-accordion-content-height); }
-}
-
-@keyframes accordion-up {
-  from { height: var(--radix-accordion-content-height); }
-  to { height: 0; }
-}
-
-:root {
-  --nav-height: 56px;
-  --radius: 0.5rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.455 0.082 261.042);
-  --primary-foreground: oklch(0.985 0.002 247.858);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0.002 247.858);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.455 0.082 261.042);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.714);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+@layer utilities {
+  /* Match ui-kit `size="sm|md|lg"` (Button, Select, Input) without inline styles */
+  .h-control-sm {
+    height: var(--control-height-sm);
+    min-height: var(--control-height-sm);
+    box-sizing: border-box;
+  }
+  .h-control-md {
+    height: var(--control-height-md);
+    min-height: var(--control-height-md);
+    box-sizing: border-box;
+  }
+  .h-control-lg {
+    height: var(--control-height-lg);
+    min-height: var(--control-height-lg);
+    box-sizing: border-box;
+  }
+  .w-control-sm {
+    width: var(--control-height-sm);
+    min-width: var(--control-height-sm);
+    box-sizing: border-box;
+  }
+  .w-control-md {
+    width: var(--control-height-md);
+    min-width: var(--control-height-md);
+    box-sizing: border-box;
+  }
+  .w-control-lg {
+    width: var(--control-height-lg);
+    min-width: var(--control-height-lg);
+    box-sizing: border-box;
+  }
+  .min-h-control-md {
+    min-height: var(--control-height-md);
+  }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: var(--border);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
     margin: 0;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -100,4 +110,215 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Ant Design message (toast): opaque surface + readable text.
+   Portaled to body; explicit tokens avoid transparent contentBg when theme merge fails. */
+.ant-message {
+  color: var(--ff-gray-900);
+}
+
+.ant-message .ant-message-notice-content {
+  background-color: var(--ff-gray-0);
+}
+
+html.dark .ant-message {
+  color: var(--ff-gray-50);
+}
+
+html.dark .ant-message .ant-message-notice-content {
+  background-color: var(--ff-gray-800);
+}
+
+/* Dropdown menus: router links match menu item text (not default blue anchors). */
+.ant-dropdown-menu-item .ant-dropdown-menu-title-content a {
+  color: inherit;
+}
+
+/*
+ * App navbar: Ant Design injects `.ant-app a { color: token.colorLink }`, which beats
+ * single Tailwind utilities and tints some router links blue. Buttons also inherit
+ * `text-white` from the bar. Scope neutral chrome here so links + dropdown triggers match.
+ */
+.ant-app nav.ff-navbar a.ff-navbar-brand {
+  color: var(--nav-fg);
+  text-decoration: none;
+}
+.ant-app nav.ff-navbar a.ff-navbar-brand:hover {
+  color: var(--nav-fg);
+}
+
+.ant-app nav.ff-navbar a.ff-navbar-item {
+  color: var(--ff-gray-300);
+  text-decoration: none;
+}
+.ant-app nav.ff-navbar a.ff-navbar-item:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+.ant-app nav.ff-navbar a.ff-navbar-item.ff-navbar-item--active {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+.ant-app nav.ff-navbar a.ff-navbar-item.ff-navbar-item--active:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+
+.ant-app nav.ff-navbar button.ff-navbar-item {
+  color: var(--ff-gray-300);
+}
+.ant-app nav.ff-navbar button.ff-navbar-item:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+.ant-app nav.ff-navbar button.ff-navbar-item.ff-navbar-item--active {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+.ant-app nav.ff-navbar button.ff-navbar-item.ff-navbar-item--active:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+
+.ant-app nav.ff-navbar button.ff-navbar-util-btn {
+  color: var(--ff-gray-300);
+}
+.ant-app nav.ff-navbar button.ff-navbar-util-btn:hover {
+  color: var(--ff-gray-50);
+  background-color: var(--ff-gray-700);
+}
+
+.ff-funnel-controls.react-flow__controls {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  background-color: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button:hover {
+  background-color: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button:active {
+  transform: translateY(1px);
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+.ff-funnel-controls.react-flow__controls button.react-flow__controls-button svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  max-width: none;
+}
+
+html.dark .ff-funnel-controls.react-flow__controls button.react-flow__controls-button {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+}
+
+/* Dashboard analytics panels: stronger operational separation without soft card shadows. */
+.ant-card.ff-analytics-panel,
+.ff-stat-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--border-strong);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.ant-card.ff-analytics-panel > .ant-card-head {
+  min-height: 42px;
+  border-bottom-color: var(--border-strong);
+  background: var(--surface-sunken);
+}
+
+.ant-card.ff-analytics-panel > .ant-card-body,
+.ant-card.ff-stat-card > .ant-card-body {
+  background: transparent;
+}
+
+.ff-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: color-mix(in srgb, var(--primary) 72%, var(--border-strong));
+}
+
+.ff-stat-card--profit::before {
+  background: color-mix(in srgb, var(--ff-profit) 78%, var(--border-strong));
+}
+
+.ff-stat-card--loss::before {
+  background: color-mix(in srgb, var(--ff-loss) 78%, var(--border-strong));
+}
+
+/* FormModal uses FormModalHeader close; suppress Ant's duplicate control. */
+.ff-form-modal .ant-modal-close {
+  display: none !important;
+}
+
+/* Column chooser drawer: cap width on desktop, full viewport on mobile. */
+.ff-column-chooser-drawer.ant-drawer-content-wrapper {
+  width: min(450px, 100vw) !important;
+  max-width: 100vw;
+}
+
+html.dark .ant-card.ff-analytics-panel,
+html.dark .ff-stat-card {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+html.dark .ant-card.ff-analytics-panel > .ant-card-head {
+  background: color-mix(in srgb, var(--ff-gray-700) 62%, var(--surface));
+}
+
+.ant-btn {
+  box-shadow: none !important;
+}
+
+.ff-archive-toggle.ant-segmented {
+  background: var(--surface-sunken);
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.ff-archive-toggle.ant-segmented .ant-segmented-item {
+  min-height: calc(var(--control-height-md) - 6px);
+  line-height: calc(var(--control-height-md) - 6px);
+}
+
+.ff-archive-toggle.ant-segmented .ant-segmented-thumb {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.ff-archive-toggle.ant-segmented .ant-segmented-item-selected {
+  background: var(--surface);
 }

@@ -1,0 +1,705 @@
+/*
+  DataTable theme — compact operational data grid.
+  Uses semantic CSS vars from design-tokens.css.
+  Dark mode is automatic via .dark on <html>.
+*/
+
+.dt-wrapper {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  font-family: var(--font-grid);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.dashboard-top-table-grid {
+  flex: 0 0 248px;
+  height: 248px;
+  max-height: 248px;
+  min-height: 248px;
+}
+
+/* Scroll container: handles both vertical and horizontal scroll */
+.dt-scroll-container {
+  position: relative;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: auto;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Grows to fill the scrollport when content is short (so totals pin to the bottom); does not shrink below content height when rows overflow */
+.dt-scroll-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  box-sizing: border-box;
+  min-width: 100%;
+}
+
+/* ---- Header ---- */
+.dt-header {
+  display: flex;
+  flex-shrink: 0;
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  width: 100%;
+}
+
+.dark .dt-header {
+  background: color-mix(in srgb, var(--ff-gray-950) 34%, var(--surface));
+}
+
+.dt-header-cell {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: var(--muted-fg);
+  user-select: none;
+  position: relative;
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  flex-grow: 0;
+  border-right: 1px solid var(--border);
+}
+
+.dt-header-cell:last-child {
+  border-right: none;
+}
+
+.dt-header-cell-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dt-header-cell--sortable .dt-header-cell-content {
+  cursor: pointer;
+}
+
+.dt-header-cell--sortable .dt-header-cell-content:hover {
+  color: var(--foreground);
+}
+
+/* Reorder: drag the header label (not the resize edge). Cursor hints on hover only. */
+.dt-header-cell-content--reorderable {
+  cursor: grab;
+}
+
+.dt-header-cell-content--reorderable:active {
+  cursor: grabbing;
+}
+
+.dt-header-cell--dragging {
+  opacity: 0.55;
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface-secondary));
+}
+
+.dt-sort-icon {
+  margin-left: 4px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.dt-sort-icon--active {
+  opacity: 1;
+  color: var(--primary);
+}
+
+.dt-header-cell-actions {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+}
+
+.dt-header-cell-actions .dt-header-cell-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.dt-filter-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.dt-filter-icon:hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.dt-filter-icon--active {
+  color: var(--primary);
+}
+
+.dt-column-filter-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 200px;
+}
+
+.dt-column-filter-popover__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dt-column-filter-popover__operator {
+  width: 88px;
+  flex-shrink: 0;
+}
+
+.dt-column-filter-popover__value {
+  min-width: 0;
+  flex: 1;
+}
+
+.dt-column-filter-popover__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+/* Checkbox column — same width and centering as body for header/body alignment */
+.dt-header-cell[data-col-id="select"],
+.dt-cell[data-col-id="select"] {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  flex-shrink: 0;
+  justify-content: center;
+  padding: 0 2px;
+}
+
+/* Header checkbox: content wrapper defaults to flex-start + flex:1; center like body cells */
+.dt-header-cell[data-col-id="select"] .dt-header-cell-content {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+}
+
+.dt-header-cell:has(.dt-checkbox),
+.dt-cell:has(.dt-checkbox) {
+  justify-content: center;
+  align-items: center;
+  padding: 0 2px;
+}
+
+/* Action button cells — centered, compact */
+.dt-cell:has(.dt-action-btn) {
+  justify-content: center;
+  padding: 0 2px;
+}
+
+/* ---- Column Resizer ---- */
+.dt-resizer {
+  position: absolute;
+  right: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 3;
+}
+
+.dt-resizer::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 20%;
+  bottom: 20%;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background 120ms;
+}
+
+.dt-resizer:hover::after {
+  background: var(--border-strong);
+}
+
+.dt-resizer--active::after {
+  background: var(--primary);
+}
+
+/* ---- Body ---- */
+/* Initial load: keep scroll area height stable (empty data + loading) */
+.dt-wrapper--loading-empty .dt-scroll-inner {
+  min-height: var(--dt-loading-min-body-height, 240px);
+}
+
+.dt-loading-skeleton-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.dt-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dt-skeleton-bar {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+  animation: dt-skeleton-shimmer 1.1s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--muted-fg) 22%, transparent) 0%,
+    color-mix(in srgb, var(--muted-fg) 10%, transparent) 50%,
+    color-mix(in srgb, var(--muted-fg) 22%, transparent) 100%
+  );
+  background-size: 200% 100%;
+}
+
+.dt-skeleton-bar--primary {
+  flex: 1 1 52%;
+  max-width: 360px;
+}
+
+.dt-skeleton-bar--muted {
+  flex: 0 0 96px;
+}
+
+@keyframes dt-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.dt-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+/* ---- Row ---- */
+.dt-row {
+  display: flex;
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+  transition: background 80ms ease;
+}
+
+.dt-row:last-child {
+  border-bottom: none;
+}
+
+.dt-row:hover {
+  background: var(--surface-secondary);
+}
+
+.dt-row--selected {
+  background: var(--primary-subtle) !important;
+}
+
+.dt-row--depth-0 {}
+.dt-row--depth-1,
+.dt-row--depth-2,
+.dt-row--depth-3 {
+  background: transparent;
+}
+
+/* Category strip (group header row): subtle neutral gray, no hover wash */
+.dt-row--category-strip {
+  background: var(--surface-secondary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.dt-row--category-strip:hover {
+  background: color-mix(in srgb, var(--muted-fg) 16%, var(--surface));
+}
+
+@keyframes dt-row-reveal {
+  0%,
+  100% {
+    background: transparent;
+  }
+  20%,
+  60% {
+    background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  }
+}
+
+.dt-row--revealed {
+  animation: dt-row-reveal 2.4s ease-out;
+}
+
+/* ---- Cell ---- */
+.dt-cell {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+  flex-shrink: 0;
+  flex-grow: 0;
+}
+
+/* Text content inside cells — handles ellipsis */
+.dt-cell-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Name column wrapper (with actions overlay) */
+.dt-cell-name-wrap {
+  position: relative;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.dt-cell-name-wrap > .dt-cell-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- Alignment ---- */
+.dt-align-center {
+  justify-content: center;
+  text-align: center;
+}
+
+.dt-align-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.dt-align-right .dt-header-cell-content {
+  justify-content: flex-end;
+}
+
+.dt-align-center .dt-header-cell-content {
+  justify-content: center;
+}
+
+/* Profit/loss coloring */
+.dt-cell--profit {
+  color: var(--ff-profit);
+}
+
+.dt-cell--loss {
+  color: var(--ff-loss);
+}
+
+/* ---- Action button cells ---- */
+.dt-action-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  padding: 0 !important;
+  color: var(--muted-fg);
+}
+
+.dt-action-btn:hover {
+  color: var(--foreground) !important;
+}
+
+.dt-action-btn--destructive:hover {
+  color: var(--ff-loss) !important;
+}
+
+/* ---- Actions overlay (legacy, kept for compatibility) ---- */
+.dt-row .dt-actions {
+  opacity: 0;
+  transition: opacity 150ms;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  background: var(--surface);
+}
+
+.dt-row:hover .dt-actions {
+  opacity: 1;
+}
+
+/* Align header label with tree rows (indent + expand + gap) */
+.dt-tree-header-spacer {
+  display: inline-block;
+  width: 52px;
+  flex-shrink: 0;
+}
+
+/* Space between expand chevron and name */
+.dt-expand-gap {
+  display: inline-block;
+  width: 8px;
+  flex-shrink: 0;
+}
+
+/* Same box as .dt-expand-toggle so leaf rows align with expandable siblings */
+.dt-expand-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ---- Expand toggle ---- */
+.dt-expand-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted-fg);
+  border-radius: 4px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.dt-expand-toggle:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.dt-expand-toggle svg {
+  transition: transform 150ms ease;
+}
+
+.dt-expand-toggle--expanded svg {
+  transform: rotate(90deg);
+}
+
+/* Depth indentation */
+.dt-indent {
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ---- Pinned bottom (totals row) ---- */
+.dt-pinned-bottom {
+  flex-shrink: 0;
+  border-top: 2px solid var(--border-strong);
+  background: var(--surface-secondary);
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.dark .dt-pinned-bottom {
+  background: color-mix(in srgb, var(--ff-gray-950) 28%, var(--surface));
+}
+
+.dt-pinned-bottom .dt-cell {
+  font-weight: 600;
+}
+
+/* ---- Footer / Pagination ---- */
+.dt-footer {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted-fg);
+  background: transparent;
+}
+
+.dt-footer-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-inline-end: 8px;
+}
+
+.dt-footer-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dt-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+.dt-page-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--muted-fg) 10%, transparent);
+}
+
+.dt-page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dt-page-btn--active {
+  background: var(--primary);
+  color: var(--primary-fg);
+  border-color: var(--primary);
+}
+
+.dt-page-btn--active:hover {
+  background: var(--primary-hover);
+}
+
+.dt-page-size-select {
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+/* ---- Loading overlay ---- */
+.dt-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.dt-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: dt-spin 0.6s linear infinite;
+}
+
+@keyframes dt-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Empty state ---- */
+.dt-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  color: var(--muted-fg);
+  font-size: 14px;
+}
+
+/* ---- Checkbox ---- */
+.dt-checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dt-checkbox:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.dt-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--primary-fg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.dt-checkbox:indeterminate {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.dt-checkbox:indeterminate::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 3px;
+  width: 8px;
+  height: 0;
+  border-bottom: 2px solid var(--primary-fg);
+}

@@ -1,0 +1,27 @@
+---
+description: Semantic naming for variables and parameters in funnelflux-open-ui
+globs: src/**/*,funnelflux-open-ui/**/*
+alwaysApply: true
+---
+
+# Naming: prefer semantic names
+
+In this React UI package, use **clear, domain-meaningful** names for variables, parameters, and function arguments. Avoid cryptic abbreviations that force readers to decode intent.
+
+## Do
+
+- Name after the thing it holds: `offerSource`, `trafficSource`, `campaign`, `queryClient`, `dateRange`, `selectedRows`.
+- Match entity / schema types when relevant: `offerSource` for `OfferSource` / `OfferSourceFormData`, etc.
+
+## Don’t
+
+- Single-letter or ultra-short stand-ins when a word fits: e.g. `os` for offer source, `ts` for traffic source, `qc` for query client, `e` for non-event payloads, `d` for domain data.
+- Vague catch-alls when a narrower name is obvious: prefer `offerSource` over `data` in a save mutation when the value is always that shape.
+
+## Fine exceptions
+
+- Loop indices: `i`, `j`, `k`.
+- Identifiers when the name is standard: `id`, `key` in maps, `err` in small catch blocks (project already uses `getErrorMessage(err)`).
+- Widespread acronyms: `api`, `url`, `ref`, `ctx` only where the codebase already uses them consistently and meaning is immediate.
+
+When touching existing code, **rename unclear locals/parameters** in the same edit if it stays scoped and reviewable.

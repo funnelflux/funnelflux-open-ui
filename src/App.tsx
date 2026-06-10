@@ -1,87 +1,118 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { ConfigProvider } from "antd"
-import { antdTheme } from "@/lib/antd-theme"
-import { useAuth } from "@/hooks/useAuth"
-import { useNotifications } from "@/hooks/useNotifications"
-import { useAuthStore } from "@/store/auth"
-import { AppLayout } from "@/components/layout/AppLayout"
-import { LoginPage } from "@/pages/LoginPage"
-import { DashboardPage } from "@/pages/DashboardPage"
-import { CampaignsPage } from "@/pages/campaigns/CampaignsPage"
-import { TrafficSourcesPage } from "@/pages/traffic-sources/TrafficSourcesPage"
-import { OfferSourcesPage } from "@/pages/offer-sources/OfferSourcesPage"
-import { LandersPage } from "@/pages/landers/LandersPage"
-import { OffersPage } from "@/pages/offers/OffersPage"
-import { TagsPage } from "@/pages/settings/TagsPage"
-import { TrafficFiltersPage } from "@/pages/settings/TrafficFiltersPage"
-import { SystemSettingsPage } from "@/pages/settings/SystemSettingsPage"
-import { UserManagementPage } from "@/pages/settings/UserManagementPage"
-import { UserEditPage } from "@/pages/settings/UserEditPage"
-import { AccessLogPage } from "@/pages/settings/AccessLogPage"
-import { InboxPage } from "@/pages/inbox/InboxPage"
-import { DrilldownTreePage } from "@/pages/reports/DrilldownTreePage"
-import { DrilldownFlatPage } from "@/pages/reports/DrilldownFlatPage"
-import { QuickViewPage } from "@/pages/quickview/QuickViewPage"
-import { SystemLinksPage } from "@/pages/links/SystemLinksPage"
-import { StoredLinksPage } from "@/pages/links/StoredLinksPage"
-import { ConversionsPage } from "@/pages/data-updates/ConversionsPage"
-import { CostUpdatePage } from "@/pages/data-updates/CostUpdatePage"
-import { ResetStatsPage } from "@/pages/data-updates/ResetStatsPage"
-import { FunnelEditorPage } from "@/pages/funnels/FunnelEditorPage"
-import { GlobalConditionsPage } from "@/pages/settings/GlobalConditionsPage"
-import { ToastProvider, useToast } from "@/components/shared/Toaster"
-import type { Permissions } from "@/types/api"
+import { Suspense, useState, type ReactNode } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query'
+import { AuthExpiredError } from '@/api/errors'
+import { ConfigProvider } from '@/components/ui-kit/ConfigProvider'
+import { AntdApp } from '@/components/ui-kit/AntdApp'
+import { Spin } from '@/components/ui-kit/Spin'
+import { lightTheme, darkTheme } from '@/lib/antd-theme'
+import { useThemeStore } from '@/store/theme'
+import { useAuth } from '@/hooks/useAuth'
+import { useNotifications } from '@/hooks/useNotifications'
+import { useAuthStore } from '@/store/auth'
+import { AppLayout } from '@/components/layout/AppLayout'
+import { LoginPage } from '@/pages/LoginPage'
+import { useToastApi } from '@/components/ui-kit/toast'
+import type { UserProfile } from '@/types/api'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { canViewDashboard } from '@/lib/routeAccess'
+import { ROUTE_ENTRIES, getDefaultAuthorizedPath } from '@/lib/routeRegistry'
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: 1,
+const dashboardPageComponent = ROUTE_ENTRIES.find((e) => e.index)?.Component
+
+/** How long unused query data stays in memory for instant back-navigation. */
+const TABLE_CACHE_GC_TIME_MS = 1000 * 60 * 60
+
+function createQueryClient() {
+  const queryClient = new QueryClient({
+    queryCache: new QueryCache({
+      onError: (error) => {
+        if (error instanceof AuthExpiredError) {
+          useAuthStore.getState().clearAuth()
+          queryClient.clear()
+        }
+      },
+    }),
+    mutationCache: new MutationCache({
+      onError: (error) => {
+        if (error instanceof AuthExpiredError) {
+          useAuthStore.getState().clearAuth()
+          queryClient.clear()
+        }
+      },
+    }),
+    defaultOptions: {
+      queries: {
+        /** No automatic refetch on timer, tab focus, or reconnect — explicit invalidate / Refresh only. */
+        staleTime: Number.POSITIVE_INFINITY,
+        /** Keep unused table/list data resident so returning to a page restores instantly. */
+        gcTime: TABLE_CACHE_GC_TIME_MS,
+        retry: 1,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+      },
     },
-  },
-})
+  })
+  return queryClient
+}
 
 function PermissionGuard({
   check,
   children,
 }: {
-  check: (p: Permissions) => boolean
-  children: React.ReactNode
+  check: (user: UserProfile) => boolean
+  children: ReactNode
 }) {
-  const permissions = useAuthStore((s) => s.user?.permissions)
-  if (!permissions || !check(permissions)) {
-    return <Navigate to="/" replace />
+  const user = useAuthStore((s) => s.user)
+  if (!user || !check(user)) {
+    return <Navigate to={getDefaultAuthorizedPath(user)} replace />
   }
   return <>{children}</>
 }
 
-function guarded(check: (p: Permissions) => boolean, element: React.ReactNode) {
-  return <PermissionGuard check={check}>{element}</PermissionGuard>
+function IndexRoute() {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return null
+  if (canViewDashboard(user.permissions)) {
+    if (!dashboardPageComponent) return null
+    const Dashboard = dashboardPageComponent
+    return (
+      <Suspense fallback={<div className="p-4 text-muted-foreground">Loading...</div>}>
+        <Dashboard />
+      </Suspense>
+    )
+  }
+  return <Navigate to={getDefaultAuthorizedPath(user)} replace />
+}
+
+function FallbackRoute() {
+  const user = useAuthStore((s) => s.user)
+  return <Navigate to={getDefaultAuthorizedPath(user)} replace />
 }
 
 function NotificationPoller() {
-  const toast = useToast()
+  const toast = useToastApi()
   useNotifications((msg) => toast.info(msg))
   return null
 }
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function SessionBootstrappingScreen() {
+  return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3 p-6">
+      <Spin size="large" />
+      <div className="text-muted-foreground text-sm">Checking session…</div>
+    </div>
+  )
+}
+
+function AuthGate({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading, error } = useAuth()
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Connecting...</div>
-      </div>
-    )
+    return <SessionBootstrappingScreen />
   }
 
-  if (!isAuthenticated || error === "AUTH_REQUIRED") {
-    return <LoginPage />
-  }
-
-  if (error) {
+  if (error && error !== 'AUTH_REQUIRED') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="bg-background rounded-lg shadow-md p-8 max-w-md text-center border">
@@ -90,6 +121,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     )
+  }
+
+  if (!isAuthenticated || error === 'AUTH_REQUIRED') {
+    return <LoginPage />
   }
 
   return (
@@ -101,127 +136,89 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  const appRoutes = ROUTE_ENTRIES.filter((e) => e.layout === 'app')
+
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        {/* Dashboard */}
-        <Route index element={<DashboardPage />} />
+        <Route index element={<IndexRoute />} />
 
-        {/* Campaigns */}
-        <Route
-          path="campaigns"
-          element={guarded((p) => p.campaigns.canView, <CampaignsPage />)}
-        />
+        {appRoutes
+          .filter((e) => !e.index)
+          .map((entry) => {
+            const Page = entry.Component
+            return (
+              <Route
+                key={entry.path}
+                path={entry.path}
+                element={
+                  <PermissionGuard check={entry.permission}>
+                    <Suspense
+                      fallback={<div className="p-4 text-muted-foreground">Loading...</div>}
+                    >
+                      <Page />
+                    </Suspense>
+                  </PermissionGuard>
+                }
+              />
+            )
+          })}
 
-        {/* Funnel Editor */}
-        <Route
-          path="campaigns/:campaignId/funnels/:funnelId"
-          element={guarded((p) => p.campaigns.canEdit, <FunnelEditorPage />)}
-        />
-
-        {/* Reports */}
-        <Route
-          path="reports/tree"
-          element={guarded((p) => p.stats.canView, <DrilldownTreePage />)}
-        />
-        <Route
-          path="reports/flat"
-          element={guarded((p) => p.stats.canView, <DrilldownFlatPage />)}
-        />
-        <Route
-          path="quickview"
-          element={guarded((p) => p.stats.canView, <QuickViewPage />)}
-        />
-
-        {/* Entity pages */}
-        <Route
-          path="traffic-sources"
-          element={guarded((p) => p.trafficSources.canView, <TrafficSourcesPage />)}
-        />
-        <Route
-          path="offer-sources"
-          element={guarded((p) => p.offerSources.canView, <OfferSourcesPage />)}
-        />
-        <Route
-          path="offers"
-          element={guarded((p) => p.offers.canView, <OffersPage />)}
-        />
-        <Route
-          path="landers"
-          element={guarded((p) => p.landers.canView, <LandersPage />)}
-        />
-
-        {/* Links */}
-        <Route
-          path="links/generate"
-          element={guarded((p) => p.systemLinks.canView, <SystemLinksPage />)}
-        />
-        <Route
-          path="links/stored"
-          element={guarded((p) => p.storedLinks.canView, <StoredLinksPage />)}
-        />
-
-        {/* Settings */}
-        <Route path="settings/system" element={<SystemSettingsPage />} />
-        <Route
-          path="settings/traffic-filters"
-          element={guarded(
-            (p) => p.trafficFilters.canView,
-            <TrafficFiltersPage />,
-          )}
-        />
-        <Route path="settings/tags" element={<TagsPage />} />
-        <Route path="settings/conditions" element={<GlobalConditionsPage />} />
-        <Route path="settings/access-log" element={<AccessLogPage />} />
-        <Route path="settings/users" element={<UserManagementPage />} />
-        <Route path="settings/users/new" element={<UserEditPage />} />
-        <Route path="settings/users/:userId/edit" element={<UserEditPage />} />
-
-        {/* Data Updates */}
-        <Route
-          path="data-updates/conversions"
-          element={guarded(
-            (p) => p.dataUpdates.canUpdateConversions,
-            <ConversionsPage />,
-          )}
-        />
-        <Route
-          path="data-updates/costs"
-          element={guarded(
-            (p) => p.dataUpdates.canUpdateTrafficCost,
-            <CostUpdatePage />,
-          )}
-        />
-        <Route
-          path="data-updates/reset"
-          element={guarded(
-            (p) => p.dataUpdates.canResetStats,
-            <ResetStatsPage />,
-          )}
-        />
-
-        {/* Inbox */}
-        <Route path="inbox" element={<InboxPage />} />
-
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<FallbackRoute />} />
       </Route>
     </Routes>
   )
 }
 
 export default function App() {
+  const [queryClient] = useState(createQueryClient)
+  const themeMode = useThemeStore((s) => s.mode)
+  const antdTheme = themeMode === 'dark' ? darkTheme : lightTheme
+
+  const publicEntries = ROUTE_ENTRIES.filter((e) => e.layout === 'public')
+
   return (
     <ConfigProvider theme={antdTheme}>
-      <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <BrowserRouter basename="/v2-ui">
-            <AuthGate>
-              <AppRoutes />
-            </AuthGate>
+      <AntdApp message={{ maxCount: 3 }}>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter basename={import.meta.env.VITE_UI_BASENAME || '/v2-ui'}>
+            <Routes>
+              {publicEntries.map((entry) => {
+                const Page = entry.Component
+                return (
+                  <Route
+                    key={entry.path}
+                    path={entry.path}
+                    element={
+                      <Suspense fallback={<div className="p-8">Loading...</div>}>
+                        <Page />
+                      </Suspense>
+                    }
+                  />
+                )
+              })}
+              <Route
+                path="*"
+                element={
+                  <AuthGate>
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={(
+                          <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
+                            Loading...
+                          </div>
+                        )}
+                      >
+                        <AppRoutes />
+                      </Suspense>
+                    </ErrorBoundary>
+                  </AuthGate>
+                }
+              />
+            </Routes>
           </BrowserRouter>
-        </ToastProvider>
-      </QueryClientProvider>
+        </QueryClientProvider>
+      </AntdApp>
     </ConfigProvider>
   )
 }

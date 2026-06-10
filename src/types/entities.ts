@@ -1,134 +1,71 @@
-// Key-value pair used across multiple entities
-export interface KeyValuePair {
-  key: string
-  value: string
-}
+// Re-export generated types from the OpenAPI spec
+import type { Page as GeneratedPage, TrafficSource as GeneratedTrafficSource } from './generated/data';
 
-// Campaign
-export interface Campaign {
-  idCampaign: string
-  campaignName: string
-  acculumatedUrlParams: KeyValuePair[]
-  customTokens: KeyValuePair[]
-  isArchived: boolean
-}
+export type {
+  Campaign,
+  Funnel,
+  FunnelNode,
+  FunnelConnection,
+  FunnelNodePageParams,
+  FunnelNodeRotatorParams,
+  FunnelNodeExternalUrlParams,
+  FunnelNodeCodeSnippetParams,
+  FunnelNodeConditionParams,
+  FunnelNodeVisitorTagParams,
+  FunnelConnectionRotatorParams,
+  FunnelConnectionPageParams,
+  FunnelConnectionCodeParams,
+  FunnelConnectionConditionParams,
+  FunnelCondition,
+  FunnelConditionTest,
+  FunnelConditionTestsBlock,
+  FunnelCodeSnippet,
+  OfferParams,
+  FluxifyParams,
+  FluxifyLinkRewriterParams,
+  FluxifyContentRewriterParams,
+  FluxifyReferrerAndUASpooferParams,
+  Postback,
+  OfferSource,
+  OfferSourceSaveRequest,
+  TrafficFilter,
+  KeyValuePair,
+  KeyValuePairTreeItem,
+  Category,
+  PageCategoryAssignment,
+  TrafficSourceCategoryAssignment,
+  ArchiveRequest,
+  BulkIds,
+  BulkResult,
+  IdNamePair,
+  TagCreateRequest,
+  TagUpdateRequest,
+  FunnelMoveRequest,
+  TrafficFilterApplyRequest,
+  ApiDate,
+  ApiTime,
+  CampaignsFunnelsAndNodes,
+  CodeSnippetTemplateList,
+} from './generated/data';
 
-// Funnel
-export interface FunnelNode {
-  idNode: string
-  idFunnel: string
-  nodeType: number
-  nodeName: string
-  nodeParams: Record<string, unknown>
-  percentPosX: number
-  percentPosY: number
-  isArchived?: boolean
-}
+/** Traffic source as returned by v2 (includes `idCategory` from API; spec may lag). */
+export type TrafficSource = GeneratedTrafficSource & { idCategory?: string };
 
-export interface FunnelConnection {
-  idConnection: string
-  idFunnel: string
-  idSourceNode: string
-  idTargetNode: string
-  weight?: number
-  elementData?: Record<string, unknown>
-}
+// Page type extended with fields present at runtime but not yet in the YAML spec
+export type Page = GeneratedPage & {
+  categoryId?: string;
+  numberOfActions?: number;
+};
 
-export interface Funnel {
-  idFunnel: string
-  idCampaign: string
-  funnelName: string
-  defaultCostPerEntrance: number
-  nodes: FunnelNode[]
-  connections: FunnelConnection[]
-  isArchived: boolean
-}
+// Type aliases extracted from inline unions in the generated Page definition
+export type PageType = 'lander' | 'offer';
+export type RedirectType = '301' | '307' | 'umr' | 'fluxify';
 
-// Page (lander or offer)
-export interface OfferParams {
-  idOfferSource: string
-  payout: number
-}
+// Type aliases extracted from inline unions in the generated TrafficSource definition
+export type CostType = 'cpe' | 'cpa';
+export type PostbackType = 'none' | 'postbackUrl' | 'pixelUrl' | 'javascript';
 
-export interface FluxifyLinkRewriterParams {
-  map: KeyValuePair[]
-}
-
-export interface FluxifyContentRewriterParams {
-  map: KeyValuePair[]
-  headerCode: string
-  footerCode: string
-}
-
-export interface FluxifyReferrerAndUASpooferParams {
-  referrers: string[]
-  userAgents: string[]
-}
-
-export interface FluxifyParams {
-  enableCache: boolean
-  enableDirectTrafficProtection: boolean
-  enableLinkRewriter: boolean
-  enableContentRewriter: boolean
-  enableVideoAutoPlayBreaker: boolean
-  enableExitPopupBreaker: boolean
-  enableAnalyticsBreaker: boolean
-  enableReferrerAndUASpoofer: boolean
-  linkRewriterParams?: FluxifyLinkRewriterParams
-  contentRewriterParams?: FluxifyContentRewriterParams
-  referrerAndUASpooferParams?: FluxifyReferrerAndUASpooferParams
-}
-
-export type PageType = 'lander' | 'offer'
-export type RedirectType = '301' | '307' | 'umr' | 'fluxify'
-
-export interface Page {
-  idPage: string
-  pageType: PageType
-  pageName: string
-  url: string
-  redirectType: RedirectType
-  tags: string[]
-  notes: string
-  offerParams?: OfferParams
-  fluxifyParams?: FluxifyParams
-  isArchived: boolean
-}
-
-// Traffic Source
-export type CostType = 'cpe' | 'cpa'
-export type PostbackType = 'none' | 'postbackUrl' | 'pixelUrl' | 'javascript'
-
-export interface Postback {
-  idTrafficSource: string
-  postbackType: PostbackType
-  postbackCode: string
-}
-
-export interface TrafficSource {
-  idTrafficSource: string
-  trafficSourceName: string
-  costType: CostType
-  defaultCost: number
-  trackingFields: KeyValuePair[]
-  postback: Postback
-  isArchived: boolean
-  categoryName: string
-}
-
-// Offer Source
-export interface OfferSource {
-  idOfferSource: string
-  offerSourceName: string
-  subId: string
-  querySeparator: string
-  postbackSubId: string
-  postbackTxId: string
-  postbackPayout: string
-  isArchived: boolean
-}
-
-// Traffic Filter
+// Type alias extracted from the generated TrafficFilter definition
 export type FilterType =
   | 'ipAddresses'
   | 'ipRanges'
@@ -136,25 +73,15 @@ export type FilterType =
   | 'userAgents'
   | 'ISPs'
   | 'countries'
-  | 'knownBotsAndSpiders'
+  | 'knownBotsAndSpiders';
 
-export interface TrafficFilter {
-  idTrafficFilter: string
-  trafficFilterName: string
-  filterType: FilterType
-  filterEntries: string[]
-  redirectToURL: string | null
-  isEnabled: boolean
-}
-
-// Tag
+// App-only types not present in the OpenAPI spec
 export interface Tag {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }
 
-// Simple id+name pair returned by list endpoints
 export interface IdName {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }

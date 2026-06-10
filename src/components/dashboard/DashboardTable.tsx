@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
-import { type ColumnDef } from '@tanstack/react-table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DataTable } from '@/components/shared/DataTable'
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
+import { Card } from '@/components/ui-kit'
+import { DataTable, entityRowId } from '@/components/ui-kit/data-table'
 import type { DashboardData } from '@/types/ui'
-import type { ReportCell } from '@/types/stats'
+import { getCell } from '@/lib/funnelQuickStats'
+import { DEFAULT_TABLE_SORTING } from '@/store/tableConfig'
 
 type TableStats = DashboardData['tableStats']
 
@@ -12,7 +13,6 @@ interface DashboardTableProps {
   isLoading: boolean
 }
 
-// The report rows use numeric string keys for cell data
 interface FlatRow {
   id: string
   [key: string]: string
@@ -25,8 +25,8 @@ function flattenRows(data: TableStats): FlatRow[] {
   return rows.map((row, rowIndex) => {
     const flat: FlatRow = { id: String(rowIndex) }
     columns.forEach((col, colIndex) => {
-      const cell = row[String(colIndex)] as ReportCell | undefined
-      flat[col.name] = cell?.formatted ?? String(cell?.raw ?? '')
+      const cell = getCell(row, colIndex)
+      flat[col.name] = cell.formatted ?? String(cell.raw ?? '')
     })
     return flat
   })
@@ -35,35 +35,39 @@ function flattenRows(data: TableStats): FlatRow[] {
 export function DashboardTable({ data, isLoading }: DashboardTableProps) {
   const rows = useMemo(() => flattenRows(data), [data])
 
-  const columns: ColumnDef<FlatRow>[] = useMemo(() => {
+  const columnDefs: ColumnDef<FlatRow, unknown>[] = useMemo(() => {
     if (!data?.report?.columns) return []
-    return data.report.columns.map((col) => ({
-      accessorKey: col.name,
+    return data.report.columns.map((col, index) => ({
+      id: col.name,
       header: col.name,
-      cell: ({ getValue }) => {
-        const val = getValue() as string
-        return <span className="text-sm">{val}</span>
-      },
+      accessorKey: col.name,
+      size: index === 0 ? 200 : 100,
+      meta: index === 0 ? { flex: 1 } : { numeric: true },
     }))
+  }, [data])
+
+  const defaultSorting = useMemo((): SortingState => {
+    const cols = data?.report?.columns
+    if (!cols?.length) return DEFAULT_TABLE_SORTING
+    const visitsLike = cols.find((c) => /\b(entrances|visits)\b/i.test(c.name ?? ''))
+    const col = visitsLike ?? cols[1] ?? cols[0]
+    if (!col?.name) return DEFAULT_TABLE_SORTING
+    return [{ id: col.name, desc: true }]
   }, [data])
 
   if (!isLoading && !data) return null
 
   return (
-    <Card>
-      <CardHeader className="pb-2 p-4">
-        <CardTitle className="text-sm font-medium">
-          Top {data?.tableStatsOptions?.statsType ?? 'Campaigns'}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <DataTable
-          columns={columns}
-          data={rows}
-          isLoading={isLoading}
-          getRowId={(row) => row.id}
-        />
-      </CardContent>
+    <Card title={<span className="text-sm font-medium">Top {data?.options?.statsType ?? 'Campaigns'}</span>} styles={{ header: { padding: '16px 16px 8px' }, body: { padding: '0 16px 16px' } }}>
+      <DataTable
+        data={rows}
+        columns={columnDefs}
+        loading={isLoading}
+        getRowId={entityRowId}
+        noPagination
+        tableConfigKey="dashboard-top-table"
+        defaultSorting={defaultSorting}
+      />
     </Card>
   )
 }

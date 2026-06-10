@@ -1,0 +1,7 @@
+# Code owners are automatically requested for review on pull requests.
+# Listed as individual repo owners (no maintainers team). Add any GitHub
+# co-owner handles on the same line, space-separated.
+# Docs: https://docs.github.com/articles/about-code-owners
+
+* @ff-zeno
+# * @ff-zeno @second-owner-handle   # <- uncomment & add co-owners when ready

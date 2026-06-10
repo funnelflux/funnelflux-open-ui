@@ -1,0 +1,33 @@
+---
+description: Never import antd outside ui-kit; use @/components/ui-kit wrappers only
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
+alwaysApply: true
+---
+
+# Ant Design: ui-kit only
+
+## Hard rule
+
+**Do not import from `antd`, `antd/*`, or `@ant-design/*` anywhere except inside `src/components/ui-kit/**`.**
+
+App code, pages, features, shared components, hooks, and `src/lib/**` must use **`@/components/ui-kit`** (or relative imports to ui-kit modules). If you need behavior that does not exist yet, **add a wrapper or primitive under `src/components/ui-kit/`** and export it from `index.ts` — then consume that export.
+
+- **No** re-exporting raw Ant Design components from the barrel (e.g. do not expose `Select as AntdSelect`).
+- **No** `import type { … } from 'antd'` outside ui-kit (types leak implementation; keep them internal to wrappers).
+
+## Inside `src/components/ui-kit/**`
+
+- Importing from `antd` is allowed **only** to implement wrappers (e.g. `Button`, `Select`, `GroupedSelect`, `Modal`).
+- **Avoid circular imports:** sub-packages like `ui-kit/data-table/` must not import the barrel `@/components/ui-kit`; use relative paths to siblings.
+
+## Selects
+
+- Flat, searchable lists: **`Select`** or **`SmartMultiSelect`**.
+- Grouped optgroups (e.g. drilldown groupings): **`GroupedSelect`** (`optionGroups` prop).
+- Do not reach for Ant `Select` directly.
+
+## Adding a new wrapper
+
+1. Implement under `src/components/ui-kit/<Name>.tsx`.
+2. Export from `src/components/ui-kit/index.ts`.
+3. Use `@/components/ui-kit` everywhere else.

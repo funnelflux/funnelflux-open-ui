@@ -1,73 +1,86 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { FileText } from 'lucide-react'
+import { format } from 'date-fns'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { DataTable } from '@/components/shared/DataTable'
-import type { AccessLogEntry } from '@/types/ui'
+import { PageShell } from '@/components/ui-kit'
+import { DataTable } from '@/components/ui-kit/data-table'
+import type { AccessLogData, AccessLogEntry } from '@/types/ui'
+
+/** Composite key; API rows have no `id`. */
+function accessLogRowId(row: AccessLogEntry): string {
+  return `${row.timestamp}-${row.ip}-${row.login}-${row.event}`
+}
 
 export function AccessLogPage() {
   const { data: entries, isLoading } = useQuery({
     queryKey: queryKeys.accessLog.all,
-    queryFn: () => api.get<AccessLogEntry[]>('/ui/accesslog/load/'),
+    queryFn: async () => {
+      const res = await api.get<AccessLogData>('/ui/accesslog/load/')
+      return res.rows ?? []
+    },
   })
 
-  const columns: ColumnDef<AccessLogEntry, unknown>[] = [
-    {
-      accessorKey: 'date',
-      header: 'Date',
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.date}</span>
-      ),
-    },
-    {
-      accessorKey: 'username',
-      header: 'User',
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.username}</span>
-      ),
-    },
-    {
-      accessorKey: 'action',
-      header: 'Action',
-      cell: ({ row }) => row.original.action,
-    },
-    {
-      accessorKey: 'ip',
-      header: 'IP',
-      cell: ({ row }) => (
-        <span className="font-mono text-xs">{row.original.ip}</span>
-      ),
-    },
-    {
-      accessorKey: 'details',
-      header: 'Details',
-      cell: ({ row }) =>
-        row.original.details || (
-          <span className="text-muted-foreground">--</span>
-        ),
-    },
-  ]
+  const columns = useMemo<ColumnDef<AccessLogEntry, unknown>[]>(
+    () => [
+      {
+        id: 'timestamp',
+        header: 'Date',
+        accessorKey: 'timestamp',
+        cell: ({ row }) => {
+          const seconds = row.original.timestamp
+          const date =
+            typeof seconds === 'number' && Number.isFinite(seconds)
+              ? new Date(seconds * 1000)
+              : null
+          return (
+            <span className="text-sm">
+              {date && !Number.isNaN(date.getTime()) ? format(date, 'PPpp') : '—'}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'login',
+        header: 'User',
+        accessorKey: 'login',
+        cell: ({ row }) => <span className="font-medium">{row.original.login}</span>,
+      },
+      {
+        id: 'event',
+        header: 'Event',
+        accessorKey: 'event',
+      },
+      {
+        id: 'ip',
+        header: 'IP',
+        accessorKey: 'ip',
+        cell: ({ row }) => <span className="font-mono text-xs">{row.original.ip}</span>,
+      },
+      {
+        id: 'country',
+        header: 'Country',
+        accessorKey: 'country',
+        cell: ({ row }) =>
+          row.original.country || <span className="text-muted-foreground">—</span>,
+      },
+    ],
+    [],
+  )
 
   return (
-    <div>
-      <PageHeader title="Access Log" />
-
-      {!isLoading && (!entries || entries.length === 0) ? (
-        <EmptyState
-          icon={<FileText className="h-10 w-10" />}
-          message="No access log entries."
-        />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={entries ?? []}
-          isLoading={isLoading}
-          getRowId={(row) => row.id}
-        />
-      )}
-    </div>
+    <PageShell title="Access Log" fillHeight>
+      <DataTable<AccessLogEntry>
+        data={entries ?? []}
+        columns={columns}
+        getRowId={accessLogRowId}
+        loading={isLoading}
+        tableConfigKey="settings-access-log"
+        defaultSorting={[{ id: 'timestamp', desc: true }]}
+        noPagination
+        emptyMessage="No access log entries."
+      />
+    </PageShell>
   )
 }

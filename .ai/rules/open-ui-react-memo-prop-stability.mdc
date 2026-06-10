@@ -1,0 +1,88 @@
+---
+description: React.memo and prop stability rules for the open-ui React app — prevents unnecessary re-renders of expensive components like DataTable
+globs: src/**/*.tsx,funnelflux-open-ui/**/*.tsx
+alwaysApply: false
+---
+
+# React.memo & Prop Stability
+
+Expensive components (e.g. `DataTable`) are wrapped in `React.memo`. A single unstable prop defeats memoisation and forces a full re-render of the entire subtree. Always stabilise every prop passed to a memoised component.
+
+## Common violations and fixes
+
+### Inline arrow callbacks
+
+```tsx
+// ❌ New function reference every render — breaks React.memo
+<DataTable getRowId={(row) => row.id} />
+
+// ✅ Module-level function (stable forever)
+import { entityRowId } from '@/components/ui-kit/data-table'
+<DataTable getRowId={entityRowId} />
+
+// ✅ useCallback when closure state is needed
+const handleEdit = useCallback((id: string) => { ... }, [stableDep])
+```
+
+### Inline array / object literals
+
+```tsx
+// ❌ New array on every render
+pinnedBottomRows={totalsRow ? [totalsRow] : undefined}
+
+// ✅ Memoised
+const pinnedBottomRows = useMemo(
+  () => totalsRow ? [totalsRow] : undefined,
+  [totalsRow],
+)
+```
+
+### Select / dropdown `options` built with `.map`
+
+**Do not** write `options={(items ?? []).map(...)}` (or any `.map`) directly in JSX. That allocates a new array every render and breaks memoisation downstream.
+
+```tsx
+// ❌ New options array every render
+<Select options={categories.map((c) => ({ value: c.id, label: c.name }))} />
+
+// ✅ Stable reference when `categories` is unchanged
+const categoryOptions = useMemo(
+  () => (categories ?? []).map((c) => ({ value: c.idCategory, label: c.name })),
+  [categories],
+)
+<Select options={categoryOptions} />
+```
+
+For **static** option lists, hoist a module-level `const` (or `useMemo(..., [])`) instead of an inline `[...]` literal in JSX if the parent is memoised or the list is large.
+
+### Inline predicate / className functions
+
+```tsx
+// ❌ New function every render
+enableRowSelection={(row) => !row.original._isCategoryHeader}
+rowClassName={(row) => row._isCat ? 'dt-row--depth-1' : undefined}
+
+// ✅ Module-level (no closure needed)
+const canSelectRow = (row) => !row.original._isCategoryHeader
+const categoryRowClassName = (row) => row._isCat ? 'dt-row--depth-1' : undefined
+```
+
+## Stability checklist for DataTable usage
+
+Before passing a prop to `<DataTable>`:
+
+1. **Primitives** (`loading`, `emptyMessage`) — safe, React.memo compares by value.
+2. **State setters** (`setRowSelection`) — safe, useState setters are stable.
+3. **Refs** (`tableRef`) — safe, useRef returns a stable object.
+4. **Data arrays** (`data`, `columns`) — must come from `useMemo`.
+5. **Callbacks** — use `useCallback` with stable deps, or define at module level.
+6. **Wrapper arrays** (`pinnedBottomRows`) — wrap in `useMemo`.
+
+## Dependency stability for useCallback
+
+When stabilising callbacks used in `columnDefs` or passed to memoised children:
+
+- Extract `.mutate` from React Query hooks: `const mutate = mutation.mutate` (stable in RQ v5).
+- Use the memoised `toast` from `useToastApi()` (wrapped in useMemo internally).
+- Zustand store actions (`reload`, `upsertEntity`) are stable by design.
+- Never put the full mutation object in deps — its identity changes on status transitions.

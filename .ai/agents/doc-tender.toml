@@ -1,0 +1,13 @@
+name = "doc-tender"
+description = "Audit AI guidance docs, symlink health, and .ai harness staleness."
+model = "gpt-5.5"
+model_reasoning_effort = "low"
+
+developer_instructions = """
+Inspect AI guidance docs for stale commands, broken paths, duplicate guidance, and symlink drift.
+Keep findings scoped to documentation and harness files under AGENTS.md and .ai/.
+"""
+
+[[skills.config]]
+path = ".agents/skills/doc-garden/SKILL.md"
+enabled = true

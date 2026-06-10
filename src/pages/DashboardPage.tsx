@@ -1,218 +1,120 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { subDays } from 'date-fns'
-import { RefreshCw } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { api } from '@/api/client'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/api/queryKeys'
+import { useDashboardSummaryQuery } from '@/api/hooks/useDashboard'
 import { useDashboardStore } from '@/store/dashboard'
 import { StatsCards } from '@/components/dashboard/StatsCards'
 import { DashboardChart } from '@/components/dashboard/DashboardChart'
-import { DataTable } from '@/components/shared/DataTable'
+import { DashboardTopTable, type DashboardTopTableProps } from '@/components/dashboard/DashboardTopTable'
+import { useLazySectionVisible } from '@/hooks/useLazySectionVisible'
+import { PageShell, TimezoneSelect, Button, Modal, Select, type SelectOption } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { toApiDateTimeRange } from '@/types/stats'
-import type { ColumnDef } from '@tanstack/react-table'
-import type { Report, ReportCell } from '@/types/stats'
-import type { LiveStats } from '@/types/ui'
-
-const ZERO_STATS: LiveStats = { visits: 0, clicks: 0, conversions: 0, revenue: 0, cost: 0, net: 0, roi: 'N/A' }
+import { toApiDateTimeRangeForReporting } from '@/lib/statsDateRange'
+import type { DateRange } from '@/lib/date-presets'
+import {
+  dashboardStatsChanged,
+  extractDashboardChartData,
+  extractDashboardStats,
+  getDashboardChartGrouping,
+  ZERO_DASHBOARD_STATS,
+} from '@/lib/dashboard/summaryReport'
 
 const WIDGETS = [
-  { title: 'Top Funnels', groupBy: 'Element: Funnel', quickviewType: 'Element: Funnel' },
-  { title: 'Top Traffic Sources', groupBy: 'Third Parties: Traffic Source', quickviewType: 'Third Parties: Traffic Source' },
-  { title: 'Top Landers', groupBy: 'Element: Lander', quickviewType: 'Element: Lander' },
-  { title: 'Top Offers', groupBy: 'Element: Offer', quickviewType: 'Element: Offer' },
+  { id: 'dashboard-widget-top-funnels', title: 'Funnels', groupBy: 'Element: Funnel' },
+  {
+    id: 'dashboard-widget-top-traffic-sources',
+    title: 'Traffic Sources',
+    groupBy: 'Third Parties: Traffic Source',
+  },
+  { id: 'dashboard-widget-top-landers', title: 'Landers', groupBy: 'Element: Lander' },
+  { id: 'dashboard-widget-top-offers', title: 'Offers', groupBy: 'Element: Offer' },
 ] as const
 
-interface ChartPoint {
-  date: string
-  visits: number
-  clicks: number
-  conversions: number
-  revenue: number
-  cost: number
-  roi: number
-}
-
-interface WidgetRow {
-  id: string
-  name: string
-  visits: number
-  visitsFormatted: string
-}
-
-interface WidgetState {
-  title: string
-  quickviewType: string
-  rows: WidgetRow[]
-  isLoading: boolean
-}
-
-function cellRaw(cell: ReportCell | undefined): number {
-  if (!cell) return 0
-  return typeof cell.raw === 'number' ? cell.raw : Number(cell.raw) || 0
-}
-
-function buildColMap(report: Report): Map<string, number> {
-  const map = new Map<string, number>()
-  report.columns?.forEach((column, index) => map.set(column.name?.toLowerCase() ?? '', index))
-  return map
-}
-
-function extractStats(report: Report): LiveStats {
-  const cells = report.totals?.cells
-  if (!cells || cells.length === 0) return ZERO_STATS
-
-  const map = buildColMap(report)
-  const get = (name: string) => cellRaw(cells[map.get(name) ?? -1])
-
-  const visits = get('entrances')
-  const landerClicks = get('lander clicks')
-  const offerClicks = get('offer clicks')
-  const conversions = get('conversions')
-  const revenue = get('revenue')
-  const cost = get('cost')
-  const roiCell = cells[map.get('roi') ?? -1]
-  const roi = roiCell?.formatted ?? 'N/A'
-
-  return { visits, clicks: landerClicks + offerClicks, conversions, revenue, cost, net: revenue - cost, roi }
-}
-
-function extractChartData(report: Report): ChartPoint[] {
-  if (!report.rows || report.rows.length === 0) return []
-  const map = buildColMap(report)
-
-  return report.rows.map((row) => {
-    const cells = row.cells ?? []
-    const get = (name: string) => cellRaw(cells[map.get(name) ?? -1])
-
-    return {
-      date: cells[0]?.formatted ?? '',
-      visits: get('entrances'),
-      clicks: get('lander clicks') + get('offer clicks'),
-      conversions: get('conversions'),
-      revenue: get('revenue'),
-      cost: get('cost'),
-      roi: get('roi'),
-    }
-  })
-}
-
-function extractWidgetRows(report: Report): WidgetRow[] {
-  const map = buildColMap(report)
-  const visitsIndex = map.get('entrances') ?? 1
-
-  return (report.rows ?? []).map((row, index) => {
-    const cells = row.cells ?? []
-    return {
-      id: String(cells[0]?.raw ?? index),
-      name: cells[0]?.formatted ?? '',
-      visits: cellRaw(cells[visitsIndex]),
-      visitsFormatted: cells[visitsIndex]?.formatted ?? '0',
-    }
-  })
-}
-
-function statsChanged(previous: LiveStats | undefined, next: LiveStats): boolean {
-  if (!previous) return false
-  return Object.keys(next).some((key) => previous[key as keyof LiveStats] !== next[key as keyof LiveStats])
-}
-
-function WidgetTable({
-  title,
-  rows,
-  isLoading,
-  onRowClick,
-  pulse,
-}: {
-  title: string
-  rows: WidgetRow[]
-  isLoading: boolean
-  onRowClick: (row: WidgetRow) => void
-  pulse: boolean
-}) {
-  const columns = useMemo<ColumnDef<WidgetRow>[]>(
-    () => [
-      {
-        id: 'name',
-        header: 'Name',
-        accessorFn: (row) => row.name,
-        cell: ({ row }) => (
-          <button
-            type="button"
-            className="font-medium text-left hover:text-primary"
-            onClick={() => onRowClick(row.original)}
-          >
-            {row.original.name}
-          </button>
-        ),
-      },
-      {
-        id: 'visits',
-        header: 'Visits',
-        accessorFn: (row) => row.visits,
-        cell: ({ row }) => <span className="tabular-nums">{row.original.visitsFormatted}</span>,
-      },
-    ],
-    [onRowClick],
-  )
-
+function DashboardTopTableLazySlot(
+  props: Omit<DashboardTopTableProps, 'fetchEnabled'> & {
+    fetchEnabled?: boolean
+  },
+) {
+  const { ref, isVisible } = useLazySectionVisible()
+  const { fetchEnabled: fe, ...rest } = props
   return (
-    <Card className={pulse ? 'animate-pulse' : undefined}>
-      <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <DataTable columns={columns} data={rows} isLoading={isLoading} getRowId={(row) => row.id} />
-      </CardContent>
-    </Card>
+    <div ref={ref} className="min-h-[292px] min-w-0">
+      <DashboardTopTable {...rest} fetchEnabled={fe ?? isVisible} />
+    </div>
   )
 }
+
+const TABLE_PAGE_OPTIONS: SelectOption[] = [
+  { value: '5', label: '5 rows' },
+  { value: '10', label: '10 rows' },
+  { value: '25', label: '25 rows' },
+  { value: '50', label: '50 rows' },
+  { value: '100', label: '100 rows' },
+]
+
+/** Dashboard-only: 0 = off. Summary, chart, and top tables share dashboard query invalidation. */
+const AUTO_REFRESH_INTERVAL_OPTIONS: SelectOption[] = [
+  { value: '0', label: 'Auto refresh off' },
+  { value: '30', label: 'Every 30 seconds' },
+  { value: '60', label: 'Every 60 seconds' },
+  { value: '120', label: 'Every 120 seconds' },
+]
+
+const DEFAULT_DASHBOARD_AUTO_REFRESH_SEC = 120
 
 export function DashboardPage() {
-  const navigate = useNavigate()
-  const { chartMetric, setChartMetric } = useDashboardStore()
-  const [tz, setTz] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone)
-  const [dateRange, setDateRange] = useState(() => ({
-    from: subDays(new Date(), 30),
-    to: new Date(),
-  }))
-  const [isAutoRefresh, setIsAutoRefresh] = useState(true)
+  const queryClient = useQueryClient()
+  const {
+    chartMetric,
+    setChartMetric,
+    dashboardTablePageSize,
+    setDashboardTablePageSize,
+    timezone: tz,
+    setTimezone: setTz,
+    dateRange,
+    setDateRange,
+  } = useDashboardStore()
+
   const [pulseStats, setPulseStats] = useState(false)
-  const [pulseWidgets, setPulseWidgets] = useState(false)
+  const [autoRefreshIntervalSec, setAutoRefreshIntervalSec] = useState(DEFAULT_DASHBOARD_AUTO_REFRESH_SEC)
+  const [secondsUntilAutoRefresh, setSecondsUntilAutoRefresh] = useState(DEFAULT_DASHBOARD_AUTO_REFRESH_SEC)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
-  const [stats, setStats] = useState<LiveStats | undefined>(undefined)
-  const [chartPoints, setChartPoints] = useState<ChartPoint[]>([])
-  const [statsLoaded, setStatsLoaded] = useState(false)
-  const [chartLoaded, setChartLoaded] = useState(false)
-  const [widgets, setWidgets] = useState<WidgetState[]>(
-    WIDGETS.map((widget) => ({
-      title: widget.title,
-      quickviewType: widget.quickviewType,
-      rows: [],
-      isLoading: true,
-    })),
-  )
-
-  const previousStatsRef = useRef<LiveStats | undefined>(undefined)
+  const previousStatsRef = useRef<ReturnType<typeof extractDashboardStats> | undefined>(undefined)
   const pulseTimerRef = useRef<number | undefined>(undefined)
 
-  const triggerPulse = useCallback((type: 'stats' | 'widgets') => {
+  const chartGrouping = useMemo(
+    () => getDashboardChartGrouping(dateRange.from, dateRange.to),
+    [dateRange.from, dateRange.to],
+  )
+
+  const timeRange = useMemo(
+    () => toApiDateTimeRangeForReporting(dateRange.from, dateRange.to, tz),
+    [dateRange.from, dateRange.to, tz],
+  )
+
+  const summaryQuery = useDashboardSummaryQuery(dateRange.from, dateRange.to, tz)
+
+  const stats = useMemo(
+    () => (summaryQuery.data ? extractDashboardStats(summaryQuery.data) : undefined),
+    [summaryQuery.data],
+  )
+
+  const chartPoints = useMemo(
+    () => (summaryQuery.data
+      ? extractDashboardChartData(summaryQuery.data, chartGrouping.granularity)
+      : []),
+    [summaryQuery.data, chartGrouping.granularity],
+  )
+
+  const triggerPulse = useCallback(() => {
     if (pulseTimerRef.current) {
       window.clearTimeout(pulseTimerRef.current)
     }
-    if (type === 'stats') {
-      setPulseStats(true)
-      pulseTimerRef.current = window.setTimeout(() => setPulseStats(false), 900)
-    } else {
-      setPulseWidgets(true)
-      pulseTimerRef.current = window.setTimeout(() => setPulseWidgets(false), 900)
-    }
+    setPulseStats(true)
+    pulseTimerRef.current = window.setTimeout(() => setPulseStats(false), 900)
   }, [])
 
-  // Cleanup pulse timers on unmount
   useEffect(() => {
     return () => {
       if (pulseTimerRef.current) {
@@ -221,156 +123,257 @@ export function DashboardPage() {
     }
   }, [])
 
-  const loadData = useCallback(() => {
-    const timeRange = toApiDateTimeRange(dateRange.from, dateRange.to)
-    const timeZone = { name: tz }
+  useEffect(() => {
+    if (!stats) return
+    const previous = previousStatsRef.current
+    previousStatsRef.current = stats
+    if (!previous || !dashboardStatsChanged(previous, stats)) return
+    const pulseTimer = window.setTimeout(() => triggerPulse(), 0)
+    return () => window.clearTimeout(pulseTimer)
+  }, [stats, triggerPulse])
 
-    setStatsLoaded(false)
-    setChartLoaded(false)
-    setWidgets((current) => current.map((widget) => ({ ...widget, isLoading: true })))
+  const invalidateDashboardQueries = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all })
+  }, [queryClient])
 
-    // Stats request
-    api.post<Report>('/stats/reporting/drilldown/', {
-      timeRange,
-      timeZone,
-      groupings: [{ groupBy: 'Element: Campaign', whitelistFilters: [], blacklistFilters: [] }],
-      paging: { start: 0, length: 1 },
-    }).then((report) => {
-      const nextStats = extractStats(report)
-      if (statsChanged(previousStatsRef.current, nextStats)) {
-        triggerPulse('stats')
-      }
-      previousStatsRef.current = nextStats
-      setStats(nextStats)
-      setStatsLoaded(true)
-    }).catch(() => {
-      setStats(ZERO_STATS)
-      setStatsLoaded(true)
-    })
+  const invalidateDashboardQueriesRef = useRef(invalidateDashboardQueries)
+  useEffect(() => {
+    invalidateDashboardQueriesRef.current = invalidateDashboardQueries
+  }, [invalidateDashboardQueries])
 
-    // Chart request
-    api.post<Report>('/stats/reporting/drilldown/', {
-      timeRange,
-      timeZone,
-      groupings: [{ groupBy: 'Time: Date', whitelistFilters: [], blacklistFilters: [] }],
-      paging: { start: 0, length: 9999 },
-      options: { viewType: 'flat' },
-    }).then((report) => {
-      setChartPoints(extractChartData(report))
-      setChartLoaded(true)
-    }).catch(() => {
-      setChartPoints([])
-      setChartLoaded(true)
-    })
+  const autoRefreshIntervalSecRef = useRef(autoRefreshIntervalSec)
+  useEffect(() => {
+    autoRefreshIntervalSecRef.current = autoRefreshIntervalSec
+  }, [autoRefreshIntervalSec])
 
-    // Widget requests
-    Promise.all(
-      WIDGETS.map(async (widget) => {
-        const report = await api.post<Report>('/stats/reporting/drilldown/', {
-          timeRange,
-          timeZone,
-          groupings: [{ groupBy: widget.groupBy, whitelistFilters: [], blacklistFilters: [] }],
-          paging: { start: 0, length: 5 },
-          sorting: { column: 1, direction: 'desc' },
-          options: { viewType: 'flat' },
-        })
+  useEffect(() => {
+    const interval = autoRefreshIntervalSecRef.current
+    if (interval > 0) {
+      setSecondsUntilAutoRefresh(interval)
+    }
+  }, [dateRange.from, dateRange.to, tz])
 
-        return {
-          title: widget.title,
-          quickviewType: widget.quickviewType,
-          rows: extractWidgetRows(report),
-          isLoading: false,
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      const periodSec = autoRefreshIntervalSecRef.current
+      if (periodSec <= 0) return
+      setSecondsUntilAutoRefresh((secondsLeft) => {
+        if (secondsLeft <= 1) {
+          invalidateDashboardQueriesRef.current()
+          return periodSec
         }
-      }),
-    )
-      .then((nextWidgets) => {
-        setWidgets(nextWidgets)
-        triggerPulse('widgets')
+        return secondsLeft - 1
       })
-      .catch(() => {
-        setWidgets(
-          WIDGETS.map((widget) => ({
-            title: widget.title,
-            quickviewType: widget.quickviewType,
-            rows: [],
-            isLoading: false,
-          })),
-        )
-      })
-  }, [dateRange.from, dateRange.to, triggerPulse, tz])
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const handleAutoRefreshIntervalChange = useCallback((next: unknown) => {
+    const parsed = typeof next === 'string' ? Number(next) : Number(next ?? 0)
+    if (!Number.isFinite(parsed) || parsed < 0) return
+    const rounded = Math.trunc(parsed)
+    setAutoRefreshIntervalSec(rounded)
+    setSecondsUntilAutoRefresh(rounded > 0 ? rounded : 0)
+  }, [])
+
+  const bumpRefresh = useCallback(() => {
+    if (autoRefreshIntervalSec > 0) {
+      setSecondsUntilAutoRefresh(autoRefreshIntervalSec)
+    }
+    invalidateDashboardQueries()
+  }, [autoRefreshIntervalSec, invalidateDashboardQueries])
+
+  const autoRefreshSelectValue = String(autoRefreshIntervalSec)
+
+  const handleDashboardDateRangeChange = useCallback((range: DateRange & { preset: string | null }) => {
+    if (range.from && range.to) {
+      setDateRange({ from: range.from, to: range.to })
+    }
+  }, [setDateRange])
+
+  const dateRangePickerValue = useMemo<DateRange & { preset: string | null }>(
+    () => ({ from: dateRange.from, to: dateRange.to, preset: 'last30' }),
+    [dateRange.from, dateRange.to],
+  )
+
+  const handleSettingsPageSize = useCallback(
+    (next: unknown) => {
+      const parsed = typeof next === 'string' ? Number(next) : Number(next ?? 10)
+      if (Number.isFinite(parsed) && parsed > 0) {
+        setDashboardTablePageSize(parsed)
+      }
+    },
+    [setDashboardTablePageSize],
+  )
+
+  const tablePageSelectValue = String(dashboardTablePageSize)
+
+  const handleOpenDashboardSettings = useCallback(() => setSettingsOpen(true), [])
+
+  const handleCloseDashboardSettings = useCallback(() => setSettingsOpen(false), [])
+
+  const dashboardAutoRefreshSubtitle = useMemo(() => {
+    if (autoRefreshIntervalSec <= 0) return 'Auto refresh off.'
+    return `Auto refresh every ${autoRefreshIntervalSec}s · Next refresh in ${secondsUntilAutoRefresh}s`
+  }, [autoRefreshIntervalSec, secondsUntilAutoRefresh])
+
+  const summaryLoading = summaryQuery.isLoading && stats === undefined
+  const summaryFailed = summaryQuery.isError && stats === undefined
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    if (!summaryFailed) return
+    previousStatsRef.current = ZERO_DASHBOARD_STATS
+  }, [summaryFailed])
 
-  useEffect(() => {
-    if (!isAutoRefresh) return
-
-    const intervalId = window.setInterval(() => {
-      loadData()
-    }, 30_000)
-
-    return () => window.clearInterval(intervalId)
-  }, [isAutoRefresh, loadData])
+  const displayStats = summaryFailed ? ZERO_DASHBOARD_STATS : stats
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          {isAutoRefresh ? <Badge variant="secondary">Live</Badge> : null}
-        </div>
-        <div className="flex items-center gap-2">
+    <PageShell
+      title="Dashboard"
+      subtitle={dashboardAutoRefreshSubtitle}
+      density="dense"
+      className="min-w-0 overflow-x-hidden [&>div:first-child>div:last-child]:hidden md:[&>div:first-child>div:last-child]:flex"
+      actions={
+        <div className="hidden min-w-0 items-center justify-end gap-2 md:flex">
           <Button
-            type="button"
-            variant={isAutoRefresh ? 'default' : 'outline'}
-            size="sm"
-            className="h-9"
-            onClick={() => setIsAutoRefresh((current) => !current)}
+            htmlType="button"
+            type="default"
+            onClick={handleOpenDashboardSettings}
+            iconName="settings"
+            iconSize="sm"
           >
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isAutoRefresh ? 'animate-spin' : ''}`} />
-            Auto-refresh
+            Settings
+          </Button>
+          <Button
+            htmlType="button"
+            type="default"
+            onClick={bumpRefresh}
+            iconName="refresh-cw"
+            iconSize="sm"
+          >
+            Refresh
           </Button>
           <DateRangePicker
-            value={{ from: dateRange.from, to: dateRange.to, preset: 'last30' }}
+            value={dateRangePickerValue}
             timezone={tz}
-            onChange={(value) => {
-              if (value.from && value.to) {
-                setDateRange({ from: value.from, to: value.to })
-              }
-            }}
+            density="compact"
+            onChange={handleDashboardDateRangeChange}
+            className="[--ff-date-range-compact-max:236px]"
           />
-          <TimezoneSelector value={tz} onChange={setTz} />
+          <TimezoneSelect
+            value={tz}
+            onChange={setTz}
+            style={{ minWidth: 180, width: 180 }}
+          />
         </div>
+      }
+    >
+      <Modal
+        title="Dashboard settings"
+        open={settingsOpen}
+        onCancel={handleCloseDashboardSettings}
+        footer={null}
+        destroyOnClose
+      >
+        <div className="flex flex-col gap-6 py-2">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Auto-refresh interval
+            </span>
+            <Select
+              alphabetical={false}
+              value={autoRefreshSelectValue}
+              options={AUTO_REFRESH_INTERVAL_OPTIONS}
+              onChange={handleAutoRefreshIntervalChange}
+              aria-label="Dashboard auto-refresh interval"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Time zone
+            </span>
+            <TimezoneSelect
+              value={tz}
+              onChange={setTz}
+              className="w-full"
+              style={{ width: '100%' }}
+              aria-label="Dashboard time zone"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Rows per breakdown table
+            </span>
+            <Select
+              alphabetical={false}
+              value={tablePageSelectValue}
+              options={TABLE_PAGE_OPTIONS}
+              onChange={handleSettingsPageSize}
+              aria-label="Dashboard table page size"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <div className="grid min-w-0 grid-cols-[2rem_2rem_minmax(0,1fr)] items-center gap-1.5 md:hidden">
+        <Button
+          htmlType="button"
+          type="default"
+          onClick={handleOpenDashboardSettings}
+          iconName="settings"
+          iconSize="sm"
+          aria-label="Dashboard settings"
+        />
+        <Button
+          htmlType="button"
+          type="default"
+          onClick={bumpRefresh}
+          iconName="refresh-cw"
+          iconSize="sm"
+          aria-label="Refresh dashboard"
+        />
+        <DateRangePicker
+          value={dateRangePickerValue}
+          timezone={tz}
+          density="compact"
+          onChange={handleDashboardDateRangeChange}
+          className="min-w-0 !w-full !max-w-full"
+        />
       </div>
 
-      <div className={pulseStats ? 'animate-pulse' : undefined}>
-        <StatsCards stats={stats} isLoading={!statsLoaded} />
-      </div>
+      <section className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
+        <DashboardChart
+          className="min-h-0 min-w-0"
+          data={chartPoints}
+          metric={chartMetric}
+          onMetricChange={setChartMetric}
+          isLoading={summaryLoading && chartPoints.length === 0}
+          chartHeight={260}
+        />
+        <div className={pulseStats ? 'min-h-0 animate-pulse' : 'min-h-0'}>
+          <StatsCards
+            stats={displayStats}
+            isLoading={summaryLoading}
+            layout="dashboard"
+            className="h-full min-h-[280px]"
+          />
+        </div>
+      </section>
 
-      <DashboardChart
-        data={chartPoints}
-        metric={chartMetric}
-        onMetricChange={setChartMetric}
-        isLoading={!chartLoaded}
-      />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {widgets.map((widget) => (
-          <WidgetTable
-            key={widget.title}
+      <div className="mt-3 grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+        {WIDGETS.map((widget) => (
+          <DashboardTopTableLazySlot
+            key={`${widget.id}-${dashboardTablePageSize}`}
             title={widget.title}
-            rows={widget.rows}
-            isLoading={widget.isLoading}
-            pulse={pulseWidgets}
-            onRowClick={(row) =>
-              navigate(
-                `/quickview?groupBy=${encodeURIComponent(widget.quickviewType)}&id=${encodeURIComponent(row.id)}`,
-              )
-            }
+            groupBy={widget.groupBy}
+            tableConfigKey={widget.id}
+            timeRange={timeRange}
+            timezone={tz}
+            pageSize={dashboardTablePageSize}
           />
         ))}
       </div>
-    </div>
+    </PageShell>
   )
 }

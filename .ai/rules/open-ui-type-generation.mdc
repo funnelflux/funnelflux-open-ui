@@ -1,0 +1,52 @@
+---
+description: Rules for OpenAPI-to-TypeScript type generation pipeline
+globs:
+  - src/types/**
+  - funnelflux-open-ui/src/types/**
+  - api-specs/*.yaml
+alwaysApply: true
+---
+
+# OpenAPI Type Generation
+
+## Generated files — never edit manually
+
+Files in `src/types/generated/{data,stats,ui,system,index}.ts` are auto-generated from the committed OpenAPI specs in `api-specs/` (`data-api.yaml`, `stats-api.yaml`, `ui-api.yaml`, `system-api.yaml`) by `scripts/generate-types.mjs`. **Do not edit generated files by hand.** Keep `api-specs/` in sync with `admin/api/v2/*/definition.yaml` when the backend contract changes.
+
+Hand-written patches belong in `src/types/generated/_overrides.ts` (or wrapper modules under `src/types/`), not in generated `.ts` files.
+
+## When to regenerate
+
+Run the generator after **any** change under `api-specs/`:
+
+```bash
+pnpm run generate-types
+```
+
+CI / pre-merge: `pnpm run check-generated-types` (regenerates and fails if `git diff` is non-empty under `src/types/generated`).
+
+## Wrapper files
+
+The parent files `entities.ts`, `api.ts`, `stats.ts`, `ui.ts` re-export
+generated types and add hand-written extras (helper functions, app-only
+types, type overrides). Place new hand-written types there, not in
+`generated/`.
+
+## Adding a new definition to YAML
+
+1. Add the definition to the relevant file under `api-specs/`
+2. Run `pnpm generate-types` from this package root
+3. Add a re-export to the appropriate wrapper file (`entities.ts`, `stats.ts`, etc.)
+4. Import from the wrapper file in application code — never from `generated/` directly
+
+## Script conventions
+
+- `integer/int64` → `string` (all entity IDs are strings in the app)
+- `integer/int32` → `number`
+- `number/double` → `number`
+- Enum lists > 30 values → `string` (avoids overly strict unions)
+- `default: null` on strings → `string | null`
+- Property rename: `idTrafficSouce` → `idTrafficSource` (spec typo)
+- Definition renames: `Date` → `ApiDate`, `TimeHHMM` → `ApiTime`,
+  `DateTime` → `ApiDateTime`, `DateTimeRange` → `ApiDateTimeRange`,
+  `TimeZone` → `ApiTimeZone`, `Error` → `ApiErrorResponse`

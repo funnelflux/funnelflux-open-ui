@@ -1,5 +1,12 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
+export type { FunnelCondition } from '@/types/entities'
+
+/**
+ * Editor-local rule/block model. The wire payload is {@link FunnelCondition} (`orTests` /
+ * `FunnelConditionTest`); convert with `formDraftToFunnelCondition` in
+ * `@/lib/funnelConditionFormBridge`.
+ */
 export const conditionRuleSchema = z.object({
   field: z.string().min(1, 'Field is required'),
   operator: z.string().min(1, 'Operator is required'),

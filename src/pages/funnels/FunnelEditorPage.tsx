@@ -1,45 +1,159 @@
-import { useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useCallback, useRef, useState } from 'react'
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { ReactFlowProvider } from '@xyflow/react'
-import { useFunnel, useSaveFunnel } from '@/api/hooks'
+import { useQueryClient } from '@tanstack/react-query'
+import { useFunnel } from '@/api/hooks'
+import { api } from '@/api/client'
+import { queryKeys } from '@/api/queryKeys'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import { FunnelTopForm } from '@/components/funnel-builder/FunnelTopForm'
 import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
-import { FunnelAdvancedSettings } from '@/components/funnel-builder/FunnelAdvancedSettings'
-import { useToast } from '@/components/shared/Toaster'
-import { Button } from '@/components/ui/button'
-import { Save, ArrowLeft, Loader2 } from 'lucide-react'
-import type { ApiFunnel } from '@/types/funnel'
+import { HeatmapOverlay } from '@/components/funnel-builder/HeatmapOverlay'
+import { useToastApi, ConfirmModal } from '@/components/ui-kit'
+import { Button } from '@/components/ui-kit'
+import { useAuthStore } from '@/store/auth'
+import { Icon } from '@/components/ui-kit/icons'
+import {
+  buildV2SavePayload,
+  extractPersistExtras,
+  computeFunnelEditorHydrationVersion,
+  type FunnelPersistExtras,
+} from '@/lib/funnelApiV2'
+import { generateId } from '@/lib/id-generator'
+import { validateFunnelGraph } from '@/lib/funnel-graph/validateGraph'
+import type { FunnelCondition, Page } from '@/types/entities'
+
+const FunnelSettingsModal = lazy(() =>
+  import('@/components/funnel-builder/FunnelSettingsModal').then((module) => ({
+    default: module.FunnelSettingsModal,
+  })),
+)
+const FunnelQuickStatsModal = lazy(() =>
+  import('@/components/funnel-builder/FunnelQuickStatsModal').then((module) => ({
+    default: module.FunnelQuickStatsModal,
+  })),
+)
+
+/** Router state from Campaigns “Add funnel” (matches OpenAPI funnelName max 255). */
+function newFunnelNameFromLocationState(state: unknown): string {
+  if (typeof state !== 'object' || state === null || !('funnelName' in state)) return ''
+  const raw = (state as { funnelName?: unknown }).funnelName
+  if (typeof raw !== 'string') return ''
+  return raw.trim().slice(0, 255)
+}
 
 export function FunnelEditorPage() {
   const { campaignId, funnelId } = useParams<{ campaignId: string; funnelId: string }>()
   const navigate = useNavigate()
-  const toast = useToast()
+  const location = useLocation()
+  const toast = useToastApi()
+  const queryClient = useQueryClient()
+  const [isSaving, setIsSaving] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [quickStatsOpen, setQuickStatsOpen] = useState(false)
+  const [serverRefreshOpen, setServerRefreshOpen] = useState(false)
+  const canViewStats = useAuthStore((s) => s.user?.permissions.stats.canView)
+
+  const dismissedServerVersionRef = useRef<string | null>(null)
+  const pendingServerFunnelRef = useRef<unknown>(null)
 
   const isNew = funnelId === 'new'
-  const { data: funnel, isLoading } = useFunnel(isNew ? '' : funnelId ?? '')
-  const saveFunnel = useSaveFunnel()
+  const { data: funnel, isLoading } = useFunnel(isNew ? '' : funnelId ?? '', {
+    loadDependencies: true,
+  })
 
-  const hydrate = useFunnelEditorStore((s) => s.hydrate)
-  const reset = useFunnelEditorStore((s) => s.reset)
-  const serialize = useFunnelEditorStore((s) => s.serialize)
+  const requestHydrate = useFunnelEditorStore((s) => s.requestHydrate)
+  const resetEditor = useFunnelEditorStore((s) => s.resetEditor)
+  const initializeNewFunnel = useFunnelEditorStore((s) => s.initializeNewFunnel)
+  const meta = useFunnelEditorStore((s) => s.meta)
+  const nodes = useFunnelEditorStore((s) => s.nodes)
+  const edges = useFunnelEditorStore((s) => s.edges)
   const isDirty = useFunnelEditorStore((s) => s.isDirty)
   const markClean = useFunnelEditorStore((s) => s.markClean)
-  const updateMeta = useFunnelEditorStore((s) => s.updateMeta)
+  const pendingPageDrafts = useFunnelEditorStore((s) => s.pendingPageDrafts)
+  const pendingConditionDrafts = useFunnelEditorStore((s) => s.pendingConditionDrafts)
+  const clearPendingAssetDrafts = useFunnelEditorStore((s) => s.clearPendingAssetDrafts)
 
-  // Hydrate store from API data
+  const persistExtrasRef = useRef<FunnelPersistExtras>({})
+
+  const showGraphWarnings = useCallback(
+    (messages: string[]) => {
+      if (messages.length === 0) return
+      toast.warning(messages.join(' '))
+    },
+    [toast],
+  )
+
+  const nameForNewFunnel = newFunnelNameFromLocationState(location.state)
+
   useEffect(() => {
     if (isNew) {
-      reset()
+      dismissedServerVersionRef.current = null
+      resetEditor()
       if (campaignId) {
-        updateMeta({ idCampaign: campaignId })
+        initializeNewFunnel({
+          idCampaign: campaignId,
+          idFunnel: generateId(),
+          funnelName: nameForNewFunnel,
+        })
       }
-    } else if (funnel) {
-      hydrate(funnel as ApiFunnel)
+      return
     }
-  }, [funnel, isNew, campaignId, hydrate, reset, updateMeta])
+    if (!funnel) return
+    const version = computeFunnelEditorHydrationVersion(funnel)
+    if (dismissedServerVersionRef.current === version) {
+      return
+    }
+    persistExtrasRef.current = extractPersistExtras(funnel)
+    const result = requestHydrate(funnel)
+    if (result.applied) {
+      showGraphWarnings(result.graphWarnings.map((w) => w.message))
+    }
+    if (!result.applied && result.reason === 'dirty') {
+      pendingServerFunnelRef.current = funnel
+      setServerRefreshOpen(true)
+    }
+  }, [
+    funnel,
+    isNew,
+    campaignId,
+    nameForNewFunnel,
+    initializeNewFunnel,
+    resetEditor,
+    requestHydrate,
+    showGraphWarnings,
+  ])
 
-  // Unsaved changes warning
+  const handleServerRefreshCancel = useCallback(() => {
+    const raw = pendingServerFunnelRef.current
+    if (raw != null) {
+      dismissedServerVersionRef.current = computeFunnelEditorHydrationVersion(raw)
+    }
+    pendingServerFunnelRef.current = null
+    setServerRefreshOpen(false)
+  }, [])
+
+  const handleOpenSettings = useCallback(() => {
+    setSettingsOpen(true)
+  }, [])
+
+  const handleOpenQuickStats = useCallback(() => {
+    setQuickStatsOpen(true)
+  }, [])
+
+  const handleServerRefreshConfirm = useCallback(() => {
+    const raw = pendingServerFunnelRef.current
+    pendingServerFunnelRef.current = null
+    setServerRefreshOpen(false)
+    dismissedServerVersionRef.current = null
+    if (raw == null) return
+    persistExtrasRef.current = extractPersistExtras(raw)
+    const result = requestHydrate(raw, { force: true })
+    if (result.applied) {
+      showGraphWarnings(result.graphWarnings.map((w) => w.message))
+    }
+    clearPendingAssetDrafts()
+  }, [clearPendingAssetDrafts, requestHydrate, showGraphWarnings])
+
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (isDirty) {
@@ -51,18 +165,139 @@ export function FunnelEditorPage() {
   }, [isDirty])
 
   const handleSave = useCallback(async () => {
-    const data = serialize()
+    const { errors } = validateFunnelGraph(nodes, edges, { forSave: true })
+    if (errors.length > 0) {
+      toast.error(errors[0]?.message ?? 'Cannot save: funnel graph is invalid.')
+      return
+    }
+
+    const body = buildV2SavePayload(meta, nodes, edges, persistExtrasRef.current)
+    setIsSaving(true)
+    const savedPages: Array<{ page: Partial<Page>; original?: Partial<Page>; isCreate?: boolean }> = []
+    const savedConditions: Array<{ condition: FunnelCondition; original?: FunnelCondition; isCreate?: boolean }> = []
     try {
-      await saveFunnel.mutateAsync(data)
-      markClean()
-      toast.success('Funnel saved successfully')
+      for (const draft of Object.values(pendingPageDrafts)) {
+        const isCreate = draft.isCreate ?? !draft.original?.idPage
+        await (isCreate
+          ? api.post<Page>('/data/page/save/', draft.page)
+          : api.put<Page>('/data/page/save/', draft.page))
+        savedPages.push({ ...draft, isCreate })
+      }
+
+      for (const draft of Object.values(pendingConditionDrafts)) {
+        const isCreate = draft.isCreate ?? !draft.original?.idCondition
+        await (isCreate
+          ? api.post<void>('/data/campaign/funnel/condition/save/', draft.condition)
+          : api.put<void>('/data/campaign/funnel/condition/save/', draft.condition))
+        savedConditions.push({ ...draft, isCreate })
+      }
+
       if (isNew) {
-        navigate(`/campaigns/${campaignId}/funnels/${data.idFunnel}`, { replace: true })
+        await api.post('/data/campaign/funnel/save/', body)
+        markClean()
+        clearPendingAssetDrafts()
+        dismissedServerVersionRef.current = null
+        await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.pages.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.conditions.all })
+        toast.success('Funnel saved successfully')
+        setSettingsOpen(false)
+        navigate(`/campaigns/${campaignId}/funnels/${String(body.idFunnel)}`, { replace: true })
+      } else {
+        await api.put('/data/campaign/funnel/save/', body, { deleteDependencies: 'true' })
+        markClean()
+        clearPendingAssetDrafts()
+        dismissedServerVersionRef.current = null
+        await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.pages.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.conditions.all })
+        if (funnelId) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.detail(funnelId) })
+        }
+        toast.success('Funnel saved successfully')
+        setSettingsOpen(false)
       }
     } catch {
+      for (const draft of savedConditions.reverse()) {
+        try {
+          const isCreate = draft.isCreate ?? !draft.original?.idCondition
+          if (!isCreate && draft.original?.idCondition) {
+            await api.put<void>('/data/campaign/funnel/condition/save/', draft.original)
+          } else if (isCreate && draft.condition.idCondition) {
+            await api.delete('/data/campaign/funnel/condition/delete/', { idCondition: draft.condition.idCondition })
+          }
+        } catch {
+          // Best-effort rollback; keep the funnel dirty if rollback also fails.
+        }
+      }
+      for (const draft of savedPages.reverse()) {
+        try {
+          const isCreate = draft.isCreate ?? !draft.original?.idPage
+          if (!isCreate && draft.original?.idPage) {
+            await api.put<Page>('/data/page/save/', draft.original)
+          } else if (isCreate && draft.page.idPage) {
+            await api.delete('/data/page/delete/', { idPage: String(draft.page.idPage) })
+          }
+        } catch {
+          // Best-effort rollback; keep the funnel dirty if rollback also fails.
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: queryKeys.pages.all })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.conditions.all })
       toast.error('Failed to save funnel')
+    } finally {
+      setIsSaving(false)
     }
-  }, [serialize, saveFunnel, markClean, toast, isNew, navigate, campaignId])
+  }, [
+    meta,
+    nodes,
+    edges,
+    markClean,
+    clearPendingAssetDrafts,
+    pendingPageDrafts,
+    pendingConditionDrafts,
+    toast,
+    isNew,
+    navigate,
+    campaignId,
+    queryClient,
+    funnelId,
+  ])
+
+  const handleDiscard = useCallback(() => {
+    if (!isDirty || isSaving) return
+    if (!isNew && !funnel) return
+    const ok = window.confirm('Discard all unsaved changes?')
+    if (!ok) return
+    if (isNew) {
+      resetEditor()
+      if (campaignId) {
+        initializeNewFunnel({
+          idCampaign: campaignId,
+          idFunnel: generateId(),
+          funnelName: newFunnelNameFromLocationState(location.state),
+        })
+      }
+      clearPendingAssetDrafts()
+      markClean()
+      return
+    }
+    persistExtrasRef.current = extractPersistExtras(funnel)
+    requestHydrate(funnel, { force: true })
+    clearPendingAssetDrafts()
+  }, [
+    isDirty,
+    isSaving,
+    isNew,
+    campaignId,
+    funnel,
+    initializeNewFunnel,
+    markClean,
+    clearPendingAssetDrafts,
+    requestHydrate,
+    resetEditor,
+    location.state,
+  ])
 
   const handleBack = useCallback(() => {
     if (isDirty) {
@@ -72,56 +307,143 @@ export function FunnelEditorPage() {
     navigate(campaignId ? `/campaigns` : '/')
   }, [isDirty, navigate, campaignId])
 
+  if (funnelId === 'new') {
+    return <Navigate to="/campaigns" replace />
+  }
+
   if (isLoading && !isNew) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="flex flex-1 items-center justify-center">
+        <span className="text-muted-foreground inline-flex [&>svg]:h-6 [&>svg]:w-6">
+          <Icon name="loader-2" size="lg" animation="spin" />
+        </span>
       </div>
     )
   }
 
+  const titleName = meta.funnelName?.trim() || (isNew ? 'New funnel' : 'Funnel')
+
   return (
-    <ReactFlowProvider>
-      <div className="flex flex-col h-[calc(100vh-3.5rem)]">
-        {/* Header bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={handleBack}>
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <ReactFlowProvider>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+          <header className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:px-4">
+            <Button type="text" size="small" className="shrink-0 gap-1" onClick={handleBack}>
+              <Icon name="arrow-left" size="md" />
+              <span className="hidden sm:inline">Campaigns</span>
             </Button>
-            <span className="text-sm text-muted-foreground">
-              {isNew ? 'New Funnel' : 'Edit Funnel'}
-            </span>
+
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-sm font-semibold sm:text-base" title={titleName}>
+                {titleName}
+              </h1>
+            </div>
+
             {isDirty && (
-              <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+              <span className="shrink-0 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded-md px-2 py-0.5">
                 Unsaved
               </span>
             )}
-          </div>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saveFunnel.isPending}
-          >
-            {saveFunnel.isPending ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-1" />
+
+            <Button
+              type="text"
+              size="small"
+              className="shrink-0"
+              title="Funnel settings"
+              aria-label="Funnel settings"
+              onClick={handleOpenSettings}
+            >
+              <Icon name="settings" size="md" />
+            </Button>
+
+            {!isNew && canViewStats && campaignId && funnelId && (
+              <Button
+                type="text"
+                size="small"
+                className="shrink-0"
+                title="Quick Stats"
+                aria-label="Quick Stats"
+                onClick={handleOpenQuickStats}
+              >
+                <Icon name="bar-chart-3" size="md" />
+              </Button>
             )}
-            Save
-          </Button>
+
+            <Button
+              size="small"
+              className="shrink-0"
+              onClick={handleDiscard}
+              disabled={!isDirty || isSaving}
+              title={isDirty ? 'Revert to last saved version' : 'No unsaved changes'}
+            >
+              <span className="mr-1.5 inline-flex">
+                <Icon name="rotate-ccw" size="md" />
+              </span>
+              Discard
+            </Button>
+
+            <Button
+              type="primary"
+              size="small"
+              uiVariant="default"
+              className="shrink-0"
+              onClick={handleSave}
+              disabled={isSaving}
+              iconName={isSaving ? 'loader-2' : 'save'}
+              iconAnimation={isSaving ? 'spin' : 'none'}
+            >
+              Save
+            </Button>
+          </header>
+
+          <HeatmapOverlay
+            funnelId={funnelId ?? ''}
+            campaignId={campaignId}
+            enabled={Boolean(canViewStats)}
+            isNew={isNew}
+          >
+            <div className="relative min-h-0 flex-1">
+              <FunnelCanvas className="absolute inset-0 min-h-0" />
+            </div>
+          </HeatmapOverlay>
         </div>
+      </ReactFlowProvider>
 
-        {/* Top form */}
-        <FunnelTopForm isNew={isNew} />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <FunnelSettingsModal
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            isNew={isNew}
+            titleName={titleName}
+            onSave={handleSave}
+            isSaving={isSaving}
+          />
+        </Suspense>
+      )}
 
-        {/* Canvas */}
-        <FunnelCanvas />
+      {!isNew && campaignId && funnelId && quickStatsOpen && (
+        <Suspense fallback={null}>
+          <FunnelQuickStatsModal
+            open={quickStatsOpen}
+            onClose={() => setQuickStatsOpen(false)}
+            campaignId={campaignId}
+            funnelId={funnelId}
+            funnelName={titleName}
+          />
+        </Suspense>
+      )}
 
-        {/* Advanced settings */}
-        <FunnelAdvancedSettings />
-      </div>
-    </ReactFlowProvider>
+      <ConfirmModal
+        open={serverRefreshOpen}
+        title="Funnel updated on server"
+        description="A newer version of this funnel is available. Load it and discard your unsaved local changes?"
+        confirmText="Load server version"
+        cancelText="Keep editing"
+        danger
+        onCancel={handleServerRefreshCancel}
+        onConfirm={handleServerRefreshConfirm}
+      />
+    </div>
   )
 }

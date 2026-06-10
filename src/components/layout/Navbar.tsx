@@ -1,143 +1,98 @@
-import { useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
-import { useAuthStore } from "@/store/auth"
-import type { Permissions } from "@/types/api"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Link, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '@/store/auth'
+import { Dropdown, type MenuProps } from '@/components/ui-kit/Dropdown'
+import { Icon } from '@/components/ui-kit/icons'
+import { cn } from '@/lib/utils'
 import {
   ChevronDown,
   Settings,
   User,
   LogOut,
+  Sun,
+  Moon,
   Menu,
-  Bell,
-  BarChart3,
-  Shield,
-  Tag,
-  Filter,
-  History,
-  Users,
-  Inbox,
-  Database,
-  DollarSign,
-  Trash2,
-} from "lucide-react"
-import { useNotificationStore } from "@/hooks/useNotifications"
+} from 'lucide-react'
+import { useThemeStore } from '@/store/theme'
+import {
+  getMainNavStructure,
+  getSettingsNavLinks,
+  getUserMenuNavLinks,
+  type NavLinkItem,
+  type MainNavTopItem,
+} from '@/lib/routeRegistry'
 
-interface NavItem {
-  label: string
-  to: string
-  check?: (p: Permissions) => boolean
-  children?: NavItem[]
-}
+/** Menu `<Link>` labels inherit Ant menu item text color (avoids default blue anchors). */
+const menuLinkClass = 'cursor-pointer no-underline text-inherit'
 
-const navItems: NavItem[] = [
-  { label: "Dashboard", to: "/", check: (p) => p.stats.canView },
-  { label: "Campaigns", to: "/campaigns", check: (p) => p.campaigns.canView },
-  {
-    label: "Stats",
-    to: "/reports",
-    check: (p) => p.stats.canView,
-    children: [
-      { label: "Drilldown (Tree)", to: "/reports/tree" },
-      { label: "Drilldown (Flat)", to: "/reports/flat" },
-    ],
-  },
-  {
-    label: "Sources",
-    to: "/traffic-sources",
-    children: [
-      { label: "Traffic Sources", to: "/traffic-sources", check: (p) => p.trafficSources.canView },
-      { label: "Offer Sources", to: "/offer-sources", check: (p) => p.offerSources.canView },
-    ],
-  },
-  { label: "Offers", to: "/offers", check: (p) => p.offers.canView },
-  { label: "Landers", to: "/landers", check: (p) => p.landers.canView },
-  {
-    label: "Links",
-    to: "/links",
-    children: [
-      { label: "System Links", to: "/links/generate", check: (p) => p.systemLinks.canView },
-      { label: "Stored Links", to: "/links/stored", check: (p) => p.storedLinks.canView },
-    ],
-  },
-]
-
-function isRouteActive(pathname: string, to: string, children?: NavItem[]): boolean {
-  if (to === "/" && pathname === "/") return true
-  if (to !== "/") {
-    if (pathname === to || pathname.startsWith(to + "/")) return true
+function isRouteActive(pathname: string, to: string, children?: NavLinkItem[]): boolean {
+  if (to === '/' && pathname === '/') return true
+  if (to !== '/') {
+    if (pathname === to || pathname.startsWith(`${to}/`)) return true
   }
   if (children) {
-    return children.some((c) => pathname === c.to || pathname.startsWith(c.to + "/"))
+    return children.some((c) => pathname === c.to || pathname.startsWith(`${c.to}/`))
   }
   return false
 }
 
+function isMenuActive(pathname: string, item: Extract<MainNavTopItem, { kind: 'menu' }>): boolean {
+  const { section, children } = item
+  if (pathname === section.basePath || pathname.startsWith(`${section.basePath}/`)) {
+    return true
+  }
+  return isRouteActive(pathname, section.basePath, children)
+}
+
 function NavDropdown({
   item,
-  permissions,
   pathname,
 }: {
-  item: NavItem
-  permissions: Permissions
+  item: Extract<MainNavTopItem, { kind: 'menu' }>
   pathname: string
 }) {
-  const visibleChildren = (item.children ?? []).filter(
-    (c) => !c.check || c.check(permissions),
-  )
-  if (visibleChildren.length === 0) return null
+  const { children, section } = item
+  if (children.length === 0) return null
 
-  const active = isRouteActive(pathname, item.to, visibleChildren)
+  const active = isMenuActive(pathname, item)
+
+  const items: MenuProps['items'] = children.map((child) => ({
+    key: child.to,
+    label: (
+      <Link to={child.to} className={menuLinkClass}>
+        {child.label}
+      </Link>
+    ),
+  }))
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={`px-3 py-2 text-sm rounded flex items-center gap-1 outline-none ${
-            active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700"
-          }`}
-        >
-          {item.label}
-          <ChevronDown className="h-3 w-3" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[180px]">
-        {visibleChildren.map((child) => (
-          <DropdownMenuItem key={child.to} asChild>
-            <Link to={child.to} className="cursor-pointer">
-              {child.label}
-            </Link>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Dropdown menu={{ items }} trigger={['click']}>
+      <button
+        type="button"
+        className={cn(
+          'ff-navbar-item cursor-pointer px-3 py-2 text-sm rounded flex items-center gap-1 outline-none border-0 bg-transparent',
+          active && 'ff-navbar-item--active',
+        )}
+      >
+        {section.label}
+        <ChevronDown className="h-3 w-3" />
+      </button>
+    </Dropdown>
   )
 }
 
-function DesktopNav({ permissions, pathname }: { permissions: Permissions; pathname: string }) {
+function DesktopNav({
+  mainNav: structure,
+  pathname,
+}: {
+  mainNav: MainNavTopItem[]
+  pathname: string
+}) {
   return (
-    <div className="hidden md:flex items-center gap-0.5">
-      {navItems.map((item) => {
-        if (item.check && !item.check(permissions)) return null
-
-        if (item.children) {
-          return (
-            <NavDropdown
-              key={item.label}
-              item={item}
-              permissions={permissions}
-              pathname={pathname}
-            />
-          )
+    <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {structure.map((item) => {
+        if (item.kind === 'menu') {
+          return <NavDropdown key={item.section.id} item={item} pathname={pathname} />
         }
 
         const active = isRouteActive(pathname, item.to)
@@ -145,9 +100,10 @@ function DesktopNav({ permissions, pathname }: { permissions: Permissions; pathn
           <Link
             key={item.to}
             to={item.to}
-            className={`px-3 py-2 text-sm rounded no-underline ${
-              active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700"
-            }`}
+            className={cn(
+              'ff-navbar-item shrink-0 px-3 py-2 text-sm rounded no-underline',
+              active && 'ff-navbar-item--active',
+            )}
           >
             {item.label}
           </Link>
@@ -157,184 +113,161 @@ function DesktopNav({ permissions, pathname }: { permissions: Permissions; pathn
   )
 }
 
-function MobileNav({ permissions, pathname }: { permissions: Permissions; pathname: string }) {
-  const [open, setOpen] = useState(false)
-
-  const allLinks: { label: string; to: string }[] = []
-  for (const item of navItems) {
-    if (item.check && !item.check(permissions)) continue
-    if (item.children) {
-      for (const child of item.children) {
-        if (child.check && !child.check(permissions)) continue
-        allLinks.push({ label: child.label, to: child.to })
+function MainNavDropdown({
+  mainNav: structure,
+}: {
+  mainNav: MainNavTopItem[]
+}) {
+  const items: MenuProps['items'] = structure.map((item) => {
+    if (item.kind === 'menu') {
+      return {
+        key: item.section.id,
+        label: item.section.label,
+        children: item.children.map((child) => ({
+          key: child.to,
+          label: (
+            <Link to={child.to} className={menuLinkClass}>
+              {child.label}
+            </Link>
+          ),
+        })),
       }
-    } else {
-      allLinks.push({ label: item.label, to: item.to })
     }
+
+    return {
+      key: item.to,
+      label: (
+        <Link to={item.to} className={menuLinkClass}>
+          {item.label}
+        </Link>
+      ),
+    }
+  })
+
+  return (
+    <Dropdown menu={{ items }} trigger={['click']}>
+      <button
+        type="button"
+        className="ff-navbar-util-btn flex shrink-0 cursor-pointer items-center gap-1.5 rounded border-0 bg-transparent px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="Open navigation menu"
+      >
+        <Menu className="h-4 w-4" />
+        <span className="hidden sm:inline">Menu</span>
+      </button>
+    </Dropdown>
+  )
+}
+
+function SettingsDropdown({ settingsLinks }: { settingsLinks: NavLinkItem[] }) {
+  const items: MenuProps['items'] = []
+
+  for (const link of settingsLinks) {
+    if (link.to === '/settings/access-log') {
+      items.push({ key: 'admin-sep', type: 'divider' })
+    }
+    items.push({
+      key: link.to,
+      label: (
+        link.external ? (
+          <a href={link.to} className={menuLinkClass} target="_blank" rel="noreferrer">
+            {link.icon ? (
+              <span className="mr-2 inline-flex align-middle">
+                <Icon name={link.icon} />
+              </span>
+            ) : null}
+            {link.label}
+          </a>
+        ) : (
+          <Link to={link.to} className={menuLinkClass}>
+            {link.icon ? (
+              <span className="mr-2 inline-flex align-middle">
+                <Icon name={link.icon} />
+              </span>
+            ) : null}
+            {link.label}
+          </Link>
+        )
+      ),
+    })
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden text-slate-300 hover:text-white hover:bg-slate-700">
-          <Menu className="h-5 w-5" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="w-64 bg-slate-800 text-white border-slate-700 p-0">
-        <div className="p-4 border-b border-slate-700">
-          <span className="font-bold text-lg">FunnelFlux</span>
-        </div>
-        <nav className="p-2">
-          {allLinks.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              onClick={() => setOpen(false)}
-              className={`block px-3 py-2 text-sm rounded no-underline ${
-                pathname === link.to ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      </SheetContent>
-    </Sheet>
+    <Dropdown menu={{ items }} trigger={['click']}>
+      <button
+        type="button"
+        className="ff-navbar-util-btn cursor-pointer p-2 rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Settings className="h-4 w-4" />
+      </button>
+    </Dropdown>
   )
 }
 
-function SettingsDropdown({ permissions }: { permissions: Permissions }) {
-  const isAdmin = useAuthStore((s) => s.user?.isAdmin)
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded outline-none">
-          <Settings className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        {isAdmin && (
-          <DropdownMenuItem asChild>
-            <Link to="/settings/system" className="cursor-pointer">
-              <BarChart3 className="h-4 w-4 mr-2" /> System Settings
-            </Link>
-          </DropdownMenuItem>
-        )}
-        {permissions.trafficFilters?.canView && (
-          <DropdownMenuItem asChild>
-            <Link to="/settings/traffic-filters" className="cursor-pointer">
-              <Filter className="h-4 w-4 mr-2" /> Traffic Filters
-            </Link>
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem asChild>
-          <Link to="/settings/tags" className="cursor-pointer">
-            <Tag className="h-4 w-4 mr-2" /> Visitor Tags
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/settings/conditions" className="cursor-pointer">
-            <Shield className="h-4 w-4 mr-2" /> Global Conditions
-          </Link>
-        </DropdownMenuItem>
-        {isAdmin && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link to="/settings/access-log" className="cursor-pointer">
-                <History className="h-4 w-4 mr-2" /> Access Log
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/settings/users" className="cursor-pointer">
-                <Users className="h-4 w-4 mr-2" /> User Management
-              </Link>
-            </DropdownMenuItem>
-          </>
-        )}
-        {permissions.dataUpdates?.enabled && (
-          <>
-            <DropdownMenuSeparator />
-            {permissions.dataUpdates.canUpdateConversions && (
-              <DropdownMenuItem asChild>
-                <Link to="/data-updates/conversions" className="cursor-pointer">
-                  <Database className="h-4 w-4 mr-2" /> Conversions
-                </Link>
-              </DropdownMenuItem>
-            )}
-            {permissions.dataUpdates.canUpdateTrafficCost && (
-              <DropdownMenuItem asChild>
-                <Link to="/data-updates/costs" className="cursor-pointer">
-                  <DollarSign className="h-4 w-4 mr-2" /> Cost Update
-                </Link>
-              </DropdownMenuItem>
-            )}
-            {permissions.dataUpdates.canResetStats && (
-              <DropdownMenuItem asChild>
-                <Link to="/data-updates/reset" className="cursor-pointer">
-                  <Trash2 className="h-4 w-4 mr-2" /> Reset Stats
-                </Link>
-              </DropdownMenuItem>
-            )}
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-function UserDropdown() {
+function UserDropdown({ userLinks }: { userLinks: NavLinkItem[] }) {
   const user = useAuthStore((s) => s.user)
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const queryClient = useQueryClient()
 
   const handleLogout = () => {
     clearAuth()
-    window.location.href = "/admin/login.php?logout=1"
+    queryClient.clear()
+    const basePath = import.meta.env.VITE_BASE_PATH_PREFIX || ''
+    window.location.href = `${basePath}/admin/login.php?logout=1`
   }
 
+  const items: MenuProps['items'] = [
+    ...userLinks.map((link) => ({
+      key: link.to,
+      label: (
+        <Link to={link.to} className={menuLinkClass}>
+          {link.icon ? (
+            <span className="mr-2 inline-flex align-middle">
+              <Icon name={link.icon} />
+            </span>
+          ) : null}
+          {link.label}
+        </Link>
+      ),
+    })),
+    { key: 'user-sep', type: 'divider' as const },
+    {
+      key: 'logout',
+      label: (
+        <>
+          <LogOut className="h-4 w-4 mr-2 inline" /> Log Out
+        </>
+      ),
+      danger: true,
+      onClick: handleLogout,
+    },
+  ]
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded outline-none">
-          <User className="h-4 w-4" />
-          <span className="hidden sm:inline">{user?.firstname || user?.login}</span>
-          <ChevronDown className="h-3 w-3" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem asChild>
-          <Link to="/inbox" className="cursor-pointer">
-            <Inbox className="h-4 w-4 mr-2" /> Inbox
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
-          <LogOut className="h-4 w-4 mr-2" /> Log Out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Dropdown menu={{ items }} trigger={['click']}>
+      <button
+        type="button"
+        className="ff-navbar-util-btn flex shrink-0 cursor-pointer items-center gap-1.5 px-2 py-1.5 text-sm rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <User className="h-4 w-4" />
+        <span className="hidden sm:inline">{user?.firstname || user?.login}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+    </Dropdown>
   )
 }
 
-function NotificationBell() {
-  const count = useNotificationStore((s) => s.unreadCount)
-  const navigate = useNavigate()
+function ThemeToggle() {
+  const mode = useThemeStore((s) => s.mode)
+  const toggle = useThemeStore((s) => s.toggle)
 
   return (
     <button
-      className="relative p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded"
-      onClick={() => navigate("/inbox")}
+      type="button"
+      onClick={toggle}
+      className="ff-navbar-util-btn cursor-pointer p-2 rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      <Bell className="h-4 w-4" />
-      {count > 0 && (
-        <Badge
-          variant="destructive"
-          className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
-        >
-          {count > 99 ? "99+" : count}
-        </Badge>
-      )}
+      {mode === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   )
 }
@@ -344,22 +277,37 @@ export function Navbar() {
   const user = useAuthStore((s) => s.user)
   const permissions = user?.permissions
 
-  if (!permissions) return null
+  if (!permissions || !user) return null
+
+  const mainNav = getMainNavStructure(user)
+  const settingsLinks = getSettingsNavLinks(user)
+  const userLinks = getUserMenuNavLinks(user)
 
   return (
-    <nav className="bg-slate-800 text-white h-14 px-4 flex items-center gap-1 sticky top-0 z-50">
-      <MobileNav permissions={permissions} pathname={location.pathname} />
-
-      <Link to="/" className="font-bold text-lg mr-4 text-white no-underline">
-        FunnelFlux
+    <nav className="ff-navbar bg-nav-bg h-14 px-4 flex items-center gap-2 sticky top-0 z-50 min-w-0">
+      <Link to="/" className="ff-navbar-brand mr-2 flex shrink-0 items-center gap-2 font-bold text-lg no-underline text-inherit">
+        <img
+          src={`${import.meta.env.BASE_URL}logo-full-on-dark.png`}
+          alt="FunnelFlux"
+          width={158}
+          height={32}
+          className="h-8 w-auto shrink-0 object-contain"
+          decoding="async"
+        />
       </Link>
 
-      <DesktopNav permissions={permissions} pathname={location.pathname} />
+      <div className="min-[1100px]:hidden">
+        <MainNavDropdown mainNav={mainNav} />
+      </div>
 
-      <div className="ml-auto flex items-center gap-1">
-        <NotificationBell />
-        <SettingsDropdown permissions={permissions} />
-        <UserDropdown />
+      <div className="hidden min-w-0 flex-1 min-[1100px]:flex">
+        <DesktopNav mainNav={mainNav} pathname={location.pathname} />
+      </div>
+
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <ThemeToggle />
+        {settingsLinks.length > 0 ? <SettingsDropdown settingsLinks={settingsLinks} /> : null}
+        <UserDropdown userLinks={userLinks} />
       </div>
     </nav>
   )

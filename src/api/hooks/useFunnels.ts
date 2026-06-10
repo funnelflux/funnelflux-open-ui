@@ -1,7 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { idNamePairFromCloneWire } from '@/api/cloneResponse'
 import { api } from '@/api/client'
+import { invalidateCampaignFunnelAuxiliary } from '@/api/invalidations'
 import { queryKeys } from '@/api/queryKeys'
+import { parseFunnelWireEnvelope } from '@/schemas/apiBoundaries'
 import type { Funnel, IdName } from '@/types/entities'
+
+/** Use `create: true` when saving a new funnel that already has a client-generated `idFunnel`. */
+export type SaveFunnelInput = Partial<Funnel> & {
+  create?: boolean
+  canvasWidth?: number
+  canvasHeight?: number
+}
 
 export function useFunnels(campaignId?: string) {
   return useQuery({
@@ -19,10 +29,25 @@ export function useFunnels(campaignId?: string) {
   })
 }
 
-export function useFunnel(id: string) {
+export function useFunnel(
+  id: string,
+  options?: { loadDependencies?: boolean },
+) {
+  const loadDeps = options?.loadDependencies ?? false
   return useQuery({
-    queryKey: queryKeys.funnels.detail(id),
-    queryFn: () => api.get<Funnel>('/data/campaign/funnel/find/byId/', { id }),
+    queryKey: [...queryKeys.funnels.detail(id), loadDeps] as const,
+    queryFn: () => {
+      const params: Record<string, string> = { idFunnel: id }
+      if (loadDeps) {
+        params.loadDependencies = 'true'
+      }
+      return api
+        .get<unknown>('/data/campaign/funnel/find/byId/', params)
+        .then((raw) => {
+          parseFunnelWireEnvelope(raw)
+          return raw as Funnel
+        })
+    },
     enabled: !!id,
   })
 }
@@ -30,14 +55,18 @@ export function useFunnel(id: string) {
 export function useSaveFunnel() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (funnel: Partial<Funnel>) => {
-      const isNew = !funnel.idFunnel || funnel.idFunnel === '0'
+    mutationFn: (input: SaveFunnelInput) => {
+      const { create, ...funnel } = input
+      const isNew = create === true || !funnel.idFunnel || funnel.idFunnel === '0'
       return isNew
         ? api.post<Funnel>('/data/campaign/funnel/save/', funnel)
-        : api.put<Funnel>('/data/campaign/funnel/save/', funnel)
+        : api.put<Funnel>('/data/campaign/funnel/save/', funnel, { deleteDependencies: 'true' })
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.funnels.all })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: queryKeys.funnels.all }),
+        invalidateCampaignFunnelAuxiliary(qc),
+      ])
     },
   })
 }
@@ -45,9 +74,12 @@ export function useSaveFunnel() {
 export function useDeleteFunnel() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete('/data/campaign/funnel/delete/', { id }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.funnels.all })
+    mutationFn: (id: string) => api.delete('/data/campaign/funnel/delete/', { idFunnel: id }),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: queryKeys.funnels.all }),
+        invalidateCampaignFunnelAuxiliary(qc),
+      ])
     },
   })
 }
@@ -55,9 +87,19 @@ export function useDeleteFunnel() {
 export function useCloneFunnel() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.post('/data/campaign/funnel/clone/', { id }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.funnels.all })
+    mutationFn: async (id: string) => {
+      const wire = await api.post<Record<string, unknown>>(
+        '/data/campaign/funnel/clone/',
+        undefined,
+        { idFunnel: id },
+      )
+      return idNamePairFromCloneWire(wire, 'idFunnel', 'funnelName')
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: queryKeys.funnels.all }),
+        invalidateCampaignFunnelAuxiliary(qc),
+      ])
     },
   })
 }

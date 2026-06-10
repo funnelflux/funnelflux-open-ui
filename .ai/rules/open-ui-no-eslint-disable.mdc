@@ -1,0 +1,38 @@
+---
+description: Ban eslint-disable comments in funnelflux-open-ui unless genuinely unavoidable
+globs: src/**/*.{ts,tsx},funnelflux-open-ui/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# No eslint-disable
+
+**Never** add `eslint-disable`, `eslint-disable-next-line`, or `eslint-disable-line` comments.
+
+If a lint rule fires, **fix the root cause** instead of suppressing:
+
+| Common temptation | Correct fix |
+|---|---|
+| `react-hooks/exhaustive-deps` on `useMemo` column defs | Use `useRef` to hold handlers referenced in column defs so the ref is stable |
+| `@typescript-eslint/no-explicit-any` on form resolvers | Use `as Resolver<T>` cast from `react-hook-form` |
+| `@typescript-eslint/no-explicit-any` on event handlers | Write a proper type or use `unknown` + narrowing |
+| `@typescript-eslint/no-empty-object-type` | Use `Record<string, never>` or add a real property |
+
+## When is suppression acceptable?
+
+Only when **all three** conditions are met:
+
+1. The lint rule is provably a false positive for this specific line
+2. You have tried at least two alternative approaches and documented why they fail
+3. You add a `// REASON: ...` comment explaining the false-positive on the same line
+
+Even then, prefer fixing upstream (updating a type, adjusting config) over suppressing.
+
+## One component per file
+
+Every `.tsx` file must export exactly **one** React component. Do not colocate a form, modal, or dialog inside a page file. Extract it into:
+
+- `src/components/forms/` for entity forms
+- `src/components/shared/` for cross-page modals or dialogs
+- The relevant `src/components/<domain>/` folder for domain-specific UI
+
+Small non-component helpers (types, constants) may stay in the same file if they are only used there.

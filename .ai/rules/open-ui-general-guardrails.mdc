@@ -1,0 +1,95 @@
+---
+description: General guardrails and anti-patterns for funnelflux-open-ui contributors
+globs: src/**/*,funnelflux-open-ui/**/*
+alwaysApply: false
+---
+
+# General guardrails for contributors
+
+## Tech stack (locked — do not swap or add)
+
+| Concern | Library | Version lock? |
+|---------|---------|---------------|
+| Framework | React 19 | Yes |
+| Build | Vite 8 | Yes |
+| Routing | react-router-dom 7 | Yes |
+| UI Library | Ant Design 6 | Yes |
+| Forms | react-hook-form 7 + Zod 4 | Yes |
+| State | Zustand 5 | Yes |
+| Server state | @tanstack/react-query 5 | Yes |
+| Tables | @tanstack/react-table + @tanstack/react-virtual | Yes |
+| Canvas | @xyflow/react 12 | Yes |
+| Charts | Recharts 3 | Yes |
+| Icons | lucide-react | Yes |
+| CSS | Tailwind CSS 4 + design tokens | Yes |
+
+**Do NOT add:** axios, SWR, Redux, MobX, styled-components, emotion, Material UI, shadcn/ui, Radix, Chakra, or any alternative to the above. If something seems missing, it is intentional.
+
+## Import alias
+Always `@/` for `src/`. Never relative paths that traverse up (`../../../`).
+
+## Cursor rule globs (monorepo vs package workspace)
+Rules under `.ai/rules/` (symlinked to `.cursor/rules/`) use **paired globs** so validation works whether the IDE workspace root is **`funnelflux-open-ui`** or the **`funnelflux-self-hosted`** monorepo: a `src/...` pattern plus `funnelflux-open-ui/...` (comma-separated, **no space** after the comma). Extra paths (e.g. `admin/api/v2/*/definition.yaml`) are duplicated for repo-root resolution where needed.
+
+## TypeScript
+- Strict mode. No `@ts-ignore`. Minimize `as any` — use `as Resolver<T>` for form resolvers if needed.
+- Types for API responses must match `definition.yaml`. If the API shape changes, update types first.
+- Prefer interfaces for entity shapes, `type` for unions and utility types.
+
+## Performance rules (from CLAUDE.md — critical)
+1. **`columnDefs` MUST be in `useMemo`** with stable deps.
+2. **No inline arrow functions in JSX** for event props (`onClick`, `onChange`, etc.) — use named handlers; see `open-ui-no-inline-jsx-handlers.mdc`.
+3. **Action handlers in memoized columns MUST use `useRef`** pattern.
+4. **Never put `.filter()`, `.map()`, `[...spread]` in `useEffect` dependencies** — they create new references every render.
+5. **Never call expensive APIs in effects without diffing** previous vs current.
+6. **Before writing any `useEffect`**, trace the cascade: state change → re-render → prop change → effect fire → API call? If data hasn't semantically changed, you have a bug.
+
+## Error handling
+- Always import `getErrorMessage` from `@/lib/utils` for mutation errors.
+- Always show `toast.error(getErrorMessage(err))` on mutation failures.
+- Never swallow errors silently.
+
+## Routing
+- `BrowserRouter` with `basename="/v2-ui"`.
+- All protected routes wrapped in `PermissionGuard` / `guarded()`.
+- New routes go in `AppRoutes` in `App.tsx`.
+
+## Auth context
+- Comes from `useAuthStore` (Zustand), populated by `useAuth` hook.
+- Session-based (cookie), not JWT tokens.
+- Never store auth tokens in localStorage.
+
+## What to check before any PR
+- [ ] `pnpm run build` passes (tsc + vite)
+- [ ] `pnpm run lint` passes (ESLint)
+- [ ] No `TODO` placeholders in completed code
+- [ ] New components use ui-kit primitives
+- [ ] Forms use RHF + Zod + Controller
+- [ ] API calls are in hooks, not in pages
+- [ ] Colors use design tokens, not hex
+- [ ] Column definitions are memoized
+- [ ] No new dependencies without discussion
+- [ ] Schema matches OpenAPI definition.yaml
+
+## Common mistakes to avoid
+1. Using `register()` with Ant Design → invisible validation failures.
+2. Using `fetch()` directly in a component → breaks caching, duplicates URLs.
+3. Storing server data in Zustand → stale data, no auto-refresh.
+4. Hardcoded hex colors → broken dark mode.
+5. Un-memoized column defs → grid flicker and infinite re-renders.
+6. `window.confirm()` or `window.alert()` → use `ConfirmModal` / `useToastApi`.
+7. Adding a new CSS file → extend `design-tokens.css` or `index.css` instead.
+8. Creating a custom table → use `DataTable` from ui-kit.
+9. `@ant-design/icons` → use `lucide-react`.
+10. Default exports → use named exports.
+11. Using `Number(raw)` on stats grouping ids → 19-digit Snowflake ids overflow `Number.MAX_SAFE_INTEGER` and collide. See `open-ui-bigint-json.mdc`.
+12. Enabling `treeMode` on `DataTable` without reading `open-ui-datatable-tree-lazy-loading.mdc` — the `paginateExpandedRows` + `noPagination` interaction silently hides lazy-loaded children.
+13. Importing `DataTable` or data-table helpers from `@/components/ui-kit` instead of `@/components/ui-kit/data-table`.
+14. Importing raw AntD components in app code instead of ui-kit wrappers.
+15. Reintroducing `createEntityHooks`-style local key factories that diverge from `queryKeys.ts`.
+16. Calling `api.post('/stats/reporting/drilldown/', ...)` directly instead of `api.postDrilldown(...)`.
+17. Persisting UI-only funnel fields such as `codeEdgeRole` in save payloads.
+18. Adding error handling for scenarios that cannot happen.
+19. Creating helper utilities used only once.
+20. Over-engineering with feature flags or configuration for simple changes.
+21. Adding backwards-compatibility shims when you can just change the code.

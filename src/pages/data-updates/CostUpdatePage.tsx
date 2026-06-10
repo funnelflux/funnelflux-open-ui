@@ -1,41 +1,181 @@
-import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { useCallback, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
+  getHours,
+  getMinutes,
+  isSameMinute,
+  setHours,
+  setMilliseconds,
+  setMinutes,
+  setSeconds,
+} from 'date-fns'
+import { Icon } from '@/components/ui-kit/icons'
+import {
+  Alert,
+  Button,
+  Card,
+  DateTimeRangePicker,
+  Divider,
+  Field,
+  Input,
+  PageShell,
+  Segmented,
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { TimezoneSelector } from '@/components/shared/TimezoneSelector'
-import { useToast } from '@/components/shared/Toaster'
-import { useCampaignsList, useTrafficSources } from '@/api/hooks'
+  Spin,
+  TimezoneSelect,
+  Typography,
+  useToastApi,
+} from '@/components/ui-kit'
+import type { SelectOption } from '@/components/ui-kit'
 import { api } from '@/api/client'
-import type { CostUpdateRequest } from '@/types/ui'
-import { getErrorMessage } from '@/lib/utils'
+import { useTrafficSources } from '@/api/hooks/useTrafficSources'
+import { queryKeys } from '@/api/queryKeys'
+import { DATE_PRESETS, getPresetRange } from '@/lib/date-presets'
+import { toApiDateTimeForReportingZone } from '@/lib/statsDateRange'
+import { cn, getErrorMessage } from '@/lib/utils'
+import type { BackgroundJobResponse, CostUpload } from '@/types/stats'
+import type { KeyValuePairTreeItem } from '@/types/generated/data'
+import type { TrafficSourceInfo, UpdateCostPageData } from '@/types/generated/ui'
 
-function todayString(): string {
-  return new Date().toISOString().slice(0, 10)
+type CostMode = 'total' | 'perEntrance'
+
+function presetRanges(tz: string): { label: string; value: [Date, Date] }[] {
+  return DATE_PRESETS.map((preset) => {
+    const range = getPresetRange(preset.value, tz)
+    return {
+      label: preset.label,
+      value: [range.from, range.to],
+    }
+  })
+}
+
+function initialRangeForTimezone(tz: string): [Date, Date] {
+  const range = getPresetRange('today', tz)
+  return [range.from, range.to]
+}
+
+/** Traffic sources from BFF may be empty or keys may vary; merge with data API list. */
+function normalizeTrafficSourceRow(row: TrafficSourceInfo | Record<string, unknown>): {
+  id: string
+  name: string
+} | null {
+  const anyRow = row as Record<string, unknown>
+  const rawId = anyRow.id ?? anyRow.idTrafficSource
+  const id = rawId !== undefined && rawId !== null ? String(rawId).trim() : ''
+  if (!id) return null
+  const nameRaw = anyRow.name
+  const name =
+    typeof nameRaw === 'string' && nameRaw.trim() !== ''
+      ? nameRaw.trim()
+      : `Traffic source ${id}`
+  return { id, name }
+}
+
+/** Funnels from update-cost page tree: campaign name — funnel name. */
+function funnelOptionsFromCampaignTree(tree: KeyValuePairTreeItem[]): SelectOption[] {
+  const out: SelectOption[] = []
+  for (const campaign of tree) {
+    const campaignName = campaign.item.value
+    for (const funnel of campaign.children ?? []) {
+      const id = funnel.item.key
+      const name = funnel.item.value
+      if (!id || !name) continue
+      out.push({
+        label: `${campaignName} — ${name}`,
+        value: id,
+        searchId: id,
+      })
+    }
+  }
+  return out
 }
 
 export function CostUpdatePage() {
-  const toast = useToast()
-  const { data: trafficSources } = useTrafficSources()
-  const { data: campaigns } = useCampaignsList()
+  const toast = useToastApi()
+  const {
+    data: costPageData,
+    isError: costPageError,
+    error: costPageErr,
+    isLoading: costPageLoading,
+    isSuccess: costPageSuccess,
+  } = useQuery({
+    queryKey: queryKeys.dataUpdates.updateCostPage(),
+    queryFn: () => api.get<UpdateCostPageData>('/ui/updatecost/load/'),
+  })
 
+  const { data: trafficSourcesFromDataApi } = useTrafficSources()
+
+  const trafficSourceOptions: SelectOption[] = useMemo(() => {
+    const byId = new Map<string, SelectOption>()
+    for (const row of costPageData?.availableTrafficSources ?? []) {
+      const normalized = normalizeTrafficSourceRow(row)
+      if (!normalized) continue
+      byId.set(normalized.id, {
+        label: normalized.name,
+        value: normalized.id,
+        searchId: normalized.id,
+      })
+    }
+    for (const entity of trafficSourcesFromDataApi ?? []) {
+      const id = entity.idTrafficSource?.trim()
+      if (!id || byId.has(id)) continue
+      const name =
+        entity.trafficSourceName?.trim() || `Traffic source ${id}`
+      byId.set(id, { label: name, value: id, searchId: id })
+    }
+    return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label))
+  }, [costPageData, trafficSourcesFromDataApi])
+
+  const funnelOptions: SelectOption[] = useMemo(() => {
+    const tree = costPageData?.availableCampaignsAndFunnels ?? []
+    return [{ label: 'All funnels', value: '__none__' }, ...funnelOptionsFromCampaignTree(tree)]
+  }, [costPageData])
+
+  const formLocked = costPageLoading || costPageError
+  const noTrafficSources =
+    costPageSuccess && !costPageLoading && trafficSourceOptions.length === 0
+
+  const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone
   const [idTrafficSource, setIdTrafficSource] = useState('')
-  const [idCampaign, setIdCampaign] = useState('')
-  const [dateFrom, setDateFrom] = useState(todayString())
-  const [dateTo, setDateTo] = useState(todayString())
-  const [timezone, setTimezone] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  const [idFunnel, setIdFunnel] = useState('')
+  const [timezone, setTimezone] = useState(defaultTz)
+  const [range, setRange] = useState<[Date, Date]>(() =>
+    initialRangeForTimezone(defaultTz),
   )
-  const [totalCost, setTotalCost] = useState('')
+  const [costMode, setCostMode] = useState<CostMode>('total')
+  const [costAmountRaw, setCostAmountRaw] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const rangePresets = useMemo(() => presetRanges(timezone), [timezone])
+
+  const handleTimezoneChange = useCallback((nextTz: string) => {
+    setTimezone(nextTz)
+  }, [])
+
+  const handleRangeChange = useCallback(
+    (dates: [Date | null, Date | null] | null) => {
+      const start = dates?.[0]
+      const end = dates?.[1]
+      if (!start || !end) return
+
+      let endAdjusted = end
+      if (
+        isSameMinute(start, end) &&
+        getHours(start) === 0 &&
+        getMinutes(start) === 0
+      ) {
+        endAdjusted = setMilliseconds(setSeconds(setMinutes(setHours(start, 23), 59), 59), 999)
+      }
+      setRange([start, endAdjusted])
+    },
+    [],
+  )
+
+  const handleCostModeChange = useCallback((value: string | number) => {
+    if (value === 'total' || value === 'perEntrance') {
+      setCostMode(value)
+    }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -44,25 +184,57 @@ export function CostUpdatePage() {
       toast.error('Please select a traffic source')
       return
     }
-    if (!totalCost || isNaN(Number(totalCost))) {
+    if (!costAmountRaw || Number.isNaN(Number(costAmountRaw))) {
       toast.error('Please enter a valid cost amount')
       return
     }
 
-    const payload: CostUpdateRequest = {
+    const costAmount = Number(costAmountRaw)
+    if (costAmount < 0) {
+      toast.error('Cost must be zero or greater')
+      return
+    }
+
+    const startMs = range[0].getTime()
+    const endMs = range[1].getTime()
+    if (startMs > endMs) {
+      toast.error('Start must be on or before end')
+      return
+    }
+
+    const [fromDate, toDate] = range
+    const timeRange = {
+      start: toApiDateTimeForReportingZone(fromDate, timezone),
+      end: toApiDateTimeForReportingZone(toDate, timezone),
+    }
+    const costType =
+      costMode === 'total' ? 'costForWholeSegment' : 'costPerEntrance'
+
+    const body: CostUpload = {
       idTrafficSource,
-      idCampaign: idCampaign || undefined,
-      dateFrom,
-      dateTo,
-      timezone,
-      totalCost: Number(totalCost),
+      ...(idFunnel && idFunnel !== '__none__' ? { idFunnel } : {}),
+      timeRange,
+      timeZone: { name: timezone, offset: 0 },
+      costSegments: [
+        {
+          cost: costAmount,
+          costType,
+          applyToFilteredTraffic: false,
+        },
+      ],
+      notificationWhenComplete: false,
     }
 
     setIsSubmitting(true)
     try {
-      await api.post('/stats/update/cost/', payload)
-      toast.success('Cost updated successfully')
-      setTotalCost('')
+      const res = await api.put<BackgroundJobResponse>('/stats/update/cost/', body)
+      const jobCount = res.jobIds?.length ?? 0
+      toast.success(
+        jobCount > 0
+          ? `Queued ${jobCount} background job${jobCount === 1 ? '' : 's'}.`
+          : 'Cost update submitted.',
+      )
+      setCostAmountRaw('')
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
@@ -71,95 +243,174 @@ export function CostUpdatePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Update Cost"
-        subtitle="Manually update cost data for a traffic source"
-      />
-
-      <form onSubmit={handleSubmit} className="max-w-lg space-y-4">
-        {/* Traffic Source */}
-        <div className="space-y-1.5">
-          <Label>Traffic Source *</Label>
-          <Select value={idTrafficSource} onValueChange={setIdTrafficSource}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select traffic source" />
-            </SelectTrigger>
-            <SelectContent>
-              {(trafficSources ?? []).map((ts) => (
-                <SelectItem key={ts.idTrafficSource} value={ts.idTrafficSource}>
-                  {ts.trafficSourceName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Campaign (optional) */}
-        <div className="space-y-1.5">
-          <Label>Campaign (optional)</Label>
-          <Select value={idCampaign} onValueChange={setIdCampaign}>
-            <SelectTrigger>
-              <SelectValue placeholder="All campaigns" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">All campaigns</SelectItem>
-              {(campaigns ?? []).map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Date Range */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="date-from">Date From</Label>
-            <Input
-              id="date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="date-to">Date To</Label>
-            <Input
-              id="date-to"
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Timezone */}
-        <div className="space-y-1.5">
-          <Label>Timezone</Label>
-          <TimezoneSelector value={timezone} onChange={setTimezone} />
-        </div>
-
-        {/* Total Cost */}
-        <div className="space-y-1.5">
-          <Label htmlFor="total-cost">Total Cost *</Label>
-          <Input
-            id="total-cost"
-            type="number"
-            step="0.01"
-            min="0"
-            value={totalCost}
-            onChange={(e) => setTotalCost(e.target.value)}
-            placeholder="0.00"
+    <PageShell
+      title="Update Cost"
+      subtitle="Manually update cost data for a traffic source over a date and time range."
+    >
+      <Card className="max-w-4xl border-border" styles={{ body: { padding: 24 } }}>
+        {costPageError && (
+          <Alert
+            type="error"
+            showIcon
+            className="mb-4"
+            message="Could not load form options"
+            description={getErrorMessage(costPageErr)}
           />
-        </div>
+        )}
+        {noTrafficSources && (
+          <Alert
+            type="warning"
+            showIcon
+            className="mb-4"
+            message="No traffic sources available"
+            description="There are no traffic sources to assign cost to, or your account has no sources yet."
+          />
+        )}
 
-        <Button type="submit" disabled={isSubmitting || !idTrafficSource}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Update Cost
-        </Button>
-      </form>
-    </div>
+        <Spin spinning={costPageLoading}>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid gap-8 lg:grid-cols-2">
+              <div className="space-y-5">
+                <div>
+                  <Typography.Title level={5} className="mb-3 mt-0">
+                    Scope
+                  </Typography.Title>
+                  <Field
+                    title="Traffic source"
+                    required
+                    htmlFor="cost-update-traffic-source"
+                    description="Source this cost will be attributed to in reporting."
+                  >
+                    <Select
+                      id="cost-update-traffic-source"
+                      options={trafficSourceOptions}
+                      value={idTrafficSource || undefined}
+                      onChange={setIdTrafficSource}
+                      placeholder={costPageLoading ? 'Loading…' : 'Select traffic source'}
+                      className="w-full"
+                      disabled={formLocked || noTrafficSources}
+                    />
+                  </Field>
+
+                  <Field
+                    title="Funnel"
+                    htmlFor="cost-update-funnel"
+                    description="Optional. Limit the cost update to one funnel; leave as “All funnels” to apply account-wide for this source."
+                    className="mt-4"
+                  >
+                    <Select
+                      id="cost-update-funnel"
+                      options={funnelOptions}
+                      value={idFunnel || undefined}
+                      onChange={setIdFunnel}
+                      placeholder="All funnels"
+                      className="w-full"
+                      disabled={formLocked}
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <Typography.Title level={5} className="mb-3 mt-0">
+                    Time range
+                  </Typography.Title>
+                  <Field
+                    title="Timezone"
+                    htmlFor="cost-update-timezone"
+                    description="Dates and times are interpreted in this timezone for the API."
+                  >
+                    <TimezoneSelect
+                      id="cost-update-timezone"
+                      value={timezone}
+                      onChange={handleTimezoneChange}
+                      className="w-full"
+                      disabled={formLocked}
+                    />
+                  </Field>
+
+                  <Field
+                    title="From — to"
+                    required
+                    htmlFor="cost-update-datetime-range"
+                    description="Inclusive range with date and time. Presets apply in one step; if you pick dates in the calendar, confirm with OK. (Auto-advance is off here so presets stay reliable.)"
+                    className="mt-4"
+                  >
+                    <DateTimeRangePicker
+                      showTime
+                      autoConfirmCalendarSteps={false}
+                      allowClear={false}
+                      value={range}
+                      onChange={handleRangeChange}
+                      presets={rangePresets}
+                      className={cn('w-full [&_.ant-picker]:w-full', 'h-control-md')}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </div>
+
+            <Divider className="my-0" />
+
+            <div className="space-y-5">
+              <Typography.Title level={5} className="mb-0 mt-0">
+                Cost
+              </Typography.Title>
+              <Field title="How to apply" htmlFor="cost-update-mode">
+                <Segmented
+                  id="cost-update-mode"
+                  block
+                  value={costMode}
+                  onChange={handleCostModeChange}
+                  disabled={formLocked}
+                  options={[
+                    { label: 'Total cost', value: 'total' },
+                    { label: 'Cost per entrance', value: 'perEntrance' },
+                  ]}
+                />
+              </Field>
+              <Field
+                title={costMode === 'total' ? 'Amount (total)' : 'Amount (per entrance)'}
+                required
+                htmlFor="cost-update-amount"
+                description={
+                  costMode === 'total'
+                    ? 'Total spend for the selected source (and funnel, if any) across the range.'
+                    : 'Fixed cost applied to each entrance in the range.'
+                }
+              >
+                <Input
+                  id="cost-update-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={costAmountRaw}
+                  onChange={(e) => setCostAmountRaw(e.target.value)}
+                  placeholder="0.00"
+                  disabled={formLocked}
+                  className="w-full max-w-md"
+                />
+              </Field>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <Button
+                type="primary"
+                htmlType="submit"
+                disabled={isSubmitting || !idTrafficSource || formLocked || noTrafficSources}
+              >
+                {isSubmitting && (
+                  <span className="mr-2 inline-flex">
+                    <Icon name="loader-2" size="md" animation="spin" />
+                  </span>
+                )}
+                Update cost
+              </Button>
+            </div>
+          </form>
+        </Spin>
+      </Card>
+    </PageShell>
   )
 }

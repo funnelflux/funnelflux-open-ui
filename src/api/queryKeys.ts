@@ -1,8 +1,17 @@
+import type { DrilldownRequest } from '@/types/stats'
+import { stableStringify } from '@/lib/stableJson'
+
 export const queryKeys = {
   campaigns: {
     all: ['campaigns'] as const,
     list: (params?: Record<string, string>) => [...queryKeys.campaigns.all, 'list', params] as const,
     detail: (id: string) => [...queryKeys.campaigns.all, 'detail', id] as const,
+  },
+  /** Campaigns category-strip table (not covered by `campaigns.all` invalidations). */
+  campaignStrip: {
+    all: ['campaignStrip'] as const,
+    static: (archiveStatus: string) =>
+      [...queryKeys.campaignStrip.all, 'static', archiveStatus] as const,
   },
   funnels: {
     all: ['funnels'] as const,
@@ -18,6 +27,7 @@ export const queryKeys = {
     all: ['trafficSources'] as const,
     list: (params?: Record<string, string>) => [...queryKeys.trafficSources.all, 'list', params] as const,
     detail: (id: string) => [...queryKeys.trafficSources.all, 'detail', id] as const,
+    categories: ['trafficSources', 'categories'] as const,
     templates: ['trafficSources', 'templates'] as const,
   },
   offerSources: {
@@ -38,9 +48,18 @@ export const queryKeys = {
   drilldown: {
     all: ['drilldown'] as const,
     groupings: ['drilldown', 'groupings'] as const,
+    /** Full drilldown POST body as cache identity (see {@link stableStringify}). */
+    report: (request: DrilldownRequest) =>
+      [...queryKeys.drilldown.all, 'report', stableStringify(request)] as const,
+    flatAllReport: (request: DrilldownRequest) =>
+      [...queryKeys.drilldown.all, 'flatAll', stableStringify(request)] as const,
   },
   dashboard: {
     all: ['dashboard'] as const,
+    summary: (request: DrilldownRequest) =>
+      [...queryKeys.dashboard.all, 'summary', stableStringify(request)] as const,
+    topTable: (request: DrilldownRequest) =>
+      [...queryKeys.dashboard.all, 'topTable', stableStringify(request)] as const,
   },
   systemSettings: {
     all: ['systemSettings'] as const,
@@ -48,6 +67,8 @@ export const queryKeys = {
   domains: {
     all: ['domains'] as const,
     list: () => [...queryKeys.domains.all, 'list'] as const,
+    trackingDefault: () => [...queryKeys.domains.all, 'trackingDefault'] as const,
+    webRoot: () => [...queryKeys.domains.all, 'webRoot'] as const,
   },
   inbox: {
     all: ['inbox'] as const,
@@ -71,7 +92,7 @@ export const queryKeys = {
   },
   conditions: {
     all: ['conditions'] as const,
-    list: (scope?: string) => [...queryKeys.conditions.all, 'list', scope] as const,
+    list: () => [...queryKeys.conditions.all, 'list'] as const,
     detail: (id: string) => [...queryKeys.conditions.all, 'detail', id] as const,
   },
   codeSnippets: {
@@ -87,5 +108,21 @@ export const queryKeys = {
   categories: {
     all: ['categories'] as const,
     list: (entityType?: string) => [...queryKeys.categories.all, 'list', entityType] as const,
+  },
+  dataUpdates: {
+    all: ['dataUpdates'] as const,
+    updateCostPage: () => [...queryKeys.dataUpdates.all, 'updateCostPage'] as const,
+    resetStatsPage: () => [...queryKeys.dataUpdates.all, 'resetStatsPage'] as const,
+  },
+  groupingFilterAssets: {
+    all: ['groupingFilterAssets'] as const,
+    campaignsSimple: () => [...queryKeys.groupingFilterAssets.all, 'campaigns', 'simple'] as const,
+    funnelsPrefixed: () => [...queryKeys.groupingFilterAssets.all, 'funnels', 'prefixed'] as const,
+    pageList: (pageType: 'lander' | 'offer') =>
+      [...queryKeys.groupingFilterAssets.all, 'pages', pageType] as const,
+    pageCategories: () => [...queryKeys.groupingFilterAssets.all, 'pageCategories'] as const,
+    trafficSourcesList: () => [...queryKeys.groupingFilterAssets.all, 'trafficSources', 'list'] as const,
+    offerSourcesAllStatuses: () =>
+      [...queryKeys.groupingFilterAssets.all, 'offerSources', 'allStatuses'] as const,
   },
 }

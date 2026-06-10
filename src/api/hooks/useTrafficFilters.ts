@@ -1,21 +1,82 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import type { TrafficFilter } from '@/types/entities'
+import type { TrafficFilter, TrafficFilterApplyRequest } from '@/types/entities'
+import type { TrafficFiltersData } from '@/types/ui'
+
+export type SaveTrafficFilterInput = {
+  data: Partial<TrafficFilter>
+  /** POST create vs PUT update — required because new rows use a client-generated id before save. */
+  isCreate: boolean
+}
+
+function normalizeTrafficFilter(filter: Partial<TrafficFilter>): TrafficFilter | null {
+  if (!filter.idTrafficFilter || !filter.trafficFilterName || !filter.filterType) return null
+  return {
+    idTrafficFilter: filter.idTrafficFilter,
+    trafficFilterName: filter.trafficFilterName,
+    filterType: filter.filterType,
+    filterEntries: filter.filterEntries ?? [],
+    redirectToURL: filter.redirectToURL ?? null,
+    isEnabled: filter.isEnabled ?? true,
+  }
+}
+
+function statusMatchesFilter(status: unknown, filter: TrafficFilter): boolean {
+  if (status === 'enabled') return Boolean(filter.isEnabled)
+  if (status === 'disabled') return !filter.isEnabled
+  return true
+}
+
+function upsertFilterInListData(
+  previous: TrafficFiltersData | undefined,
+  filter: TrafficFilter,
+  status: unknown,
+): TrafficFiltersData | undefined {
+  if (!previous) return previous
+  const withoutCurrent = previous.filters.filter((item) => item.idTrafficFilter !== filter.idTrafficFilter)
+  const nextFilters = statusMatchesFilter(status, filter) ? [filter, ...withoutCurrent] : withoutCurrent
+  return { ...previous, filters: nextFilters }
+}
+
+function removeFilterFromListData(
+  previous: TrafficFiltersData | undefined,
+  idTrafficFilter: string,
+): TrafficFiltersData | undefined {
+  if (!previous) return previous
+  return {
+    ...previous,
+    filters: previous.filters.filter((item) => item.idTrafficFilter !== idTrafficFilter),
+  }
+}
+
+type TrafficFilterListStatus = 'enabled' | 'disabled' | undefined
+
+const TRAFFIC_FILTER_LIST_STATUSES: readonly TrafficFilterListStatus[] = [undefined, 'enabled', 'disabled']
+
+function trafficFilterListParams(status: TrafficFilterListStatus): Record<string, string> {
+  return status ? { status } : {}
+}
 
 export function useTrafficFilters(status?: string) {
   const params: Record<string, string> = {}
   if (status && status !== 'all') params.status = status
   return useQuery({
     queryKey: queryKeys.trafficFilters.list(params),
-    queryFn: () => {
+    queryFn: async () => {
       if (status === 'enabled') {
-        return api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'enabled' })
+        const filters = await api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'enabled' })
+        return { filters, availableCountries: [] }
       }
       if (status === 'disabled') {
-        return api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'disabled' })
+        const filters = await api.get<TrafficFilter[]>('/data/trafficfilter/find/byStatus/', { status: 'disabled' })
+        return { filters, availableCountries: [] }
       }
-      return api.get<TrafficFilter[]>('/ui/trafficfilters/load/')
+      const payload = await api.get<TrafficFiltersData>('/ui/trafficfilters/load/')
+      return {
+        filters: Array.isArray(payload.filters) ? payload.filters : [],
+        availableCountries: Array.isArray(payload.availableCountries) ? payload.availableCountries : [],
+      }
     },
   })
 }
@@ -23,7 +84,8 @@ export function useTrafficFilters(status?: string) {
 export function useTrafficFilter(id: string) {
   return useQuery({
     queryKey: queryKeys.trafficFilters.detail(id),
-    queryFn: () => api.get<TrafficFilter>('/data/trafficfilter/find/byId/', { id }),
+    queryFn: () =>
+      api.get<TrafficFilter>('/data/trafficfilter/find/byId/', { idTrafficFilter: id }),
     enabled: !!id,
   })
 }
@@ -31,14 +93,26 @@ export function useTrafficFilter(id: string) {
 export function useSaveTrafficFilter() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (filter: Partial<TrafficFilter>) => {
-      const isNew = !filter.idTrafficFilter || filter.idTrafficFilter === '0'
-      return isNew
-        ? api.post<TrafficFilter>('/data/trafficfilter/save/', filter)
-        : api.put<TrafficFilter>('/data/trafficfilter/save/', filter)
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.trafficFilters.all })
+    mutationFn: ({ data, isCreate }: SaveTrafficFilterInput) =>
+      isCreate
+        ? api.post<TrafficFilter>('/data/trafficfilter/save/', data)
+        : api.put<TrafficFilter>('/data/trafficfilter/save/', data),
+    onSuccess: (_savedResponse, variables) => {
+      const optimisticSavedFilter = normalizeTrafficFilter(variables.data)
+      if (!optimisticSavedFilter) return
+
+      for (const listStatus of TRAFFIC_FILTER_LIST_STATUSES) {
+        const params = trafficFilterListParams(listStatus)
+        qc.setQueryData<TrafficFiltersData>(
+          queryKeys.trafficFilters.list(params),
+          (previous) => upsertFilterInListData(previous, optimisticSavedFilter, listStatus),
+        )
+      }
+
+      const id = optimisticSavedFilter.idTrafficFilter
+      if (id) {
+        qc.setQueryData(queryKeys.trafficFilters.detail(id), optimisticSavedFilter)
+      }
     },
   })
 }
@@ -46,16 +120,26 @@ export function useSaveTrafficFilter() {
 export function useDeleteTrafficFilter() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete('/data/trafficfilter/delete/', { id }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.trafficFilters.all })
+    mutationFn: (idTrafficFilter: string) =>
+      api.delete('/data/trafficfilter/delete/', { idTrafficFilter }),
+    onSuccess: (_data, idTrafficFilter) => {
+      qc.removeQueries({ queryKey: queryKeys.trafficFilters.detail(idTrafficFilter) })
+      for (const listStatus of TRAFFIC_FILTER_LIST_STATUSES) {
+        const params = trafficFilterListParams(listStatus)
+        qc.setQueryData<TrafficFiltersData>(
+          queryKeys.trafficFilters.list(params),
+          (previous) => removeFilterFromListData(previous, idTrafficFilter),
+        )
+      }
     },
   })
 }
 
 export function useApplyTrafficFilterRetroactively() {
   return useMutation({
-    mutationFn: (id: string) =>
-      api.post('/data/trafficfilter/applyRetroactively/', { id }),
+    mutationFn: ({ idTrafficFilter, apply }: { idTrafficFilter: string; apply: boolean }) => {
+      const body: TrafficFilterApplyRequest = { idFilter: idTrafficFilter, apply }
+      return api.post('/data/trafficfilter/applyRetroactively/', body)
+    },
   })
 }

@@ -1,0 +1,107 @@
+---
+description: API layer rules — hooks only, no direct fetch in components
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# API: hooks-only architecture
+
+## The API client
+- `src/api/client.ts` exports a singleton `api` with `get`, `post`, `put`, `delete`.
+- **Components and pages MUST NOT import `api` directly** for data fetching. The only place `api` should be called is inside `src/api/hooks/*.ts` hook files.
+- Exception: one-off imperative calls (e.g. file upload, clipboard copy from generated URL) may use `api` in event handlers, but never for data that should be cached or shared.
+
+## Hook file structure
+- One file per entity domain: `src/api/hooks/use<Entity>.ts`
+- Re-export from `src/api/hooks/index.ts`: `export * from './use<Entity>'`
+- Every file imports `api` from `@/api/client`, `queryKeys` from `@/api/queryKeys`, and types from `@/types/`.
+
+## Query keys
+- Extend `src/api/queryKeys.ts` for new entities.
+- Structure: `{ all, list(params?), detail(id) }` using `as const` tuples.
+- Always invalidate with `queryKey: queryKeys.<entity>.all` after mutations.
+
+## Hook patterns
+
+### List hook
+```ts
+export function useThings(status?: string) {
+  return useQuery({
+    queryKey: queryKeys.things.list({ status }),
+    queryFn: () => api.get<Thing[]>('/data/thing/find/byStatus/', { status }),
+  })
+}
+```
+
+### Simple list (for dropdowns / pickers)
+```ts
+export function useThingsList() {
+  return useQuery({
+    queryKey: queryKeys.things.list({ simple: 'true' }),
+    queryFn: () => api.get<IdName[]>('/data/thing/list/'),
+  })
+}
+```
+
+### Detail hook
+```ts
+export function useThing(id: string) {
+  return useQuery({
+    queryKey: queryKeys.things.detail(id),
+    queryFn: () => api.get<Thing>('/data/thing/find/byId/', { idThing: id }),
+    enabled: !!id,
+  })
+}
+```
+
+### Save (create + update in one hook)
+```ts
+export function useSaveThing() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: SaveThingInput) => {
+      const { create, ...rest } = input
+      const body = thingToApiBody(rest)
+      return create
+        ? api.post<Thing>('/data/thing/save/', body)
+        : api.put<Thing>('/data/thing/save/', body)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.things.all }),
+  })
+}
+```
+
+### Delete / Clone
+```ts
+export function useDeleteThing() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete('/data/thing/delete/', { idThing: id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.things.all }),
+  })
+}
+```
+
+## Query parameter names
+- MUST match the OpenAPI `definition.yaml` exactly. The PHP backend reads specific parameter names (e.g. `idCampaign`, not `id`).
+- Read `../admin/api/v2/data/definition.yaml` (from this package directory in the self-hosted repo) before writing any hook.
+
+## POST body shape
+- Create a `thingToApiBody()` helper that strips client-only fields (like `create` flag) and only sends properties the API model accepts.
+- Filter out empty key-value pairs before sending.
+
+## Error handling in components
+```ts
+import { getErrorMessage } from '@/lib/utils'
+
+saveMutation.mutate(payload, {
+  onSuccess: () => toast.success('Saved'),
+  onError: (err) => toast.error(getErrorMessage(err)),
+})
+```
+
+## Never
+- Never use `fetch()` or `axios` directly in any component or page file.
+- Never duplicate API URLs across files — define them once in the hook.
+- Never hardcode query parameter names without checking `definition.yaml`.
+- Never skip `onSuccess` cache invalidation after mutations.

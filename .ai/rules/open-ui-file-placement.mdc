@@ -1,0 +1,25 @@
+---
+description: Place code in semantically appropriate modules; avoid dumping unrelated logic into convenient files.
+globs: src/**/*,funnelflux-open-ui/**/*
+alwaysApply: true
+---
+
+# File placement and module boundaries
+
+Before adding or moving code, check that the **primary concern** of the change matches the **primary responsibility** of the target file.
+
+## Do
+
+- Keep **feature / domain** logic (e.g. campaigns tree merge, funnel move flow, campaign-specific rollups) in **`src/pages/<feature>/`** utilities or small `*.ts` helpers next to that page, or in **`src/lib/`** when shared across multiple features with a clear name (`campaignTreeUtils.ts`, `normalizeDomainsFromApi.ts`).
+- Keep **ui-kit** (`src/components/ui-kit/**`) for **reusable** table primitives, column registry, and generic cell helpers—not for one-screen business rules.
+- Keep shared entity-table orchestration in **`src/lib/entity-table/`** (`useEntityTable.ts`, `engine/`, `data/`, `columns/`). Page files should mainly provide page-specific APIs/actions/dialog wiring.
+- When a function needs registry metadata (`getColumnMeta`, `resolveApiColumnId`) but encodes **product behavior** for one area, implement it **outside** `columnDefs.tsx` and **import** those primitives from the data-table module.
+
+## Don’t
+
+- Add campaign-, funnel-, or drilldown-specific rollups/merge logic to `columnDefs.tsx` or other generic column builders “because it uses `cellRaw`”.
+- Grow unrelated files to avoid creating a small util (prefer a new `campaignTreeUtils.ts`-style file).
+
+## Quick check
+
+Ask: *If someone reads only this file’s name and folder, would they expect this logic to live here?* If not, relocate or split.

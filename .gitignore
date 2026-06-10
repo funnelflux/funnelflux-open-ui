@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +23,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# AI session checkpoints (ephemeral, per-developer)
+.claude/sessions/
+# Local Claude settings
+.claude/settings.local.json
+.gstack/
+
+
+# AI harness generated/runtime files
+.claude/agents/
+.claude/commands/
+.claude/skills/
+.agents/skills/
+.cursor/skills/
+.cursor/rules/
+.codex/
+**/CLAUDE.md
+CLAUDE.md

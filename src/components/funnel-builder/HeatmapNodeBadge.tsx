@@ -1,80 +1,72 @@
-import { useContext, useMemo } from 'react'
-import { HeatmapContext } from './HeatmapOverlay'
+import { useContext } from 'react'
+import { HeatmapContext } from './HeatmapContext'
+import { getFunnelHeatmapDisplay } from '@/lib/funnelHeatmap'
 import { cn } from '@/lib/utils'
-
-// ── Formatting ─────────────────────────────────────────────────────────────
-
-function formatMetricValue(metric: string, value: number): string {
-  if (metric === 'revenue' || metric === 'cost') {
-    return '$' + value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
-  if (metric === 'roi') {
-    return value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'
-  }
-  return value.toLocaleString()
-}
 
 // ── Intensity Classification ───────────────────────────────────────────────
 
-function getIntensityClass(metric: string, value: number, allValues: number[]): string {
-  if (allValues.length === 0) return 'bg-muted text-muted-foreground'
+function getIntensityClass(value: number, maxValue: number): string {
+  if (maxValue <= 0) return 'bg-card/95 text-muted-foreground border-border'
 
-  const sorted = [...allValues].sort((a, b) => a - b)
-  const lowerThird = sorted[Math.floor(sorted.length / 3)] ?? 0
-  const upperThird = sorted[Math.floor((sorted.length * 2) / 3)] ?? 0
-
-  const isNegativeMetric = metric === 'cost'
-
-  if (value <= lowerThird) {
-    // Low values
-    return isNegativeMetric
-      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
-      : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+  const ratio = value / maxValue
+  if (ratio >= 0.7) {
+    return 'bg-primary/95 text-primary-foreground border-primary/70 shadow-xl'
   }
-
-  if (value <= upperThird) {
-    // Medium values
-    return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+  if (ratio >= 0.35) {
+    return 'bg-warning/20 text-foreground border-warning/40'
   }
-
-  // High values
-  return isNegativeMetric
-    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+  return 'bg-card/95 text-foreground border-border'
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
 interface HeatmapNodeBadgeProps {
   nodeId: string
+  nodeKind?: string
+  nodeTitle?: string
 }
 
-export function HeatmapNodeBadge({ nodeId }: HeatmapNodeBadgeProps) {
-  const { active, metric, nodeStats } = useContext(HeatmapContext)
-
-  const allValues = useMemo(() => {
-    return Object.values(nodeStats).map((s) => s[metric] ?? 0)
-  }, [nodeStats, metric])
+export function HeatmapNodeBadge({ nodeId, nodeKind, nodeTitle }: HeatmapNodeBadgeProps) {
+  const { active, mode, nodeStats, intensityMax } = useContext(HeatmapContext)
 
   if (!active) return null
 
   const stats = nodeStats[nodeId]
   if (!stats) return null
 
-  const value = stats[metric] ?? 0
-  const formattedValue = formatMetricValue(metric, value)
-  const intensityClass = getIntensityClass(metric, value, allValues)
+  const display = getFunnelHeatmapDisplay({ stats, mode, intensityMax, nodeKind })
+  const intensityClass = getIntensityClass(display.intensityValue, display.intensityMax)
+  const title = nodeTitle || stats.nodeName || nodeId
 
   return (
     <div
       className={cn(
-        'absolute -top-2 -right-2 z-10',
-        'inline-flex items-center rounded-full px-1.5 py-0.5',
-        'text-[10px] font-semibold leading-none shadow-sm border',
+        'absolute left-1/2 top-full z-20 mt-2 w-[232px] -translate-x-1/2',
+        'rounded-2xl border p-2.5 text-[11px] leading-tight backdrop-blur-md',
+        'pointer-events-none',
         intensityClass,
       )}
     >
-      {formattedValue}
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-[9px] font-bold uppercase tracking-[0.14em] opacity-70">
+            {nodeKind || display.heading}
+          </p>
+          <p className="truncate text-xs font-semibold">{title}</p>
+        </div>
+        <span className="max-w-[72px] shrink-0 truncate rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] font-semibold opacity-80">
+          {nodeId}
+        </span>
+      </div>
+
+      <div className="space-y-1 rounded-xl bg-background/20 p-1.5">
+        {display.rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-3">
+            <span className="truncate opacity-80">{row.label}</span>
+            <span className="font-semibold tabular-nums">{row.value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

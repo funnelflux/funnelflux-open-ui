@@ -19,8 +19,6 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   setUnreadCount: (count) => set({ unreadCount: count }),
 }))
 
-const POLL_INTERVAL = 45_000
-
 export function useNotifications(onForcePopup?: (message: string) => void) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount)
@@ -30,7 +28,7 @@ export function useNotifications(onForcePopup?: (message: string) => void) {
 
     let active = true
 
-    const check = async () => {
+    const load = async () => {
       try {
         const data = await api.get<NotificationCheckResponse>(
           "/ui/inbox/notifications/check/",
@@ -41,16 +39,14 @@ export function useNotifications(onForcePopup?: (message: string) => void) {
           onForcePopup?.(data.forcePopupMessage)
         }
       } catch {
-        // silently ignore polling errors
+        // ignore initial load errors (offline)
       }
     }
 
-    check()
-    const interval = setInterval(check, POLL_INTERVAL)
+    void load()
 
     return () => {
       active = false
-      clearInterval(interval)
     }
   }, [isAuthenticated, setUnreadCount, onForcePopup])
 }

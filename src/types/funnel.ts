@@ -41,16 +41,28 @@ export interface RotatorNodeParams {
   // Rotator has no unique params — weights are on connections
 }
 
+/** Extra query params appended when redirecting to this page (funnel node scope). */
+export interface PageNodeTokenPass {
+  field: string
+  token: string
+}
+
 export interface LanderNodeParams {
   pageId: string
   pageName?: string
   redirectType?: string
+  /** Funnel node: pass accumulated URL parameters to this page */
+  accumulateUrlParams?: boolean
+  /** Funnel node: append &field={token} using dynamic tokens */
+  additionalTokens?: PageNodeTokenPass[]
 }
 
 export interface OfferNodeParams {
   pageId: string
   pageName?: string
   redirectType?: string
+  accumulateUrlParams?: boolean
+  additionalTokens?: PageNodeTokenPass[]
 }
 
 export interface ExternalUrlNodeParams {
@@ -73,12 +85,32 @@ export interface JsCodeNodeParams {
 }
 
 export interface PhpCodeNodeParams {
+  snippetId?: string
+  snippetName?: string
   code?: string
 }
 
+/** Visitor tag node references system tags by id (`/data/tag/list/`). Names are cached for canvas display / API round-trip. */
 export interface VisitorTagNodeParams {
-  tagKey: string
-  tagValue: string
+  tagId?: string
+  tagName?: string
+  /** @deprecated Legacy canvas state — migrated on load via {@link normalizeVisitorTagParams} */
+  tagKey?: string
+  /** @deprecated Legacy canvas state — migrated on load via {@link normalizeVisitorTagParams} */
+  tagValue?: string
+}
+
+export function normalizeVisitorTagParams(raw: unknown): { tagId: string; tagName: string } {
+  const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const fromNew = typeof obj.tagId === 'string' ? obj.tagId.trim() : ''
+  if (fromNew !== '') {
+    return { tagId: fromNew, tagName: typeof obj.tagName === 'string' ? obj.tagName : '' }
+  }
+  const legacyKey = typeof obj.tagKey === 'string' ? obj.tagKey.trim() : ''
+  if (legacyKey !== '') {
+    return { tagId: legacyKey, tagName: typeof obj.tagValue === 'string' ? obj.tagValue : '' }
+  }
+  return { tagId: '', tagName: '' }
 }
 
 export type NodeParams =
@@ -173,24 +205,34 @@ export type EdgeType = (typeof EDGE_TYPES)[keyof typeof EDGE_TYPES]
 
 export interface WeightedEdgeData {
   edgeType: 'weighted'
-  weight: number // 0–100
+  weight: number // 0–100; only meaningful when locked=true, otherwise auto-split among siblings
+  /** When true, user explicitly set this weight. Unlocked edges split the remainder evenly. */
+  locked?: boolean
+  labelLocation?: number // 0–1, position along bezier path (default 0.5)
   [key: string]: unknown
 }
 
 export interface ActionEdgeData {
   edgeType: 'action'
   actionNumber: number // 1-based
+  isConversion?: boolean
+  labelLocation?: number
   [key: string]: unknown
 }
 
 export interface ConditionEdgeData {
   edgeType: 'condition'
   branch: 'yes' | 'no'
+  labelLocation?: number
   [key: string]: unknown
 }
 
 export interface CodeEdgeData {
   edgeType: 'code'
+  /** UI-only discriminator: JS/PHP snippet path vs visitor-tag route (wire format still `connectionCodeParams`). */
+  codeEdgeRole?: 'snippet' | 'visitorTag'
+  onDoneNumber?: number
+  labelLocation?: number
   [key: string]: unknown
 }
 
@@ -231,6 +273,7 @@ export interface ApiFunnelConnection {
   targetHandle?: string
   weight?: number
   elementData?: Record<string, unknown>
+  labelLocation?: number
 }
 
 export interface ApiFunnel {
@@ -238,20 +281,36 @@ export interface ApiFunnel {
   idCampaign: string
   funnelName: string
   defaultCostPerEntrance: number
-  defaultRedirectUrl?: string
-  defaultOverflowUrl?: string
-  deduplicateByIp?: boolean
-  deduplicateWindowHours?: number
   nodes: ApiFunnelNode[]
   connections: ApiFunnelConnection[]
   isArchived: boolean
 }
 
-// ── Code Snippet ────────────────────────────────────────────────────────────
-
-export interface CodeSnippet {
-  idSnippet: string
-  snippetName: string
-  snippetType: 'javascript' | 'php'
-  code: string
+/** V2 funnel resource fields editable in the OSS editor (matches PHP \\FluxAPI\\v2\\Models\\Data\\Funnel) */
+export interface FunnelKeyValuePair {
+  key: string
+  value: string
 }
+
+export interface FunnelPostbackOverrideRow {
+  idTrafficSource: string
+  postbackType: string
+  postbackCode: string
+}
+
+export interface FunnelEditorMeta {
+  idFunnel: string
+  idCampaign: string
+  funnelName: string
+  defaultCostPerEntrance: number
+  /** Funnel notes (campaign_funnels.notes) */
+  notes: string
+  isArchived: boolean
+  canvasWidth: number | null
+  canvasHeight: number | null
+  customTokens: FunnelKeyValuePair[]
+  acculumatedUrlParams: FunnelKeyValuePair[]
+  incomingTrafficCostOverrides: FunnelKeyValuePair[]
+  postbackOverrides: FunnelPostbackOverrideRow[]
+}
+

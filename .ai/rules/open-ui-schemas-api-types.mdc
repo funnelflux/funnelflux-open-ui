@@ -1,0 +1,28 @@
+---
+description: Zod schemas must anchor to OpenAPI-generated types (entities/ui wrappers)
+globs:
+  - src/schemas/**/*.ts
+  - funnelflux-open-ui/src/schemas/**/*.ts
+alwaysApply: true
+---
+
+# Schemas ↔ API types (`src/schemas/`)
+
+## Required for every schema module
+
+1. **Re-export the wire type(s)** from the appropriate wrapper — **never** import from `src/types/generated/` directly:
+   - Data API models → `export type { … } from '@/types/entities'`
+   - UI API models (e.g. system settings) → `export type { … } from '@/types/ui'`
+2. **Document the mapping** in a file-level or schema-level JSDoc comment using `{@link TypeName}` to the re-exported interface (same module).
+3. **Export explicit form types** for every Zod schema via `export type XxxFormData = z.infer<typeof xxxSchema>` (or equivalent name). Do not leave schemas without a named inferred type.
+4. **Prefer `zod/v4`** for new or updated schemas (align with existing `campaign`, `page`, etc.).
+5. If the form shape **intentionally differs** from the wire type (UI-only fields, editor blocks before a bridge, `{ type, name }` redirect pickers), state that in JSDoc and point to the mapper (`formDataToSystemSettingsPayload`, `formDraftToFunnelCondition`, token/key renames at save, etc.).
+
+## After OpenAPI changes
+
+When `../admin/api/v2/*/definition.yaml` changes (self-hosted repo), run `pnpm generate-types` from this package root, then update Zod fields/enums and JSDoc so they stay consistent with the generated interfaces.
+
+## Related rules
+
+- Full generation workflow: `.ai/rules/open-ui-type-generation.mdc`
+- Wrapper files: `src/types/entities.ts`, `src/types/ui.ts`

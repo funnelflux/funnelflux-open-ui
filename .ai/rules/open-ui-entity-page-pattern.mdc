@@ -1,0 +1,125 @@
+---
+description: Entity page pattern — list + edit modal + CRUD flow
+globs: src/pages/**/*.{tsx,ts},funnelflux-open-ui/src/pages/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Entity page pattern
+
+Every entity page (campaigns, landers, offers, traffic sources, etc.) follows the same structure. Copy the pattern, not improvise.
+
+## State shape
+```tsx
+export function ThingsPage() {
+  const toast = useToastApi()
+  const navigate = useNavigate()
+  const tableRef = useRef<Table<ThingRow> | null>(null)
+
+  // UI state
+  const [search, setSearch] = useState('')
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null)
+
+  // Data
+  const { data: editThing } = useThing(editId ?? '')
+  const saveMutation = useSaveThing()
+  const deleteMutation = useDeleteThing()
+  const cloneMutation = useCloneThing()
+  // ...
+```
+
+## CRUD handlers
+```tsx
+const handleCreate = () => { setEditId(null); setSheetOpen(true) }
+const handleEdit = (id: string) => { setEditId(id); setSheetOpen(true) }
+
+const handleSubmit = (data: ThingFormData) => {
+  const isNew = !data.idThing || data.idThing === '0'
+  const payload: SaveThingInput = {
+    ...data,
+    idThing: isNew ? generateId() : data.idThing,
+    create: isNew,
+  }
+  saveMutation.mutate(payload, {
+    onSuccess: () => {
+      toast.success(isNew ? 'Created' : 'Updated')
+      setSheetOpen(false)
+      setEditId(null)
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+const handleDelete = () => {
+  if (!deleteTarget) return
+  deleteMutation.mutate(deleteTarget.id, {
+    onSuccess: () => { toast.success('Deleted'); setDeleteTarget(null) },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+```
+
+## ID generation
+New entities get client-generated IDs via `generateId()` from `@/lib/id-generator`. The API expects the client to provide the ID on POST (not auto-increment).
+
+## JSX structure
+```tsx
+return (
+  <PageShell title="Things" actions={<Button type="primary" onClick={handleCreate}>New Thing</Button>}>
+    <SearchToolbar value={search} onChange={setSearch} />
+    <DataTable
+      data={filteredData}
+      columns={columnDefs}
+      tableRef={tableRef}
+      // table config from useTableConfigStore
+    />
+    <BulkActionsBar ... />
+
+    {/* Edit modal */}
+    <ThingEditForm
+      open={sheetOpen}
+      onOpenChange={setSheetOpen}
+      initialData={editId ? editThing : undefined}
+      onSubmit={handleSubmit}
+      isSubmitting={saveMutation.isPending}
+    />
+
+    {/* Delete confirmation */}
+    <ConfirmModal
+      open={!!deleteTarget}
+      onConfirm={handleDelete}
+      onCancel={() => setDeleteTarget(null)}
+      title="Delete Thing"
+      description="This cannot be undone."
+      danger
+      loading={deleteMutation.isPending}
+    />
+  </PageShell>
+)
+```
+
+## Routing and permissions
+- Route defined in `App.tsx` inside `<AppRoutes>`.
+- Wrap with `guarded((p) => p.things.canView, <ThingsPage />)`.
+- Edit permission check: `guarded((p) => p.things.canEdit, ...)`.
+
+## Data filtering
+Client-side search filtering:
+```tsx
+const filteredData = useMemo(() => {
+  if (!search) return data ?? []
+  const q = search.toLowerCase()
+  return (data ?? []).filter((item) =>
+    item.name.toLowerCase().includes(q)
+  )
+}, [data, search])
+```
+
+## Never
+- Never put data fetching logic directly in the page — use hooks from `@/api/hooks/`.
+- Never manage form state with useState — use the edit form component with RHF.
+- Never show delete confirmation with `window.confirm` — use `ConfirmModal`.
+- Never generate IDs on the server — use `generateId()` client-side.
+- Never navigate without permission checks.
+- Never forget to pass `isSubmitting` to disable the submit button during save.

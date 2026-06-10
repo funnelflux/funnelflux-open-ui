@@ -1,6 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button, Input } from '@/components/ui-kit'
 import type { KeyValuePair } from '@/types/entities'
 
 interface KeyValueListFieldProps {
@@ -35,41 +33,51 @@ export function KeyValueListField({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2">
       {value.length > 0 && (
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs text-muted-foreground">
+        <div className="hidden grid-cols-[1fr_1fr_auto] gap-2 text-xs text-muted-foreground sm:grid">
           <span>{keyLabel}</span>
           <span>{valueLabel}</span>
           <span className="w-8" />
         </div>
       )}
       {value.map((item, i) => (
-        <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-          <Input
-            value={item.key}
-            onChange={(e) => updateRow(i, 'key', e.target.value)}
-            placeholder={keyPlaceholder}
-            className="h-8 text-sm"
-          />
-          <Input
-            value={item.value}
-            onChange={(e) => updateRow(i, 'value', e.target.value)}
-            placeholder={valuePlaceholder}
-            className="h-8 text-sm"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            onClick={() => removeRow(i)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+        <div
+          key={i}
+          className="grid min-w-0 grid-cols-1 gap-2 rounded-md border border-border p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center sm:border-0 sm:p-0"
+        >
+          <div className="min-w-0 space-y-1">
+            <span className="text-xs text-muted-foreground sm:hidden">{keyLabel}</span>
+            <Input
+              value={item.key}
+              onChange={(e) => updateRow(i, 'key', e.target.value)}
+              placeholder={keyPlaceholder}
+              className="min-w-0 text-sm"
+            />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <span className="text-xs text-muted-foreground sm:hidden">{valueLabel}</span>
+            <Input
+              value={item.value}
+              onChange={(e) => updateRow(i, 'value', e.target.value)}
+              placeholder={valuePlaceholder}
+              className="min-w-0 text-sm"
+            />
+          </div>
+          <div className="flex justify-end sm:justify-center">
+            <Button
+              type="text"
+              htmlType="button"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={() => removeRow(i)}
+              aria-label="Remove row"
+              iconName="trash-2"
+              iconSize="sm"
+            />
+          </div>
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={addRow}>
-        <Plus className="mr-1 h-3.5 w-3.5" />
+      <Button htmlType="button" className="text-xs" onClick={addRow} iconName="plus" iconSize="sm">
         Add Row
       </Button>
     </div>

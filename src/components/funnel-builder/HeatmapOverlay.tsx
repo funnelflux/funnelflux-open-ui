@@ -1,141 +1,179 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
-import { BarChart3, Loader2, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { useCallback, useMemo, useState, useEffect, useRef, type ReactNode } from 'react'
+import { Icon } from '@/components/ui-kit/icons'
+import { useAllFlatDrilldownReportQuery } from '@/api/hooks'
+import { Button, Select, useToastApi } from '@/components/ui-kit'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useDrilldownReport } from '@/api/hooks'
-import { toApiDateTimeRange } from '@/types/stats'
-import type { DrilldownRequest, Report } from '@/types/stats'
+  buildFunnelHeatmapRequest,
+  buildNodeHeatmapStatsFromReport,
+  FUNNEL_HEATMAP_MODES,
+  getFunnelHeatmapIntensityMax,
+  type FunnelHeatmapMode,
+  type FunnelHeatmapStatsByNode,
+} from '@/lib/funnelHeatmap'
+import { getPresetRange, type DateRange } from '@/lib/date-presets'
+import { getErrorMessage } from '@/lib/utils'
+import type { DrilldownRequest } from '@/types/stats'
+import { HeatmapContext } from './HeatmapContext'
 
-// ── Context ────────────────────────────────────────────────────────────────
+const HEATMAP_MODE_SELECT_OPTIONS = FUNNEL_HEATMAP_MODES.map((mode) => ({
+  value: mode.value,
+  label: mode.label,
+}))
 
-export const HeatmapContext = createContext<{
-  active: boolean
-  metric: string
-  nodeStats: Record<string, Record<string, number>>
-}>({ active: false, metric: 'visits', nodeStats: {} })
-
-// ── Metric Options ─────────────────────────────────────────────────────────
-
-const METRIC_OPTIONS = [
-  { value: 'visits', label: 'Visits' },
-  { value: 'clicks', label: 'Clicks' },
-  { value: 'conversions', label: 'Conversions' },
-  { value: 'revenue', label: 'Revenue' },
-  { value: 'cost', label: 'Cost' },
-  { value: 'roi', label: 'ROI' },
-] as const
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function getTodayRange() {
-  const now = new Date()
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  return toApiDateTimeRange(startOfDay, now)
-}
-
-function buildNodeStatsFromReport(report: Report): Record<string, Record<string, number>> {
-  const stats: Record<string, Record<string, number>> = {}
-
-  // Find column indices by name. The first column is the grouping (node ID).
-  const colNames = report.columns.map((c) => c.name.toLowerCase())
-
-  const visitsIdx = colNames.findIndex((n) => n.includes('visit'))
-  const clicksIdx = colNames.findIndex((n) => n.includes('click'))
-  const conversionsIdx = colNames.findIndex((n) => n.includes('conver'))
-  const revenueIdx = colNames.findIndex((n) => n.includes('revenue'))
-  const costIdx = colNames.findIndex((n) => n.includes('cost'))
-  const roiIdx = colNames.findIndex((n) => n.includes('roi'))
-
-  for (const row of report.rows) {
-    const nodeId = String(row.cells[0]?.raw ?? '')
-    if (!nodeId) continue
-
-    stats[nodeId] = {
-      visits: visitsIdx >= 0 ? Number(row.cells[visitsIdx]?.raw ?? 0) : 0,
-      clicks: clicksIdx >= 0 ? Number(row.cells[clicksIdx]?.raw ?? 0) : 0,
-      conversions: conversionsIdx >= 0 ? Number(row.cells[conversionsIdx]?.raw ?? 0) : 0,
-      revenue: revenueIdx >= 0 ? Number(row.cells[revenueIdx]?.raw ?? 0) : 0,
-      cost: costIdx >= 0 ? Number(row.cells[costIdx]?.raw ?? 0) : 0,
-      roi: roiIdx >= 0 ? Number(row.cells[roiIdx]?.raw ?? 0) : 0,
-    }
-  }
-
-  return stats
-}
+type HeatmapDateRange = DateRange & { preset: string | null }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
 interface HeatmapOverlayProps {
   funnelId: string
-  active: boolean
-  onToggle: () => void
+  campaignId?: string
+  enabled: boolean
+  isNew?: boolean
+  children: ReactNode
 }
 
-export function HeatmapOverlay({ funnelId, active, onToggle }: HeatmapOverlayProps) {
-  const [metric, setMetric] = useState('visits')
-  const [nodeStats, setNodeStats] = useState<Record<string, Record<string, number>>>({})
+export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, children }: HeatmapOverlayProps) {
+  const toast = useToastApi()
+  const timezoneName = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
+  const [active, setActive] = useState(false)
+  const [mode, setMode] = useState<FunnelHeatmapMode>('trafficFlow')
+  const [nodeStats, setNodeStats] = useState<FunnelHeatmapStatsByNode>({})
+  const [hasLoaded, setHasLoaded] = useState(false)
+  const [dateRange, setDateRange] = useState<HeatmapDateRange>(() => ({
+    ...getPresetRange('today', timezoneName),
+    preset: 'today',
+  }))
 
-  const drilldown = useDrilldownReport()
+  const [heatmapRequest, setHeatmapRequest] = useState<DrilldownRequest | null>(null)
+  const heatmapActive = active && enabled && !isNew
+  const heatmapQueryEnabled = heatmapActive && heatmapRequest != null && funnelId !== ''
+  const {
+    data: heatmapReportData,
+    isFetching: heatmapFetching,
+    isPending: heatmapPending,
+    isError: heatmapIsError,
+    error: heatmapError,
+    refetch: refetchHeatmapReport,
+  } = useAllFlatDrilldownReportQuery(heatmapRequest, heatmapQueryEnabled)
 
-  const fetchStats = useCallback(() => {
-    if (!funnelId) return
-
-    const request: DrilldownRequest = {
-      timeRange: getTodayRange(),
-      timeZone: { name: Intl.DateTimeFormat().resolvedOptions().timeZone },
-      groupings: [
-        {
-          groupBy: 'Element: Funnel Node',
-          whitelistFilters: [],
-          blacklistFilters: [],
-        },
-      ],
-      topLevelFilters: [
-        {
-          groupBy: 'Element: Funnel',
-          whitelistFilters: [funnelId],
-          blacklistFilters: [],
-        },
-      ],
-    }
-
-    drilldown.mutate(request, {
-      onSuccess: (report) => {
-        setNodeStats(buildNodeStatsFromReport(report))
-      },
-    })
-  }, [funnelId, drilldown])
+  const heatmapLoading = heatmapQueryEnabled && (heatmapFetching || heatmapPending)
+  const lastHeatmapErrRef = useRef('')
 
   useEffect(() => {
-    if (active) {
-      fetchStats()
-    } else {
-      setNodeStats({})
-    }
-    // Only re-fetch when active state or funnelId changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, funnelId])
+    if (!heatmapReportData) return
+    setNodeStats(buildNodeHeatmapStatsFromReport(heatmapReportData))
+    setHasLoaded(true)
+  }, [heatmapReportData])
 
-  const contextValue = useMemo(
-    () => ({ active, metric, nodeStats }),
-    [active, metric, nodeStats],
+  useEffect(() => {
+    if (!heatmapIsError || heatmapError == null) {
+      lastHeatmapErrRef.current = ''
+      return
+    }
+    const msg = getErrorMessage(heatmapError)
+    if (lastHeatmapErrRef.current === msg) return
+    lastHeatmapErrRef.current = msg
+    setNodeStats({})
+    setHasLoaded(true)
+    toast.error(msg)
+  }, [heatmapIsError, heatmapError, toast])
+
+  const fetchStats = useCallback(
+    (rangeOverride?: HeatmapDateRange) => {
+      if (!enabled || isNew || !funnelId) return
+
+      const range = rangeOverride ?? dateRange
+      const request = buildFunnelHeatmapRequest({
+        campaignId,
+        funnelId,
+        dateFrom: range.from,
+        dateTo: range.to,
+        timeZone: { name: timezoneName },
+      })
+
+      setHasLoaded(false)
+      setHeatmapRequest(request)
+    },
+    [campaignId, dateRange, enabled, funnelId, isNew, timezoneName],
   )
 
-  if (!active) {
+  const intensityMax = useMemo(
+    () => getFunnelHeatmapIntensityMax(nodeStats, mode),
+    [mode, nodeStats],
+  )
+
+  const contextValue = useMemo(
+    () => ({
+      active: heatmapActive,
+      mode,
+      nodeStats,
+      intensityMax,
+      isLoading: heatmapLoading,
+    }),
+    [heatmapActive, heatmapLoading, intensityMax, mode, nodeStats],
+  )
+
+  const handleToggle = useCallback(() => {
+    if (active) {
+      setActive(false)
+      setHeatmapRequest(null)
+      setNodeStats({})
+      setHasLoaded(false)
+      return
+    }
+
+    setActive(true)
+    fetchStats()
+  }, [active, fetchStats])
+
+  const handleClose = useCallback(() => {
+    setActive(false)
+    setHeatmapRequest(null)
+    setNodeStats({})
+    setHasLoaded(false)
+  }, [])
+
+  const handleModeChange = useCallback((nextMode: string) => {
+    setMode(nextMode as FunnelHeatmapMode)
+  }, [])
+
+  const handleDateRangeChange = useCallback((nextRange: HeatmapDateRange) => {
+    setDateRange(nextRange)
+    if (heatmapActive) {
+      fetchStats(nextRange)
+    }
+  }, [fetchStats, heatmapActive])
+
+  const handleRefresh = useCallback(() => {
+    if (heatmapRequest) void refetchHeatmapReport()
+    else fetchStats()
+  }, [fetchStats, heatmapRequest, refetchHeatmapReport])
+
+  if (!enabled) {
     return (
       <HeatmapContext.Provider value={contextValue}>
-        <div className="bg-background border-b px-4 py-2 flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onToggle}>
-            <BarChart3 className="h-4 w-4 mr-1" />
-            Show Heatmap
-          </Button>
+        {children}
+      </HeatmapContext.Provider>
+    )
+  }
+
+  if (isNew) {
+    return (
+      <HeatmapContext.Provider value={contextValue}>
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <div className="absolute left-4 top-4 z-30 max-w-[360px] rounded-2xl border bg-card/95 p-3 shadow-xl backdrop-blur">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <Icon name="bar-chart-3" size="md" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Heatmap</p>
+                <p className="text-xs text-muted-foreground">Save this funnel before viewing stats.</p>
+              </div>
+            </div>
+          </div>
+          {children}
         </div>
       </HeatmapContext.Provider>
     )
@@ -143,32 +181,98 @@ export function HeatmapOverlay({ funnelId, active, onToggle }: HeatmapOverlayPro
 
   return (
     <HeatmapContext.Provider value={contextValue}>
-      <div className="bg-background border-b px-4 py-2 flex items-center gap-3">
-        <Badge variant="default" className="gap-1">
-          <BarChart3 className="h-3 w-3" />
-          Heatmap Active
-        </Badge>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className="absolute left-4 top-4 z-30">
+          {!heatmapActive ? (
+            <Button
+              size="small"
+              onClick={handleToggle}
+              iconName="bar-chart-3"
+              iconSize="sm"
+              className="rounded-full border bg-card/95 shadow-lg backdrop-blur"
+            >
+              Heatmap
+            </Button>
+          ) : (
+            <div className="w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl border bg-card/95 p-3 shadow-xl backdrop-blur">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Icon name="bar-chart-3" size="md" aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Funnel Heatmap</p>
+                    <p className="text-xs text-muted-foreground">Grouped by funnel node</p>
+                  </div>
+                </div>
 
-        <Select value={metric} onValueChange={setMetric}>
-          <SelectTrigger className="w-[150px] h-8 text-xs">
-            <SelectValue placeholder="Select metric" />
-          </SelectTrigger>
-          <SelectContent>
-            {METRIC_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    type="text"
+                    size="small"
+                    onClick={handleRefresh}
+                    disabled={heatmapLoading}
+                    iconName="refresh-cw"
+                    iconAnimation={heatmapLoading ? 'spin' : 'none'}
+                    iconSize="sm"
+                    aria-label="Refresh heatmap"
+                  />
+                  <Button
+                    type="text"
+                    size="small"
+                    onClick={handleClose}
+                    iconName="x"
+                    iconSize="sm"
+                    aria-label="Close heatmap"
+                  />
+                </div>
+              </div>
 
-        {drilldown.isPending && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        )}
+              <div className="flex flex-col gap-3">
+                <Select
+                  value={mode}
+                  onChange={handleModeChange}
+                  placeholder="Select heatmap"
+                  className="w-full"
+                  alphabetical={false}
+                  options={HEATMAP_MODE_SELECT_OPTIONS}
+                />
 
-        <Button variant="ghost" size="sm" onClick={onToggle} className="ml-auto">
-          <X className="h-4 w-4" />
-        </Button>
+                <DateRangePicker
+                  value={dateRange}
+                  timezone={timezoneName}
+                  onChange={handleDateRangeChange}
+                  size="md"
+                  className="w-full"
+                  aria-label="Heatmap date range"
+                />
+              </div>
+
+              {heatmapLoading ? (
+                <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                  <Icon name="loader-2" size="sm" animation="spin" aria-hidden />
+                  Loading node stats...
+                </div>
+              ) : null}
+
+              {hasLoaded && !heatmapLoading && Object.keys(nodeStats).length === 0 ? (
+                <div className="mt-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                  No node stats found for this date range. Try a funnel with recent traffic or choose a wider range.
+                </div>
+              ) : null}
+
+              {!heatmapLoading && Object.keys(nodeStats).length > 0 ? (
+                <div className="mt-3 flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2 text-xs">
+                  <span className="text-muted-foreground">Nodes with stats</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {Object.keys(nodeStats).length}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+        {children}
       </div>
     </HeatmapContext.Provider>
   )

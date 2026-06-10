@@ -1,31 +1,27 @@
+import { api } from '@/api/client'
+import { AuthExpiredError, NetworkError } from '@/api/errors'
+import { parseUserProfile } from '@/schemas/apiBoundaries'
 import type { SessionResponse, UserProfile } from '@/types/api'
 
-const API_PATH = '/admin/api/v2'
-
 export async function bootstrapAuth(): Promise<UserProfile> {
-  const sessionRes = await fetch(`${API_PATH}/auth/session/`, {
-    credentials: 'same-origin',
-  })
-
-  if (sessionRes.status === 401) {
-    throw new Error('AUTH_REQUIRED')
+  try {
+    const session = await api.get<SessionResponse>('/auth/session/')
+    if (!session.authenticated) {
+      throw new Error('AUTH_REQUIRED')
+    }
+    const profile = await api.get<unknown>('/ui/userprofile/loggedin/load/')
+    return parseUserProfile(profile)
+  } catch (err) {
+    if (err instanceof Error && err.message === 'AUTH_REQUIRED') {
+      throw err
+    }
+    if (err instanceof AuthExpiredError) {
+      throw new Error('AUTH_REQUIRED')
+    }
+    if (err instanceof NetworkError) {
+      throw new Error(err.message)
+    }
+    const message = err instanceof Error ? err.message : 'Failed to verify session'
+    throw new Error(message)
   }
-  if (!sessionRes.ok) {
-    throw new Error('Failed to verify session')
-  }
-
-  const session: SessionResponse = await sessionRes.json()
-  if (!session.authenticated) {
-    throw new Error('AUTH_REQUIRED')
-  }
-
-  return fetchUserProfile()
-}
-
-async function fetchUserProfile(): Promise<UserProfile> {
-  const res = await fetch(`${API_PATH}/ui/userprofile/loggedin/load/`, {
-    credentials: 'same-origin',
-  })
-  if (!res.ok) throw new Error('Failed to load user profile')
-  return res.json()
 }

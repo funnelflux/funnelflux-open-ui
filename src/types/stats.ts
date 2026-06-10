@@ -1,144 +1,87 @@
-// Grouping for drilldown requests
-export interface Grouping {
-  groupBy: string
-  whitelistFilters: string[]
-  blacklistFilters: string[]
+// Re-export generated types from the OpenAPI spec
+import type {
+  ReportRow as GeneratedReportRow,
+  Report as GeneratedReport,
+  DrilldownRequest as GeneratedDrilldownRequest,
+} from './generated/stats';
+
+export type {
+  Grouping,
+  RequestPaging,
+  RequestSorting,
+  RequestColumnFilters,
+  RequestOptions,
+  SortingColumn,
+  ConfidenceRate,
+  ReportColumn,
+  ApiDateTimeRange,
+  ApiDateTime,
+  ApiTimeZone,
+  FilterColumn,
+  MetricNames,
+  CostSegment,
+  CostUpload,
+  ResetHits,
+  ConvertedHit,
+  ConversionsUpload,
+  IntegerValue,
+  CsvExportRequest,
+  CsvExportResponse,
+  BackgroundJobResponse,
+} from './generated/stats';
+
+/** Backend accepts `trackingFieldMappings` on drilldown POST bodies even when omitted from OpenAPI. */
+export type DrilldownRequest = GeneratedDrilldownRequest & {
+  trackingFieldMappings?: Record<string, { id: string }>
+  responseFormat?: 'standard' | 'compact-v1'
 }
 
-// Paging
-export interface RequestPaging {
-  start: number
-  length: number
-}
+export type { ApiDate, ApiTime } from './generated/data';
 
-// Sorting
-export interface RequestSorting {
-  column?: number
-  direction?: 'asc' | 'desc'
-}
-
-// Column filters
-export interface RequestColumnFilters {
-  filters?: Record<string, string>
-}
-
-// Options
-export interface RequestOptions {
-  viewType?: 'tree' | 'flat'
-}
-
-// DateTime components matching the PHP models
-export interface ApiDate {
-  year: string
-  month: string
-  day: string
-}
-
-export interface ApiTime {
-  hour: number
-  minutes: number
-}
-
-export interface ApiDateTime {
-  date: ApiDate
-  time: ApiTime
-}
-
-export interface ApiDateTimeRange {
-  start: ApiDateTime
-  end: ApiDateTime
-}
-
-export interface ApiTimeZone {
-  name: string
-  offset?: number
-}
-
-// Full drilldown request body
-export interface DrilldownRequest {
-  timeRange: ApiDateTimeRange
-  timeZone: ApiTimeZone
-  groupings: Grouping[]
-  topLevelFilters?: Grouping[]
-  columnFilters?: RequestColumnFilters
-  paging?: RequestPaging
-  sorting?: RequestSorting
-  options?: RequestOptions
-  trackingFieldMappings?: Record<string, string>
-}
-
-// Helper to build API date/time from JS Date
-export function toApiDateTime(d: Date): ApiDateTime {
-  return {
-    date: {
-      year: String(d.getFullYear()),
-      month: String(d.getMonth() + 1),
-      day: String(d.getDate()),
-    },
-    time: {
-      hour: d.getHours(),
-      minutes: d.getMinutes(),
-    },
-  }
-}
-
-export function toApiDateTimeRange(from: Date, to: Date): ApiDateTimeRange {
-  return {
-    start: toApiDateTime(from),
-    end: {
-      date: {
-        year: String(to.getFullYear()),
-        month: String(to.getMonth() + 1),
-        day: String(to.getDate()),
-      },
-      time: { hour: 23, minutes: 59 },
-    },
-  }
-}
-
-// Report cell
+// Override: API spec types ReportCell.raw as `string`, but the app
+// also receives/computes numeric raws. Keep the wider union.
 export interface ReportCell {
-  raw: number | string
-  formatted: string
+  raw: number | string;
+  formatted: string;
 }
 
-// Report column
-export interface ReportColumn {
-  name: string
-  type: string
-}
-
-// Report row
-export interface ReportRow {
-  cells: ReportCell[]
-  rowId?: string
-  children?: ReportRow[]
-  parentRowId?: string | null
+// ReportRow with an index signature for dynamic property access
+export type ReportRow = {
+  cells: ReportCell[];
+  rowId: string;
+  ctrLanderConfidenceRate?: GeneratedReportRow['ctrLanderConfidenceRate'];
+  ctrOfferConfidenceRate?: GeneratedReportRow['ctrOfferConfidenceRate'];
+  cvrConfidenceRate?: GeneratedReportRow['cvrConfidenceRate'];
+  epvConfidenceRate?: GeneratedReportRow['epvConfidenceRate'];
+  children?: ReportRow[];
+  parentRowId?: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any
-}
+  [key: string]: any;
+};
 
-// Full report response
+// Report with paging object for backward compatibility
 export interface Report {
-  columns: ReportColumn[]
-  rows: ReportRow[]
-  totals: {
-    cells: ReportCell[]
-  }
+  columns: GeneratedReport['columns'];
+  rows: ReportRow[];
+  totals: { cells: ReportCell[] };
+  rowsReturned: number;
+  rowsTotal: number;
   paging?: {
-    start: number
-    length: number
-    totalRecords: number
-  }
+    start: number;
+    length: number;
+    totalRecords: number;
+  };
+  /** False while only the first drilldown page has been merged into cache. */
+  isComplete?: boolean;
 }
 
-// Tree grid formatted data
+// App-only tree grid type for UI rendering
 export interface TreeGridRow {
-  id: string
-  parentId?: string
-  cells: ReportCell[]
+  id: string;
+  parentId?: string;
+  cells: ReportCell[];
   expandableInfo?: {
-    groupIds: string[]
-    children?: TreeGridRow[]
-  }
+    groupIds: string[];
+    children?: TreeGridRow[];
+  };
 }

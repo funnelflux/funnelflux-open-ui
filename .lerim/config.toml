@@ -1,0 +1,8 @@
+# Lerim project overrides
+# Only set what this repo needs.
+
+# [memory]
+# scope = "project_fallback_global"
+
+# [roles.lead]
+# model = "qwen/qwen3-coder-30b-a3b-instruct"

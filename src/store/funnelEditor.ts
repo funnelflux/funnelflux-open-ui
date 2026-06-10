@@ -9,26 +9,28 @@ import type {
   ApiFunnelConnection,
   NodeTypeValue,
 } from '@/types/funnel'
+import type { FunnelCondition, Page } from '@/types/entities'
 import { generateId } from '@/lib/id-generator'
+import { extractMetaFromRawFunnel, normalizeFunnelApiResponse, computeFunnelEditorHydrationVersion } from '@/lib/funnelApiV2'
+import { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
+import { materializeRotatorWeights, reclassifyLoadedRotatorEdges } from '@/lib/rotatorWeights'
+import {
+  coerceCodeEdgeRoles,
+  coerceJsPhpCodeOutboundHandles,
+  coerceJsPhpInboundTargetHandles,
+  coerceVisitorTagOutboundEdges,
+} from '@/lib/funnel-graph/graphHydrationCoercion'
+import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
+import { createDefaultEntranceFlowNode } from '@/lib/defaultNewFunnelNodes'
+import type { FunnelEditorMeta } from '@/types/funnel'
 
-// ── Coordinate Conversion ───────────────────────────────────────────────────
+import { validateFunnelGraph, type GraphIssue } from '@/lib/funnel-graph/validateGraph'
 
-const CANVAS_WIDTH = 2000
-const CANVAS_HEIGHT = 1500
+export { percentToPixel, pixelToPercent } from '@/lib/funnelCoords'
 
-export function percentToPixel(percentX: number, percentY: number) {
-  return {
-    x: (percentX / 100) * CANVAS_WIDTH,
-    y: (percentY / 100) * CANVAS_HEIGHT,
-  }
-}
-
-export function pixelToPercent(x: number, y: number) {
-  return {
-    percentPosX: Math.round((x / CANVAS_WIDTH) * 100 * 100) / 100,
-    percentPosY: Math.round((y / CANVAS_HEIGHT) * 100 * 100) / 100,
-  }
-}
+export type HydrateRequestResult =
+  | { applied: true; graphWarnings: GraphIssue[] }
+  | { applied: false; reason: 'sameVersion' | 'dirty' }
 
 // ── Helpers: API → React Flow ───────────────────────────────────────────────
 
@@ -62,16 +64,33 @@ function apiConnectionToFlowEdge(conn: ApiFunnelConnection): FunnelFlowEdge {
 
 function parseEdgeData(conn: ApiFunnelConnection): FunnelEdgeData {
   const el = conn.elementData || {}
+  const ll = conn.labelLocation
   if (el.branch === 'yes' || el.branch === 'no') {
-    return { edgeType: 'condition', branch: el.branch as 'yes' | 'no' }
+    return { edgeType: 'condition', branch: el.branch as 'yes' | 'no', labelLocation: ll }
   }
   if (typeof el.actionNumber === 'number') {
-    return { edgeType: 'action', actionNumber: el.actionNumber as number }
+    return {
+      edgeType: 'action',
+      actionNumber: el.actionNumber as number,
+      isConversion: el.isConversion === true,
+      labelLocation: ll,
+    }
   }
   if (el.edgeType === 'code') {
-    return { edgeType: 'code' }
+    const raw = typeof el.onDoneNumber === 'number' ? el.onDoneNumber : 1
+    const onDoneNumber = Math.min(
+      CODE_NODE_MAX_ON_DONE_EXITS,
+      Math.max(1, Math.floor(Number.isFinite(raw) ? raw : 1)),
+    )
+    return {
+      edgeType: 'code',
+      onDoneNumber,
+      labelLocation: ll,
+    }
   }
-  return { edgeType: 'weighted', weight: conn.weight ?? 100 }
+  // Persisted weights are treated as user-set (locked). New edges added in the
+  // editor start unlocked so they auto-split with their siblings.
+  return { edgeType: 'weighted', weight: conn.weight ?? 100, locked: true, labelLocation: ll }
 }
 
 // ── Helpers: React Flow → API ───────────────────────────────────────────────
@@ -97,17 +116,18 @@ function flowEdgeToApiConnection(edge: FunnelFlowEdge, idFunnel: string): ApiFun
     idTargetNode: edge.target,
     sourceHandle: edge.sourceHandle ?? undefined,
     targetHandle: edge.targetHandle ?? undefined,
+    labelLocation: edge.data?.labelLocation,
   }
   const data = edge.data
   if (data) {
     if (data.edgeType === 'weighted') {
       conn.weight = data.weight
     } else if (data.edgeType === 'action') {
-      conn.elementData = { actionNumber: data.actionNumber }
+      conn.elementData = { actionNumber: data.actionNumber, isConversion: data.isConversion ?? false }
     } else if (data.edgeType === 'condition') {
       conn.elementData = { branch: data.branch }
     } else if (data.edgeType === 'code') {
-      conn.elementData = { edgeType: 'code' }
+      conn.elementData = { edgeType: 'code', onDoneNumber: data.onDoneNumber ?? 1 }
     }
   }
   return conn
@@ -133,31 +153,28 @@ function getNodeComponentType(nodeType: NodeTypeValue): string {
 
 // ── Store ───────────────────────────────────────────────────────────────────
 
-interface FunnelMeta {
-  idFunnel: string
-  idCampaign: string
-  funnelName: string
-  defaultCostPerEntrance: number
-  defaultRedirectUrl: string
-  defaultOverflowUrl: string
-  deduplicateByIp: boolean
-  deduplicateWindowHours: number
-  isArchived: boolean
-}
+type FunnelMeta = FunnelEditorMeta
 
 const defaultMeta: FunnelMeta = {
   idFunnel: '',
   idCampaign: '',
   funnelName: '',
   defaultCostPerEntrance: 0,
-  defaultRedirectUrl: '',
-  defaultOverflowUrl: '',
-  deduplicateByIp: false,
-  deduplicateWindowHours: 24,
+  notes: '',
   isArchived: false,
+  canvasWidth: null,
+  canvasHeight: null,
+  customTokens: [],
+  acculumatedUrlParams: [],
+  incomingTrafficCostOverrides: [],
+  postbackOverrides: [],
 }
 
 interface FunnelEditorState {
+  /** Last server snapshot identity; null for client-only / new funnel. */
+  loadedFunnelId: string | null
+  loadedServerVersion: string | null
+
   // Data
   nodes: FunnelFlowNode[]
   edges: FunnelFlowEdge[]
@@ -165,18 +182,27 @@ interface FunnelEditorState {
   selectedNodeId: string | null
   selectedEdgeId: string | null
   isDirty: boolean
+  pendingPageDrafts: Record<string, { page: Partial<Page>; original?: Partial<Page>; isCreate?: boolean }>
+  pendingConditionDrafts: Record<string, { condition: FunnelCondition; original?: FunnelCondition; isCreate?: boolean }>
 
   // Actions
-  hydrate: (funnel: ApiFunnel) => void
-  reset: () => void
+  /** Apply server funnel JSON and record `serverVersion` (from {@link computeFunnelEditorHydrationVersion}). */
+  hydrateFromServer: (funnel: ApiFunnel | unknown, serverVersion: string) => void
+  requestHydrate: (funnelInput: ApiFunnel | unknown, opts?: { force?: boolean }) => HydrateRequestResult
+  initializeNewFunnel: (args: { idCampaign: string; idFunnel: string; funnelName?: string }) => void
+  resetEditor: () => void
   serialize: () => ApiFunnel
 
-  setNodes: (nodes: FunnelFlowNode[]) => void
-  setEdges: (edges: FunnelFlowEdge[]) => void
+  /** When `markDirty` is false, graph is updated without setting unsaved (e.g. RF measure/select, handle sync). */
+  setNodes: (nodes: FunnelFlowNode[], markDirty?: boolean) => void
+  setEdges: (edges: FunnelFlowEdge[], markDirty?: boolean) => void
   updateMeta: (partial: Partial<FunnelMeta>) => void
   setSelectedNodeId: (id: string | null) => void
   setSelectedEdgeId: (id: string | null) => void
   markClean: () => void
+
+  /** Ensures a new funnel canvas has one root (traffic/entrance) node; no-op if nodes already exist. */
+  seedDefaultEntranceNode: () => void
 
   addNode: (nodeType: NodeTypeValue, position: { x: number; y: number }, data?: Partial<FunnelNodeData>) => string
   removeNode: (id: string) => void
@@ -186,72 +212,164 @@ interface FunnelEditorState {
   addEdge: (source: string, target: string, data: FunnelEdgeData, sourceHandle?: string, targetHandle?: string) => string
   removeEdge: (id: string) => void
   updateEdgeData: (id: string, data: Partial<FunnelEdgeData>) => void
+  setPendingPageDraft: (nodeId: string, draft: { page: Partial<Page>; original?: Partial<Page>; isCreate?: boolean }) => void
+  setPendingConditionDraft: (
+    nodeId: string,
+    draft: { condition: FunnelCondition; original?: FunnelCondition; isCreate?: boolean },
+  ) => void
+  clearPendingAssetDrafts: () => void
 }
 
 export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
+  loadedFunnelId: null,
+  loadedServerVersion: null,
   nodes: [],
   edges: [],
   meta: { ...defaultMeta },
   selectedNodeId: null,
   selectedEdgeId: null,
   isDirty: false,
+  pendingPageDrafts: {},
+  pendingConditionDrafts: {},
 
-  hydrate: (funnel) => {
+  hydrateFromServer: (funnelInput, serverVersion) => {
+    const funnel = normalizeFunnelApiResponse(funnelInput)
+    const v2Meta = extractMetaFromRawFunnel(funnelInput)
+    const raw = funnelInput as Record<string, unknown>
+
+    const flowNodes = funnel.nodes.map(apiNodeToFlowNode)
+    const flowEdges = coerceJsPhpInboundTargetHandles(
+      flowNodes,
+      coerceJsPhpCodeOutboundHandles(
+        flowNodes,
+        coerceCodeEdgeRoles(
+          flowNodes,
+          coerceVisitorTagOutboundEdges(
+            flowNodes,
+            reclassifyLoadedRotatorEdges(funnel.connections.map(apiConnectionToFlowEdge)),
+          ),
+        ),
+      ),
+    )
+
     set({
-      nodes: funnel.nodes.map(apiNodeToFlowNode),
-      edges: funnel.connections.map(apiConnectionToFlowEdge),
+      loadedFunnelId: funnel.idFunnel,
+      loadedServerVersion: serverVersion,
+      nodes: flowNodes,
+      edges: flowEdges,
       meta: {
         idFunnel: funnel.idFunnel,
         idCampaign: funnel.idCampaign,
         funnelName: funnel.funnelName,
         defaultCostPerEntrance: funnel.defaultCostPerEntrance,
-        defaultRedirectUrl: funnel.defaultRedirectUrl ?? '',
-        defaultOverflowUrl: funnel.defaultOverflowUrl ?? '',
-        deduplicateByIp: funnel.deduplicateByIp ?? false,
-        deduplicateWindowHours: funnel.deduplicateWindowHours ?? 24,
         isArchived: funnel.isArchived,
+        ...v2Meta,
+        notes: String(raw.notes ?? ''),
       },
       selectedNodeId: null,
       selectedEdgeId: null,
       isDirty: false,
+      pendingPageDrafts: {},
+      pendingConditionDrafts: {},
     })
   },
 
-  reset: () => {
+  requestHydrate: (funnelInput, opts) => {
+    const force = opts?.force === true
+    const version = computeFunnelEditorHydrationVersion(funnelInput)
+    const funnel = normalizeFunnelApiResponse(funnelInput)
+    const funnelId = funnel.idFunnel
+    const { isDirty, loadedServerVersion, loadedFunnelId } = get()
+
+    if (!force && version === loadedServerVersion && funnelId === loadedFunnelId) {
+      return { applied: false, reason: 'sameVersion' }
+    }
+    if (!force && isDirty) {
+      return { applied: false, reason: 'dirty' }
+    }
+
+    get().hydrateFromServer(funnelInput, version)
+    const { nodes, edges } = get()
+    const { warnings } = validateFunnelGraph(nodes, edges, { forSave: false })
+    return { applied: true, graphWarnings: warnings }
+  },
+
+  initializeNewFunnel: ({ idCampaign, idFunnel, funnelName }) => {
+    const idNode = generateId()
+    const name = funnelName?.trim() ?? ''
     set({
+      loadedFunnelId: idFunnel,
+      loadedServerVersion: null,
+      nodes: [createDefaultEntranceFlowNode(idNode)],
+      edges: [],
+      meta: {
+        ...defaultMeta,
+        idCampaign,
+        idFunnel,
+        funnelName: name,
+        defaultCostPerEntrance: 0,
+        notes: '',
+        isArchived: false,
+      },
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      isDirty: false,
+      pendingPageDrafts: {},
+      pendingConditionDrafts: {},
+    })
+  },
+
+  resetEditor: () => {
+    set({
+      loadedFunnelId: null,
+      loadedServerVersion: null,
       nodes: [],
       edges: [],
       meta: { ...defaultMeta },
       selectedNodeId: null,
       selectedEdgeId: null,
       isDirty: false,
+      pendingPageDrafts: {},
+      pendingConditionDrafts: {},
     })
   },
 
   serialize: () => {
     const { nodes, edges, meta } = get()
+    const materialized = materializeRotatorWeights(edges)
     return {
       idFunnel: meta.idFunnel,
       idCampaign: meta.idCampaign,
       funnelName: meta.funnelName,
       defaultCostPerEntrance: meta.defaultCostPerEntrance,
-      defaultRedirectUrl: meta.defaultRedirectUrl,
-      defaultOverflowUrl: meta.defaultOverflowUrl,
-      deduplicateByIp: meta.deduplicateByIp,
-      deduplicateWindowHours: meta.deduplicateWindowHours,
       isArchived: meta.isArchived,
       nodes: nodes.map((n) => flowNodeToApiNode(n, meta.idFunnel)),
-      connections: edges.map((e) => flowEdgeToApiConnection(e, meta.idFunnel)),
+      connections: materialized.map((e) => flowEdgeToApiConnection(e, meta.idFunnel)),
     }
   },
 
-  setNodes: (nodes) => set({ nodes, isDirty: true }),
-  setEdges: (edges) => set({ edges, isDirty: true }),
+  setNodes: (nodes, markDirty = true) =>
+    set((s) => ({ nodes, isDirty: markDirty ? true : s.isDirty })),
+  setEdges: (edges, markDirty = true) =>
+    set((s) => ({ edges, isDirty: markDirty ? true : s.isDirty })),
   updateMeta: (partial) =>
     set((s) => ({ meta: { ...s.meta, ...partial }, isDirty: true })),
   setSelectedNodeId: (selectedNodeId) => set({ selectedNodeId, selectedEdgeId: null }),
   setSelectedEdgeId: (selectedEdgeId) => set({ selectedEdgeId, selectedNodeId: null }),
   markClean: () => set({ isDirty: false }),
+
+  seedDefaultEntranceNode: () => {
+    if (get().nodes.length > 0) return
+    const idNode = generateId()
+    const { meta } = get()
+    set({
+      nodes: [createDefaultEntranceFlowNode(idNode)],
+      edges: [],
+      isDirty: false,
+      loadedFunnelId: meta.idFunnel || null,
+      loadedServerVersion: null,
+    })
+  },
 
   addNode: (nodeType, position, data) => {
     const id = generateId()
@@ -276,6 +394,12 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
       nodes: s.nodes.filter((n) => n.id !== id),
       edges: s.edges.filter((e) => e.source !== id && e.target !== id),
       selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
+      pendingPageDrafts: Object.fromEntries(
+        Object.entries(s.pendingPageDrafts).filter(([nodeId]) => nodeId !== id),
+      ),
+      pendingConditionDrafts: Object.fromEntries(
+        Object.entries(s.pendingConditionDrafts).filter(([nodeId]) => nodeId !== id),
+      ),
       isDirty: true,
     })),
 
@@ -324,4 +448,19 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
       ),
       isDirty: true,
     })),
+
+  setPendingPageDraft: (nodeId, draft) =>
+    set((s) => ({
+      pendingPageDrafts: { ...s.pendingPageDrafts, [nodeId]: draft },
+      isDirty: true,
+    })),
+
+  setPendingConditionDraft: (nodeId, draft) =>
+    set((s) => ({
+      pendingConditionDrafts: { ...s.pendingConditionDrafts, [nodeId]: draft },
+      isDirty: true,
+    })),
+
+  clearPendingAssetDrafts: () =>
+    set({ pendingPageDrafts: {}, pendingConditionDrafts: {} }),
 }))

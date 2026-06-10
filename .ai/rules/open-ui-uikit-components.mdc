@@ -1,0 +1,159 @@
+---
+description: UI-kit component usage — always use shared components, follow DataTable patterns
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# UI kit: mandatory shared components
+
+## Available components (from `@/components/ui-kit`)
+
+| Component | Purpose | When to use |
+|-----------|---------|-------------|
+| `PageShell` | Page wrapper with title, subtitle, actions | Every route-level page |
+| `FormField` | Label + error + help wrapper | Every form field |
+| `DataTable` | TanStack table with sort, select, resize, virtual scroll, tree mode | Every data listing |
+| `SearchToolbar` | Search input with 300ms debounce + optional filters/actions | Every searchable page |
+| `ConfirmModal` | Delete/destructive confirmation dialog | Every delete action |
+| `Modal` | Ant Design modal (re-exported from ui-kit) | Any dialog; use `footer` for actions |
+| `Button` | Ant Design button (re-exported) | Actions, form triggers |
+| `Input` | Ant Design input + `Input.TextArea` | Text fields |
+| `Select` | Ant Design select | Dropdowns (prefer `SmartSelect` for searchable entity lists) |
+| `SmartSelect` | Ant Select with client-side search, capped options | Entity pickers, dropdowns |
+| `SmartMultiSelect` | Multi-select variant of SmartSelect | Multi-entity pickers |
+| `TimezoneSelect` | Timezone picker (persisted to localStorage) | Report pages |
+| `DateTimeRangePicker` | Date range with optional time | Report toolbars |
+| `StatCard` | Metric card with title/value/trend | Dashboard |
+| `EmptyState` | Empty state with icon + CTA button | Empty lists |
+| `useToastApi` | Toast notifications via Ant message | Success/error feedback |
+
+## Import pattern
+```tsx
+import {
+  PageShell,
+  SearchToolbar,
+  DataTable,
+  ConfirmModal,
+  Modal,
+  Button,
+  Input,
+  Select,
+  useToastApi,
+} from '@/components/ui-kit'
+```
+
+## Ant Design: import through ui-kit only
+
+**Do not** import from `'antd'` in feature code (`pages/`, `components/forms/`, `components/funnel-builder/`, etc.) for primitives that are already re-exported from `@/components/ui-kit`.
+
+- **Always import** `Modal`, `Button`, `Input`, `Select` (and future re-exports) from `@/components/ui-kit`.
+- **Exception:** components with no ui-kit surface yet (e.g. `Tabs`, `Collapse`, `DatePicker`, `Checkbox`, `Switch`, `Tooltip`) may import from `'antd'` until a thin re-export exists in `src/components/ui-kit/`. When you touch such a file repeatedly, **add a re-export** in ui-kit (`export { X } from 'antd'`) and switch imports — prefer growing ui-kit over scattered `antd` imports.
+- **Implementation files** inside `src/components/ui-kit/` may import from `'antd'` (they are the single integration boundary).
+
+This keeps styling, theming, and future swaps consistent app-wide.
+
+## Form modals: fixed footer, scrolling body
+
+Global modal CSS (see `design-tokens.css`) already makes **`.ant-modal-body`** scroll. For long forms:
+
+- Put **primary actions in `Modal`’s `footer` prop** (not at the bottom of the scrollable form) so Cancel / Save stay visible.
+- Wire submit from the footer with **`htmlType="submit"`** + **`form={formId}`** on the button and **`id={formId}`** on the `<form>` (React `useId()` is fine). Do not duplicate Cancel inside the form body unless there is a strong UX reason.
+
+## Page skeleton (every entity page must follow this)
+```tsx
+import { PageShell, DataTable, ConfirmModal, Button, useToastApi } from '@/components/ui-kit'
+
+export function ThingsPage() {
+  const toast = useToastApi()
+  // ... hooks, state
+
+  return (
+    <PageShell title="Things" actions={<Button type="primary" onClick={handleCreate}>New Thing</Button>}>
+      <SearchToolbar value={search} onChange={setSearch} />
+      <DataTable
+        data={filteredData}
+        columns={columnDefs}
+        // ... sorting, selection, pagination
+      />
+      <ThingEditForm open={sheetOpen} onOpenChange={setSheetOpen} ... />
+      <ConfirmModal open={!!deleteTarget} onConfirm={handleDelete} ... />
+    </PageShell>
+  )
+}
+```
+
+## DataTable rules
+
+### Tree mode & lazy loading
+See `open-ui-datatable-tree-lazy-loading.mdc` for the full set of rules whenever you use `treeMode` on `DataTable` (or build something like `DrilldownTreePage`). Key points: `paginateExpandedRows` must be `true` when `noPagination` is set, lazy rows need a `canLazyExpandRow` prop, and ancestor whitelists must be carried on each row.
+
+### Column definitions MUST be memoized
+```tsx
+// WRONG — new array every render, causes grid thrashing
+const columnDefs = [nameColumn(), idColumn(), ...]
+
+// RIGHT — stable reference
+const columnDefs = useMemo(() => [
+  selectionColumn(),
+  nameColumn(),
+  idColumn(),
+  ...buildColumnsFromReport(columns),
+], [columns])
+```
+
+### Action handlers in columns MUST use refs
+```tsx
+const handleEditRef = useRef(handleEdit)
+handleEditRef.current = handleEdit
+
+const columnDefs = useMemo(() => [
+  editBtnColumn((row) => handleEditRef.current(row.id)),
+], [])
+```
+
+### Table config persistence
+```tsx
+const TABLE_KEY = 'things'  // unique per page
+const tableConfig = useTableConfigStore(selectTableConfig(TABLE_KEY))
+```
+
+## Column helpers (from `@/components/ui-kit/data-table`)
+
+Use the provided factories instead of defining columns from scratch:
+- `nameColumn()`, `idColumn()`, `selectionColumn()`
+- `editBtnColumn(onEdit)`, `cloneBtnColumn(onClone)`, `deleteBtnColumn(onDelete)`
+- `addFunnelBtnColumn(onAdd)`, `moveBtnColumn(onMove)`
+- `buildColumnsFromReport(columns)` — for drilldown/report data
+- Metric columns: `visitsColumn()`, `clicksColumn()`, `ctrColumn()`, `convColumn()`, `revenueColumn()`, `costColumn()`, `plColumn()`, `roiColumn()`
+
+## Feedback pattern
+```tsx
+const toast = useToastApi()
+
+// Success
+toast.success('Campaign created')
+
+// Error — always use getErrorMessage
+import { getErrorMessage } from '@/lib/utils'
+toast.error(getErrorMessage(err))
+```
+
+## Ant Design components not yet in ui-kit
+If no re-export exists, you may import from `'antd'` temporarily (e.g. `Tabs`, `Collapse`, `Checkbox`, `Switch`, `Tooltip`, `Tag`, `Segmented`, `InputNumber`). Prefer adding `export { X } from 'antd'` under `ui-kit/` when the same primitive appears in more than one feature.
+
+## Icons: lucide-react only
+```tsx
+import { Plus, Trash2, Pencil, Copy, Search } from 'lucide-react'
+```
+
+## Never
+- Never build a custom table component — use `DataTable`.
+- Never build a custom select with search — use `SmartSelect`.
+- Never build a custom confirm dialog — use `ConfirmModal`.
+- Never build a custom page wrapper — use `PageShell`.
+- Never show success/error without `useToastApi()`.
+- Never skip `useMemo` on column definitions.
+- Never use `@ant-design/icons` — use `lucide-react`.
+- Never create a new notification/toast system — the app uses `antd` `App.useApp().message` via `useToastApi`.
+- Never import `Modal`, `Button`, `Input`, or `Select` from `'antd'` in feature code — use `@/components/ui-kit`.
+- Never put the only copy of Save/Cancel at the end of a long scrollable form inside the modal body when `footer` can hold them — use a fixed footer + `form` / `formId` submit wiring.

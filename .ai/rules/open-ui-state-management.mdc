@@ -1,0 +1,96 @@
+---
+description: State management rules — React Query for server data, Zustand for UI state only
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# State management: React Query + Zustand
+
+## Core principle
+- **Server data** (entities, reports, lists) → **React Query** (`@tanstack/react-query`). It handles caching, refetching, stale/fresh, and background updates.
+- **Client-only UI state** (theme, table column config, drilldown preferences, auth profile) → **Zustand** stores in `src/store/`.
+- **Never** store server-fetched entity data in Zustand. Never create a Zustand store to hold campaigns, funnels, pages, etc.
+
+## When to use React Query
+- Fetching any data from `/admin/api/v2/` — always via hooks in `src/api/hooks/`.
+- After mutations (save/delete/clone): **invalidate** the relevant query keys so lists auto-refresh. Do NOT manually update Zustand or local state with the new data.
+
+```ts
+onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.campaigns.all })
+```
+
+## When to use Zustand
+Only for these concerns:
+
+| Store | Purpose | Persistence |
+|-------|---------|-------------|
+| `auth.ts` | User profile, permissions, auth status | None (session-based) |
+| `theme.ts` | Light/dark mode | `localStorage` (`ff-theme-mode`) |
+| `tableConfig.ts` | Per-table column sizing, visibility, page size | `localStorage` (`ff-table-configs`) |
+| `dashboard.ts` | Chart metric preference | `localStorage` (`ff-dashboard`) |
+| `drilldown.ts` | Report groupings, filters, timezone, date range | `localStorage` (`ff-drilldown`) |
+| `funnelEditor.ts` | Canvas state for funnel builder only | None |
+
+## Creating a new Zustand store
+Almost never needed. Before creating one, ask: "Is this server data?" → use React Query. "Is this component-local?" → use `useState`. Only create a store for **cross-page UI preferences** that must survive navigation.
+
+If you must:
+```ts
+// src/store/myPreference.ts
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+interface MyPrefState {
+  setting: string
+  setSetting: (v: string) => void
+}
+
+export const useMyPrefStore = create<MyPrefState>()(
+  persist(
+    (set) => ({
+      setting: 'default',
+      setSetting: (v) => set({ setting: v }),
+    }),
+    { name: 'ff-my-preference' }  // localStorage key, always prefix with ff-
+  )
+)
+```
+
+## Table config pattern
+Every data table page:
+```ts
+const TABLE_KEY = 'campaigns'  // unique, stable string
+const tableConfig = useTableConfigStore(selectTableConfig(TABLE_KEY))
+const setColumnSizing = useTableConfigStore((s) => s.setColumnSizing)
+const setColumnVisibility = useTableConfigStore((s) => s.setColumnVisibility)
+```
+Pass config into `DataTable` and wire the callbacks. Users' column preferences persist across sessions.
+
+## Optimistic updates
+For simple actions (archive/unarchive, quick rename), prefer React Query's `onMutate` + rollback pattern over Zustand:
+
+```ts
+useMutation({
+  mutationFn: (id) => api.put(...),
+  onMutate: async (id) => {
+    await qc.cancelQueries({ queryKey: queryKeys.things.all })
+    const previous = qc.getQueryData(queryKeys.things.list())
+    qc.setQueryData(queryKeys.things.list(), (old) =>
+      old?.map((t) => t.id === id ? { ...t, isArchived: true } : t)
+    )
+    return { previous }
+  },
+  onError: (err, id, context) => {
+    qc.setQueryData(queryKeys.things.list(), context?.previous)
+    toast.error(getErrorMessage(err))
+  },
+  onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.things.all }),
+})
+```
+
+## Never
+- Never store fetched entity arrays in Zustand (`useCampaignStore`, `usePageStore` — NO).
+- Never manage loading/error states manually when React Query provides `isLoading`, `isError`, `error`.
+- Never create a Zustand store for a single component's UI state — use `useState`.
+- Never forget to invalidate queries after mutations.
+- Never read Zustand stores inside API hooks — hooks should be pure data fetchers.

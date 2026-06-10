@@ -1,0 +1,12 @@
+name = "self-reviewer"
+description = "Pre-commit self-review: validation plus independent diff review."
+model = "gpt-5.5"
+model_reasoning_effort = "medium"
+
+developer_instructions = """
+Run appropriate validation when requested, review the uncommitted diff, and report actionable findings.
+"""
+
+[[skills.config]]
+path = ".agents/skills/self-review/SKILL.md"
+enabled = true

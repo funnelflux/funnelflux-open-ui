@@ -1,67 +1,94 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  FileText,
-  Gift,
-  Shuffle,
-  GitBranch,
-  ExternalLink,
-  ChevronRight,
-  Code,
-  FileCode,
-  Tag,
-} from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
-import { NODE_TYPES, type NodeTypeValue } from '@/types/funnel'
+import { NODE_TYPES, NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { EntityPickerDialog, type EntityPickerDialogProps } from './EntityPickerDialog'
+import { useClampedFixedMenu } from '@/hooks/useClampedFixedMenu'
+import { computeSubmenuPlacement } from '@/lib/clampFixedPositionToViewport'
 
 interface CanvasContextMenuProps {
-  position: { x: number; y: number } | null
+  screenPosition: { x: number; y: number } | null
+  flowPosition: { x: number; y: number } | null
   onClose: () => void
+  /** After placing a node from the menu, open the funnel node editor (condition, JS/PHP code). */
+  onPlacedNodeOpenEditor?: (nodeId: string) => void
 }
 
-export function CanvasContextMenu({ position, onClose }: CanvasContextMenuProps) {
+export function CanvasContextMenu({
+  screenPosition,
+  flowPosition,
+  onClose,
+  onPlacedNodeOpenEditor,
+}: CanvasContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
+  const advancedTriggerRef = useRef<HTMLDivElement>(null)
+  const advancedMenuRef = useRef<HTMLDivElement>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  useClampedFixedMenu(screenPosition, menuRef, showAdvanced ? 'advanced-open' : 'advanced-closed')
+
+  useLayoutEffect(() => {
+    if (!showAdvanced) return
+    const trigger = advancedTriggerRef.current
+    const submenu = advancedMenuRef.current
+    if (!trigger || !submenu) return
+
+    function applyPlacement() {
+      const triggerEl = advancedTriggerRef.current
+      const submenuEl = advancedMenuRef.current
+      if (!triggerEl || !submenuEl) return
+      const submenuSize = submenuEl.getBoundingClientRect()
+      const placement = computeSubmenuPlacement(triggerEl.getBoundingClientRect(), {
+        width: submenuSize.width,
+        height: submenuSize.height,
+      })
+      submenuEl.classList.toggle('left-full', placement.horizontal === 'end')
+      submenuEl.classList.toggle('right-full', placement.horizontal === 'start')
+      submenuEl.style.top = `${placement.top}px`
+    }
+
+    applyPlacement()
+    window.addEventListener('resize', applyPlacement)
+    return () => window.removeEventListener('resize', applyPlacement)
+  }, [showAdvanced, screenPosition])
+
   const [pickerState, setPickerState] = useState<{
     open: boolean
     entityType: EntityPickerDialogProps['entityType']
   }>({ open: false, entityType: 'lander' })
 
-  // Close on outside click
+  // Close on outside click (menu only). EntityPickerDialog is portaled under
+  // `.ant-modal-wrap`, so it is not inside menuRef — ignore those mousedowns
+  // so list selection can fire; otherwise we clear the menu before click runs.
   useEffect(() => {
-    if (!position) return
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose()
-      }
+    if (!screenPosition) return
+    function handlePointerDown(e: MouseEvent) {
+      const target = e.target as globalThis.Node
+      if (menuRef.current?.contains(target)) return
+      if (target instanceof Element && target.closest('.ant-modal-wrap')) return
+      onClose()
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [position, onClose])
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [screenPosition, onClose])
 
   // Close on Escape
   useEffect(() => {
-    if (!position) return
+    if (!screenPosition) return
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [position, onClose])
-
-  // Reset submenu state when menu closes
-  useEffect(() => {
-    if (!position) setShowAdvanced(false)
-  }, [position])
+  }, [screenPosition, onClose])
 
   const addNodeDirect = useCallback(
     (nodeType: NodeTypeValue, label: string) => {
-      if (!position) return
-      useFunnelEditorStore.getState().addNode(nodeType, position, { label })
+      if (!flowPosition) return
+      useFunnelEditorStore.getState().addNode(nodeType, flowPosition, { label })
       onClose()
     },
-    [position, onClose],
+    [flowPosition, onClose],
   )
 
   const openPicker = useCallback(
@@ -71,75 +98,100 @@ export function CanvasContextMenu({ position, onClose }: CanvasContextMenuProps)
     [],
   )
 
+  const handleAddConditionNode = useCallback(() => {
+    if (!flowPosition) return
+    const store = useFunnelEditorStore.getState()
+    const nodeId = store.addNode(NODE_TYPES.condition, flowPosition, {
+      label: 'Condition',
+      params: { conditionName: 'Condition' },
+    })
+    onClose()
+    onPlacedNodeOpenEditor?.(nodeId)
+  }, [flowPosition, onPlacedNodeOpenEditor, onClose])
+
+  const handleAddJsCodeNode = useCallback(() => {
+    if (!flowPosition) return
+    const nodeId = useFunnelEditorStore.getState().addNode(NODE_TYPES.jsCode, flowPosition, {
+      label: NODE_TYPE_LABELS[NODE_TYPES.jsCode],
+      params: {},
+    })
+    onClose()
+    onPlacedNodeOpenEditor?.(nodeId)
+  }, [flowPosition, onClose, onPlacedNodeOpenEditor])
+
+  const handleAddPhpCodeNode = useCallback(() => {
+    if (!flowPosition) return
+    const nodeId = useFunnelEditorStore.getState().addNode(NODE_TYPES.phpCode, flowPosition, {
+      label: NODE_TYPE_LABELS[NODE_TYPES.phpCode],
+      params: {},
+    })
+    onClose()
+    onPlacedNodeOpenEditor?.(nodeId)
+  }, [flowPosition, onClose, onPlacedNodeOpenEditor])
+
   const handlePickerSelect = useCallback(
     (entity: { id: string; name: string }) => {
-      if (!position) return
+      if (!flowPosition) return
       const { entityType } = pickerState
       const store = useFunnelEditorStore.getState()
 
       if (entityType === 'lander') {
-        store.addNode(NODE_TYPES.lander, position, {
+        store.addNode(NODE_TYPES.lander, flowPosition, {
           label: entity.name,
           params: { pageId: entity.id, pageName: entity.name },
         })
       } else if (entityType === 'offer') {
-        store.addNode(NODE_TYPES.offer, position, {
+        store.addNode(NODE_TYPES.offer, flowPosition, {
           label: entity.name,
           params: { pageId: entity.id, pageName: entity.name },
         })
       } else if (entityType === 'condition') {
-        store.addNode(NODE_TYPES.condition, position, {
+        store.addNode(NODE_TYPES.condition, flowPosition, {
           label: entity.name,
           params: { conditionId: entity.id, conditionName: entity.name },
-        })
-      } else if (entityType === 'jsCode') {
-        store.addNode(NODE_TYPES.jsCode, position, {
-          label: entity.name,
-          params: { snippetId: entity.id, snippetName: entity.name },
-        })
-      } else if (entityType === 'phpCode') {
-        store.addNode(NODE_TYPES.phpCode, position, {
-          label: entity.name,
-          params: { snippetId: entity.id, snippetName: entity.name },
         })
       }
 
       onClose()
     },
-    [position, pickerState, onClose],
+    [flowPosition, pickerState, onClose],
   )
 
-  if (!position) return null
+  if (!screenPosition) return null
 
   return (
     <>
       <div
         ref={menuRef}
-        className="fixed z-50 bg-popover border rounded-md shadow-md py-1 min-w-[180px] text-sm"
-        style={{ left: position.x, top: position.y }}
+        className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
+        style={{
+          left: screenPosition.x,
+          top: screenPosition.y,
+          visibility: 'hidden',
+        }}
       >
         <MenuItem
-          icon={<FileText className="h-4 w-4" />}
+          icon={<Icon name="file-text" size="md" />}
           label="Add Lander"
           onClick={() => openPicker('lander')}
         />
         <MenuItem
-          icon={<Gift className="h-4 w-4" />}
+          icon={<Icon name="gift" size="md" />}
           label="Add Offer"
           onClick={() => openPicker('offer')}
         />
         <MenuItem
-          icon={<Shuffle className="h-4 w-4" />}
+          icon={<Icon name="shuffle" size="md" />}
           label="Add Rotator"
           onClick={() => addNodeDirect(NODE_TYPES.rotator, 'Rotator')}
         />
         <MenuItem
-          icon={<GitBranch className="h-4 w-4" />}
+          icon={<Icon name="git-branch" size="md" />}
           label="Add Condition"
-          onClick={() => openPicker('condition')}
+          onClick={handleAddConditionNode}
         />
         <MenuItem
-          icon={<ExternalLink className="h-4 w-4" />}
+          icon={<Icon name="external-link" size="md" />}
           label="Add External URL"
           onClick={() => addNodeDirect(NODE_TYPES.externalUrl, 'External URL')}
         />
@@ -148,30 +200,36 @@ export function CanvasContextMenu({ position, onClose }: CanvasContextMenuProps)
 
         {/* Advanced submenu */}
         <div
+          ref={advancedTriggerRef}
           className="relative"
           onMouseEnter={() => setShowAdvanced(true)}
           onMouseLeave={() => setShowAdvanced(false)}
         >
           <div className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent">
-            <ChevronRight className="h-4 w-4" />
+            <Icon name="chevron-right" size="md" />
             <span>Advanced</span>
-            <ChevronRight className="h-4 w-4 ml-auto" />
+            <span className="ml-auto">
+              <Icon name="chevron-right" size="md" />
+            </span>
           </div>
 
           {showAdvanced && (
-            <div className="absolute left-full top-0 bg-popover border rounded-md shadow-md py-1 min-w-[160px] text-sm">
+            <div
+              ref={advancedMenuRef}
+              className="absolute left-full bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[160px] text-sm"
+            >
               <MenuItem
-                icon={<Code className="h-4 w-4" />}
+                icon={<Icon name="code" size="md" />}
                 label="Add JS Code"
-                onClick={() => openPicker('jsCode')}
+                onClick={handleAddJsCodeNode}
               />
               <MenuItem
-                icon={<FileCode className="h-4 w-4" />}
+                icon={<Icon name="file-code" size="md" />}
                 label="Add PHP Code"
-                onClick={() => openPicker('phpCode')}
+                onClick={handleAddPhpCodeNode}
               />
               <MenuItem
-                icon={<Tag className="h-4 w-4" />}
+                icon={<Icon name="tag" size="md" />}
                 label="Add Visitor Tag"
                 onClick={() =>
                   addNodeDirect(NODE_TYPES.visitorTag, 'Visitor Tag')
@@ -204,15 +262,18 @@ function MenuItem({
   className?: string
 }) {
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        'flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent',
+        'flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-sm text-inherit',
+        'cursor-pointer rounded-sm transition-colors',
+        'hover:bg-muted dark:hover:bg-zinc-800',
         className,
       )}
       onClick={onClick}
     >
       {icon}
       <span>{label}</span>
-    </div>
+    </button>
   )
 }

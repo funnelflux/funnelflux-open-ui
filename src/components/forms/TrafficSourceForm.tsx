@@ -1,65 +1,77 @@
-import { useEffect } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet'
+import { FormField, FormModal, FormModalBody, FormModalFooter, FormModalHeader, Button, Input, Select } from '@/components/ui-kit'
 import { KeyValueListField } from '@/components/forms/KeyValueListField'
 import { trafficSourceSchema, type TrafficSourceFormData } from '@/schemas/trafficSource'
-import { useTrafficSourceTemplates, useLoadTrafficSourceTemplate } from '@/api/hooks'
+import { mapTrafficSourceTemplateLoadToFormPatch } from '@/api/trafficSourceTemplateLoad'
+import { useTrafficSourceTemplates, useLoadTrafficSourceTemplate, useCategories } from '@/api/hooks'
 import type { TrafficSource } from '@/types/entities'
+import { generateEntityId } from '@/lib/id-generator'
+
+export type TrafficSourceFormMode = 'create' | 'edit' | 'clone'
 
 interface TrafficSourceFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  mode?: TrafficSourceFormMode
   initialData?: TrafficSource | null
+  /** Prefill for create/clone (new entity); ignored when `mode` is `edit`. */
+  createInitialValues?: TrafficSourceFormData
   onSubmit: (data: TrafficSourceFormData) => void
   isSubmitting?: boolean
 }
 
 const defaultValues: TrafficSourceFormData = {
+  idTrafficSource: '',
   trafficSourceName: '',
   costType: 'cpe',
-  defaultCost: 0,
+  defaultCost: '',
   trackingFields: [],
   postback: {
     postbackType: 'none',
     postbackCode: '',
   },
+  idCategory: '',
+}
+
+function categoryIdForForm(
+  initial: TrafficSource | null | undefined,
+  categories: { idCategory: string; name: string }[] | undefined,
+): string {
+  if (!initial) return ''
+  if (initial.idCategory) return initial.idCategory
+  const name = initial.categoryName?.trim()
+  if (!name || !categories?.length) return ''
+  const hit = categories.find((c) => c.name === name)
+  return hit?.idCategory ?? ''
+}
+
+function toFormDefaultCostField(value: string | number | undefined): string {
+  if (value === undefined || value === '') return ''
+  return String(value)
 }
 
 export function TrafficSourceForm({
   open,
   onOpenChange,
+  mode: modeProp,
   initialData,
+  createInitialValues,
   onSubmit,
   isSubmitting,
 }: TrafficSourceFormProps) {
   const { data: templates } = useTrafficSourceTemplates(open)
+  const { data: categories } = useCategories('trafficsource')
   const loadTemplate = useLoadTrafficSourceTemplate()
+  const loadTemplateMutate = loadTemplate.mutate
+  const [templateSelectValue, setTemplateSelectValue] = useState<string | undefined>()
 
   const {
-    register,
     handleSubmit,
     control,
     reset,
-    watch,
+    getValues,
     formState: { errors },
   } = useForm<TrafficSourceFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,201 +79,254 @@ export function TrafficSourceForm({
     defaultValues,
   })
 
-  const postbackType = watch('postback.postbackType')
-  const isEditing = !!initialData?.idTrafficSource
+  const formId = useId()
+  const postbackType = useWatch({ control, name: 'postback.postbackType' })
+  const mode: TrafficSourceFormMode =
+    modeProp ?? (initialData?.idTrafficSource ? 'edit' : 'create')
+  const isEditing = mode === 'edit'
+  const isClone = mode === 'clone'
+
+  const categorySelectOptions = useMemo(
+    () =>
+      (categories ?? []).map((c) => ({
+        value: c.idCategory,
+        label: c.name,
+      })),
+    [categories],
+  )
+  const templateOptions = useMemo(
+    () => (templates ?? []).map((template) => ({ value: template.id, label: template.name })),
+    [templates],
+  )
 
   useEffect(() => {
-    if (open) {
-      if (initialData) {
-        reset({
-          idTrafficSource: initialData.idTrafficSource,
-          trafficSourceName: initialData.trafficSourceName,
-          costType: initialData.costType,
-          defaultCost: initialData.defaultCost,
-          trackingFields: initialData.trackingFields ?? [],
-          postback: {
-            postbackType: initialData.postback?.postbackType ?? 'none',
-            postbackCode: initialData.postback?.postbackCode ?? '',
-          },
-          isArchived: initialData.isArchived,
-        })
-      } else {
-        reset(defaultValues)
-      }
+    if (!open) return
+    if (isEditing && initialData) {
+      reset({
+        idTrafficSource: initialData.idTrafficSource,
+        trafficSourceName: initialData.trafficSourceName,
+        costType: initialData.costType,
+        defaultCost: toFormDefaultCostField(initialData.defaultCost),
+        trackingFields: initialData.trackingFields ?? [],
+        postback: {
+          postbackType: initialData.postback?.postbackType ?? 'none',
+          postbackCode: initialData.postback?.postbackCode ?? '',
+        },
+        isArchived: initialData.isArchived,
+        idCategory: categoryIdForForm(initialData, categories),
+      })
+      return
     }
-  }, [open, initialData, reset])
+    if (createInitialValues) {
+      reset(createInitialValues)
+      return
+    }
+    reset({ ...defaultValues, idTrafficSource: generateEntityId() })
+  }, [open, isEditing, initialData, createInitialValues, categories, reset])
 
-  const handleLoadTemplate = (templateId: string) => {
-    loadTemplate.mutate(templateId, {
+  const handleClose = useCallback(() => onOpenChange(false), [onOpenChange])
+
+  const handleAfterClose = useCallback(() => setTemplateSelectValue(undefined), [])
+
+  const handlePickTemplate = useCallback((templateName: string | null) => {
+    setTemplateSelectValue(templateName ?? undefined)
+    if (!templateName) return
+    loadTemplateMutate(templateName, {
       onSuccess: (data) => {
+        setTemplateSelectValue(undefined)
+        const draftId = getValues('idTrafficSource')
         reset({
           ...defaultValues,
-          trafficSourceName: data.trafficSourceName,
-          costType: data.costType,
-          defaultCost: data.defaultCost,
-          trackingFields: data.trackingFields ?? [],
-          postback: {
-            postbackType: data.postback?.postbackType ?? 'none',
-            postbackCode: data.postback?.postbackCode ?? '',
-          },
+          ...mapTrafficSourceTemplateLoadToFormPatch(data),
+          idTrafficSource: draftId && draftId.length > 0 ? draftId : generateEntityId(),
+          idCategory: '',
         })
       },
     })
-  }
+  }, [getValues, loadTemplateMutate, reset])
+
+  const modalTitle = isEditing
+    ? 'Edit Traffic Source'
+    : isClone
+      ? 'Clone Traffic Source'
+      : 'Add Traffic Source'
+
+  const templateHeaderActions = useMemo(() => {
+    if (isEditing || isClone || templateOptions.length === 0) return undefined
+    return (
+      <div className="flex w-full min-w-0 flex-col gap-2 text-xs font-normal text-muted-foreground sm:flex-row sm:items-center">
+        <span className="shrink-0">Use template</span>
+        <Select
+          allowClear
+          value={templateSelectValue}
+          placeholder="Select template"
+          className="w-full min-w-0 sm:w-52"
+          size="sm"
+          onChange={handlePickTemplate}
+          options={templateOptions}
+        />
+      </div>
+    )
+  }, [handlePickTemplate, isClone, isEditing, templateOptions, templateSelectValue])
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{isEditing ? 'Edit Traffic Source' : 'Add Traffic Source'}</SheetTitle>
-          <SheetDescription>
-            {isEditing ? 'Update the traffic source configuration.' : 'Create a new traffic source.'}
-          </SheetDescription>
-        </SheetHeader>
-
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-5 mt-6">
-          {/* Load Template */}
-          {!isEditing && templates && templates.length > 0 && (
-            <div className="space-y-1.5">
-              <Label>Copy from Template</Label>
-              <Select onValueChange={handleLoadTemplate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Name */}
-          <div className="space-y-1.5">
-            <Label htmlFor="trafficSourceName">Name</Label>
-            <Input
-              id="trafficSourceName"
-              {...register('trafficSourceName')}
-              placeholder="Traffic source name"
-            />
-            {errors.trafficSourceName && (
-              <p className="text-xs text-destructive">{errors.trafficSourceName.message}</p>
+    <FormModal
+      open={open}
+      onCancel={handleClose}
+      afterClose={handleAfterClose}
+      destroyOnHidden
+    >
+      <FormModalHeader title={modalTitle} actions={templateHeaderActions} />
+      <FormModalBody>
+        <form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {isEditing && initialData?.idTrafficSource && (
+              <FormField label="ID">
+                <Input value={initialData.idTrafficSource} disabled className="font-mono text-xs" />
+              </FormField>
             )}
-          </div>
 
-          {/* Cost Type */}
-          <div className="space-y-1.5">
-            <Label>Cost Type</Label>
-            <Controller
-              control={control}
-              name="costType"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cpe">CPE (Cost Per Entrance)</SelectItem>
-                    <SelectItem value="cpa">CPA (Cost Per Action)</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-
-          {/* Default Cost */}
-          <div className="space-y-1.5">
-            <Label htmlFor="defaultCost">Default Cost</Label>
-            <Input
-              id="defaultCost"
-              type="number"
-              step="any"
-              min="0"
-              {...register('defaultCost')}
-            />
-            {errors.defaultCost && (
-              <p className="text-xs text-destructive">{errors.defaultCost.message}</p>
-            )}
-          </div>
-
-          {/* Tracking Fields */}
-          <div className="space-y-1.5">
-            <Label>Tracking Fields</Label>
-            <Controller
-              control={control}
-              name="trackingFields"
-              render={({ field }) => (
-                <KeyValueListField
-                  value={field.value}
-                  onChange={field.onChange}
-                  keyLabel="Parameter"
-                  valueLabel="Token"
-                />
-              )}
-            />
-          </div>
-
-          {/* Postback Type */}
-          <div className="space-y-1.5">
-            <Label>Postback Type</Label>
-            <Controller
-              control={control}
-              name="postback.postbackType"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="postbackUrl">Postback URL</SelectItem>
-                    <SelectItem value="pixelUrl">Pixel URL</SelectItem>
-                    <SelectItem value="javascript">JavaScript</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-
-          {/* Postback Code */}
-          {postbackType !== 'none' && (
-            <div className="space-y-1.5">
-              <Label htmlFor="postbackCode">
-                {postbackType === 'javascript' ? 'JavaScript Code' : 'Postback URL'}
-              </Label>
-              <Textarea
-                id="postbackCode"
-                {...register('postback.postbackCode')}
-                placeholder={
-                  postbackType === 'javascript'
-                    ? 'Enter JavaScript code...'
-                    : 'Enter postback URL...'
-                }
-                rows={3}
+            <FormField label="Name" htmlFor="trafficSourceName" error={errors.trafficSourceName?.message}>
+              <Controller
+                control={control}
+                name="trafficSourceName"
+                render={({ field }) => (
+                  <Input
+                    id="trafficSourceName"
+                    placeholder="Traffic source name"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                )}
               />
-            </div>
-          )}
+            </FormField>
 
-          {/* Submit */}
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? 'Save Changes' : 'Create'}
-            </Button>
-          </div>
-        </form>
-      </SheetContent>
-    </Sheet>
+            <FormField label="Category">
+              <Controller
+                control={control}
+                name="idCategory"
+                render={({ field }) => (
+                  <Select
+                    allowClear
+                    placeholder="Uncategorized"
+                    className="w-full"
+                    value={field.value && field.value.length > 0 ? field.value : undefined}
+                    onChange={(v) => field.onChange(v ?? '')}
+                    options={categorySelectOptions}
+                  />
+                )}
+              />
+            </FormField>
+
+            <FormField label="Cost Type">
+              <Controller
+                control={control}
+                name="costType"
+                render={({ field }) => (
+                  <Select
+                    value={field.value || undefined}
+                    onChange={field.onChange}
+                    className="w-full"
+                    options={[
+                      { value: 'cpe', label: 'CPE (Cost Per Entrance)' },
+                      { value: 'cpa', label: 'CPA (Cost Per Action)' },
+                    ]}
+                  />
+                )}
+              />
+            </FormField>
+
+            <FormField label="Default Cost" htmlFor="defaultCost" error={errors.defaultCost?.message}>
+              <Controller
+                control={control}
+                name="defaultCost"
+                render={({ field }) => (
+                  <Input
+                    id="defaultCost"
+                    placeholder="e.g. 0, 0.5, {bid}"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                )}
+              />
+            </FormField>
+
+            <FormField label="Tracking Fields">
+              <Controller
+                control={control}
+                name="trackingFields"
+                render={({ field }) => (
+                  <KeyValueListField
+                    value={field.value}
+                    onChange={field.onChange}
+                    keyLabel="Parameter"
+                    valueLabel="Token"
+                  />
+                )}
+              />
+            </FormField>
+
+            <FormField label="Postback Type">
+              <Controller
+                control={control}
+                name="postback.postbackType"
+                render={({ field }) => (
+                  <Select
+                    value={field.value || undefined}
+                    onChange={field.onChange}
+                    className="w-full"
+                    options={[
+                      { value: 'none', label: 'None' },
+                      { value: 'postbackUrl', label: 'Postback URL' },
+                      { value: 'pixelUrl', label: 'Pixel URL' },
+                      { value: 'javascript', label: 'JavaScript' },
+                    ]}
+                  />
+                )}
+              />
+            </FormField>
+
+            {postbackType !== 'none' && (
+              <FormField
+                label={postbackType === 'javascript' ? 'JavaScript Code' : 'Postback URL'}
+                htmlFor="postbackCode"
+                error={errors.postback?.postbackCode?.message}
+              >
+                <Controller
+                  control={control}
+                  name="postback.postbackCode"
+                  render={({ field }) => (
+                    <Input.TextArea
+                      id="postbackCode"
+                      placeholder={postbackType === 'javascript' ? 'Enter JavaScript code...' : 'Enter postback URL...'}
+                      rows={3}
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  )}
+                />
+              </FormField>
+            )}
+          </form>
+      </FormModalBody>
+      <FormModalFooter>
+        <Button htmlType="button" onClick={handleClose}>
+          Cancel
+        </Button>
+        <Button
+          type="primary"
+          htmlType="submit"
+          form={formId}
+          loading={isSubmitting}
+        >
+          {isEditing ? 'Save Changes' : 'Create'}
+        </Button>
+      </FormModalFooter>
+    </FormModal>
   )
 }

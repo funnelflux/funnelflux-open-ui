@@ -1,51 +1,70 @@
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Trash2, UserCheck, UserPlus, UserX, Users } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { DataTable } from '@/components/shared/DataTable'
-import { RowActionsMenu } from '@/components/shared/RowActionsMenu'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useToast } from '@/components/shared/Toaster'
+import { Tag } from '@/components/ui-kit'
+import { Button, Switch, PageShell, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { DataTable } from '@/components/ui-kit/data-table'
+import { editBtnColumn, deleteBtnColumn, enableBtnColumn, disableBtnColumn } from '@/components/ui-kit/data-table'
 import { useUsers, useChangeUserStatus, useDeleteUser } from '@/api/hooks/useUserManagement'
 import type { ManagedUser } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 
+function managedUserRowId(row: ManagedUser): string {
+  return String(row.id)
+}
+
 export function UserManagementPage() {
   const navigate = useNavigate()
-  const toast = useToast()
+  const toast = useToastApi()
   const { data: users, isLoading } = useUsers()
   const changeStatus = useChangeUserStatus()
   const deleteUser = useDeleteUser()
 
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null)
 
-  function handleToggleEnabled(user: ManagedUser) {
-    const newEnabled = !user.enabled
-    changeStatus.mutate(
-      { userIds: [user.id], enabled: newEnabled },
-      {
-        onSuccess: () => {
-          toast.success(
-            `User "${user.login}" ${newEnabled ? 'enabled' : 'disabled'}`,
-          )
-        },
-        onError: (err) => {
-          toast.error(`Failed to update user: ${getErrorMessage(err)}`)
-        },
-      },
-    )
-  }
+  const changeMutate = changeStatus.mutate
+  const deleteMutate = deleteUser.mutate
 
-  function confirmDelete() {
+  const handleToggleEnabled = useCallback(
+    (user: ManagedUser) => {
+      const newEnabled = !user.enabled
+      changeMutate(
+        { userIds: [user.id], enabled: newEnabled },
+        {
+          onSuccess: () => {
+            toast.success(
+              `User "${user.email}" ${newEnabled ? 'enabled' : 'disabled'}`,
+            )
+          },
+          onError: (err) => {
+            toast.error(`Failed to update user: ${getErrorMessage(err)}`)
+          },
+        },
+      )
+    },
+    [changeMutate, toast],
+  )
+
+  const handleNavigateToEdit = useCallback(
+    (row: ManagedUser) => {
+      navigate(`/settings/users/${row.id}/edit`)
+    },
+    [navigate],
+  )
+
+  const handleRequestDelete = useCallback((row: ManagedUser) => {
+    setDeleteTarget(row)
+  }, [])
+
+  const handleNavigateToCreate = useCallback(() => {
+    navigate('/settings/users/new')
+  }, [navigate])
+
+  const confirmDelete = useCallback(() => {
     if (!deleteTarget) return
-    deleteUser.mutate(deleteTarget.id, {
+    deleteMutate(deleteTarget.id, {
       onSuccess: () => {
-        toast.success(`User "${deleteTarget.login}" deleted`)
+        toast.success(`User "${deleteTarget.email}" deleted`)
         setDeleteTarget(null)
       },
       onError: (err) => {
@@ -53,122 +72,84 @@ export function UserManagementPage() {
         setDeleteTarget(null)
       },
     })
-  }
+  }, [deleteMutate, deleteTarget, toast])
 
-  const columns: ColumnDef<ManagedUser, unknown>[] = [
-    {
-      accessorKey: 'login',
-      header: 'Username',
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.login}</span>
-      ),
-    },
-    {
-      id: 'name',
-      header: 'Name',
-      cell: ({ row }) => {
-        const { firstname, lastname } = row.original
-        const name = [firstname, lastname].filter(Boolean).join(' ')
-        return name || <span className="text-muted-foreground">--</span>
+  const columns = useMemo<ColumnDef<ManagedUser, unknown>[]>(
+    () => [
+      {
+        id: 'email',
+        header: 'Email',
+        accessorKey: 'email',
+        cell: ({ row }) => <span className="font-medium">{row.original.email}</span>,
       },
-    },
-    {
-      accessorKey: 'email',
-      header: 'Email',
-      cell: ({ row }) =>
-        row.original.email || (
-          <span className="text-muted-foreground">--</span>
+      editBtnColumn<ManagedUser>(handleNavigateToEdit),
+      enableBtnColumn<ManagedUser>(handleToggleEnabled, { hidden: (row) => row.enabled }),
+      disableBtnColumn<ManagedUser>(handleToggleEnabled, { hidden: (row) => !row.enabled }),
+      deleteBtnColumn<ManagedUser>(handleRequestDelete),
+      {
+        id: 'name',
+        header: 'Name',
+        accessorFn: (row) =>
+          [row.firstname, row.lastname].filter(Boolean).join(' '),
+        cell: ({ getValue }) =>
+          getValue() || <span className="text-muted-foreground">--</span>,
+      },
+      {
+        id: 'isAdmin',
+        header: 'Admin',
+        accessorKey: 'isAdmin',
+        cell: ({ row }) =>
+          row.original.isAdmin ? (
+            <Tag color="blue" className="text-xs">
+              Admin
+            </Tag>
+          ) : null,
+      },
+      {
+        id: 'enabled',
+        header: 'Enabled',
+        accessorKey: 'enabled',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Switch
+            checked={row.original.enabled}
+            onChange={() => handleToggleEnabled(row.original)}
+          />
         ),
-    },
-    {
-      accessorKey: 'isAdmin',
-      header: 'Admin',
-      cell: ({ row }) =>
-        row.original.isAdmin ? (
-          <Badge variant="default" className="text-xs">
-            Admin
-          </Badge>
-        ) : null,
-    },
-    {
-      accessorKey: 'enabled',
-      header: 'Enabled',
-      cell: ({ row }) => (
-        <Switch
-          checked={row.original.enabled}
-          onCheckedChange={() => handleToggleEnabled(row.original)}
-        />
-      ),
-    },
-    {
-      accessorKey: 'lastLogin',
-      header: 'Last Login',
-      cell: ({ row }) =>
-        row.original.lastLogin || (
-          <span className="text-muted-foreground">Never</span>
-        ),
-    },
-    {
-      id: 'actions',
-      header: '',
-      size: 50,
-      cell: ({ row }) => (
-        <RowActionsMenu
-          actions={[
-            {
-              label: 'Edit',
-              icon: Pencil,
-              onClick: () => navigate(`/settings/users/${row.original.id}/edit`),
-            },
-            {
-              label: row.original.enabled ? 'Disable' : 'Enable',
-              icon: row.original.enabled ? UserX : UserCheck,
-              onClick: () => handleToggleEnabled(row.original),
-            },
-            {
-              label: 'Delete',
-              icon: Trash2,
-              onClick: () => setDeleteTarget(row.original),
-              destructive: true,
-            },
-          ]}
-        />
-      ),
-    },
-  ]
+      },
+    ],
+    [handleNavigateToEdit, handleRequestDelete, handleToggleEnabled],
+  )
 
   return (
-    <div>
-      <PageHeader title="User Management">
-        <Button size="sm" onClick={() => navigate('/settings/users/new')}>
-          <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+    <PageShell fillHeight
+      title="User Management"
+      actions={
+        <Button type="primary" iconName="user-plus" onClick={handleNavigateToCreate}>
           Add User
         </Button>
-      </PageHeader>
+      }
+    >
+      <DataTable<ManagedUser>
+        data={users ?? []}
+        columns={columns}
+        getRowId={managedUserRowId}
+        loading={isLoading}
+        tableConfigKey="settings-users"
+        defaultSorting={[{ id: 'email', desc: false }]}
+        noPagination
+        emptyMessage="No users found."
+      />
 
-      {!isLoading && (!users || users.length === 0) ? (
-        <EmptyState
-          icon={<Users className="h-10 w-10" />}
-          message="No users found."
-        />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={users ?? []}
-          isLoading={isLoading}
-          getRowId={(row) => String(row.id)}
-        />
-      )}
-
-      <ConfirmDialog
+      <ConfirmModal
         open={!!deleteTarget}
         title="Delete User"
-        description={`Are you sure you want to delete user "${deleteTarget?.login}"? This cannot be undone.`}
+        description={`Are you sure you want to delete user "${deleteTarget?.email}"? This cannot be undone.`}
         confirmText="Delete"
-        destructive
+        danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </PageShell>
   )
 }

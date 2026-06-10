@@ -1,8 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
+import type { OfferSourceTemplateLoadResponse } from '@/api/offerSourceTemplateLoad'
+import { normalizeTemplateList } from '@/api/normalizeTemplateList'
 import { queryKeys } from '@/api/queryKeys'
+import {
+  emptyBulkResult,
+  invalidateOfferSourceAuxiliaryAfterGridPatch,
+  type BulkResult,
+} from '@/api/invalidations'
+import { errorToApiError } from '@/api/errors'
+import {
+  applyOfferSourceArchiveToEntityGridCaches,
+  removeOfferSourceFromEntityGridCaches,
+  removeOfferSourcesFromEntityGridCaches,
+  upsertClonedOfferSourceInEntityGridCaches,
+  upsertOfferSourceInEntityGridCaches,
+  type OfferSourceCloneWireResponse,
+} from '@/lib/entity-table/data/queryCache'
+import { offerSourceForEntityGridCache } from '@/lib/entity-table/data/saveMerge'
 import type { OfferSource } from '@/types/entities'
-import type { Template } from '@/types/ui'
+import type { OfferSourceFormData } from '@/schemas/offerSource'
+
+export type SaveOfferSourceInput = {
+  offerSource: OfferSourceFormData
+  isCreate: boolean
+}
 
 export function useOfferSources(status?: string) {
   const params: Record<string, string> = {}
@@ -21,32 +43,96 @@ export function useOfferSources(status?: string) {
 export function useOfferSource(id: string) {
   return useQuery({
     queryKey: queryKeys.offerSources.detail(id),
-    queryFn: () => api.get<OfferSource>('/data/offersource/find/byId/', { id }),
+    queryFn: () => api.get<OfferSource>('/data/offersource/find/byId/', { idOfferSource: id }),
     enabled: !!id,
   })
 }
 
 export function useSaveOfferSource() {
-  const qc = useQueryClient()
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (os: Partial<OfferSource>) => {
-      const isNew = !os.idOfferSource || os.idOfferSource === '0'
-      return isNew
-        ? api.post<OfferSource>('/data/offersource/save/', os)
-        : api.put<OfferSource>('/data/offersource/save/', os)
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+    mutationFn: ({ offerSource, isCreate }: SaveOfferSourceInput) =>
+      isCreate
+        ? api.post<OfferSource>('/data/offersource/save/', offerSource)
+        : api.put<OfferSource>('/data/offersource/save/', offerSource),
+    onSuccess: async (saveResponse, variables) => {
+      const mergedOfferSource = offerSourceForEntityGridCache(saveResponse, variables.offerSource)
+      if (mergedOfferSource) {
+        upsertOfferSourceInEntityGridCaches(queryClient, mergedOfferSource)
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.offerSources.detail(mergedOfferSource.idOfferSource),
+        })
+      }
+      await invalidateOfferSourceAuxiliaryAfterGridPatch(queryClient)
     },
   })
 }
 
 export function useDeleteOfferSource() {
-  const qc = useQueryClient()
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete('/data/offersource/delete/', { id }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.offerSources.all })
+    mutationFn: (id: string) => api.delete('/data/offersource/delete/', { idOfferSource: id }),
+    onSuccess: async (_, id) => {
+      removeOfferSourceFromEntityGridCaches(queryClient, id)
+      queryClient.removeQueries({ queryKey: queryKeys.offerSources.detail(id) })
+      await invalidateOfferSourceAuxiliaryAfterGridPatch(queryClient)
+    },
+  })
+}
+
+export function useBulkDeleteOfferSources() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]): Promise<BulkResult<string>> => {
+      const out = emptyBulkResult<string>()
+      for (const id of ids) {
+        try {
+          await api.delete('/data/offersource/delete/', { idOfferSource: id })
+          out.succeeded.push(id)
+        } catch (error) {
+          out.failed.push({ id, error: errorToApiError(error) })
+        }
+      }
+      return out
+    },
+    onSuccess: async (result) => {
+      if (result.succeeded.length > 0) {
+        removeOfferSourcesFromEntityGridCaches(queryClient, result.succeeded)
+        for (const id of result.succeeded) {
+          queryClient.removeQueries({ queryKey: queryKeys.offerSources.detail(id) })
+        }
+        await invalidateOfferSourceAuxiliaryAfterGridPatch(queryClient)
+      }
+    },
+  })
+}
+
+export function useArchiveOfferSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, archive }: { ids: string[]; archive: boolean }) =>
+      api.put('/data/offersource/archive/', { ids, archive }),
+    onSuccess: async (_, { ids, archive }) => {
+      applyOfferSourceArchiveToEntityGridCaches(queryClient, ids, archive)
+      for (const id of ids) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(id) })
+      }
+      await invalidateOfferSourceAuxiliaryAfterGridPatch(queryClient)
+    },
+  })
+}
+
+export function useCloneOfferSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<OfferSourceCloneWireResponse>('/data/offersource/clone/', undefined, {
+        idOfferSource: id,
+      }),
+    onSuccess: async (data) => {
+      upsertClonedOfferSourceInEntityGridCaches(queryClient, data)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.offerSources.detail(data.idOfferSource) })
+      await invalidateOfferSourceAuxiliaryAfterGridPatch(queryClient)
     },
   })
 }
@@ -54,7 +140,10 @@ export function useDeleteOfferSource() {
 export function useOfferSourceTemplates(enabled = true) {
   return useQuery({
     queryKey: queryKeys.offerSources.templates,
-    queryFn: () => api.get<Template[]>('/data/offersource/template/list/'),
+    queryFn: async () => {
+      const raw = await api.get<unknown>('/data/offersource/template/list/')
+      return normalizeTemplateList(raw)
+    },
     enabled,
   })
 }
@@ -62,6 +151,6 @@ export function useOfferSourceTemplates(enabled = true) {
 export function useLoadOfferSourceTemplate() {
   return useMutation({
     mutationFn: (id: string) =>
-      api.get<OfferSource>('/data/offersource/template/load/', { id }),
+      api.get<OfferSourceTemplateLoadResponse>('/data/offersource/template/load/', { name: id }),
   })
 }

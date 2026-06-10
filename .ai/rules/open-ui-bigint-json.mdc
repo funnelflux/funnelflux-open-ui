@@ -1,0 +1,65 @@
+---
+description: Preserve Snowflake-style integer ids through JSON.parse — stats drilldown responses
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Large integer ids in JSON responses
+
+The stats backend emits FunnelFlux-generated entity ids (campaigns, landers, offers, nodes, hits, conversions, funnels…) as **19-digit decimal integers** (e.g. `2516045959448542673`). These are larger than `Number.MAX_SAFE_INTEGER` (`9_007_199_254_740_992`), so `JSON.parse` silently rounds them to the nearest representable float. Symptoms:
+
+- Row keys collide (`"2516045959448542673"` and `"2516045959448542674"` become the same number).
+- Whitelist filters sent to the server don't match what the user clicked.
+- React complains about duplicate keys, or state updates "miss" the row they were targeting.
+
+## Rule: always stringify large integer `raw` fields before `JSON.parse`
+
+The API client (`src/api/client.ts`) preprocesses drilldown responses:
+
+```ts
+function parseStatsJsonPreserveLargeIntRaw(text: string): unknown {
+  const fixed = text.replace(/"raw"\s*:\s*(\d{16,})(\s*)([,}]|])/g, '"raw":"$1"$2$3')
+  return JSON.parse(fixed)
+}
+```
+
+It only runs for endpoints matching `stats/reporting/drilldown`. When adding or renaming endpoints that return grouping cells with numeric ids, update the `handleResponse` branch so the preprocessor also runs for them. Use the preprocessor when the response carries `ReportCell[]` with `raw` fields that can be entity ids.
+
+## Rule: never parse entity ids via `Number(raw)`
+
+In UI code, treat grouping-cell `raw` as an opaque string:
+
+```ts
+// ✅ safe
+const key = typeof raw === 'string' ? raw.trim() : String(raw)
+
+// ❌ wrong — rounding silently
+const key = String(Number(raw))
+```
+
+Helper `groupingKeyFromRaw` in `DrilldownTreePage.tsx` encapsulates the safe pattern (also filters empty strings and the `"0"` rollup).
+
+## Rule: never use `raw` as React key without sanitising
+
+If you must key by entity id (columns, list items), prefer:
+
+1. A stable positional identifier if one is available (e.g. tree `treePath`).
+2. The string form of `raw` — never the numeric form.
+
+```tsx
+// ✅
+<tr key={`row-${index}-${String(raw)}`}> … </tr>
+
+// ❌ duplicate keys when two ids differ only in low bits
+<tr key={Number(raw)}> … </tr>
+```
+
+## When the backend adds a new numeric id field
+
+If a new endpoint adds large-integer ids on a key other than `raw` (for example `cells[i].value`), extend the preprocessor regex and cover the new field with a unit-test-style example in the PR description. Do not generalise the regex to *all* numbers — floats in metrics (ROI, EPA, etc.) must remain numbers.
+
+## Reference
+
+- `src/api/client.ts` — `parseStatsJsonPreserveLargeIntRaw`
+- `src/pages/reports/DrilldownTreePage.tsx` — `groupingKeyFromRaw`, stable `treePath` identity
+- Related rule: `open-ui-datatable-tree-lazy-loading.mdc` (§4 "Stable row identity")

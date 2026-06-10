@@ -1,17 +1,36 @@
 import { z } from 'zod/v4'
+import { HTTP_URL_ERROR, isValidHttpUrl } from '@/lib/validateHttpUrl'
 
+export type { TrafficSource } from '@/types/entities'
+
+/**
+ * Traffic source create/update form. Aligns with OpenAPI `#/definitions/TrafficSource` /
+ * {@link TrafficSource}. For create, set `idTrafficSource` with `generateEntityId()` from `@/lib/id-generator` before POST. The save hook sets `postback.idTrafficSource` to match.
+ */
 export const trafficSourceSchema = z.object({
-  idTrafficSource: z.string().optional(),
+  idTrafficSource: z.string().min(1, 'ID is required'),
   trafficSourceName: z.string().min(1, 'Name is required').max(255),
   costType: z.enum(['cpe', 'cpa']),
-  defaultCost: z.coerce.number().min(0),
+  /** Numeric or token (e.g. `{bid}`) — matches legacy templates and API string field. */
+  defaultCost: z.string(),
   trackingFields: z.array(
     z.object({ key: z.string(), value: z.string() }),
   ),
-  postback: z.object({
-    postbackType: z.enum(['none', 'postbackUrl', 'pixelUrl', 'javascript']),
-    postbackCode: z.string(),
-  }),
+  postback: z
+    .object({
+      postbackType: z.enum(['none', 'postbackUrl', 'pixelUrl', 'javascript']),
+      postbackCode: z.string(),
+    })
+    .superRefine((postback, ctx) => {
+      const code = postback.postbackCode.trim()
+      if (!code) return
+      if (postback.postbackType !== 'postbackUrl' && postback.postbackType !== 'pixelUrl') return
+      if (!isValidHttpUrl(code)) {
+        ctx.addIssue({ code: 'custom', message: HTTP_URL_ERROR, path: ['postbackCode'] })
+      }
+    }),
+  /** Empty = uncategorized. Sent on save as `idCategory` for the v2 TrafficSource model. */
+  idCategory: z.string().optional(),
   isArchived: z.boolean().optional(),
 })
 

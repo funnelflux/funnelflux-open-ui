@@ -1,0 +1,143 @@
+---
+description: DataTable tree mode and lazy-loading rules — TanStack row model gotchas learned from the drilldown tree report
+globs: src/**/*.{tsx,ts},funnelflux-open-ui/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# DataTable tree mode & lazy loading
+
+Hard-won rules for the tree-mode drilldown report (`DrilldownTreePage`). TanStack Table has several non-obvious interactions with pagination and expanded state that silently break tree UIs. Follow these rules whenever you enable `treeMode` on `DataTable` or extend `DataTable`'s tree behaviour.
+
+## 1. `paginateExpandedRows` MUST be `true` when `noPagination` is set
+
+In TanStack, only one of the row models actually flattens expanded parent + children into the visible rows:
+
+| `paginateExpandedRows` | Flattening done by |
+|---|---|
+| `true` | `getExpandedRowModel()` |
+| `false` | `getPaginationRowModel()` |
+
+If you set `paginateExpandedRows: false` *and* omit `getPaginationRowModel` (which `<DataTable noPagination />` does), **nothing** ever calls `expandRows(...)`. Children load fine in state, but never appear in `table.getRowModel().rows`.
+
+`DataTable` handles this already:
+
+```ts
+paginateExpandedRows: treeMode && usePagination ? false : true,
+```
+
+Do not change this without checking both the `noPagination` path and the paginated path. If you introduce a new code path that sets up its own `useReactTable` with tree mode + no pagination, replicate the same `paginateExpandedRows: true` choice.
+
+## 2. `getRowCanExpand` — lazy rows have no `subRows` yet
+
+TanStack's default `row.getCanExpand()` returns `true` only when `row.subRows?.length > 0`. Rows that will lazy-load children therefore **cannot show a chevron by default**. `DataTable` exposes a `canLazyExpandRow(row)` prop for this:
+
+```ts
+canLazyExpandRow={(row) => {
+  if (!plan.length) return false
+  if (row.depth + 1 >= plan.length) return false   // no deeper level planned
+  if (row.loaded) return false
+  if (row.children?.length) return false
+  return Boolean(row.groupIds?.[0])
+}}
+```
+
+Rules:
+
+- Only return `true` for rows whose grouping-id is known (no empty / rollup rows).
+- Guard against over-deep expansion: `row.depth + 1 < plan.length`.
+- Return `false` once `row.loaded === true` (prevents re-fetching).
+
+## 3. After a lazy load, the parent owns `expanded` state
+
+Calling `row.toggleExpanded(true)` on a stale `Row` object from a previous render can race with `setData` and leave the row visually collapsed (or toggle it back off). Do both updates in the parent and don't rely on `DataTable` to flip expansion:
+
+```tsx
+// Inside onExpandRow
+setTreeData((prev) => updateChildren(prev, row.treePath, newChildren))
+setExpanded((prev) => {
+  const base = prev === true || !prev ? {} : { ...(prev as Record<string, boolean>) }
+  base[row._id] = true
+  return base
+})
+```
+
+`DataTable.handleToggleExpand` already contains the defensive check: after `onExpandRow` resolves, it only calls `row.toggleExpanded(true)` if the row is *still* not expanded, so it is safe for the parent to own expansion.
+
+## 4. Stable row identity — never use numeric grouping ids in `_id`
+
+The stats API returns Snowflake-style ids (19 digits) for campaigns, landers, nodes, etc. These exceed `Number.MAX_SAFE_INTEGER`, so `JSON.parse` rounds them. Two rows that differ only in their low bits can end up with the **same** numeric id, which breaks:
+
+- React keys (duplicate keys, lost state)
+- `setData` matching by id
+- TanStack's `getRowId`
+
+Use a **positional `treePath`** like `"0"`, `"3"`, `"3-4"`, `"3-4-1"` as the canonical identity. Build `_id` from it (`tr-${treePath}`). Look up rows in state by `treePath`, not by the grouping cell's raw value.
+
+See also: `open-ui-bigint-json.mdc` for the JSON-parse preprocessor that keeps grouping ids as exact strings.
+
+## 5. Lazy expand must whitelist every ancestor grouping
+
+When a user expands a row at depth D, the request for the child level must whitelist the row's grouping id **and every ancestor's** grouping id. Example plan `[Campaign, Lander, Node]`:
+
+- Expanding a campaign (D=0): `whitelistFilters` on `Campaign`.
+- Expanding a lander (D=1): `whitelistFilters` on **`Campaign` and `Lander`**. Do not leave `Campaign` empty — that fetches all landers with this name across all campaigns.
+
+Carry this on each row as `ancestorKeys: string[]` (length = `depth`), passed down when creating children:
+
+```ts
+reportRowsToTreeRows(
+  leafRows,
+  colCount,
+  nextDepth,
+  row.treePath,
+  [...row.ancestorKeys, parentKey],   // ← new child ancestor chain
+)
+```
+
+Build the request's `groupings` by mapping `plan.slice(0, nextDepth + 1)` and assigning whitelist from `[...row.ancestorKeys, parentKey]` by index.
+
+## 6. Flatten nested children from the expand response
+
+The drilldown API returns a nested tree reflecting all request groupings:
+
+```
+rows: [
+  { cells: [rollup id=0], children: [...] },
+  { cells: [<parent id>], children: [<leaves>] }   // ← the row we want
+]
+```
+
+Do not feed this directly into `reportRowsToTreeRows` — you will get the rollup row and the parent row as siblings at the wrong depth. Instead walk the response and return the `children` of the row whose first cell matches `parentGroupId`. See `leafRowsForLazyExpand` in `DrilldownTreePage.tsx` as the reference implementation.
+
+## 7. Initial `Apply` loads only the first grouping level
+
+Lazy loading means the initial request should ask for one grouping, not the whole plan:
+
+```ts
+const initialGroupings = full.length > 0 ? [full[0]] : []
+runRequest({ ...request, groupings: initialGroupings, topLevelFilters: [] })
+```
+
+Keep the full plan in component state (`planGroupings`) for the expand handler. Sending the whole plan up front defeats lazy loading and makes the backend build a large tree for no reason.
+
+## 8. Tree indent in DataTable: depth + chevron lane
+
+Depth uses `dt-indent` (`depth * 24`). **Expandable** rows render the chevron button plus `dt-expand-gap` before the label. **Non-expandable** rows must still reserve the same horizontal space (`dt-expand-placeholder` matching the toggle’s box + the same `dt-expand-gap`); otherwise a deeper leaf’s text starts **left** of its expanded parent’s text.
+
+Do not add a *second* depth-like spacer in the cell renderer for leaves — that duplicates the visual indent step. The chevron-lane placeholder belongs in `DataTable`, not in `buildColumnsFromReport`. Header alignment uses `dt-tree-header-spacer` on the tree column.
+
+## 9. Never assume expand order guarantees
+
+Do not write code that depends on "parent was expanded before child was clicked" unless you also track it yourself. TanStack's expanded state is a flat `Record<rowId, boolean>`; grand-parents can be collapsed while grand-children are "expanded" in state. Rely on row data (`loaded`, `children`) and the plan depth, not on expanded state.
+
+## 10. Don't store entity snapshots inside the tree row
+
+A `TreeRowData` carries display cells (`cells: ReportCell[]`), identity (`_id`, `treePath`), lazy metadata (`groupIds`, `ancestorKeys`, `loaded`), and its `children[]`. Do **not** also embed the original `ReportRow` or the full API response: it duplicates memory, encourages mutating shared references, and tempts consumers to read `raw` values via a code path that bypasses `groupingKeyFromRaw`.
+
+## Reference implementation
+
+Canonical patterns live in:
+
+- `src/pages/reports/DrilldownTreePage.tsx`
+- `src/components/ui-kit/data-table/DataTable.tsx` (`getRowCanExpand`, `handleToggleExpand`, `paginateExpandedRows`)
+- `src/components/ui-kit/data-table/types.ts` (`canLazyExpandRow` prop)
