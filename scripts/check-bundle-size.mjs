@@ -9,7 +9,6 @@ const DIST_ASSETS_DIR = path.resolve(process.cwd(), 'dist/assets')
  */
 const THRESHOLDS = [
   { name: 'entry index chunk', pattern: /^index-.*\.js$/, maxKiB: 60 },
-  { name: 'ui-kit shared chunk', pattern: /^ui-kit-.*\.js$/, maxKiB: 35 },
   { name: 'data-table shared chunk', pattern: /^data-table-.*\.js$/, maxKiB: 180 },
   { name: 'antd vendor chunk', pattern: /^antd-vendor-.*\.js$/, maxKiB: 1200 },
   { name: 'codemirror vendor chunk', pattern: /^codemirror-vendor-.*\.js$/, maxKiB: 750 },

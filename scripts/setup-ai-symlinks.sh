@@ -5,6 +5,10 @@
 # Compatibility wrapper. The canonical implementation is setup-ai-harness.sh;
 # this shim is kept so older references / muscle memory keep working.
 
+if [ -n "${POSIXLY_CORRECT:-}" ] || [ -z "${BASH_VERSION:-}" ]; then
+    exec bash "$0" "$@"
+fi
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

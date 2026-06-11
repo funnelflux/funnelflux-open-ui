@@ -18,6 +18,10 @@
 #   - .cursor/rules/<name>.mdc -> ../../.ai/rules/<name>.mdc
 #   - .codex/agents/<role>.toml -> ../../.ai/agents/<role>.toml
 
+if [ -n "${POSIXLY_CORRECT:-}" ] || [ -z "${BASH_VERSION:-}" ]; then
+    exec bash "$0" "$@"
+fi
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
