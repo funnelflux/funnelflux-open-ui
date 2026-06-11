@@ -36,8 +36,9 @@ dist-ssr
 .claude/commands/
 .claude/skills/
 .agents/skills/
-.cursor/skills/
-.cursor/rules/
+.cursor/
 .codex/
+.lerim/
+.serena/
 **/CLAUDE.md
 CLAUDE.md
