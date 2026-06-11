@@ -6,6 +6,7 @@ import {
   CODE_NODE_UNIFIED_TARGET_HANDLE,
 } from '@/lib/codeNodeExits'
 import { getDefaultEdgeData } from './defaultEdgeData'
+import { computeOptimalHandles } from '../funnelEdgeGeometry'
 import {
   coerceCodeEdgeRoles,
   coerceJsPhpInboundTargetHandles,
@@ -97,6 +98,20 @@ describe('graph hydration coercion', () => {
 
     const out = coerceJsPhpInboundTargetHandles(nodes, edges)
     expect(out[0]!.targetHandle).toBe(CODE_NODE_UNIFIED_TARGET_HANDLE)
+  })
+})
+
+describe('edge geometry', () => {
+  it('snaps condition edges by geometry instead of forcing branch-specific sides', () => {
+    const condition = node('cond-1', NODE_TYPES.condition)
+    const offer = node('offer-1', NODE_TYPES.offer)
+    offer.position = { x: 500, y: 0 }
+    const conditionEdge = edge('e1', 'cond-1', 'offer-1', { edgeType: 'condition', branch: 'no' })
+
+    expect(computeOptimalHandles([condition, offer], conditionEdge)).toEqual({
+      sourceHandle: 's-right',
+      targetHandle: 't-left',
+    })
   })
 })
 

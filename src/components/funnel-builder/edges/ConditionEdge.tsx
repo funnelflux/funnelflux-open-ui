@@ -4,7 +4,6 @@ import type { ConditionEdgeData, FunnelFlowEdge } from '@/types/funnel'
 import { cn } from '@/lib/utils'
 import { DraggableEdgeLabel } from './DraggableEdgeLabel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import { sourceHandleForConditionBranch } from '../validation'
 
 type ConditionEdge = Edge<ConditionEdgeData, 'condition'>
 
@@ -54,7 +53,6 @@ function ConditionEdgeComponent({
           if (e.id !== self.id) return e
           return {
             ...e,
-            sourceHandle: sourceHandleForConditionBranch(opp),
             data: { ...(e.data as ConditionEdgeData), branch: opp },
           }
         })
@@ -67,7 +65,6 @@ function ConditionEdgeComponent({
             ...e,
             target: sibling.target,
             targetHandle: sibling.targetHandle,
-            sourceHandle: sourceHandleForConditionBranch(cur),
             data: { ...(e.data as ConditionEdgeData), branch: cur },
           }
         }
@@ -76,7 +73,6 @@ function ConditionEdgeComponent({
             ...e,
             target: self.target,
             targetHandle: self.targetHandle,
-            sourceHandle: sourceHandleForConditionBranch(opp),
             data: { ...(e.data as ConditionEdgeData), branch: opp },
           }
         }
@@ -107,10 +103,10 @@ function ConditionEdgeComponent({
         onLabelClick={handleLabelClick}
         className={cn(
           'nodrag nopan absolute rounded-full px-2 text-xs font-medium border',
-          'pointer-events-auto',
+          'pointer-events-auto z-[1000] shadow-sm',
           isYes
-            ? 'bg-success/10 text-success border-success/20'
-            : 'bg-error/10 text-error border-error/20',
+            ? 'bg-background text-success border-success'
+            : 'bg-background text-error border-error',
           selected && (isYes ? 'ring-1 ring-success' : 'ring-1 ring-error'),
         )}
       >

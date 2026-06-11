@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/api/queryKeys'
 import { useDashboardSummaryQuery } from '@/api/hooks/useDashboard'
 import { useDashboardStore } from '@/store/dashboard'
@@ -64,6 +64,7 @@ const DEFAULT_DASHBOARD_AUTO_REFRESH_SEC = 120
 
 export function DashboardPage() {
   const queryClient = useQueryClient()
+  const dashboardFetchCount = useIsFetching({ queryKey: queryKeys.dashboard.all })
   const {
     chartMetric,
     setChartMetric,
@@ -75,6 +76,7 @@ export function DashboardPage() {
     setDateRange,
   } = useDashboardStore()
 
+  const [draftTimezone, setDraftTimezone] = useState(tz)
   const [pulseStats, setPulseStats] = useState(false)
   const [autoRefreshIntervalSec, setAutoRefreshIntervalSec] = useState(DEFAULT_DASHBOARD_AUTO_REFRESH_SEC)
   const [secondsUntilAutoRefresh, setSecondsUntilAutoRefresh] = useState(DEFAULT_DASHBOARD_AUTO_REFRESH_SEC)
@@ -124,6 +126,10 @@ export function DashboardPage() {
   }, [])
 
   useEffect(() => {
+    setDraftTimezone(tz)
+  }, [tz])
+
+  useEffect(() => {
     if (!stats) return
     const previous = previousStatsRef.current
     previousStatsRef.current = stats
@@ -146,6 +152,12 @@ export function DashboardPage() {
     autoRefreshIntervalSecRef.current = autoRefreshIntervalSec
   }, [autoRefreshIntervalSec])
 
+  const hasPendingTimezoneChange = draftTimezone !== tz
+  const hasPendingTimezoneChangeRef = useRef(hasPendingTimezoneChange)
+  useEffect(() => {
+    hasPendingTimezoneChangeRef.current = hasPendingTimezoneChange
+  }, [hasPendingTimezoneChange])
+
   useEffect(() => {
     const interval = autoRefreshIntervalSecRef.current
     if (interval > 0) {
@@ -156,6 +168,7 @@ export function DashboardPage() {
   useEffect(() => {
     const id = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return
+      if (hasPendingTimezoneChangeRef.current) return
       const periodSec = autoRefreshIntervalSecRef.current
       if (periodSec <= 0) return
       setSecondsUntilAutoRefresh((secondsLeft) => {
@@ -181,8 +194,12 @@ export function DashboardPage() {
     if (autoRefreshIntervalSec > 0) {
       setSecondsUntilAutoRefresh(autoRefreshIntervalSec)
     }
+    if (draftTimezone !== tz) {
+      setTz(draftTimezone)
+      return
+    }
     invalidateDashboardQueries()
-  }, [autoRefreshIntervalSec, invalidateDashboardQueries])
+  }, [autoRefreshIntervalSec, draftTimezone, invalidateDashboardQueries, setTz, tz])
 
   const autoRefreshSelectValue = String(autoRefreshIntervalSec)
 
@@ -214,9 +231,13 @@ export function DashboardPage() {
   const handleCloseDashboardSettings = useCallback(() => setSettingsOpen(false), [])
 
   const dashboardAutoRefreshSubtitle = useMemo(() => {
+    if (hasPendingTimezoneChange) return 'Timezone changed. Click Refresh to reload dashboard reports.'
+    if (dashboardFetchCount > 0) return 'Refreshing dashboard reports...'
     if (autoRefreshIntervalSec <= 0) return 'Auto refresh off.'
     return `Auto refresh every ${autoRefreshIntervalSec}s · Next refresh in ${secondsUntilAutoRefresh}s`
-  }, [autoRefreshIntervalSec, secondsUntilAutoRefresh])
+  }, [autoRefreshIntervalSec, dashboardFetchCount, hasPendingTimezoneChange, secondsUntilAutoRefresh])
+  const dashboardIsFetching = dashboardFetchCount > 0
+  const refreshButtonLabel = hasPendingTimezoneChange ? 'Apply timezone' : 'Refresh'
 
   const summaryLoading = summaryQuery.isLoading && stats === undefined
   const summaryFailed = summaryQuery.isError && stats === undefined
@@ -250,9 +271,11 @@ export function DashboardPage() {
             type="default"
             onClick={bumpRefresh}
             iconName="refresh-cw"
+            iconAnimation={dashboardIsFetching ? 'spin' : undefined}
             iconSize="sm"
+            aria-busy={dashboardIsFetching}
           >
-            Refresh
+            {refreshButtonLabel}
           </Button>
           <DateRangePicker
             value={dateRangePickerValue}
@@ -262,8 +285,8 @@ export function DashboardPage() {
             className="[--ff-date-range-compact-max:236px]"
           />
           <TimezoneSelect
-            value={tz}
-            onChange={setTz}
+            value={draftTimezone}
+            onChange={setDraftTimezone}
             style={{ minWidth: 180, width: 180 }}
           />
         </div>
@@ -294,8 +317,8 @@ export function DashboardPage() {
               Time zone
             </span>
             <TimezoneSelect
-              value={tz}
-              onChange={setTz}
+              value={draftTimezone}
+              onChange={setDraftTimezone}
               className="w-full"
               style={{ width: '100%' }}
               aria-label="Dashboard time zone"
@@ -330,7 +353,9 @@ export function DashboardPage() {
           type="default"
           onClick={bumpRefresh}
           iconName="refresh-cw"
+          iconAnimation={dashboardIsFetching ? 'spin' : undefined}
           iconSize="sm"
+          aria-busy={dashboardIsFetching}
           aria-label="Refresh dashboard"
         />
         <DateRangePicker

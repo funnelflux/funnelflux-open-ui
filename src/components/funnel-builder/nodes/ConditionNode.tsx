@@ -6,6 +6,11 @@ import { BaseNode } from './BaseNode'
 
 function ConditionNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeData>>) {
   const params = data.params as ConditionNodeParams
+  const title = (params.conditionName || data.label || 'Condition').trim()
+  const subtitle =
+    data.label && data.label !== title && data.label !== 'Condition'
+      ? data.label
+      : undefined
 
   return (
     <BaseNode
@@ -14,8 +19,8 @@ function ConditionNodeComponent({ data, selected }: NodeProps<Node<FunnelNodeDat
       card={{
         accent: 'fuchsia',
         kind: 'Condition',
-        title: data.label || 'Condition',
-        subtitle: params.conditionName,
+        title,
+        subtitle,
         icon: <Icon name="git-branch" size="lg" />,
       }}
     />

@@ -24,21 +24,23 @@ dist-ssr
 *.sln
 *.sw?
 
-# AI session checkpoints (ephemeral, per-developer)
-.claude/sessions/
-# Local Claude settings
-.claude/settings.local.json
-.gstack/
-
-
-# AI harness generated/runtime files
-.claude/agents/
-.claude/commands/
-.claude/skills/
-.agents/skills/
-.cursor/
+# Local AI assistant configuration and runtime state.
+# Keep repository-specific internal prompts, skills, agents, memories, and
+# editor assistant rules out of the distributed source tree.
+.ai/
+.agents/
+.augment/
+.claude/
 .codex/
+.commandcode/
+.cursor/
+.gemini/
+.gstack/
 .lerim/
 .serena/
-**/CLAUDE.md
 CLAUDE.md
+GEMINI.md
+docs/_ai_context/
+docs/exec-plans/
+scripts/setup-ai-harness.sh
+scripts/sync-ai-config.sh

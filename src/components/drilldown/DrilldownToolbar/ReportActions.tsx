@@ -1,22 +1,35 @@
 import { useCallback, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Button,
+  DateTimeRangePicker,
   FormField,
   Input,
   Modal,
   Popconfirm,
   Select,
   Space,
+  TimezoneSelect,
   useToastApi,
 } from '@/components/ui-kit'
 import { useDeleteView, useSaveView } from '@/api/hooks'
 import { cn, getErrorMessage } from '@/lib/utils'
+import { DATE_PRESETS, getPresetRange } from '@/lib/date-presets'
 import { useDrilldownStore } from '@/store/drilldown'
 import { useDrilldownToolbarContext } from '@/components/drilldown/DrilldownToolbar/useDrilldownToolbarContext'
 import { DrilldownFiltersDrawer } from '@/components/drilldown/DrilldownToolbar/FiltersDrawer'
 import { DrilldownSettingsDrawer } from '@/components/drilldown/DrilldownToolbar/SettingsDrawer'
 
-/** Saved views dropdown (+ / manage) plus apply/export — second row with groupings (left-aligned). */
+function presetRanges(tz: string): { label: string; value: [Date, Date] }[] {
+  return DATE_PRESETS.map((p) => {
+    const range = getPresetRange(p.value, tz)
+    return {
+      label: p.label,
+      value: [range.from, range.to],
+    }
+  })
+}
+
+/** Report query controls, filters/settings, and pinned saved-view/export actions. */
 export function DrilldownToolbarReportActions({ children }: { children?: ReactNode }) {
   const toast = useToastApi()
   const { timezone, dateRange, filtersEnabled, groupingFilters } = useDrilldownStore()
@@ -44,6 +57,9 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
     isExporting,
     openSettingsDrawer,
     openFiltersDrawer,
+    dateTimeRangeValue,
+    onDateTimeRangeChange,
+    setTimezone,
   } = useDrilldownToolbarContext()
 
   const handleOpenManage = useCallback(() => {
@@ -78,6 +94,7 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
           timezone: view.timezone ?? timezone,
           dateRange: view.dateRange ?? dateRange,
           groupingFilters: view.groupingFilters ?? {},
+          urlTrackingFieldByLevel: view.urlTrackingFieldByLevel ?? {},
         })
         toast.success('View renamed')
         cancelEditing()
@@ -153,7 +170,32 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
   }, [filtersEnabled, groupingFilters])
 
   return (
-    <div className="flex w-full flex-wrap items-center gap-2 shrink-0">
+    <div className="flex w-full shrink-0 flex-nowrap items-center gap-2 overflow-x-auto">
+      <DateTimeRangePicker
+        showTime
+        autoConfirmCalendarSteps={false}
+        value={dateTimeRangeValue}
+        onChange={(dates) => {
+          const a = dates?.[0]
+          const b = dates?.[1]
+          if (a && b) {
+            onDateTimeRangeChange([a, b])
+          }
+        }}
+        presets={presetRanges(timezone)}
+        allowClear={false}
+        className="ff-drilldown-datetime-range shrink-0 [&_.ant-picker-input>input]:text-xs"
+        style={{ width: 330 }}
+      />
+      <TimezoneSelect
+        value={timezone}
+        onChange={setTimezone}
+        compactLabels
+        style={{ width: 100, minWidth: 100 }}
+        className="shrink-0 text-xs"
+        popupMatchSelectWidth={false}
+        dropdownStyle={{ minWidth: 220, maxWidth: 320 }}
+      />
       <Button
         type="primary"
         onClick={handleApply}
@@ -163,16 +205,6 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
         iconAnimation={isLoading ? 'spin' : 'none'}
       >
         Apply
-      </Button>
-      <Button
-        htmlType="button"
-        onClick={handleExportClick}
-        disabled={isExporting}
-        iconName={isExporting ? 'loader-2' : 'download'}
-        iconSize="sm"
-        iconAnimation={isExporting ? 'spin' : 'none'}
-      >
-        Export CSV
       </Button>
       <Button
         htmlType="button"
@@ -206,34 +238,47 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
         Settings
       </Button>
       {children}
-
-      <div className="ml-auto flex items-center gap-1.5 shrink-0">
-        <Select
-          value={selectedViewId || undefined}
-          onChange={handleSelectView}
-          placeholder="Saved views"
-          style={{ width: 220 }}
-          className="text-xs"
-          options={savedViewOptions}
-        />
-        <Button
-          type="text"
-          size="small"
-          iconName="plus"
-          iconSize="sm"
-          onClick={openSaveNewViewModal}
-          title="Save current view"
-        />
-        {(savedViews ?? []).length > 0 && (
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1">
+          {(savedViews ?? []).length > 0 && (
+            <Button
+              type="text"
+              size="small"
+              iconName="settings-2"
+              iconSize="sm"
+              onClick={handleOpenManage}
+              title="Manage saved views"
+            />
+          )}
           <Button
             type="text"
             size="small"
-            iconName="settings-2"
+            iconName="plus"
             iconSize="sm"
-            onClick={handleOpenManage}
-            title="Manage saved views"
+            onClick={openSaveNewViewModal}
+            title="Save current view"
           />
-        )}
+          <Select
+            value={selectedViewId || undefined}
+            onChange={handleSelectView}
+            placeholder="Saved views"
+            style={{ width: 160 }}
+            className="text-xs"
+            options={savedViewOptions}
+            popupMatchSelectWidth={false}
+            dropdownStyle={{ maxWidth: 320 }}
+          />
+        </div>
+        <Button
+          htmlType="button"
+          onClick={handleExportClick}
+          disabled={isExporting}
+          iconName={isExporting ? 'loader-2' : 'download'}
+          iconSize="sm"
+          iconAnimation={isExporting ? 'spin' : 'none'}
+        >
+          Export CSV
+        </Button>
       </div>
 
       <DrilldownFiltersDrawer />

@@ -86,7 +86,18 @@ export function DrilldownConfigPanel({
         <Tag
           closable={closable}
           onClose={onClose}
-          className="m-0 mr-0.5 max-w-[200px] truncate border border-primary/35 bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary"
+          className="max-w-[200px] truncate text-xs font-medium [&_.ant-tag-close-icon]:ml-2 [&_.ant-tag-close-icon]:-mr-1 [&_.ant-tag-close-icon]:inline-flex [&_.ant-tag-close-icon]:h-5 [&_.ant-tag-close-icon]:w-5 [&_.ant-tag-close-icon]:items-center [&_.ant-tag-close-icon]:justify-center [&_.ant-tag-close-icon]:rounded-sm [&_.ant-tag-close-icon]:text-muted-foreground [&_.ant-tag-close-icon]:transition-colors [&_.ant-tag-close-icon:hover]:bg-muted [&_.ant-tag-close-icon:hover]:text-foreground"
+          style={{
+            alignItems: 'center',
+            backgroundColor: 'color-mix(in srgb, var(--foreground) 11%, var(--background))',
+            borderColor: 'color-mix(in srgb, var(--foreground) 22%, var(--background))',
+            color: 'var(--foreground)',
+            display: 'inline-flex',
+            lineHeight: '20px',
+            margin: '0 6px 0 0',
+            minHeight: 29,
+            padding: '3px 8px',
+          }}
         >
           {text}
         </Tag>
@@ -134,7 +145,7 @@ export function DrilldownConfigPanel({
             mode="multiple"
             allowClear
             placeholder="Select groupings…"
-            className="w-full text-xs [&_.ant-select-selection-overflow]:flex-nowrap"
+            className="w-full text-xs [&_.ant-select-selection-overflow]:flex-nowrap [&_.ant-select-selection-overflow-item]:py-0.5 [&_.ant-select-selector]:!py-1"
             optionGroups={groupingOptionGroups}
             value={filledValues}
             onChange={handleGroupingsMultiChange}

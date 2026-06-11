@@ -1,7 +1,6 @@
 import { DATE_PRESETS, getPresetRange } from '@/lib/date-presets'
-import { DateTimeRangePicker, Select, TimezoneSelect } from '@/components/ui-kit'
+import { DateTimeRangePicker, TimezoneSelect } from '@/components/ui-kit'
 import { useDrilldownToolbarContext } from '@/components/drilldown/DrilldownToolbar/useDrilldownToolbarContext'
-import { TIME_ATTRIBUTION_OPTIONS } from '@/components/drilldown/DrilldownToolbar/types'
 
 function presetRanges(tz: string): { label: string; value: [Date, Date] }[] {
   return DATE_PRESETS.map((p) => {
@@ -20,8 +19,6 @@ export function DrilldownToolbarHeaderFilters() {
     onDateTimeRangeChange,
     timezone,
     setTimezone,
-    timeAttribution,
-    setTimeAttribution,
   } = useDrilldownToolbarContext()
 
   return (
@@ -42,12 +39,6 @@ export function DrilldownToolbarHeaderFilters() {
         className="ff-drilldown-datetime-range [&_.ant-picker-input>input]:text-xs"
       />
       <TimezoneSelect value={timezone} onChange={setTimezone} />
-      <Select
-        value={timeAttribution}
-        onChange={(value) => setTimeAttribution(value === 'event' ? 'event' : 'entrance')}
-        className="min-w-[140px] text-xs"
-        options={[...TIME_ATTRIBUTION_OPTIONS]}
-      />
     </div>
   )
 }

@@ -24,6 +24,20 @@ const WIDGET_METRIC_ORDER = [
 
 const WIDGET_API_METRICS = metricsForColumnIds(WIDGET_METRIC_ORDER) ?? undefined
 
+const DASHBOARD_SLOW_QUERY_MS = 1000
+
+async function timeDashboardQuery<T>(label: string, query: () => Promise<T>): Promise<T> {
+  const start = performance.now()
+  try {
+    return await query()
+  } finally {
+    const durationMs = Math.round(performance.now() - start)
+    if (durationMs >= DASHBOARD_SLOW_QUERY_MS) {
+      console.debug(`[dashboard] ${label} query took ${durationMs}ms`)
+    }
+  }
+}
+
 export function useLoadDashboard() {
   return useMutation({
     mutationFn: (elements: string[]) =>
@@ -44,7 +58,8 @@ export function useDashboardSummaryQuery(
 
   return useQuery({
     queryKey: queryKeys.dashboard.summary(request),
-    queryFn: () => fetchAllFlatDrilldownRows(request),
+    queryFn: ({ signal }) =>
+      timeDashboardQuery('summary', () => fetchAllFlatDrilldownRows(request, { signal })),
     enabled,
     placeholderData: (previousData) => previousData,
   })
@@ -81,7 +96,11 @@ export function useDashboardTopTableQuery(
 ) {
   return useQuery({
     queryKey: request && enabled ? queryKeys.dashboard.topTable(request) : ['dashboard', 'topTable', 'disabled'],
-    queryFn: ({ signal }) => api.postDrilldown<Report>(request!, undefined, signal),
+    queryFn: ({ signal }) =>
+      timeDashboardQuery(
+        request?.groupings?.[0]?.groupBy ?? 'top table',
+        () => api.postDrilldown<Report>(request!, undefined, signal),
+      ),
     enabled: Boolean(request) && enabled,
     placeholderData: (previousData) => previousData,
   })

@@ -10,7 +10,6 @@ import { usePersistedColumnSizing } from "@/lib/entity-table/usePersistedColumnS
 import { usePersistedColumnOrder } from "@/lib/entity-table/usePersistedColumnOrder"
 import {
   DrilldownToolbarProvider,
-  DrilldownToolbarHeaderFilters,
   DrilldownToolbarReportActions,
   DrilldownToolbarConfigPanel,
 } from "@/components/drilldown/DrilldownToolbar"
@@ -19,26 +18,12 @@ import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
 import { reportRowToCells } from "@/lib/reportRowCells"
 import { drilldownGroupingShortLabel } from "@/lib/drilldownGroupings"
-import {
-  buildColumnFiltersParam,
-  type ColumnFilterValue,
-} from "@/lib/drilldownColumnFilters"
+import type { ColumnFilterValue } from "@/lib/drilldownColumnFilters"
+import { withReportColumnFilters } from "@/pages/reports/drilldownReportRequest"
 import { metricsForColumnIds, visibleMetricColumnIdsFromHidden, withSortingMetricIds } from "@/lib/drilldownMetrics"
 import type { DrilldownRequest, Report, ReportCell } from "@/types/stats"
 
 const DRILLDOWN_FLAT_TABLE_KEY = "reports-drilldown-flat"
-
-function withColumnFilters(
-  request: DrilldownRequest,
-  reportColumns: Report["columns"] | undefined,
-  filters: Record<string, ColumnFilterValue>,
-): DrilldownRequest {
-  const columnFilters = buildColumnFiltersParam(filters, reportColumns)
-  return {
-    ...request,
-    ...(columnFilters ? { columnFilters } : { columnFilters: undefined }),
-  }
-}
 
 interface FlatRowData {
   _id: string
@@ -96,7 +81,7 @@ export function DrilldownFlatPage() {
         visibleMetricColumnIdsFromHidden(DRILLDOWN_FLAT_TABLE_KEY, { defaultVisibleColumnIds: defaultColIds }),
         sorting,
       ))
-      const paginatedRequest = withColumnFilters(
+      const paginatedRequest = withReportColumnFilters(
         {
           ...request,
           options: { ...(request.options ?? {}), viewType: "flat" },
@@ -120,7 +105,7 @@ export function DrilldownFlatPage() {
 
       if (!lastRequest) return
 
-      const nextRequest = withColumnFilters(
+      const nextRequest = withReportColumnFilters(
         {
           ...lastRequest,
           sorting: drilldownSortParamFromReport(newSorting, report?.columns),
@@ -146,7 +131,7 @@ export function DrilldownFlatPage() {
   const handleApplyColumns = useCallback((nextSelected: Set<string>) => {
     if (!lastRequest) return
     const metrics = metricsForColumnIds(withSortingMetricIds([...nextSelected], sorting))
-    const nextRequest = withColumnFilters(
+    const nextRequest = withReportColumnFilters(
       {
         ...lastRequest,
         paging: { start: 0, length: pageSize },
@@ -169,7 +154,7 @@ export function DrilldownFlatPage() {
           delete next[columnId]
         }
         setLastRequest((request) => (
-          request ? withColumnFilters(request, report?.columns, next) : request
+          request ? withReportColumnFilters(request, report?.columns, next) : request
         ))
         return next
       })
@@ -233,7 +218,6 @@ export function DrilldownFlatPage() {
         title="Drilldown Report (Flat)"
         fillHeight
         density="dense"
-        actions={<DrilldownToolbarHeaderFilters />}
       >
         <DrilldownToolbarReportActions>
           {tableForChooser && report ? (

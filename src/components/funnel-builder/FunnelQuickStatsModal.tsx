@@ -3,6 +3,7 @@ import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { api } from '@/api/client'
+import { useTrafficSource } from '@/api/hooks/useTrafficSources'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
   Button,
@@ -18,6 +19,8 @@ import {
   buildDrilldownRequestForTab,
   buildQuickStatsLoadBody,
   flattenReportToGridRows,
+  getCell,
+  narrowReportToQuickStatsColumns,
   QUICKSTATS_TAB_TYPES,
   totalsToGridRow,
   type FunnelQuickStatsTab,
@@ -30,7 +33,6 @@ import { DataTable } from '@/components/ui-kit/data-table'
 interface QuickStatsApiResponse {
   report?: Report
   trafficSourcesIdsAndNames?: Array<{ key: string; value: string }>
-  availableTrackingFields?: unknown
 }
 
 function quickStatsRowId(row: Record<string, string>): string {
@@ -95,21 +97,17 @@ function categoryForTab(t: FunnelQuickStatsTab): QuickStatsCategory {
   return 'geo'
 }
 
-function parseTrackingFieldOptions(raw: unknown): { value: string; label: string }[] {
-  if (!raw || typeof raw !== 'object') return []
-  const o = raw as Record<string, unknown>
-  if (Array.isArray(o)) {
-    return o.map((x, i) => {
-      if (typeof x === 'string') return { value: x, label: x }
-      if (x && typeof x === 'object') {
-        const r = x as Record<string, string>
-        const v = r.value ?? r.name ?? r.groupBy ?? String(i)
-        return { value: String(v), label: String(r.label ?? r.name ?? v) }
-      }
-      return { value: String(i), label: String(x) }
-    })
+function trafficOptionsFromReport(report: Report): { value: string; label: string }[] {
+  const out: { value: string; label: string }[] = []
+  const seen = new Set<string>()
+  for (const row of report.rows ?? []) {
+    const first = getCell(row, 0)
+    const value = String(first.raw || row.rowId || '').trim()
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    out.push({ value, label: first.formatted || value })
   }
-  return []
+  return out
 }
 
 export interface FunnelQuickStatsModalProps {
@@ -146,37 +144,30 @@ export function FunnelQuickStatsModal({
   const [countryCode, setCountryCode] = useState('')
   const [trackingField, setTrackingField] = useState('')
   const [trafficOptions, setTrafficOptions] = useState<{ value: string; label: string }[]>([])
-  const [trackingFieldOptions, setTrackingFieldOptions] = useState<{ value: string; label: string }[]>([])
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(false)
-  const [metaLoaded, setMetaLoaded] = useState(false)
+  const [trafficOptionsLoaded, setTrafficOptionsLoaded] = useState(false)
+  const { data: selectedTrafficSource, isLoading: selectedTrafficSourceLoading } = useTrafficSource(trafficSourceId)
 
-  const loadMeta = useCallback(async () => {
+  const loadTrafficOptions = useCallback(async () => {
     if (!campaignId || !funnelId) return
     try {
-      const body = buildQuickStatsLoadBody('landers', {
+      const body = buildDrilldownRequestForTab('traffic-sources', {
         campaignId,
         funnelId,
-        trafficSourceId: trafficSourceId || undefined,
         dateFrom: datePickerValue.from,
         dateTo: datePickerValue.to,
         timeZone: { name: timezone },
       })
       if (!body) return
-      const data = await api.post<QuickStatsApiResponse>('/ui/quickstats/load/', body)
-      const ts = data.trafficSourcesIdsAndNames ?? []
-      setTrafficOptions(
-        ts.map((t) => ({
-          value: String(t.key),
-          label: String(t.value ?? t.key),
-        })),
-      )
-      setTrackingFieldOptions(parseTrackingFieldOptions(data.availableTrackingFields))
-      setMetaLoaded(true)
+      const data = await api.postDrilldown<Report>(body)
+      setTrafficOptions(trafficOptionsFromReport(data))
     } catch {
-      setMetaLoaded(true)
+      setTrafficOptions([])
+    } finally {
+      setTrafficOptionsLoaded(true)
     }
-  }, [campaignId, funnelId, trafficSourceId, datePickerValue.from, datePickerValue.to, timezone])
+  }, [campaignId, funnelId, datePickerValue.from, datePickerValue.to, timezone])
 
   const loadReport = useCallback(async () => {
     if (!campaignId || !funnelId) return
@@ -188,7 +179,7 @@ export function FunnelQuickStatsModal({
     const geoNeedsCountry =
       (tab === 'region' || tab === 'city') &&
       (!countryCode.trim() || countryCode.trim().length < 2)
-    const trackingNeedsField = tab === 'tracking-fields' && !trackingField.trim()
+    const trackingNeedsField = tab === 'tracking-fields' && (!trafficSourceId.trim() || !trackingField.trim())
 
     if (geoNeedsCountry || trackingNeedsField) {
       setLoading(false)
@@ -203,6 +194,7 @@ export function FunnelQuickStatsModal({
         funnelId,
         trafficSourceId: trafficSourceId || undefined,
         countryCode: countryCode.trim() || undefined,
+        trackingFieldName: tab === 'tracking-fields' ? trackingField : undefined,
         dateFrom: datePickerValue.from,
         dateTo: datePickerValue.to,
         timeZone: { name: timezone },
@@ -210,7 +202,7 @@ export function FunnelQuickStatsModal({
 
       if (drillBody) {
         const r = await api.postDrilldown<Report>(drillBody)
-        setReport(r)
+        setReport(narrowReportToQuickStatsColumns(r))
         return
       }
 
@@ -236,7 +228,7 @@ export function FunnelQuickStatsModal({
       }
       const data = await api.post<QuickStatsApiResponse>('/ui/quickstats/load/', qsBody)
       if (data.report) {
-        setReport(data.report)
+        setReport(narrowReportToQuickStatsColumns(data.report))
       } else {
         setReport(null)
       }
@@ -253,6 +245,11 @@ export function FunnelQuickStatsModal({
     void loadReport()
   }, [loadReport])
 
+  const handleTrafficSourceChange = useCallback((value: string) => {
+    setTrafficSourceId(value === '__all__' ? '' : value)
+    setTrackingField('')
+  }, [])
+
   const trafficSelectOptions = useMemo<SelectOption[]>(
     () => [
       { value: '__all__', label: 'All Traffic Sources' },
@@ -261,16 +258,29 @@ export function FunnelQuickStatsModal({
     [trafficOptions],
   )
 
-  const trackingFieldSelectOptions = useMemo<SelectOption[]>(
-    () => [{ value: '__none__', label: '—' }, ...trackingFieldOptions],
-    [trackingFieldOptions],
-  )
+  const trackingFieldSelectOptions = useMemo<SelectOption[]>(() => {
+    const rows = selectedTrafficSource?.trackingFields ?? []
+    return [
+      { value: '__none__', label: '—' },
+      ...rows
+        .map((row, index) => {
+          const fieldName = String(row.key ?? '').trim()
+          if (!fieldName) return null
+          const token = String(row.value ?? '').trim()
+          return {
+            value: fieldName,
+            label: token ? `C${index + 1} (${fieldName}) — ${token}` : `C${index + 1} (${fieldName})`,
+          }
+        })
+        .filter((row): row is SelectOption => row != null),
+    ]
+  }, [selectedTrafficSource?.trackingFields])
 
   useEffect(() => {
     if (open) {
-      void loadMeta()
+      void loadTrafficOptions()
     }
-  }, [open, loadMeta])
+  }, [open, loadTrafficOptions])
 
   useEffect(() => {
     if (open && tab !== 'drilldown') {
@@ -374,7 +384,7 @@ export function FunnelQuickStatsModal({
   const awaitingCountryForGeo =
     (tab === 'region' || tab === 'city') &&
     (!countryCode.trim() || countryCode.trim().length < 2)
-  const awaitingTrackingFieldPick = tab === 'tracking-fields' && !trackingField.trim()
+  const awaitingTrackingFieldPick = tab === 'tracking-fields' && (!trafficSourceId.trim() || !trackingField.trim())
   const awaitingUserInput = awaitingCountryForGeo || awaitingTrackingFieldPick
 
   return (
@@ -426,7 +436,7 @@ export function FunnelQuickStatsModal({
               >
                 Refresh
               </Button>
-              <div className="flex min-w-[200px] shrink-0 items-center self-center sm:min-w-[240px]">
+              <div className="flex w-[240px] shrink-0 items-center self-center">
                 <DateRangePicker
                   aria-label="Date range"
                   value={{
@@ -461,9 +471,9 @@ export function FunnelQuickStatsModal({
                 <Select
                   id="funnel-qs-traffic"
                   value={trafficSourceId || '__all__'}
-                  onChange={(v) => setTrafficSourceId(v === '__all__' ? '' : v)}
+                  onChange={handleTrafficSourceChange}
                   options={trafficSelectOptions}
-                  placeholder="All Traffic Sources"
+                  placeholder={trafficOptionsLoaded ? 'All Traffic Sources' : 'Loading…'}
                   className="w-[min(200px,36vw)]"
                 />
               </div>
@@ -546,7 +556,12 @@ export function FunnelQuickStatsModal({
                 value={trackingField || '__none__'}
                 onChange={(v) => setTrackingField(v === '__none__' ? '' : v)}
                 options={trackingFieldSelectOptions}
-                placeholder={metaLoaded ? 'Select field' : 'Loading…'}
+                placeholder={
+                  !trafficSourceId ? 'Select traffic source first'
+                  : selectedTrafficSourceLoading ? 'Loading…'
+                  : 'Select field'
+                }
+                disabled={!trafficSourceId || selectedTrafficSourceLoading}
                 className="w-[min(320px,85vw)]"
               />
             </div>
@@ -559,11 +574,6 @@ export function FunnelQuickStatsModal({
                 {activeCategory === 'device' && breakdownRow(ROW2)}
                 {activeCategory === 'geo' && breakdownRow(ROW3)}
               </div>
-              {metaLoaded && tab !== 'drilldown' && (
-                <p className="shrink-0 self-center text-xs leading-relaxed text-muted-foreground">
-                  Scroll horizontally if columns exceed the viewport.
-                </p>
-              )}
             </div>
           </div>
         </header>
@@ -597,7 +607,9 @@ export function FunnelQuickStatsModal({
             <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-muted/15 px-6 text-center">
               <p className="max-w-md text-sm text-muted-foreground">
                 {awaitingTrackingFieldPick ?
-                  'Choose a tracking field in the toolbar above — the report loads automatically, or tap Refresh.'
+                  !trafficSourceId.trim() ?
+                    'Choose a traffic source in the toolbar above, then choose one of its tracking fields.'
+                  : 'Choose a tracking field in the toolbar above — the report loads automatically, or tap Refresh.'
                 : 'Enter a two-letter country code above (for example US) — regions and cities scope to that country. Data loads automatically, or tap Refresh.'}
               </p>
             </div>

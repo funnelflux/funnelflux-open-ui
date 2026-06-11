@@ -1,10 +1,9 @@
 import { NODE_TYPES } from '@/types/funnel'
-import type { ConditionEdgeData, FunnelFlowEdge, FunnelFlowNode } from '@/types/funnel'
+import type { FunnelFlowEdge, FunnelFlowNode } from '@/types/funnel'
 import {
   CODE_NODE_UNIFIED_SOURCE_HANDLE,
   CODE_NODE_UNIFIED_TARGET_HANDLE,
 } from '@/lib/codeNodeExits'
-import { conditionBranchFromSourceHandle } from '@/lib/funnel-graph/conditionBranchPolicy'
 
 /** Must match Handle `id` values on `BaseNode` */
 export const SOURCE_HANDLE = {
@@ -38,8 +37,8 @@ function center(n: FunnelFlowNode): { x: number; y: number } {
 /**
  * Pick source/target handle ids so edges leave/enter on the side facing the other node.
  *
- * Condition nodes still render the standard 4 source handles, but each outgoing condition edge
- * is classified into YES/NO via `edge.data.branch`. YES uses `s-right`/`s-top`, NO uses `s-left`/`s-bottom`.
+ * Condition branch identity is logical (`edge.data.branch`); physical handles still snap to the
+ * side with the best geometry.
  */
 export function computeOptimalHandles(
   nodes: FunnelFlowNode[],
@@ -66,29 +65,6 @@ export function computeOptimalHandles(
     (sourceNode.data.nodeType === NODE_TYPES.jsCode || sourceNode.data.nodeType === NODE_TYPES.phpCode)
   ) {
     sourceHandle = CODE_NODE_UNIFIED_SOURCE_HANDLE
-  } else if (sourceNode.data.nodeType === NODE_TYPES.condition) {
-    const data = edge.data
-    const branch: 'yes' | 'no' =
-      data?.edgeType === 'condition'
-        ? ((data as ConditionEdgeData).branch ?? conditionBranchFromSourceHandle(edge.sourceHandle))
-        : conditionBranchFromSourceHandle(edge.sourceHandle)
-
-    const yesPreferred = Math.abs(dx) >= Math.abs(dy) ? SOURCE_HANDLE.right : SOURCE_HANDLE.top
-    const noPreferred = Math.abs(dx) >= Math.abs(dy) ? SOURCE_HANDLE.left : SOURCE_HANDLE.bottom
-
-    const desired = branch === 'yes' ? yesPreferred : noPreferred
-    const alt =
-      branch === 'yes'
-        ? yesPreferred === SOURCE_HANDLE.right
-          ? SOURCE_HANDLE.top
-          : SOURCE_HANDLE.right
-        : noPreferred === SOURCE_HANDLE.left
-          ? SOURCE_HANDLE.bottom
-          : SOURCE_HANDLE.left
-
-    const sh = edge.sourceHandle
-    const isValid = sh === desired || sh === alt
-    sourceHandle = isValid ? sh : desired
   } else {
     if (Math.abs(dx) >= Math.abs(dy)) {
       sourceHandle = dx >= 0 ? SOURCE_HANDLE.right : SOURCE_HANDLE.left

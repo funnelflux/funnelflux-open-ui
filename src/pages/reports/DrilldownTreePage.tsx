@@ -10,7 +10,6 @@ import { usePersistedColumnSizing } from "@/lib/entity-table/usePersistedColumnS
 import { usePersistedColumnOrder } from "@/lib/entity-table/usePersistedColumnOrder"
 import {
   DrilldownToolbarProvider,
-  DrilldownToolbarHeaderFilters,
   DrilldownToolbarReportActions,
   DrilldownToolbarConfigPanel,
 } from "@/components/drilldown/DrilldownToolbar"
@@ -22,6 +21,8 @@ import { useDrilldownStore } from "@/store/drilldown"
 import { reportRowToCells } from "@/lib/reportRowCells"
 import { metricsForColumnIds, visibleMetricColumnIdsFromHidden, withSortingMetricIds } from "@/lib/drilldownMetrics"
 import { getErrorMessage } from "@/lib/utils"
+import type { ColumnFilterValue } from "@/lib/drilldownColumnFilters"
+import { withReportColumnFilters } from "@/pages/reports/drilldownReportRequest"
 import type {
   DrilldownRequest,
   Grouping,
@@ -267,6 +268,7 @@ export function DrilldownTreePage() {
     const saved = selectTableConfig(DRILLDOWN_TREE_TABLE_KEY)(useTableConfigStore.getState()).sorting
     return saved.length > 0 ? saved : DEFAULT_TABLE_SORTING
   })
+  const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({})
   const [expanded, setExpanded] = useState<ExpandedState>({})
   const tableRef = useRef<Table<TreeRowData> | null>(null)
   const [tableForChooser, setTableForChooser] = useState<Table<TreeRowData> | null>(null)
@@ -301,17 +303,21 @@ export function DrilldownTreePage() {
         visibleMetricColumnIdsFromHidden(DRILLDOWN_TREE_TABLE_KEY, { defaultVisibleColumnIds: defaultColIds }),
         sorting,
       ))
-      setLastRequest({
-        ...request,
-        options: { ...(request.options ?? {}), viewType: "tree" },
-        groupings: initialGroupings,
-        topLevelFilters: [],
-        paging: { start: 0, length: pageSize },
-        sorting: drilldownSortParamFromReport(sorting, report?.columns),
-        ...(metrics ? { metrics } : {}),
-      })
+      setLastRequest(withReportColumnFilters(
+        {
+          ...request,
+          options: { ...(request.options ?? {}), viewType: "tree" },
+          groupings: initialGroupings,
+          topLevelFilters: [],
+          paging: { start: 0, length: pageSize },
+          sorting: drilldownSortParamFromReport(sorting, report?.columns),
+          ...(metrics ? { metrics } : {}),
+        },
+        report?.columns,
+        columnFilters,
+      ))
     },
-    [pageSize, sorting, report?.columns],
+    [columnFilters, pageSize, sorting, report?.columns],
   )
 
   const handleSortingChange = useCallback(
@@ -322,33 +328,56 @@ export function DrilldownTreePage() {
 
       if (!lastRequest) return
 
-      setLastRequest({
-        ...lastRequest,
-        sorting: drilldownSortParamFromReport(newSorting, report?.columns),
-        paging: { start: 0, length: pageSize },
-        ...(metricsForColumnIds(withSortingMetricIds(
-          visibleMetricColumnIdsFromHidden(DRILLDOWN_TREE_TABLE_KEY, { defaultVisibleColumnIds: defaultColIds }),
-          newSorting,
-        )) ? {
-          metrics: metricsForColumnIds(withSortingMetricIds(
-            visibleMetricColumnIdsFromHidden(DRILLDOWN_TREE_TABLE_KEY, { defaultVisibleColumnIds: defaultColIds }),
-            newSorting,
-          )),
-        } : { metrics: undefined }),
-      })
+      const metrics = metricsForColumnIds(withSortingMetricIds(
+        visibleMetricColumnIdsFromHidden(DRILLDOWN_TREE_TABLE_KEY, { defaultVisibleColumnIds: defaultColIds }),
+        newSorting,
+      ))
+      setLastRequest(withReportColumnFilters(
+        {
+          ...lastRequest,
+          sorting: drilldownSortParamFromReport(newSorting, report?.columns),
+          paging: { start: 0, length: pageSize },
+          ...(metrics ? { metrics } : { metrics: undefined }),
+        },
+        report?.columns,
+        columnFilters,
+      ))
     },
-    [lastRequest, pageSize, report?.columns, setTableSorting],
+    [columnFilters, lastRequest, pageSize, report?.columns, setTableSorting],
   )
 
   const handleApplyColumns = useCallback((nextSelected: Set<string>) => {
     if (!lastRequest) return
     const metrics = metricsForColumnIds(withSortingMetricIds([...nextSelected], sorting))
-    setLastRequest({
-      ...lastRequest,
-      paging: { start: 0, length: pageSize },
-      ...(metrics ? { metrics } : { metrics: undefined }),
-    })
-  }, [lastRequest, pageSize, sorting])
+    setLastRequest(withReportColumnFilters(
+      {
+        ...lastRequest,
+        paging: { start: 0, length: pageSize },
+        ...(metrics ? { metrics } : { metrics: undefined }),
+      },
+      report?.columns,
+      columnFilters,
+    ))
+  }, [columnFilters, lastRequest, pageSize, report?.columns, sorting])
+
+  const handleColumnFilterChange = useCallback(
+    (columnId: string, value: ColumnFilterValue | null) => {
+      setPage(0)
+      setColumnFilters((previous) => {
+        const next = { ...previous }
+        if (value) {
+          next[columnId] = value
+        } else {
+          delete next[columnId]
+        }
+        setLastRequest((request) => (
+          request ? withReportColumnFilters(request, report?.columns, next) : request
+        ))
+        return next
+      })
+    },
+    [report?.columns],
+  )
 
   const handleExpandRow = useCallback(
     async (row: TreeRowData) => {
@@ -360,7 +389,7 @@ export function DrilldownTreePage() {
         setTreeData((prev) => setRowExpandError(prev, parentTreePath, null))
         try {
           const childReport = await api.postDrilldown<Report>({
-            ...lastRequest,
+            ...withReportColumnFilters(lastRequest, report?.columns, columnFilters),
             groupings,
             topLevelFilters: [],
             paging: { start: nextOffset, length: CHILD_PAGE_SIZE },
@@ -456,7 +485,7 @@ export function DrilldownTreePage() {
       setTreeData((prev) => setRowExpandError(prev, row.treePath, null))
       try {
         const childReport = await api.postDrilldown<Report>({
-          ...lastRequest,
+          ...withReportColumnFilters(lastRequest, report?.columns, columnFilters),
           groupings,
           topLevelFilters: [],
           paging: { start: 0, length: CHILD_PAGE_SIZE },
@@ -521,7 +550,7 @@ export function DrilldownTreePage() {
         setTreeData((prev) => setRowExpandError(prev, row.treePath, getErrorMessage(err)))
       }
     },
-    [filtersEnabled, lastRequest, planGroupings],
+    [columnFilters, filtersEnabled, lastRequest, planGroupings, report?.columns],
   )
 
   const canLazyExpandRow = useCallback(
@@ -547,7 +576,7 @@ export function DrilldownTreePage() {
       size: 300,
       minSize: 140,
       maxSize: 480,
-      meta: { flex: 1 },
+      meta: { flex: 1, textFilterable: true },
       cell: (info) => {
         const row = info.row.original
         if (row.expandError) {
@@ -596,7 +625,6 @@ export function DrilldownTreePage() {
         title="Drilldown Report (Tree)"
         fillHeight
         density="dense"
-        actions={<DrilldownToolbarHeaderFilters />}
       >
         <DrilldownToolbarReportActions>
           {tableForChooser && report ? (
@@ -622,6 +650,8 @@ export function DrilldownTreePage() {
               sorting={sorting}
               onSortingChange={handleSortingChange}
               manualSorting
+              columnFilters={columnFilters}
+              onColumnFilterChange={handleColumnFilterChange}
               treeMode
               getSubRows={getSubRows}
               onExpandRow={handleExpandRow}

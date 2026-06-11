@@ -75,6 +75,7 @@ function normalizeCompactReport(report: Report): Report {
 
 export interface FetchAllFlatDrilldownOptions {
   pageSize?: number
+  signal?: AbortSignal
   /** When true, stop paging and throw so a superseded fetch cannot overwrite cache. */
   isStale?: () => boolean
   /** Called once with the first page when additional pages will be fetched. */
@@ -92,11 +93,14 @@ export async function fetchAllFlatDrilldownRows(
   options?: FetchAllFlatDrilldownOptions,
 ): Promise<Report> {
   const pageSize = options?.pageSize ?? DEFAULT_DRILLDOWN_PAGE_SIZE
+  const signal = options?.signal
   const isStale = options?.isStale
   const initialStart = request.paging?.start ?? 0
   assertNotStale(isStale)
   const firstPage = await api.postDrilldown<Report>(
     withPaging(request, initialStart, pageSize),
+    undefined,
+    signal,
   )
   parseDrilldownReport(firstPage)
   const normalizedFirstPage = request.responseFormat === 'compact-v1' ? normalizeCompactReport(firstPage) : firstPage
@@ -128,6 +132,8 @@ export async function fetchAllFlatDrilldownRows(
     assertNotStale(isStale)
     const page = await api.postDrilldown<Report>(
       withPaging(request, nextStart, pageSize),
+      undefined,
+      signal,
     )
     parseDrilldownReport(page)
     const normalizedPage = request.responseFormat === 'compact-v1' ? normalizeCompactReport(page) : page

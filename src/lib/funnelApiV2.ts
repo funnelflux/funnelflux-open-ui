@@ -47,6 +47,37 @@ function isV2Node(n: Record<string, unknown>): boolean {
   return typeof n.nodeType === 'string'
 }
 
+function stringOrEmpty(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function conditionNameFromParams(params: unknown): string {
+  if (!params || typeof params !== 'object') return ''
+  const p = params as Record<string, unknown>
+  const direct =
+    stringOrEmpty(p.conditionName) ||
+    stringOrEmpty(p.name) ||
+    stringOrEmpty(p.label) ||
+    stringOrEmpty(p.title)
+  if (direct) return direct
+
+  const nested = p.condition
+  if (nested && typeof nested === 'object') {
+    const n = nested as Record<string, unknown>
+    return (
+      stringOrEmpty(n.conditionName) ||
+      stringOrEmpty(n.name) ||
+      stringOrEmpty(n.label) ||
+      stringOrEmpty(n.title)
+    )
+  }
+  return ''
+}
+
+function conditionNodeDisplayName(node: Record<string, unknown>): string {
+  return conditionNameFromParams(node.nodeConditionParams) || stringOrEmpty(node.nodeName) || 'Condition'
+}
+
 export function normalizeFunnelApiResponse(raw: unknown): ApiFunnel {
   const r = raw as Record<string, unknown>
   const nodesIn = (r.nodes ?? []) as Record<string, unknown>[]
@@ -190,11 +221,15 @@ function normalizeNode(node: Record<string, unknown>): ApiFunnelNode {
   const py = posToPercent(Number(node.posY))
 
   const nodeParams = buildNodeParamsFromV2(nodeType, node)
+  const nodeName =
+    nodeType === NODE_TYPES.condition
+      ? conditionNodeDisplayName(node)
+      : String(node.nodeName ?? '')
 
   return {
     idNode: String(node.idNode),
     idFunnel: String(node.idFunnel),
-    nodeName: String(node.nodeName ?? ''),
+    nodeName,
     nodeType,
     nodeParams,
     percentPosX: px,
@@ -237,8 +272,9 @@ function buildNodeParamsFromV2(nodeType: NodeTypeValue, node: Record<string, unk
   }
   if (nodeType === NODE_TYPES.condition) {
     const cond = node.nodeConditionParams as { idCondition?: string } | null | undefined
+    const conditionName = conditionNodeDisplayName(node)
     return cond?.idCondition
-      ? { conditionId: String(cond.idCondition), conditionName: String(node.nodeName ?? '') }
+      ? { conditionId: String(cond.idCondition), conditionName }
       : {}
   }
   if (nodeType === NODE_TYPES.jsCode || nodeType === NODE_TYPES.phpCode) {

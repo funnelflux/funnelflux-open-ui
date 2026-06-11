@@ -233,7 +233,7 @@ export function useDrilldownToolbarState(props: DrilldownToolbarProps): Drilldow
       }
 
       if (view.groupings.length > 0) {
-        replaceGroupingsStack(view.groupings, view.groupingFilters ?? {}, {})
+        replaceGroupingsStack(view.groupings, view.groupingFilters ?? {}, view.urlTrackingFieldByLevel ?? {})
       } else {
         setGroupingFilters(view.groupingFilters ?? {})
         useDrilldownStore.getState().setUrlTrackingFieldByLevel({})
@@ -268,6 +268,7 @@ export function useDrilldownToolbarState(props: DrilldownToolbarProps): Drilldow
           timezone,
           dateRange,
           groupingFilters,
+          urlTrackingFieldByLevel,
         })
         toast.success('View saved')
         setSaveModalOpen(false)
@@ -275,7 +276,7 @@ export function useDrilldownToolbarState(props: DrilldownToolbarProps): Drilldow
         toast.error(getErrorMessage(error))
       }
     },
-    [dateRange, groupingFilters, groupings, saveView, saveViewName, timezone, toast],
+    [dateRange, groupingFilters, groupings, saveView, saveViewName, timezone, toast, urlTrackingFieldByLevel],
   )
 
   return {

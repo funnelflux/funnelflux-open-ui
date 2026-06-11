@@ -30,7 +30,7 @@ const DASHBOARD_CARDS = [
 
 const LEGACY_CARDS = [
   { key: 'visits', label: 'Visits', format: 'number' },
-  { key: 'clicks', label: 'Clicks', format: 'number' },
+  { key: 'clicks', label: 'Clicks (LP + offer)', format: 'number' },
   { key: 'conversions', label: 'Conversions', format: 'number' },
   { key: 'revenue', label: 'Revenue', format: 'currency' },
   { key: 'cost', label: 'Cost', format: 'currency' },

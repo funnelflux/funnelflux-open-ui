@@ -22,7 +22,6 @@ import {
   getDefaultEdgeData,
   isValidConnection,
   pickConditionBranchForNewConnection,
-  sourceHandleForConditionBranch,
   VISITOR_TAG_MAX_EXIT_CONNECTION_MESSAGE,
   visitorTagRejectedExtraExit,
 } from './validation'
@@ -153,9 +152,6 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
         conditionBranch: conditionBranch ?? undefined,
       })
 
-      const sourceHandle =
-        isCondition && conditionBranch ? sourceHandleForConditionBranch(conditionBranch) : connection.sourceHandle
-
       const targetNodeSnap = s.nodes.find((n) => n.id === connection.target)
       const targetHandleJsPhp =
         targetNodeSnap !== undefined &&
@@ -168,7 +164,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
         id: generateId(),
         source: connection.source,
         target: connection.target,
-        sourceHandle,
+        sourceHandle: connection.sourceHandle,
         targetHandle: resolvedTargetHandle,
         type: edgeData.edgeType,
         data: edgeData,

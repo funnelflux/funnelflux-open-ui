@@ -81,6 +81,9 @@ export function buildColumnIdToApiNameMap(
   for (let index = 0; index < leading; index++) {
     map.set(`grouping-${index}`, reportColumns[index]!.name)
   }
+  if (leading > 0) {
+    map.set('name', reportColumns[0]!.name)
+  }
 
   for (let index = leading; index < reportColumns.length; index++) {
     const column = reportColumns[index]!

@@ -67,8 +67,12 @@ pnpm run test:watch # vitest watch mode
 ## Project Layout & Conventions
 
 The full architecture, directory map, state-management rules, performance rules,
-and coding conventions live in **[`AGENTS.md`](./AGENTS.md)** (the canonical guide,
-also consumed by AI coding assistants). Start there before making changes.
+and coding conventions live in **[`AGENTS.md`](./AGENTS.md)**. `AGENTS.md` is the
+canonical project guide; contributors who use Claude Code can mirror it with:
+
+```bash
+./scripts/setup-ai-symlinks.sh install
+```
 
 ## Installing & updating in your FunnelFlux install
 

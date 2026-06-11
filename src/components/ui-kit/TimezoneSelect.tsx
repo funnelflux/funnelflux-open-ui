@@ -35,11 +35,14 @@ const UTC_OFFSETS: { value: string; offset: number; label: string; city?: string
   { value: 'Pacific/Kiritimati', offset: 14, label: 'UTC+14', city: 'Kiribati (Line Islands)' },
 ]
 
-const TZ_OPTIONS: SelectOption[] = UTC_OFFSETS.map((tz) => ({
-  value: tz.value,
-  label: tz.city ? `${tz.label} (${tz.city})` : tz.label,
-  searchId: tz.city,
-}))
+function timezoneOptions(compactLabels: boolean): SelectOption[] {
+  return UTC_OFFSETS.map((tz) => ({
+    value: tz.value,
+    label: compactLabels ? tz.label : tz.city ? `${tz.label} (${tz.city})` : tz.label,
+    displayLabel: tz.city ? `${tz.label} (${tz.city})` : tz.label,
+    searchId: tz.city,
+  }))
+}
 
 interface TimezoneSelectProps {
   id?: string
@@ -47,9 +50,12 @@ interface TimezoneSelectProps {
   onChange?: (timezone: string) => void
   className?: string
   style?: CSSProperties
+  dropdownStyle?: CSSProperties
+  popupMatchSelectWidth?: boolean | number
   disabled?: boolean
   /** Default **md** — aligns with other toolbar selects */
   size?: ControlSize | LegacyAntdControlSize
+  compactLabels?: boolean
   'aria-label'?: string
 }
 
@@ -59,8 +65,11 @@ export function TimezoneSelect({
   onChange,
   className,
   style,
+  dropdownStyle,
+  popupMatchSelectWidth,
   disabled,
   size = 'md',
+  compactLabels = false,
   'aria-label': ariaLabel,
 }: TimezoneSelectProps) {
   const currentTz = value || getStoredTimezone()
@@ -74,12 +83,14 @@ export function TimezoneSelect({
         storeTimezonePreference(timezone)
         onChange?.(timezone)
       }}
-      options={TZ_OPTIONS}
+      options={timezoneOptions(compactLabels)}
       alphabetical={false}
       placeholder="Select timezone"
       aria-label={ariaLabel ?? 'Select timezone'}
       size={size}
       className={className}
+      dropdownStyle={dropdownStyle}
+      popupMatchSelectWidth={popupMatchSelectWidth}
       style={{ minWidth: 180, ...style }}
       disabled={disabled}
     />

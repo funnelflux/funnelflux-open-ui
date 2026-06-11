@@ -166,6 +166,35 @@ describe('normalizeFunnelApiResponse', () => {
     })
   })
 
+  it('uses condition metadata as the visible condition node name when present', () => {
+    const normalized = normalizeFunnelApiResponse({
+      idFunnel: 'f-1',
+      idCampaign: 'c-1',
+      funnelName: 'My Funnel',
+      nodes: [
+        {
+          idNode: 'n-cond',
+          idFunnel: 'f-1',
+          nodeName: '',
+          nodeType: 'condition',
+          posX: 0.1,
+          posY: 0.2,
+          nodeConditionParams: {
+            idCondition: 'cond-1',
+            conditionName: 'Geo split',
+          },
+        },
+      ],
+      connections: [],
+    })
+
+    expect(normalized.nodes[0]?.nodeName).toBe('Geo split')
+    expect(normalized.nodes[0]?.nodeParams).toEqual({
+      conditionId: 'cond-1',
+      conditionName: 'Geo split',
+    })
+  })
+
   it('throws FunnelHydrateError on unknown string nodeType', () => {
     expect(() =>
       normalizeFunnelApiResponse({

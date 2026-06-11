@@ -5,6 +5,7 @@
 
 import type { ApiTimeZone, DrilldownRequest, Grouping, Report, ReportCell, ReportRow } from '@/types/stats'
 import { toApiDateTimeRange } from '@/lib/statsDateRange'
+import { trackingFieldConstantForSlot } from '@/lib/urlTrackingFieldGrouping'
 
 /**
  * V2 stats drilldown `groupBy` strings (FluxAPI\\v2\\Models\\Stats\\Grouping).
@@ -38,6 +39,18 @@ export const STATS_GROUP_BY = {
   region: 'Location: Region',
   city: 'Location: City',
 } as const
+
+export const QUICKSTATS_STANDARD_METRICS = [
+  'Entrances',
+  'Lander Clicks',
+  'Lander CTR',
+  'Offer Views',
+  'Conv.',
+  'Revenue',
+  'Cost',
+  'P/L',
+  'ROI',
+] as const
 
 export type FunnelQuickStatsTab =
   | 'conversion-paths'
@@ -124,9 +137,33 @@ function topLevel(
   return filters
 }
 
+const QUICKSTATS_FLAT_GROUPINGS: Partial<Record<FunnelQuickStatsTab, string>> = {
+  'conversion-paths': STATS_GROUP_BY.conversionPathLandersAndOffers,
+  'traffic-sources': STATS_GROUP_BY.trafficSource,
+  funnels: STATS_GROUP_BY.elementFunnel,
+  landers: STATS_GROUP_BY.lander,
+  offers: STATS_GROUP_BY.offer,
+  'week-parting': STATS_GROUP_BY.weekParting,
+  'day-parting': STATS_GROUP_BY.dayParting,
+  'device-type': STATS_GROUP_BY.deviceType,
+  'device-name': STATS_GROUP_BY.deviceModel,
+  os: STATS_GROUP_BY.deviceOs,
+  'os-version': STATS_GROUP_BY.deviceOsVersion,
+  'os-browser': STATS_GROUP_BY.deviceBrowser,
+  browser: STATS_GROUP_BY.deviceBrowser,
+  isp: STATS_GROUP_BY.isp,
+  carrier: STATS_GROUP_BY.carrier,
+  ip: STATS_GROUP_BY.blockIp,
+  referrer: STATS_GROUP_BY.referrerDomain,
+  country: STATS_GROUP_BY.countryName,
+  continent: STATS_GROUP_BY.continent,
+  'connection-type': STATS_GROUP_BY.connectionType,
+  region: STATS_GROUP_BY.region,
+}
+
 /**
- * Build drilldown body for tabs that are not covered by QuickStats load (MVT paths, continent,
- * connection type, region/city geo breakdowns scoped by country filter in `topLevelFilters`).
+ * Build drilldown bodies for Quick Stats tabs so the UI can request a scoped,
+ * small metric set instead of the legacy quickstats page payload.
  */
 export function buildDrilldownRequestForTab(
   tab: FunnelQuickStatsTab,
@@ -136,12 +173,13 @@ export function buildDrilldownRequestForTab(
     trafficSourceId?: string
     /** ISO 3166-1 alpha-2, used for region/city tabs */
     countryCode?: string
+    trackingFieldName?: string
     dateFrom: Date
     dateTo: Date
     timeZone: ApiTimeZone
   },
 ): DrilldownRequest | null {
-  const { campaignId, funnelId, trafficSourceId, countryCode, dateFrom, dateTo, timeZone } = args
+  const { campaignId, funnelId, trafficSourceId, countryCode, trackingFieldName, dateFrom, dateTo, timeZone } = args
   const timeRange = toApiDateTimeRange(dateFrom, dateTo)
   const baseOptions = {
     viewType: 'flat' as const,
@@ -152,10 +190,45 @@ export function buildDrilldownRequestForTab(
 
   const paging = { start: 0, length: 500 }
   const sorting = {
-    sortingColumns: [{ columnName: 'Offer Views', order: 'desc' as const }],
+    sortingColumns: [{ columnName: 'Entrances', order: 'desc' as const }],
   }
 
   const tls = topLevel(funnelId, trafficSourceId, countryCode)
+  if (tab === 'tracking-fields') {
+    const fieldName = trackingFieldName?.trim()
+    if (!fieldName) return null
+    const trackingFieldGrouping = trackingFieldConstantForSlot(1)
+    return {
+      timeRange,
+      timeZone,
+      topLevelFilters: tls,
+      groupings: [emptyGrouping(trackingFieldGrouping)],
+      options: baseOptions,
+      paging,
+      sorting,
+      trackingFieldMappings: {
+        [trackingFieldGrouping]: { id: fieldName },
+      },
+      metrics: [...QUICKSTATS_STANDARD_METRICS],
+    }
+  }
+
+  const flatGrouping = QUICKSTATS_FLAT_GROUPINGS[tab]
+  if (flatGrouping) {
+    if ((tab === 'region' || tab === 'city') && (!countryCode?.trim() || countryCode.trim().length < 2)) {
+      return null
+    }
+    return {
+      timeRange,
+      timeZone,
+      topLevelFilters: tls,
+      groupings: [emptyGrouping(flatGrouping)],
+      options: baseOptions,
+      paging,
+      sorting,
+      metrics: [...QUICKSTATS_STANDARD_METRICS],
+    }
+  }
 
   switch (tab) {
     case 'conversion-paths-all-nodes':
@@ -167,6 +240,7 @@ export function buildDrilldownRequestForTab(
         options: { ...baseOptions, viewType: 'tree' },
         paging,
         sorting,
+        metrics: [...QUICKSTATS_STANDARD_METRICS],
       }
 
     case 'mvt-combinations':
@@ -178,6 +252,7 @@ export function buildDrilldownRequestForTab(
         options: { ...baseOptions, viewType: 'tree' },
         paging,
         sorting,
+        metrics: [...QUICKSTATS_STANDARD_METRICS],
       }
 
     case 'mvt-kv-pairs':
@@ -189,41 +264,7 @@ export function buildDrilldownRequestForTab(
         options: { ...baseOptions, viewType: 'tree' },
         paging,
         sorting,
-      }
-
-    case 'continent':
-      return {
-        timeRange,
-        timeZone,
-        topLevelFilters: tls,
-        groupings: [emptyGrouping(STATS_GROUP_BY.continent)],
-        options: baseOptions,
-        paging,
-        sorting,
-      }
-
-    case 'connection-type':
-      return {
-        timeRange,
-        timeZone,
-        topLevelFilters: tls,
-        groupings: [emptyGrouping(STATS_GROUP_BY.connectionType)],
-        options: baseOptions,
-        paging,
-        sorting,
-      }
-
-    /** Country scope via `topLevel` (Country Code whitelist); rollup by Region only. */
-    case 'region':
-      if (!countryCode?.trim() || countryCode.trim().length < 2) return null
-      return {
-        timeRange,
-        timeZone,
-        topLevelFilters: tls,
-        groupings: [emptyGrouping(STATS_GROUP_BY.region)],
-        options: baseOptions,
-        paging,
-        sorting,
+        metrics: [...QUICKSTATS_STANDARD_METRICS],
       }
 
     /** Tree: Region → City under the selected country (top-level Country Code filter). */
@@ -237,6 +278,7 @@ export function buildDrilldownRequestForTab(
         options: { ...baseOptions, viewType: 'tree' },
         paging,
         sorting,
+        metrics: [...QUICKSTATS_STANDARD_METRICS],
       }
 
     default:
@@ -346,4 +388,37 @@ export function totalsToGridRow(report: Report): Record<string, string> | null {
     obj[`c${i}`] = i === 0 ? 'Totals' : (cell?.formatted ?? '')
   }
   return obj
+}
+
+export function narrowReportToQuickStatsColumns(report: Report): Report {
+  const metricNames = new Set<string>(QUICKSTATS_STANDARD_METRICS)
+  const keepIndexes = report.columns
+    .map((column, index) => ({ column, index }))
+    .filter(({ column }) => column.type === 'grouping' || metricNames.has(column.name))
+    .map(({ index }) => index)
+
+  if (keepIndexes.length === report.columns.length) return report
+
+  const filterRow = (row: ReportRow): ReportRow => ({
+    ...row,
+    cells: keepIndexes.map((index) => getCell(row, index)),
+    children: row.children?.map(filterRow),
+    expandableInfo:
+      row.expandableInfo && typeof row.expandableInfo === 'object' ?
+        {
+          ...row.expandableInfo,
+          children: Array.isArray(row.expandableInfo.children) ? row.expandableInfo.children.map(filterRow) : undefined,
+        }
+      : row.expandableInfo,
+  })
+
+  return {
+    ...report,
+    columns: keepIndexes.map((index) => report.columns[index]),
+    rows: report.rows.map(filterRow),
+    totals: {
+      ...report.totals,
+      cells: keepIndexes.map((index) => getCell(report.totals, index)),
+    },
+  }
 }
