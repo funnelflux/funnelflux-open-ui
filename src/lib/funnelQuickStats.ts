@@ -4,7 +4,7 @@
  */
 
 import type { ApiTimeZone, DrilldownRequest, Grouping, Report, ReportCell, ReportRow } from '@/types/stats'
-import { toApiDateTimeRange } from '@/lib/statsDateRange'
+import { toApiDateTimeRangeForReporting } from '@/lib/statsDateRange'
 import { trackingFieldConstantForSlot } from '@/lib/urlTrackingFieldGrouping'
 
 /**
@@ -180,7 +180,8 @@ export function buildDrilldownRequestForTab(
   },
 ): DrilldownRequest | null {
   const { campaignId, funnelId, trafficSourceId, countryCode, trackingFieldName, dateFrom, dateTo, timeZone } = args
-  const timeRange = toApiDateTimeRange(dateFrom, dateTo)
+  const reportingTz = timeZone.name || 'UTC'
+  const timeRange = toApiDateTimeRangeForReporting(dateFrom, dateTo, reportingTz)
   const baseOptions = {
     viewType: 'flat' as const,
     idCampaignFilter: campaignId,
@@ -293,7 +294,7 @@ export interface QuickStatsLoadBody {
   idTrafficSourceFilter?: string | null
   idFunnelFilter?: string | null
   currentPeriod: {
-    timeRange: ReturnType<typeof toApiDateTimeRange>
+    timeRange: ReturnType<typeof toApiDateTimeRangeForReporting>
     timeZone: ApiTimeZone
   }
 }
@@ -314,6 +315,7 @@ export function buildQuickStatsLoadBody(
   if (!statsType) return null
 
   const { campaignId, funnelId, trafficSourceId, trackingFieldName, dateFrom, dateTo, timeZone } = args
+  const reportingTz = timeZone.name || 'UTC'
 
   let statsTypeFilter: string | null = null
   if (tab === 'tracking-fields' && trackingFieldName) {
@@ -327,7 +329,7 @@ export function buildQuickStatsLoadBody(
     idTrafficSourceFilter: trafficSourceId ?? null,
     idFunnelFilter: funnelId,
     currentPeriod: {
-      timeRange: toApiDateTimeRange(dateFrom, dateTo),
+      timeRange: toApiDateTimeRangeForReporting(dateFrom, dateTo, reportingTz),
       timeZone,
     },
   }

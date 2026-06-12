@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildDrilldownRequestForTab,
+  buildQuickStatsLoadBody,
   narrowReportToQuickStatsColumns,
   QUICKSTATS_STANDARD_METRICS,
   STATS_GROUP_BY,
@@ -36,6 +37,19 @@ describe('funnel quick stats request builders', () => {
       sorting: { sortingColumns: [{ columnName: 'Entrances', order: 'desc' }] },
       metrics: [...QUICKSTATS_STANDARD_METRICS],
     })
+  })
+
+  it('builds quickstats load bodies with reporting-timezone wall clock fields', () => {
+    const body = buildQuickStatsLoadBody('historical-perf', {
+      ...args,
+      timeZone: { name: 'Asia/Tehran' },
+      // 2026-06-01 22:00 UTC is already 2026-06-02 in Tehran — UTC getters would send the wrong day.
+      dateFrom: new Date('2026-06-01T22:00:00.000Z'),
+      dateTo: new Date('2026-06-07T22:00:00.000Z'),
+    })
+
+    expect(body?.currentPeriod.timeRange.start.date).toEqual({ year: 2026, month: 6, day: 2 })
+    expect(body?.currentPeriod.timeRange.end.date).toEqual({ year: 2026, month: 6, day: 8 })
   })
 
   it('keeps tree quickstats tabs on drilldown with the same standard metric set', () => {
