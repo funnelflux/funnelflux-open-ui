@@ -10,7 +10,7 @@ import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import type { AdminUserPasswordSetRequest, Permissions } from '@/types/api'
-import type { ManagedUser, UserManagementData } from '@/types/ui'
+import type { ManagedUser } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 import { userEditSchema, type UserEditFormData } from '@/schemas/userEdit'
 import { parseUserProfile } from '@/schemas/apiBoundaries'
@@ -187,17 +187,6 @@ export function UserEditPage() {
     [copyOptions],
   )
 
-  const loadUserRows = useCallback(async (): Promise<ManagedUser[]> => {
-    return queryClient.fetchQuery({
-      queryKey: queryKeys.userManagement.list(),
-      queryFn: async () => {
-        const data = await api.get<UserManagementData>('/ui/usermanagement/load/')
-        return data.rows ?? []
-      },
-      staleTime: 0,
-    })
-  }, [queryClient])
-
   const handleCopyRights = useCallback(async (sourceUserId: string) => {
     if (!sourceUserId) return
     try {
@@ -216,10 +205,8 @@ export function UserEditPage() {
       const permissions =
         permissionsGridRef.current?.flushRestrictDrafts() ??
         normalizePermissionsRestrictIds(data.permissions)
-      const isNewUser = !data.id
-      const passwordSetOnCreate = isNewUser && data.password.trim().length > 0
-      const baselineRows =
-        passwordSetOnCreate ? (users ?? (await loadUserRows())) : (users ?? [])
+      const normalizedId = data.id.trim()
+      const isCreatingUser = normalizedId === '' || normalizedId === '0'
 
       await api.put('/ui/userprofile/save/', {
         id: data.id,
@@ -231,34 +218,14 @@ export function UserEditPage() {
         isAdmin: data.isAdmin,
         enabled: data.enabled,
         permissions,
-        ...(passwordSetOnCreate ? { password: data.password } : {}),
+        ...(isCreatingUser ? { password: data.password } : {}),
       })
 
       await queryClient.invalidateQueries({ queryKey: queryKeys.userManagement.all })
 
-      let savedUserId = data.id
-      if (data.password && !savedUserId) {
-        const rows = await loadUserRows()
-        const previousIds = new Set(baselineRows.map((row) => String(row.id)))
-        const newRows = rows.filter((row) => !previousIds.has(String(row.id)))
-        const emailMatches = data.email
-          ? rows.filter((row) => row.email === data.email)
-          : []
-
-        savedUserId =
-          (newRows.length === 1 ? String(newRows[0]!.id) : '') ||
-          (emailMatches.length === 1 ? String(emailMatches[0]!.id) : '')
-
-        if (!savedUserId) {
-          throw new Error(
-            'User profile was saved, but the new user id could not be resolved for password setup.',
-          )
-        }
-      }
-
-      if (data.password && savedUserId && !isNewUser) {
+      if (!isCreatingUser && data.password && data.id) {
         const passwordPayload: AdminUserPasswordSetRequest = {
-          idUser: savedUserId,
+          idUser: normalizedId,
           newPassword: data.password,
         }
         await api.put('/ui/userprofile/changePassword/', passwordPayload)
@@ -271,7 +238,7 @@ export function UserEditPage() {
     } finally {
       setIsSaving(false)
     }
-  }, [users, loadUserRows, queryClient, toast, navigate])
+  }, [queryClient, toast, navigate])
 
   return (
     <PageShell title={isNew ? 'New User' : 'Edit User'}>

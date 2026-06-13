@@ -653,7 +653,7 @@ paths:
     put:
       tags:
         - User Profile
-      description: Saves the provided user profile. If a user with the provided id already exists, its settings will be updated. If there is no user with the provided id, then a new one will be created. This endpoint does not update passwords; use /ui/userprofile/changePassword/index.php for password changes. Note that the avatarURL is not saved. You must use the avatar/upload/ endpoint for this. Supports either a valid PHP admin session or an apiKey query parameter.
+      description: Saves the provided user profile. If a user with the provided id already exists, its settings will be updated. If there is no user with the provided id, then a new one will be created. A password is required whenever this endpoint creates a new user; existing user password changes must use /ui/userprofile/changePassword/index.php. Note that the avatarURL is not saved. You must use the avatar/upload/ endpoint for this. Supports either a valid PHP admin session or an apiKey query parameter.
       parameters:
         - name: apiKey
           required: false
@@ -2142,6 +2142,9 @@ definitions:
         $ref: '#/definitions/Permissions'
       enabled:
         type: boolean
+      password:
+        type: string
+        description: Required whenever this endpoint creates a new user. Ignored for existing users; use /ui/userprofile/changePassword/index.php for existing user password changes.
   UserPasswordChangeRequest:
     type: object
     required:

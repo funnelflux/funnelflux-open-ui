@@ -2980,6 +2980,38 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
+  /data/trafficfilter/retroactiveCount/index.php:
+    get:
+      tags:
+        - Traffic Filters
+      description: Count all-time node views that would change if a traffic filter is applied or unapplied retroactively
+      parameters:
+        - name: apiKey
+          required: true
+          in: query
+          type: string
+          description: An authorized api key
+        - name: idFilter
+          required: true
+          in: query
+          type: integer
+          format: int64
+        - name: apply
+          required: false
+          in: query
+          type: boolean
+          default: true
+      responses:
+        200:
+          description: Retroactive traffic filter count
+          schema:
+            $ref: '#/definitions/TrafficFilterRetroactiveCount'
+        403:
+          description: Not authorized
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
 definitions:
   TrafficFilter:
     type: object
@@ -4155,6 +4187,22 @@ definitions:
       apply:
         type: boolean
         default: true
+  TrafficFilterRetroactiveCount:
+    type: object
+    properties:
+      success:
+        type: boolean
+      idFilter:
+        type: integer
+        format: int64
+      apply:
+        type: boolean
+      nodeViews:
+        type: integer
+      label:
+        type: string
+      activeFiltersNote:
+        type: string
   CodeSnippetTemplateList:
     type: object
     properties:

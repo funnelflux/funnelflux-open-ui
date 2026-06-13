@@ -365,6 +365,15 @@ export interface TrafficFilterApplyRequest {
   apply?: boolean;
 }
 
+export interface TrafficFilterRetroactiveCount {
+  success?: boolean;
+  idFilter?: string;
+  apply?: boolean;
+  nodeViews?: number;
+  label?: string;
+  activeFiltersNote?: string;
+}
+
 export interface CodeSnippetTemplateList {
   php?: string[];
   javascript?: string[];

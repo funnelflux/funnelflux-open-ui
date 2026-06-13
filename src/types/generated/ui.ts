@@ -226,6 +226,7 @@ export interface UserProfileUpdate {
   isAdmin: boolean;
   permissions: Permissions;
   enabled: boolean;
+  password?: string;
 }
 
 export interface UserPasswordChangeRequest {
