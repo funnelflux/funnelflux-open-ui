@@ -123,6 +123,7 @@ export function usePageEntitiesController({
     metricStorageKey: tableConfigKey,
     defaultVisibleColumnIds: defaultColIds,
     metricHideScopes: hideScopes,
+    restrictToScope: pageType === 'offer' ? 'offers' : 'landers',
   })
   const { data: editPage } = usePage(editId ?? '')
 

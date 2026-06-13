@@ -4,6 +4,8 @@ import type { ListEntity, EntityGridRow } from '@/lib/entity-table/data/mergedRo
 import { visibleMetricColumnIdsFromHidden } from '@/lib/drilldownMetrics'
 import type { MetricScope } from '@/components/ui-kit/data-table'
 import { filterEntityTableRows, useEntityTableState } from '@/lib/entity-table/engine/useEntityTableState'
+import { getAssetRestrictFilter, type AssetRestrictScope } from '@/lib/assetRestrictTo'
+import { useAuthStore } from '@/store/auth'
 
 export interface UseEntityPageOptions {
   queryKeyPrefix: readonly unknown[]
@@ -26,6 +28,8 @@ export interface UseEntityPageOptions {
   metricHideScopes?: Set<MetricScope>
   /** When false, list/stats queries do not run (used when composing multiple engines behind one facade). */
   enabled?: boolean
+  /** When set, rows outside the logged-in user's restrictTo list are hidden. */
+  restrictToScope?: AssetRestrictScope
 }
 
 export function useEntityPage(options: UseEntityPageOptions) {
@@ -42,7 +46,14 @@ export function useEntityPage(options: UseEntityPageOptions) {
     defaultVisibleColumnIds,
     metricHideScopes,
     enabled = true,
+    restrictToScope,
   } = options
+
+  const user = useAuthStore((state) => state.user)
+  const restrictFilter = useMemo(
+    () => (restrictToScope ? getAssetRestrictFilter(user, restrictToScope) : null),
+    [restrictToScope, user],
+  )
 
   const tableState = useEntityTableState({
     rows: [],
@@ -79,6 +90,7 @@ export function useEntityPage(options: UseEntityPageOptions) {
         tableState.selectedCategoryId,
         tableState.archiveStatus,
         tableState.skipArchiveFilter,
+        restrictFilter,
       ),
     [
       grid.mergedRows,
@@ -86,6 +98,7 @@ export function useEntityPage(options: UseEntityPageOptions) {
       tableState.selectedCategoryId,
       tableState.archiveStatus,
       tableState.skipArchiveFilter,
+      restrictFilter,
     ],
   )
 

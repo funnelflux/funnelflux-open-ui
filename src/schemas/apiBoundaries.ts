@@ -4,12 +4,13 @@
  */
 import { z } from 'zod/v4'
 import type { UserProfile } from '@/types/api'
+import { flattenRestrictIds } from '@/lib/parseRestrictIds'
 
 const idString = z.union([z.string(), z.number()]).transform(String)
 const boolish = z
   .union([z.boolean(), z.literal(0), z.literal(1), z.literal('0'), z.literal('1')])
   .transform((value) => value === true || value === 1 || value === '1')
-const idArray = z.array(idString)
+const idArray = z.array(idString).transform(flattenRestrictIds)
 
 const assetPerms = z.object({
   enabled: boolish,

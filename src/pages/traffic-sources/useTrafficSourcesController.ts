@@ -106,6 +106,7 @@ export function useTrafficSourcesController() {
     archiveListFilter: 'trafficsource',
     mapListToEntities: trafficSourceListToListEntities,
     metricStorageKey: TABLE_CONFIG_KEY,
+    restrictToScope: 'trafficSources',
   })
 
   const { data: editSource } = useTrafficSource(editId ?? '')

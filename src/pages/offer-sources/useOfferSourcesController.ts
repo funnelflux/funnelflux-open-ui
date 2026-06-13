@@ -91,6 +91,7 @@ export function useOfferSourcesController() {
     metricStorageKey: TABLE_CONFIG_KEY,
     defaultVisibleColumnIds: defaultColIds,
     metricHideScopes: OFFER_SOURCES_METRIC_HIDE_SCOPES,
+    restrictToScope: 'offerSources',
   })
 
   const { data: editSource } = useOfferSource(editId ?? '')

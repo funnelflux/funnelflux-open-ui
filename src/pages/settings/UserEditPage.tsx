@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button, Input, PageShell, Select, Switch, useToastApi } from '@/components/ui-kit'
-import { PermissionsGrid } from '@/components/settings/PermissionsGrid'
+import { PermissionsGrid, type PermissionsGridHandle } from '@/components/settings/PermissionsGrid'
+import { normalizePermissionsRestrictIds } from '@/lib/parseRestrictIds'
 import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
@@ -125,6 +126,7 @@ export function UserEditPage() {
   const { data: users } = useUsers()
   const [isLoading, setIsLoading] = useState(!isNew)
   const [isSaving, setIsSaving] = useState(false)
+  const permissionsGridRef = useRef<PermissionsGridHandle>(null)
 
   const form = useForm<UserEditFormData>({
     resolver: zodResolver(userEditSchema),
@@ -197,23 +199,27 @@ export function UserEditPage() {
   }, [queryClient])
 
   const handleCopyRights = useCallback(async (sourceUserId: string) => {
+    if (!sourceUserId) return
     try {
-      const permissions = await api.post('/ui/usermanagement/copyRights/', {
-        sourceUserId,
-        targetUserId: form.getValues('id') || userId || '',
-      })
-      form.setValue('permissions', normalizePermissions(permissions), { shouldDirty: true })
+      const raw = await api.get<unknown>('/ui/userprofile/load/', { id: sourceUserId })
+      const profile = parseUserProfile(raw)
+      form.setValue('permissions', normalizePermissions(profile.permissions), { shouldDirty: true })
       toast.success('Permissions copied')
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
-  }, [form, toast, userId])
+  }, [form, toast])
 
   const onSubmit = useCallback(async (data: UserEditFormData) => {
     setIsSaving(true)
     try {
+      const permissions =
+        permissionsGridRef.current?.flushRestrictDrafts() ??
+        normalizePermissionsRestrictIds(data.permissions)
+      const isNewUser = !data.id
+      const passwordSetOnCreate = isNewUser && data.password.trim().length > 0
       const baselineRows =
-        !data.id && data.password ? (users ?? (await loadUserRows())) : (users ?? [])
+        passwordSetOnCreate ? (users ?? (await loadUserRows())) : (users ?? [])
 
       await api.put('/ui/userprofile/save/', {
         id: data.id,
@@ -224,7 +230,8 @@ export function UserEditPage() {
         avatarURL: data.avatarURL,
         isAdmin: data.isAdmin,
         enabled: data.enabled,
-        permissions: data.permissions,
+        permissions,
+        ...(passwordSetOnCreate ? { password: data.password } : {}),
       })
 
       await queryClient.invalidateQueries({ queryKey: queryKeys.userManagement.all })
@@ -249,7 +256,7 @@ export function UserEditPage() {
         }
       }
 
-      if (data.password && savedUserId) {
+      if (data.password && savedUserId && !isNewUser) {
         const passwordPayload: AdminUserPasswordSetRequest = {
           idUser: savedUserId,
           newPassword: data.password,
@@ -333,11 +340,18 @@ export function UserEditPage() {
                   />
                 )}
               />
+              {form.formState.errors.password && (
+                <p className="text-xs text-destructive">{form.formState.errors.password.message}</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <span className="block text-sm font-medium text-foreground">Copy Rights From</span>
               <Select
-                onChange={(value) => void handleCopyRights(value)}
+                onChange={(value) => {
+                  if (typeof value === 'string' && value) {
+                    void handleCopyRights(value)
+                  }
+                }}
                 placeholder="Select a user"
                 className="w-full"
                 options={copySelectOptions}
@@ -369,7 +383,7 @@ export function UserEditPage() {
             control={form.control}
             name="permissions"
             render={({ field }) => (
-              <PermissionsGrid value={field.value} onChange={field.onChange} />
+              <PermissionsGrid ref={permissionsGridRef} value={field.value} onChange={field.onChange} />
             )}
           />
 

@@ -4,6 +4,8 @@ import { selectedRowIds } from '@/lib/utils'
 import { useEntityTableFiltersStore } from '@/store/entityTableFilters'
 import type { ArchiveStatus } from '@/components/shared/ArchiveToggle'
 import type { EntityGridRow } from '@/lib/entity-table/data/mergedRows'
+import type { AssetRestrictFilter } from '@/lib/assetRestrictTo'
+import { isEntityRowAllowedByRestrictFilter } from '@/lib/assetRestrictTo'
 
 interface UseEntityTableStateOptions {
   rows: EntityGridRow[]
@@ -36,6 +38,7 @@ export function filterEntityTableRows(
   selectedCategoryId: string,
   archiveStatus: ArchiveStatus,
   skipArchiveFilter: boolean,
+  restrictFilter?: AssetRestrictFilter | null,
 ) {
   const searchText = search.toLowerCase()
   return rows.filter((row) => {
@@ -45,7 +48,8 @@ export function filterEntityTableRows(
       skipArchiveFilter ||
       archiveStatus === 'all' ||
       (archiveStatus === 'archived' ? row.isArchived === true : row.isArchived !== true)
-    return matchesSearch && matchesCategory && matchesArchive
+    const matchesRestrict = isEntityRowAllowedByRestrictFilter(row, restrictFilter)
+    return matchesSearch && matchesCategory && matchesArchive && matchesRestrict
   })
 }
 
