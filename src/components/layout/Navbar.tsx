@@ -296,11 +296,11 @@ export function Navbar() {
         />
       </Link>
 
-      <div className="min-[1100px]:hidden">
+      <div className="min-[1400px]:hidden">
         <MainNavDropdown mainNav={mainNav} />
       </div>
 
-      <div className="hidden min-w-0 flex-1 min-[1100px]:flex">
+      <div className="hidden min-w-0 flex-1 min-[1400px]:flex">
         <DesktopNav mainNav={mainNav} pathname={location.pathname} />
       </div>
 
