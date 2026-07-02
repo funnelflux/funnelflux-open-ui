@@ -2,6 +2,11 @@ import type { DrilldownRequest } from '@/types/stats'
 import { stableStringify } from '@/lib/stableJson'
 
 export const queryKeys = {
+  /**
+   * Placeholder key for queries rendered with `enabled: false` (keeps hook order and key shape
+   * stable while there is no real request). Never fetched, never invalidated.
+   */
+  disabled: (scope: string) => ['disabled', scope] as const,
   campaigns: {
     all: ['campaigns'] as const,
     list: (params?: Record<string, string>) => [...queryKeys.campaigns.all, 'list', params] as const,

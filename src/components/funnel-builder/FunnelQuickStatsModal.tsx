@@ -162,12 +162,14 @@ export function FunnelQuickStatsModal({
       if (!body) return
       const data = await api.postDrilldown<Report>(body)
       setTrafficOptions(trafficOptionsFromReport(data))
-    } catch {
+    } catch (e) {
+      const msg = e && typeof e === 'object' && 'message' in e ? String((e as { message: string }).message) : 'Failed to load traffic sources'
+      toast.error(msg)
       setTrafficOptions([])
     } finally {
       setTrafficOptionsLoaded(true)
     }
-  }, [campaignId, funnelId, datePickerValue.from, datePickerValue.to, timezone])
+  }, [campaignId, funnelId, datePickerValue.from, datePickerValue.to, timezone, toast])
 
   const loadReport = useCallback(async () => {
     if (!campaignId || !funnelId) return
@@ -393,7 +395,7 @@ export function FunnelQuickStatsModal({
       onCancel={onClose}
       footer={null}
       closable={false}
-      destroyOnClose
+      destroyOnHidden
       centered={false}
       width="100%"
       layoutVariant="fullscreen"

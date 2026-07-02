@@ -1,14 +1,15 @@
 import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/auth'
-import { bootstrapAuth } from '@/api/auth'
+import { bootstrapAuth, fetchSession, sessionMatchesUser } from '@/api/auth'
 
 export function useAuth() {
+  const queryClient = useQueryClient()
   const { isAuthenticated, isLoading, user, error, setAuth, setError, setLoading } = useAuthStore()
 
   useEffect(() => {
-    if (isAuthenticated) return
-
     let cancelled = false
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
     const revalidate = () => {
       setLoading(true)
@@ -28,11 +29,35 @@ export function useAuth() {
         })
     }
 
-    void revalidate()
+    // Already authenticated: confirm the live PHP session still belongs to the
+    // cached user. On a session swap (logout/login in the same browser, bfcache
+    // restore, shared machine) clearAuth() flips isAuthenticated back to false,
+    // which re-runs this effect through the bootstrap path and reloads the
+    // correct profile instead of leaving the previous user's data on screen.
+    const reconcileSession = async () => {
+      try {
+        const session = await fetchSession()
+        if (cancelled) return
+        if (!sessionMatchesUser(session, useAuthStore.getState().user)) {
+          // Mirror every other auth-exit path (401 handler in App.tsx, navbar
+          // logout): drop the previous user's cached query data alongside the
+          // auth store. With staleTime: Infinity and non-user-scoped query keys,
+          // clearAuth() alone would leave user A's lists/reports on screen under
+          // user B until each query happened to refetch.
+          useAuthStore.getState().clearAuth()
+          queryClient.clear()
+        }
+      } catch {
+        // Transient/network error: leave state untouched. A genuine 401 on any
+        // API call is already handled by the query/mutation cache in App.tsx.
+      }
+    }
 
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null
-    const scheduleRetry = () => {
-      if (useAuthStore.getState().isAuthenticated) return
+    const onWake = () => {
+      if (useAuthStore.getState().isAuthenticated) {
+        void reconcileSession()
+        return
+      }
       if (debounceTimer != null) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
         debounceTimer = null
@@ -40,26 +65,30 @@ export function useAuth() {
       }, 250)
     }
 
+    if (!isAuthenticated) {
+      void revalidate()
+    }
+
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') scheduleRetry()
+      if (document.visibilityState === 'visible') onWake()
     }
 
     const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) scheduleRetry()
+      if (e.persisted) onWake()
     }
 
-    window.addEventListener('focus', scheduleRetry)
+    window.addEventListener('focus', onWake)
     document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('pageshow', onPageShow)
 
     return () => {
       cancelled = true
-      window.removeEventListener('focus', scheduleRetry)
+      window.removeEventListener('focus', onWake)
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('pageshow', onPageShow)
       if (debounceTimer != null) clearTimeout(debounceTimer)
     }
-  }, [isAuthenticated, setAuth, setError, setLoading])
+  }, [isAuthenticated, setAuth, setError, setLoading, queryClient])
 
   return { isAuthenticated, isLoading, user, error }
 }

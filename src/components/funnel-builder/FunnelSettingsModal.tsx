@@ -32,7 +32,7 @@ export function FunnelSettingsModal({
       open={open}
       onCancel={onClose}
       destroyOnHidden
-      maskClosable={!isSaving}
+      mask={{ closable: !isSaving }}
       zIndex={1100}
     >
       <FormModalHeader title="Funnel settings" description={description} />

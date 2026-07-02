@@ -3,7 +3,7 @@ import {
   Button,
   Card,
   CopyButton,
-  Field,
+  FormField,
   Input,
   PageShell,
   Select,
@@ -11,7 +11,7 @@ import {
   Switch,
   useToastApi,
 } from '@/components/ui-kit'
-import type { SelectOption } from '@/components/ui-kit'
+import type { PageShellBodyState, SelectOption } from '@/components/ui-kit'
 import {
   useSystemLinksData,
   useFunnels,
@@ -65,7 +65,13 @@ function compareNodeIdsAsc(a: string, b: string): number {
 
 export function SystemLinksPage() {
   const toast = useToastApi()
-  const { data: linksData, isLoading: loadingData } = useSystemLinksData()
+  const {
+    data: linksData,
+    isLoading: loadingData,
+    isError: linksDataError,
+    error: linksDataErrorDetail,
+    refetch: refetchLinksData,
+  } = useSystemLinksData()
   const generateEntranceLink = useGenerateEntranceLink()
   const generateEntranceBundle = useGenerateEntranceBundle()
 
@@ -330,8 +336,20 @@ export function SystemLinksPage() {
 
   const costLabel = selectedTrafficSourceOption?.costType === 'cpa' ? 'Cost per action' : 'Cost per entrance'
 
+  const bodyState: PageShellBodyState = linksDataError
+    ? {
+        status: 'error',
+        message: getErrorMessage(linksDataErrorDetail),
+        onRetry: () => void refetchLinksData(),
+      }
+    : { status: 'ready' }
+
   return (
-    <PageShell title="System Links" subtitle="Generate funnel links and conversion integration links.">
+    <PageShell
+      title="System Links"
+      subtitle="Generate funnel links and conversion integration links."
+      bodyState={bodyState}
+    >
       <Spin spinning={loadingData} description="Loading link options…">
         <div className="grid max-w-7xl gap-3 xl:grid-cols-2">
           <Card className={`${systemLinkCardClass} xl:col-span-2`} title={<span className="text-sm font-medium">Get campaign link</span>}>
@@ -339,7 +357,7 @@ export function SystemLinksPage() {
               Follow the steps below to get the URL of one of your funnels.
             </p>
             <div className="grid gap-4 lg:grid-cols-3">
-              <Field title="Step 1: Select a Campaign" required htmlFor="system-links-campaign">
+              <FormField label="Step 1: Select a Campaign" required htmlFor="system-links-campaign">
                 <Select
                   id="system-links-campaign"
                   options={campaignOptions}
@@ -349,9 +367,9 @@ export function SystemLinksPage() {
                   className="w-full"
                   disabled={loadingData}
                 />
-              </Field>
+              </FormField>
 
-              <Field title="Step 2: Select a Funnel" required htmlFor="system-links-funnel">
+              <FormField label="Step 2: Select a Funnel" required htmlFor="system-links-funnel">
                 <Select
                   id="system-links-funnel"
                   options={funnelOptions}
@@ -361,10 +379,10 @@ export function SystemLinksPage() {
                   placeholder={selectedCampaign ? 'Select funnel' : 'Select a campaign first'}
                   className="w-full"
                 />
-              </Field>
+              </FormField>
 
-              <Field
-                title={useDirectTracking ? 'Step 3: Select a page node' : 'Step 3 (Optional): Select a Node'}
+              <FormField
+                label={useDirectTracking ? 'Step 3: Select a page node' : 'Step 3 (Optional): Select a Node'}
                 htmlFor="system-links-node"
               >
                 <Select
@@ -377,9 +395,9 @@ export function SystemLinksPage() {
                   className="w-full"
                   alphabetical={false}
                 />
-              </Field>
+              </FormField>
 
-              <Field title="Step 4: Select a Traffic Source" required htmlFor="system-links-traffic-source">
+              <FormField label="Step 4: Select a Traffic Source" required htmlFor="system-links-traffic-source">
                 <Select
                   id="system-links-traffic-source"
                   options={trafficSourceOptions}
@@ -389,18 +407,18 @@ export function SystemLinksPage() {
                   className="w-full"
                   disabled={loadingData}
                 />
-              </Field>
+              </FormField>
 
-              <Field title={`Step 5: ${costLabel}`} htmlFor="system-links-cost">
+              <FormField label={`Step 5: ${costLabel}`} htmlFor="system-links-cost">
                 <Input
                   id="system-links-cost"
                   value={costInput}
                   onChange={(event) => setCostInput(event.target.value)}
                   placeholder="0.00"
                 />
-              </Field>
+              </FormField>
 
-              <Field title="Step 6: Select a Domain" htmlFor="system-links-domain">
+              <FormField label="Step 6: Select a Domain" htmlFor="system-links-domain">
                 <Select
                   id="system-links-domain"
                   options={domainOptions}
@@ -410,7 +428,7 @@ export function SystemLinksPage() {
                   className="w-full"
                   disabled={loadingData}
                 />
-              </Field>
+              </FormField>
 
               <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 px-3 py-2 lg:col-span-3">
                 <div className="space-y-0.5">
@@ -432,7 +450,7 @@ export function SystemLinksPage() {
                   loading={generateEntranceBundle.isPending}
                 />
               ) : (
-                <Field title="Step 7: Copy your link" htmlFor="system-links-url-output">
+                <FormField label="Step 7: Copy your link" htmlFor="system-links-url-output">
                   <div className="flex w-full min-w-0 items-center gap-2">
                     <Input
                       id="system-links-url-output"
@@ -452,7 +470,7 @@ export function SystemLinksPage() {
                     </Button>
                     <CopyButton value={entranceLink} />
                   </div>
-                </Field>
+                </FormField>
               )}
             </div>
           </Card>
@@ -500,7 +518,7 @@ export function SystemLinksPage() {
               Pixel URL and HTML snippet. Copying regenerates a fresh pixel salt.
             </p>
             <div className="space-y-3">
-              <Field title="Pixel URL" htmlFor="system-links-pixel-url">
+              <FormField label="Pixel URL" htmlFor="system-links-pixel-url">
                 <div className="flex w-full min-w-0 items-center gap-2">
                   <Input id="system-links-pixel-url" value={pixelUrl} readOnly className={readonlyLinkInputClass} />
                   <Button
@@ -515,8 +533,8 @@ export function SystemLinksPage() {
                     Copy
                   </Button>
                 </div>
-              </Field>
-              <Field title="Pixel HTML" htmlFor="system-links-pixel-html">
+              </FormField>
+              <FormField label="Pixel HTML" htmlFor="system-links-pixel-html">
                 <div className="flex w-full min-w-0 items-center gap-2">
                   <Input id="system-links-pixel-html" value={pixelHtml} readOnly className={readonlyLinkInputClass} />
                   <Button
@@ -531,7 +549,7 @@ export function SystemLinksPage() {
                     Copy
                   </Button>
                 </div>
-              </Field>
+              </FormField>
             </div>
           </Card>
 
@@ -540,18 +558,18 @@ export function SystemLinksPage() {
               Secret key and URL for Clickbank instant sale/re-bill/refund notifications (API v6).
             </p>
             <div className="space-y-3">
-              <Field title="Secret Key" htmlFor="system-links-cb-key">
+              <FormField label="Secret Key" htmlFor="system-links-cb-key">
                 <div className="flex w-full min-w-0 items-center gap-2">
                   <Input id="system-links-cb-key" value={linksData?.clickbankIPNKey ?? ''} readOnly className={readonlyLinkInputClass} />
                   <CopyButton value={linksData?.clickbankIPNKey ?? ''} />
                 </div>
-              </Field>
-              <Field title="Notification URL" htmlFor="system-links-cb-url">
+              </FormField>
+              <FormField label="Notification URL" htmlFor="system-links-cb-url">
                 <div className="flex w-full min-w-0 items-center gap-2">
                   <Input id="system-links-cb-url" value={clickbankIPNURL} readOnly className={readonlyLinkInputClass} />
                   <CopyButton value={clickbankIPNURL} />
                 </div>
-              </Field>
+              </FormField>
             </div>
           </Card>
 

@@ -33,7 +33,7 @@ Open-source React 19 + TypeScript admin UI for the FunnelFlux self-hosted tracki
 | Forms | react-hook-form 7 + Zod 4 (`@hookform/resolvers`) | Validation + form state |
 | Canvas | @xyflow/react 12 | Funnel builder (nodes/edges) |
 | Charts | Recharts 3 | Dashboard + reporting charts |
-| Dates | date-fns 4 + `@date-fns/tz` | All date math (do NOT use dayjs in app code — it is only present transitively for AntD's DatePicker) |
+| Dates | date-fns 4 + `@date-fns/tz` | All date math (do NOT use dayjs in app code — it is a direct dependency only because AntD's DatePicker needs it, confined to ui-kit) |
 | Sanitization | dompurify 3 | HTML sanitization (`src/lib/sanitize.ts`) |
 | Theming | Zustand + CSS vars + Ant Design | Light/dark mode via `useThemeStore` (`src/store/theme.ts`) |
 | Tests | vitest 4 + @testing-library/react + jsdom | Unit/component tests, setup at `src/test/setup.ts` |
@@ -105,7 +105,6 @@ The dev server proxies `/admin/*` requests (PHP login + V2 API) to the backend s
 | `src/api/queryKeys.ts` | Centralized React Query key factories |
 | `src/api/drilldown.ts` | Drilldown report fetcher |
 | `src/api/normalizeTemplateList.ts`, `offerSourceTemplateLoad.ts`, `trafficSourceTemplateLoad.ts` | Template normalization |
-| `src/api/useAuth.ts`, `useEntityPage.ts`, `useNotifications.ts` | High-level page hooks |
 | `src/api/generated/` | Auto-generated API types (do NOT hand-edit; regen via `pnpm run generate-types`) |
 | `src/api/hooks/` | One React Query hook file per entity: `useCampaigns`, `useCategories`, `useCodeSnippets`, `useConditions`, `useDashboard`, `useDomains`, `useDrilldown`, `useEntityGrid`, `useFunnels`, `useGroupingFilterAssetOptions`, `useInbox`, `useOfferSources`, `usePages`, `useSavedViews`, `useStoredLinks`, `useSystemLinks`, `useSystemSettings`, `useTags`, `useTrafficFilters`, `useTrafficSources`, `useUserManagement`, and `index.ts` barrel |
 
@@ -157,7 +156,7 @@ One directory per section. Page components are lazy-loaded in `src/App.tsx`.
 
 ### `src/schemas/` (Zod)
 
-One schema per entity: `campaign.ts`, `condition.ts`, `funnel.ts`, `landerNode.ts`, `offerNode.ts`, `offerSource.ts`, `page.ts`, `systemSettings.ts`, `trafficFilter.ts`, `trafficSource.ts`, `userEdit.ts`.
+One schema per entity or form: `account.ts`, `apiBoundaries.ts`, `campaign.ts` (create/edit modal form schemas), `condition.ts`, `externalUrlNode.ts`, `funnel.ts` (add/clone modal form schema, owns `FUNNEL_NAME_MAX_LEN`), `nodeAdvancedSettings.ts`, `offerSource.ts`, `page.ts`, `systemSettings.ts`, `tag.ts`, `trafficFilter.ts`, `trafficSource.ts`, `userEdit.ts`.
 
 ### `src/types/`
 
@@ -171,7 +170,7 @@ One schema per entity: `campaign.ts`, `condition.ts`, `funnel.ts`, `landerNode.t
 
 ### `src/hooks/`
 
-Custom React hooks. Page-level hooks live in `src/api/` (e.g. `useAuth.ts`). Entity-table orchestration hooks live in `src/lib/entity-table/engine/`.
+Custom React hooks, including the high-level page hooks `useAuth.ts`, `useEntityPage.ts`, and `useNotifications.ts`. Entity-table orchestration hooks live in `src/lib/entity-table/engine/`.
 
 ### `src/lib/`
 
@@ -185,11 +184,10 @@ Utilities, theming, and pure helpers (most have unit tests):
 | `date-presets.ts` | Date range presets (Last 7d, MTD, etc.) |
 | `id-generator.ts` | Stable ID generation |
 | `sanitize.ts` | dompurify wrapper (with `sanitize.test.ts`) |
-| `routeAccess.ts` | `canViewDashboard`, `isAdminUser` permission helpers |
+| `routeAccess.ts` | `canViewDashboard`, `isAdminUser`, `canManageFunnelAssets` permission helpers |
 | `routeRegistry.tsx` | Typed `ROUTE_ENTRIES`, nav builders, `getDefaultAuthorizedPath` |
-| `paginationConfig.ts` (+ test), `bulkActions.ts` (+ test) | Grid behavior |
-| `entityGridUtils.ts` (+ test), `entityGridSorting.ts` (+ test), `entityGridColumnVisibility.ts`, `entityPageDefaultColIds.ts` | Entity grid helpers |
-| `categoryStripSelection.ts`, `categoryStripTable.tsx`, `paginateCategorySegments.ts` | Category strip UI |
+| `kvLines.ts` (+ test) | `key=value` textarea line parsing (campaign custom tokens / URL params) |
+| `entity-table/` | Entity page engine: `useEntityTable.ts`, `EntityPage.tsx`, plus `engine/` (state, columns, category strip helpers), `columns/`, `data/` (see its `README.md`) |
 | `drilldownGroupings.ts`, `drilldownTableSort.ts`, `groupingFilterAssets.ts`, `reportRowCells.ts`, `urlTrackingFieldGrouping.ts` | Drilldown report logic |
 | `funnelApiV2.ts`, `funnelConditionFormBridge.ts`, `funnelCoords.ts`, `funnelEdgeGeometry.ts`, `funnelQuickStats.ts` | Funnel builder logic |
 | `normalizeDomainsFromApi.ts`, `trafficFilterConstants.ts`, `urlTokens.ts`, `utils.ts` | Misc helpers |
@@ -213,8 +211,8 @@ Utilities, theming, and pure helpers (most have unit tests):
 | Path | Purpose |
 |------|---------|
 | `.ai/rules/` | Cursor rules (`.mdc`) — symlinked to `.cursor/rules/` |
-| `.ai/skills/` | Shared skill bodies — symlinked to `.cursor/skills/`, `.claude/skills/`, `.agents/skills/` |
-| `.ai/agents/` | Codex agent definitions — symlinked to `.codex/agents/` |
+| `.ai/skills/` | Open-UI-specific skill bodies — symlinked to `.cursor/skills/`, `.claude/skills/`, `.agents/skills/`; generic workflows come from the user-level global harness |
+| `.ai/agents/` | Open-UI-specific Codex agent definitions — symlinked to `.codex/agents/`; generic agents come from `~/.codex/agents` |
 | `.ai/exec-plans/` | Active/completed implementation plans and templates |
 
 ## Context Map
@@ -228,12 +226,12 @@ Utilities, theming, and pure helpers (most have unit tests):
 | Reporting/stats | `src/store/drilldown.ts`, `src/api/hooks/useDrilldown.ts`, `src/lib/drilldownGroupings.ts` |
 | Theming/dark mode | `src/styles/design-tokens.css`, `src/lib/antd-theme.ts`, `src/store/theme.ts` |
 | Charts | `src/lib/chart-theme.ts` |
-| Data grids | `src/components/ui-kit/data-table/`, entity-grid helpers in `src/lib/entityGrid*.ts` |
+| Data grids | `src/components/ui-kit/data-table/`, entity-table engine in `src/lib/entity-table/` |
 | Permissions / route guards | `src/lib/routeAccess.ts`, `src/App.tsx` (PermissionGuard, AuthGate) |
 | Code quality | `.ai/rules/open-ui-general-guardrails.mdc` |
 | Architecture / terminology | `.ai/skills/project-context/SKILL.md` |
-| Debugging | `.ai/skills/rca/SKILL.md` |
-| Planning | `.ai/skills/exec-plan/SKILL.md`, `.ai/exec-plans/` |
+| Debugging | Global `rca` skill |
+| Planning | Global `exec-plan` skill, `.ai/exec-plans/` |
 | OpenAPI type generation | `.ai/skills/openapi-type-generation/SKILL.md`, `.ai/rules/open-ui-type-generation.mdc` |
 
 ## State Management Rules
@@ -256,7 +254,7 @@ Utilities, theming, and pure helpers (most have unit tests):
 - Performance-critical bootstrap/layout files may import specific ui-kit modules directly (for example `@/components/ui-kit/ConfigProvider`) to keep shared chunks small.
 - Use Tailwind utilities for layout. Use CSS vars from `src/styles/design-tokens.css` for colors/spacing — no hardcoded hex outside token files.
 - Compose conditional classes with `clsx` or `tailwind-merge`.
-- All dates: `date-fns` (+ `@date-fns/tz`). `dayjs` is transitively present for AntD's DatePicker only — do NOT import it in app code.
+- All dates: `date-fns` (+ `@date-fns/tz`). `dayjs` is a direct dependency only because AntD's DatePicker requires it (confined to ui-kit) — do NOT import it in app code.
 - Use `@/` alias for every import inside `src/`. No relative `../../../` chains.
 
 ## Performance Rules for Hooks & Effects

@@ -107,6 +107,7 @@ export function PageEntitiesDialogs({
         onCancel={onDeleteDismiss}
         title={`Delete ${singularLabel}`}
         description="Are you sure? This cannot be undone."
+        confirmText="Delete"
         onConfirm={onDeleteConfirm}
         loading={deletePending}
         danger
@@ -129,6 +130,7 @@ export function PageEntitiesDialogs({
       <FormModal
         open={Boolean(categoryRename)}
         onCancel={onCategoryRenameDismiss}
+        width={480}
         destroyOnHidden
       >
         <FormModalHeader title="Rename category" />
@@ -161,6 +163,7 @@ export function PageEntitiesDialogs({
         onCancel={onCategoryDeleteDismiss}
         title="Delete category"
         description={`Delete this category? ${title} in it will become uncategorized.`}
+        confirmText="Delete"
         onConfirm={onCategoryDeleteConfirm}
         loading={categoryDeletePending}
         danger

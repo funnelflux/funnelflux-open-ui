@@ -1,9 +1,8 @@
 @import "./styles/design-tokens.css";
 @import "tailwindcss";
 
-/* Fonts — swap these imports to change the app's typefaces */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap');
+/* Fonts are self-hosted via @fontsource, imported in src/main.tsx so Vite
+   rewrites the woff2 asset URLs (Tailwind's postcss-import cannot). */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -33,6 +32,10 @@
   --color-info: var(--ff-info);
   --color-profit: var(--ff-profit);
   --color-loss: var(--ff-loss);
+  /* Named `accent-orange` (not `accent`): `bg-accent` is already used as an inert
+     hover class in funnel-builder — defining `--color-accent` would activate it. */
+  --color-accent-orange: var(--ff-accent);
+  --color-accent-orange-hover: var(--ff-accent-hover);
 
   /* Raw palette available as utilities (e.g., bg-gray-50) */
   --color-gray-0: var(--ff-gray-0);
@@ -208,7 +211,7 @@ html.dark .ant-message .ant-message-notice-content {
   border-radius: 0.875rem;
   background-color: var(--background);
   color: var(--foreground);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--shadow-floating-control);
   transition:
     background-color 150ms ease,
     border-color 150ms ease,
@@ -235,10 +238,6 @@ html.dark .ant-message .ant-message-notice-content {
   width: 1.125rem;
   height: 1.125rem;
   max-width: none;
-}
-
-html.dark .ff-funnel-controls.react-flow__controls button.react-flow__controls-button {
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
 }
 
 /* Dashboard analytics panels: stronger operational separation without soft card shadows. */

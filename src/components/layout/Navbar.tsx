@@ -4,15 +4,6 @@ import { useAuthStore } from '@/store/auth'
 import { Dropdown, type MenuProps } from '@/components/ui-kit/Dropdown'
 import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
-import {
-  ChevronDown,
-  Settings,
-  User,
-  LogOut,
-  Sun,
-  Moon,
-  Menu,
-} from 'lucide-react'
 import { useThemeStore } from '@/store/theme'
 import {
   getMainNavStructure,
@@ -75,7 +66,7 @@ function NavDropdown({
         )}
       >
         {section.label}
-        <ChevronDown className="h-3 w-3" />
+        <Icon name="chevron-down" size="sm" />
       </button>
     </Dropdown>
   )
@@ -151,7 +142,7 @@ function MainNavDropdown({
         className="ff-navbar-util-btn flex shrink-0 cursor-pointer items-center gap-1.5 rounded border-0 bg-transparent px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Open navigation menu"
       >
-        <Menu className="h-4 w-4" />
+        <Icon name="menu" />
         <span className="hidden sm:inline">Menu</span>
       </button>
     </Dropdown>
@@ -196,8 +187,9 @@ function SettingsDropdown({ settingsLinks }: { settingsLinks: NavLinkItem[] }) {
       <button
         type="button"
         className="ff-navbar-util-btn cursor-pointer p-2 rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="Settings"
       >
-        <Settings className="h-4 w-4" />
+        <Icon name="settings" />
       </button>
     </Dropdown>
   )
@@ -234,7 +226,10 @@ function UserDropdown({ userLinks }: { userLinks: NavLinkItem[] }) {
       key: 'logout',
       label: (
         <>
-          <LogOut className="h-4 w-4 mr-2 inline" /> Log Out
+          <span className="mr-2 inline-flex align-middle">
+            <Icon name="log-out" />
+          </span>
+          Log Out
         </>
       ),
       danger: true,
@@ -248,9 +243,9 @@ function UserDropdown({ userLinks }: { userLinks: NavLinkItem[] }) {
         type="button"
         className="ff-navbar-util-btn flex shrink-0 cursor-pointer items-center gap-1.5 px-2 py-1.5 text-sm rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <User className="h-4 w-4" />
+        <Icon name="user" />
         <span className="hidden sm:inline">{user?.firstname || user?.login}</span>
-        <ChevronDown className="h-3 w-3" />
+        <Icon name="chevron-down" size="sm" />
       </button>
     </Dropdown>
   )
@@ -267,7 +262,7 @@ function ThemeToggle() {
       className="ff-navbar-util-btn cursor-pointer p-2 rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      {mode === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {mode === 'dark' ? <Icon name="sun" /> : <Icon name="moon" />}
     </button>
   )
 }

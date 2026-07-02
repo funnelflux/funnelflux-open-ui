@@ -1,12 +1,14 @@
 import type { ComponentType, LazyExoticComponent } from 'react'
 import type { UserProfile } from '@/types/api'
 import type { IconName } from '@/components/ui-kit'
-import { canViewDashboard, isAdminUser } from '@/lib/routeAccess'
+import { canManageFunnelAssets, canViewDashboard, isAdminUser } from '@/lib/routeAccess'
 import { lazyNamed } from '@/lib/routeLazy'
 
 /**
  * Any authenticated session may open these routes; they are not gated on a specific
- * `permissions.*` flag (legacy admin exposed them without checks).
+ * `permissions.*` flag (account settings and inbox are per-user surfaces).
+ * Tags/conditions were in this bucket for legacy parity but now gate on
+ * `canManageFunnelAssets` (campaign view) — see `routeAccess.ts`.
  * The `user` argument is required for a consistent `(user: UserProfile) => boolean` signature.
  */
 export function canAccessAuthenticatedOnly(user: UserProfile): boolean {
@@ -316,7 +318,7 @@ export const ROUTE_ENTRIES: readonly RouteEntry[] = [
   {
     path: 'settings/tags',
     Component: TagsPage,
-    permission: canAccessAuthenticatedOnly,
+    permission: canManageFunnelAssets,
     nav: {
       group: 'settings',
       label: 'Visitor Tags',
@@ -328,7 +330,7 @@ export const ROUTE_ENTRIES: readonly RouteEntry[] = [
   {
     path: 'settings/conditions',
     Component: GlobalConditionsPage,
-    permission: canAccessAuthenticatedOnly,
+    permission: canManageFunnelAssets,
     nav: {
       group: 'settings',
       label: 'Global Conditions',

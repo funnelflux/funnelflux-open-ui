@@ -64,6 +64,7 @@ export function OfferSourcesDialogs({
         onCancel={onDeleteDismiss}
         title={`Delete ${singularLabel}`}
         description="Are you sure? This cannot be undone."
+        confirmText="Delete"
         onConfirm={onDeleteConfirm}
         loading={deletePending}
         danger

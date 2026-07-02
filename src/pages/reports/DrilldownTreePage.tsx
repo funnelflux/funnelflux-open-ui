@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import type { ColumnDef, SortingState, ExpandedState, Table } from "@tanstack/react-table"
-import { PageShell, EmptyState } from "@/components/ui-kit"
+import { Alert, Button, PageShell, EmptyState } from "@/components/ui-kit"
 import { DataTable } from "@/components/ui-kit/data-table"
 import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
 import { ColumnChooser } from "@/components/shared/ColumnChooser"
@@ -262,8 +262,14 @@ export function DrilldownTreePage() {
   const [applyRevision, setApplyRevision] = useState(0)
   /** Full grouping stack from the toolbar (all levels); initial request uses only the first. */
   const [planGroupings, setPlanGroupings] = useState<Grouping[]>([])
-  const [page, setPage] = useState(0)
   const pageSize = 100
+  // Stable paging object for the toolbar provider — an inline literal would change identity
+  // every render and ripple through the provider's memoized request builder.
+  // Tree reports always fetch from the top; deeper levels lazy-load on expand.
+  const toolbarPaging = useMemo(
+    () => ({ start: 0, length: pageSize }),
+    [pageSize],
+  )
   const [sorting, setSorting] = useState<SortingState>(() => {
     const saved = selectTableConfig(DRILLDOWN_TREE_TABLE_KEY)(useTableConfigStore.getState()).sorting
     return saved.length > 0 ? saved : DEFAULT_TABLE_SORTING
@@ -278,7 +284,15 @@ export function DrilldownTreePage() {
     data: report,
     isLoading: reportLoading,
     isFetching: reportFetching,
+    isError: reportFailed,
+    error: reportError,
+    refetch: refetchReport,
   } = useDrilldownReportQuery(lastRequest, Boolean(lastRequest), applyRevision)
+
+  // Retry the last failed report request in place (refetch from react-query is identity-stable).
+  const handleRetryReport = useCallback(() => {
+    void refetchReport()
+  }, [refetchReport])
 
   useEffect(() => {
     if (!lastRequest) {
@@ -294,7 +308,6 @@ export function DrilldownTreePage() {
   const handleApply = useCallback(
     (request: DrilldownRequest) => {
       setApplyRevision((revision) => revision + 1)
-      setPage(0)
       const full = request.groupings ?? []
       setPlanGroupings(full)
       /** Lazy load: fetch only the first grouping level; deeper levels load on expand. */
@@ -324,7 +337,6 @@ export function DrilldownTreePage() {
     (newSorting: SortingState) => {
       setSorting(newSorting)
       setTableSorting(DRILLDOWN_TREE_TABLE_KEY, newSorting)
-      setPage(0)
 
       if (!lastRequest) return
 
@@ -362,21 +374,21 @@ export function DrilldownTreePage() {
 
   const handleColumnFilterChange = useCallback(
     (columnId: string, value: ColumnFilterValue | null) => {
-      setPage(0)
-      setColumnFilters((previous) => {
-        const next = { ...previous }
-        if (value) {
-          next[columnId] = value
-        } else {
-          delete next[columnId]
-        }
-        setLastRequest((request) => (
-          request ? withReportColumnFilters(request, report?.columns, next) : request
-        ))
-        return next
-      })
+      // Compute the next filter set from the current state, then run all side
+      // effects OUTSIDE the state-updater (updaters must be pure; queuing other
+      // setters inside one double-fires under StrictMode).
+      const next = { ...columnFilters }
+      if (value) {
+        next[columnId] = value
+      } else {
+        delete next[columnId]
+      }
+      setColumnFilters(next)
+      setLastRequest((request) => (
+        request ? withReportColumnFilters(request, report?.columns, next) : request
+      ))
     },
-    [report?.columns],
+    [columnFilters, report?.columns],
   )
 
   const handleExpandRow = useCallback(
@@ -619,10 +631,10 @@ export function DrilldownTreePage() {
       onApply={handleApply}
       isLoading={reportLoading}
       viewType="tree"
-      paging={{ start: page * pageSize, length: pageSize }}
+      paging={toolbarPaging}
     >
       <PageShell
-        title="Drilldown Report (Tree)"
+        title="Drilldown (Tree)"
         fillHeight
         density="dense"
       >
@@ -641,6 +653,22 @@ export function DrilldownTreePage() {
         </DrilldownToolbarReportActions>
         <DrilldownToolbarConfigPanel />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {reportFailed ? (
+            // Surface failed Apply/refetch explicitly — without this alert a failure
+            // would be invisible (the table unmounts once the errored key has no data).
+            <Alert
+              type="error"
+              showIcon
+              title="Report failed to load"
+              description={getErrorMessage(reportError)}
+              className="mb-3 shrink-0"
+              action={
+                <Button size="small" onClick={handleRetryReport}>
+                  Retry
+                </Button>
+              }
+            />
+          ) : null}
           {report ? (
             <DataTable
               data={treeData}
@@ -669,7 +697,7 @@ export function DrilldownTreePage() {
               onColumnOrderChange={onColumnOrderChange}
             />
           ) : (
-            !reportLoading && (
+            !reportLoading && !reportFailed && (
               <EmptyState message="Choose groupings above, then click Apply to generate a report." />
             )
           )}

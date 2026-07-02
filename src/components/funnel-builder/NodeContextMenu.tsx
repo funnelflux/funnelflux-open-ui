@@ -5,6 +5,7 @@ import { NODE_TYPES, NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { generateId } from '@/lib/id-generator'
 import { useClampedFixedMenu } from '@/hooks/useClampedFixedMenu'
+import { useContextMenuA11y } from './useContextMenuA11y'
 
 interface NodeContextMenuProps {
   nodeId: string | null
@@ -34,6 +35,11 @@ export function NodeContextMenu({
     position,
     menuRef,
     `${nodeId ?? ''}:${nodeType ?? ''}:${isRoot}:${Boolean(onSendTrafficHere)}`,
+  )
+  useContextMenuA11y(
+    Boolean(position && nodeId && node),
+    menuRef,
+    position ? `${nodeId ?? ''}:${position.x},${position.y}` : undefined,
   )
 
   useEffect(() => {
@@ -102,7 +108,9 @@ export function NodeContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
+      role="menu"
+      aria-label="Node actions"
+      className="fixed z-50 bg-surface border border-border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
       style={{
         left: position.x,
         top: position.y,
@@ -179,10 +187,11 @@ function MenuItem({
   return (
     <button
       type="button"
+      role="menuitem"
       className={cn(
         'flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-sm text-inherit',
         'cursor-pointer rounded-sm transition-colors',
-        'hover:bg-muted dark:hover:bg-zinc-800',
+        'hover:bg-muted',
         className,
       )}
       onClick={onClick}

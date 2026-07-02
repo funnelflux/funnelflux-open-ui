@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react'
 import { Button, TimezoneSelect } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
@@ -5,6 +6,7 @@ import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
 import { entityRowId } from '@/components/ui-kit/data-table'
+import type { DataTableProps } from '@/components/ui-kit/data-table'
 import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
 import { cn, getErrorMessage } from '@/lib/utils'
 import { pageCsvTemplateUrl } from '@/lib/pageCsvImport'
@@ -33,11 +35,14 @@ export function PageEntitiesPage({
     hideScope,
   })
 
-  const categoryRowClassName = (row: PageGridRow) =>
-    cn(
-      row._isCategoryHeader && 'dt-row--category-strip',
-      row.id === controller.highlightRowId && 'dt-row--revealed',
-    )
+  const categoryRowClassName = useCallback(
+    (row: PageGridRow) =>
+      cn(
+        row._isCategoryHeader && 'dt-row--category-strip',
+        row.id === controller.highlightRowId && 'dt-row--revealed',
+      ),
+    [controller.highlightRowId],
+  )
 
   const { columnDefs, gridColumnVisibility } = usePageEntitiesColumns({
     tableConfigKey,
@@ -60,6 +65,59 @@ export function PageEntitiesPage({
     : controller.isLoading && controller.mergedRows.length === 0
       ? { status: 'loading' as const }
       : { status: 'ready' as const }
+
+  const tableProps = useMemo<DataTableProps<PageGridRow>>(() => ({
+    data: controller.pageRows,
+    columns: columnDefs,
+    loading: controller.isLoading,
+    loadingMore: controller.isLoadingMore,
+    getRowId: entityRowId,
+    tableConfigKey,
+    pinnedBottomRows: controller.pinnedBottomRows,
+    enableRowSelection: canSelectRow,
+    rowSelection: controller.rowSelection,
+    onRowSelectionChange: controller.handleRowSelectionChange,
+    rowClassName: categoryRowClassName,
+    tableRef: controller.tableRef,
+    onTableInstance: controller.setTableForChooser,
+    emptyMessage:
+      controller.search || controller.selectedCategoryId
+        ? `No ${controller.pluralLower} match your filters.`
+        : `No ${controller.pluralLower} found.`,
+    manualPagination: true,
+    manualSorting: true,
+    sorting: controller.effectiveSorting,
+    onSortingChange: controller.handleSortingChange,
+    pageCount: controller.pageCount,
+    manualPaginationTotalRows: controller.totalDataCount,
+    pagination: controller.pagination,
+    onPaginationChange: controller.setPagination,
+    columnVisibility: gridColumnVisibility.columnVisibility,
+    onColumnVisibilityChange: gridColumnVisibility.onColumnVisibilityChange,
+  }), [
+    controller.pageRows,
+    columnDefs,
+    controller.isLoading,
+    controller.isLoadingMore,
+    tableConfigKey,
+    controller.pinnedBottomRows,
+    controller.rowSelection,
+    controller.handleRowSelectionChange,
+    categoryRowClassName,
+    controller.tableRef,
+    controller.setTableForChooser,
+    controller.search,
+    controller.selectedCategoryId,
+    controller.pluralLower,
+    controller.effectiveSorting,
+    controller.handleSortingChange,
+    controller.pageCount,
+    controller.totalDataCount,
+    controller.pagination,
+    controller.setPagination,
+    gridColumnVisibility.columnVisibility,
+    gridColumnVisibility.onColumnVisibilityChange,
+  ])
 
   return (
     <EntityPage<PageGridRow>
@@ -115,35 +173,7 @@ export function PageEntitiesPage({
           />
         ) : null,
       }}
-      tableProps={{
-        data: controller.pageRows,
-        columns: columnDefs,
-        loading: controller.isLoading,
-        loadingMore: controller.isLoadingMore,
-        getRowId: entityRowId,
-        tableConfigKey,
-        pinnedBottomRows: controller.pinnedBottomRows,
-        enableRowSelection: canSelectRow,
-        rowSelection: controller.rowSelection,
-        onRowSelectionChange: controller.handleRowSelectionChange,
-        rowClassName: categoryRowClassName,
-        tableRef: controller.tableRef,
-        onTableInstance: controller.setTableForChooser,
-        emptyMessage:
-          controller.search || controller.selectedCategoryId
-            ? `No ${controller.pluralLower} match your filters.`
-            : `No ${controller.pluralLower} found.`,
-        manualPagination: true,
-        manualSorting: true,
-        sorting: controller.effectiveSorting,
-        onSortingChange: controller.handleSortingChange,
-        pageCount: controller.pageCount,
-        manualPaginationTotalRows: controller.totalDataCount,
-        pagination: controller.pagination,
-        onPaginationChange: controller.setPagination,
-        columnVisibility: gridColumnVisibility.columnVisibility,
-        onColumnVisibilityChange: gridColumnVisibility.onColumnVisibilityChange,
-      }}
+      tableProps={tableProps}
       bulkActions={(
         <BulkActionsBar
           count={controller.selectedIds.length}

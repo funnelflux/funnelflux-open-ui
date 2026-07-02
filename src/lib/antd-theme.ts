@@ -102,9 +102,18 @@ export const darkTheme: ThemeConfig = {
     colorTextQuaternary: '#475569',
     colorFillSecondary: '#1E293B',
     colorFillTertiary: '#0F172A',
+    /* Text-facing error tokens follow the AA-contrast dark ramp (--ff-error).
+       Global colorError stays #DC2626 so danger-button fills keep white-text contrast. */
+    colorErrorText: '#F87171',
+    colorErrorTextHover: '#F87171',
+    colorErrorTextActive: '#F87171',
   },
   components: {
     ...sharedComponents,
+    Form: {
+      /* Form reads token.colorError for explain/validation text. */
+      colorError: '#F87171',
+    },
     Select: {
       ...sharedComponents.Select,
       optionSelectedBg: '#1E3A5F',

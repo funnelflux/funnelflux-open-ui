@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { EdgeLabelRenderer, useReactFlow } from '@xyflow/react'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 
@@ -73,18 +73,20 @@ export function DraggableEdgeLabel({
   const dragArmed = useRef(false)
   const startClient = useRef<{ x: number; y: number } | null>(null)
 
-  const computePos = useCallback(() => {
+  // Derived position — recomputed only when the path/anchor inputs change.
+  // No effect/setState round-trip: that doubled renders per frame during drags.
+  const derivedPosition = useMemo(() => {
     if (labelLocation != null && pathString) {
       return getPointOnPath(pathString, labelLocation)
     }
     return { x: fallbackX, y: fallbackY }
   }, [pathString, labelLocation, fallbackX, fallbackY])
 
-  const [position, setPosition] = useState(computePos)
+  // Local override only while actively dragging; null otherwise so the
+  // store-backed `labelLocation` stays the source of truth.
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
 
-  useEffect(() => {
-    setPosition(computePos())
-  }, [computePos])
+  const position = dragPosition ?? derivedPosition
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -106,7 +108,7 @@ export function DraggableEdgeLabel({
         }
         const flowPos = screenToFlowPosition({ x: moveEvent.clientX, y: moveEvent.clientY })
         const newT = findClosestT(pathString, flowPos.x, flowPos.y)
-        setPosition(getPointOnPath(pathString, newT))
+        setDragPosition(getPointOnPath(pathString, newT))
       }
 
       const onUp = (upEvent: MouseEvent) => {
@@ -114,8 +116,10 @@ export function DraggableEdgeLabel({
         isDragging.current = false
         const flowPos = screenToFlowPosition({ x: upEvent.clientX, y: upEvent.clientY })
         const newT = findClosestT(pathString, flowPos.x, flowPos.y)
-        setPosition(getPointOnPath(pathString, newT))
+        // Persist the new location and drop the drag override in the same batch —
+        // the derived position recomputes from the updated `labelLocation` prop.
         useFunnelEditorStore.getState().updateEdgeData(edgeId, { labelLocation: newT })
+        setDragPosition(null)
 
         if (dragArmed.current && startClient.current && onLabelClick) {
           const dx = upEvent.clientX - startClient.current.x

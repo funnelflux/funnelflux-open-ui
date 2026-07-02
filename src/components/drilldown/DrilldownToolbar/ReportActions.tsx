@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   Button,
   DateTimeRangePicker,
@@ -32,7 +33,16 @@ function presetRanges(tz: string): { label: string; value: [Date, Date] }[] {
 /** Report query controls, filters/settings, and pinned saved-view/export actions. */
 export function DrilldownToolbarReportActions({ children }: { children?: ReactNode }) {
   const toast = useToastApi()
-  const { timezone, dateRange, filtersEnabled, groupingFilters } = useDrilldownStore()
+  // Subscribe only to the fields used here (shallow-compared): a selectorless subscription
+  // would re-render this toolbar on every store write.
+  const { timezone, dateRange, filtersEnabled, groupingFilters } = useDrilldownStore(
+    useShallow((s) => ({
+      timezone: s.timezone,
+      dateRange: s.dateRange,
+      filtersEnabled: s.filtersEnabled,
+      groupingFilters: s.groupingFilters,
+    })),
+  )
   const saveView = useSaveView()
   const deleteView = useDeleteView()
   const [manageOpen, setManageOpen] = useState(false)
@@ -150,6 +160,9 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
     [savedViews],
   )
 
+  // Preset date math runs for every preset; recompute only when the timezone changes.
+  const presets = useMemo(() => presetRanges(timezone), [timezone])
+
   const filtersButtonTitle = useMemo(() => {
     if (!filtersEnabled) {
       return 'Configure grouping filters'
@@ -182,17 +195,16 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
             onDateTimeRangeChange([a, b])
           }
         }}
-        presets={presetRanges(timezone)}
+        presets={presets}
         allowClear={false}
-        className="ff-drilldown-datetime-range shrink-0 [&_.ant-picker-input>input]:text-xs"
-        style={{ width: 330 }}
+        className="ff-drilldown-datetime-range w-[330px] shrink-0 [&_.ant-picker-input>input]:text-xs"
       />
       <TimezoneSelect
         value={timezone}
         onChange={setTimezone}
         compactLabels
-        style={{ width: 100, minWidth: 100 }}
-        className="shrink-0 text-xs"
+        // `!min-w`: TimezoneSelect sets an inline `minWidth: 180` default that plain classes lose to.
+        className="w-[100px] !min-w-[100px] shrink-0 text-xs"
         popupMatchSelectWidth={false}
         dropdownStyle={{ minWidth: 220, maxWidth: 320 }}
       />
@@ -262,8 +274,7 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
             value={selectedViewId || undefined}
             onChange={handleSelectView}
             placeholder="Saved views"
-            style={{ width: 160 }}
-            className="text-xs"
+            className="w-[160px] text-xs"
             options={savedViewOptions}
             popupMatchSelectWidth={false}
             dropdownStyle={{ maxWidth: 320 }}
@@ -361,6 +372,7 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
                         onClick={() => void handleRenameView(view.idView)}
                         disabled={!editingName.trim() || editingName.trim() === view.name}
                         loading={saveView.isPending}
+                        aria-label="Confirm rename"
                       />
                       <Button
                         type="text"
@@ -368,6 +380,7 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
                         iconName="x"
                         iconSize="sm"
                         onClick={cancelEditing}
+                        aria-label="Cancel rename"
                       />
                     </>
                   ) : (
@@ -379,8 +392,9 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
                         iconName="pencil"
                         iconSize="sm"
                         onClick={() => startEditing(view.idView, view.name)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                         title="Rename"
+                        aria-label="Rename saved view"
                       />
                       <Popconfirm
                         title="Delete saved view?"
@@ -395,7 +409,8 @@ export function DrilldownToolbarReportActions({ children }: { children?: ReactNo
                           danger
                           iconName="trash-2"
                           iconSize="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                          aria-label="Delete saved view"
                         />
                       </Popconfirm>
                     </>

@@ -41,6 +41,7 @@ import {
   LogOut as LucideLogOut,
   Mail as LucideMail,
   MailOpen as LucideMailOpen,
+  Menu as LucideMenu,
   Moon as LucideMoon,
   Network as LucideNetwork,
   Pencil as LucidePencil,
@@ -116,6 +117,7 @@ const ICON_MAP = {
   'log-out': LucideLogOut,
   mail: LucideMail,
   'mail-open': LucideMailOpen,
+  menu: LucideMenu,
   moon: LucideMoon,
   network: LucideNetwork,
   pencil: LucidePencil,
@@ -178,7 +180,14 @@ export type IconProps = {
 
 export const Icon = memo(
   forwardRef<SVGSVGElement, IconProps>(function Icon(
-    { name, size = 'md', animation = 'none', ...rest },
+    {
+      name,
+      size = 'md',
+      animation = 'none',
+      'aria-label': ariaLabel,
+      'aria-hidden': ariaHidden,
+      ...rest
+    },
     ref,
   ) {
     const Glyph = ICON_MAP[name]
@@ -190,6 +199,9 @@ export const Icon = memo(
       <Glyph
         ref={ref}
         className={cn(DIM[size], 'shrink-0', animationClass)}
+        aria-label={ariaLabel}
+        /* Decorative by default: hide from assistive tech unless labelled or overridden. */
+        aria-hidden={ariaHidden ?? (ariaLabel ? undefined : true)}
         {...rest}
       />
     )

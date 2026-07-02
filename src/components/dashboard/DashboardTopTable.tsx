@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
 import { buildDashboardTopTableRequest, useDashboardTopTableQuery } from '@/api/hooks/useDashboard'
+import { Alert, Button } from '@/components/ui-kit'
 import { DataTable } from '@/components/ui-kit/data-table'
 import { buildColumnsFromReport, buildDataTablePageTokens, DataTablePagination } from '@/components/ui-kit/data-table'
 import { reportRowToCells } from '@/lib/reportRowCells'
@@ -8,7 +9,7 @@ import { friendlyDashboardGroupingColumnHeader } from '@/lib/dashboardLabels'
 import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
 import type { ApiDateTimeRange, Report, ReportCell } from '@/types/stats'
 import { Icon, type IconName } from '@/components/ui-kit/icons'
-import { cn } from '@/lib/utils'
+import { cn, getErrorMessage } from '@/lib/utils'
 
 const EMPTY_CELL: ReportCell = { raw: '', formatted: '' }
 
@@ -122,7 +123,7 @@ function coercePageSize(n: number): number {
   return PAGE_SIZE_OPTIONS.includes(n) ? n : 5
 }
 
-export function DashboardTopTable({
+function DashboardTopTableComponent({
   title,
   groupBy,
   tableConfigKey,
@@ -157,6 +158,13 @@ export function DashboardTopTable({
   const topTableQuery = useDashboardTopTableQuery(request, fetchEnabled)
   const report = topTableQuery.data ?? null
   const loading = fetchEnabled && topTableQuery.isLoading && !report
+  const loadFailed = fetchEnabled && topTableQuery.isError
+  const loadErrorMessage = loadFailed ? getErrorMessage(topTableQuery.error) : null
+
+  const refetchQuery = topTableQuery.refetch
+  const handleRetry = useCallback(() => {
+    void refetchQuery()
+  }, [refetchQuery])
 
   const flatData = useMemo(() => (report ? reportRowsToFlatData(report) : []), [report])
 
@@ -241,6 +249,19 @@ export function DashboardTopTable({
           />
         ) : null}
       </div>
+      {loadFailed ? (
+        <Alert
+          type="error"
+          showIcon
+          title={`${title} report failed to load`}
+          description={loadErrorMessage}
+          action={
+            <Button size="small" onClick={handleRetry}>
+              Retry
+            </Button>
+          }
+        />
+      ) : null}
       <DataTable<DashboardTopTableFlatRow>
         className="dashboard-top-table-grid"
         height={DASHBOARD_TOP_TABLE_HEIGHT}
@@ -261,7 +282,7 @@ export function DashboardTopTable({
         pinnedBottomRows={pinnedBottomRows}
         tableConfigKey={tableConfigKey}
         defaultSorting={DEFAULT_TABLE_SORTING}
-        emptyMessage="No data for the selected period."
+        emptyMessage={loadFailed ? 'Data unavailable.' : 'No data for the selected period.'}
         loadingMinBodyHeight={216}
         loadingSkeletonRows={5}
         paginationPosition="none"
@@ -269,3 +290,5 @@ export function DashboardTopTable({
     </div>
   )
 }
+
+export const DashboardTopTable = memo(DashboardTopTableComponent)

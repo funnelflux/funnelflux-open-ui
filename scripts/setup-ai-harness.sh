@@ -6,17 +6,17 @@
 #
 # Canonical sources:
 #   - AGENTS.md files (root and nested) — repo guidance.
-#   - .ai/skills/<name>/SKILL.md       — shared skill bodies.
+#   - .ai/skills/<name>/SKILL.md       — repo-specific skill bodies; generic skills are global.
 #   - .ai/rules/<name>.mdc             — Cursor rule bodies.
-#   - .ai/agents/<role>.toml           — Codex agent definitions.
+#   - .ai/agents/<role>.toml           — repo-specific Codex agent definitions; generic agents are global.
 #
 # Generated symlinks:
 #   - <dir>/CLAUDE.md          -> AGENTS.md
-#   - .claude/skills/<name>    -> ../../.ai/skills/<name>
-#   - .agents/skills/<name>    -> ../../.ai/skills/<name>
+#   - .claude/skills/<name>    -> ../../.ai/skills/<name> (repo-specific only)
+#   - .agents/skills/<name>    -> ../../.ai/skills/<name> (repo-specific only)
 #   - .cursor/skills/<name>    -> ../../.ai/skills/<name>
 #   - .cursor/rules/<name>.mdc -> ../../.ai/rules/<name>.mdc
-#   - .codex/agents/<role>.toml -> ../../.ai/agents/<role>.toml
+#   - .codex/agents/<role>.toml -> ../../.ai/agents/<role>.toml (repo-specific only)
 
 if [ -n "${POSIXLY_CORRECT:-}" ] || [ -z "${BASH_VERSION:-}" ]; then
     exec bash "$0" "$@"

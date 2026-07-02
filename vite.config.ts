@@ -27,41 +27,32 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) {
-            if (id.includes('/src/components/ui-kit/data-table/')) return 'data-table'
-            if (id.includes('/src/components/ui-kit/')) return 'ui-kit'
-            return undefined
-          }
-
-          if (id.includes('/node_modules/react/') || id.includes('/node_modules/react-dom/')) {
-            return 'react-vendor'
-          }
-          if (id.includes('/node_modules/react-router')) return 'router-vendor'
-          if (id.includes('/node_modules/@tanstack/react-query')) return 'query-vendor'
-          if (
-            id.includes('/node_modules/@tanstack/react-table') ||
-            id.includes('/node_modules/@tanstack/react-virtual')
-          ) {
-            return 'table-vendor'
-          }
-          if (id.includes('/node_modules/@xyflow/react')) return 'xyflow-vendor'
-          if (id.includes('/node_modules/recharts')) return 'chart-vendor'
-          if (
-            id.includes('/node_modules/antd/') ||
-            id.includes('/node_modules/@ant-design/') ||
-            id.includes('/node_modules/rc-')
-          ) {
-            return 'antd-vendor'
-          }
-          if (
-            id.includes('/node_modules/@uiw/') ||
-            id.includes('/node_modules/@codemirror/') ||
-            id.includes('/node_modules/codemirror/')
-          ) {
-            return 'codemirror-vendor'
-          }
-          return undefined
+        /**
+         * Rolldown-native chunk groups (first match wins).
+         * Note: the legacy `manualChunks` function compat silently failed to place the
+         * CJS react runtime (react/jsx-runtime ended up hosted inside codemirror-vendor,
+         * making the 650 KB CodeMirror bundle a static dependency of the entry chunk).
+         */
+        advancedChunks: {
+          // Match modules individually (rollup `manualChunks` semantics). Without this,
+          // a group recursively captures its whole dependency closure — the first group
+          // would swallow antd/react/lucide and balloon to ~700 KB.
+          includeDependenciesRecursively: false,
+          groups: [
+            { name: 'data-table', test: /[\\/]src[\\/]components[\\/]ui-kit[\\/]data-table[\\/]/ },
+            // CodeEditorInner is lazy-loaded (it pulls CodeMirror) — excluded from the
+            // eager ui-kit group so codemirror-vendor is not statically imported at boot.
+            { name: 'ui-kit', test: /[\\/]src[\\/]components[\\/]ui-kit[\\/](?!CodeEditorInner)/ },
+            { name: 'react-vendor', test: /[\\/]node_modules[\\/](?:react|react-dom|scheduler)[\\/]/ },
+            { name: 'router-vendor', test: /[\\/]node_modules[\\/]react-router/ },
+            { name: 'query-vendor', test: /[\\/]node_modules[\\/]@tanstack[\\/]react-query/ },
+            { name: 'table-vendor', test: /[\\/]node_modules[\\/]@tanstack[\\/]react-(?:table|virtual)/ },
+            { name: 'xyflow-vendor', test: /[\\/]node_modules[\\/]@xyflow[\\/]react/ },
+            { name: 'chart-vendor', test: /[\\/]node_modules[\\/]recharts/ },
+            // AntD 6 pulls @rc-component/* (rc-* is the legacy namespace)
+            { name: 'antd-vendor', test: /[\\/]node_modules[\\/](?:antd[\\/]|@ant-design[\\/]|@rc-component[\\/]|rc-)/ },
+            { name: 'codemirror-vendor', test: /[\\/]node_modules[\\/](?:@uiw[\\/]|@codemirror[\\/]|codemirror[\\/])/ },
+          ],
         },
       },
     },

@@ -27,7 +27,6 @@ export function DrilldownFiltersDrawer() {
       width={420}
       open={filtersDrawerOpen}
       onClose={closeFiltersDrawer}
-      destroyOnClose={false}
     >
       <DrilldownFiltersPanel
         groupings={groupings}

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
 import { queryKeys } from '@/api/queryKeys'
@@ -7,7 +7,6 @@ import { buildDashboardSummaryRequest } from '@/lib/dashboard/summaryReport'
 import { resolveReportingTimezone } from '@/lib/reportingTimezone'
 import { drilldownSortParamFromReport } from '@/lib/drilldownTableSort'
 import { metricsForColumnIds } from '@/lib/drilldownMetrics'
-import type { DashboardData } from '@/types/ui'
 import type { ApiDateTimeRange, DrilldownRequest, Report } from '@/types/stats'
 import type { SortingState } from '@tanstack/react-table'
 
@@ -32,17 +31,10 @@ async function timeDashboardQuery<T>(label: string, query: () => Promise<T>): Pr
     return await query()
   } finally {
     const durationMs = Math.round(performance.now() - start)
-    if (durationMs >= DASHBOARD_SLOW_QUERY_MS) {
+    if (import.meta.env.DEV && durationMs >= DASHBOARD_SLOW_QUERY_MS) {
       console.debug(`[dashboard] ${label} query took ${durationMs}ms`)
     }
   }
-}
-
-export function useLoadDashboard() {
-  return useMutation({
-    mutationFn: (elements: string[]) =>
-      api.post<DashboardData>('/ui/dashboard/load/', { elements }),
-  })
 }
 
 export function useDashboardSummaryQuery(
@@ -95,7 +87,7 @@ export function useDashboardTopTableQuery(
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey: request && enabled ? queryKeys.dashboard.topTable(request) : ['dashboard', 'topTable', 'disabled'],
+    queryKey: request && enabled ? queryKeys.dashboard.topTable(request) : queryKeys.disabled('dashboard-topTable'),
     queryFn: ({ signal }) =>
       timeDashboardQuery(
         request?.groupings?.[0]?.groupBy ?? 'top table',

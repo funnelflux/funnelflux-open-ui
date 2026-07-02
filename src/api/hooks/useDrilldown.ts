@@ -1,11 +1,11 @@
-import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { fetchAllFlatDrilldownRows } from '@/api/drilldown'
 import { queryKeys } from '@/api/queryKeys'
 import { filterDrilldownGroupingOptions } from '@/lib/drilldownGroupings'
-import type { CsvExportRequest, CsvExportResponse, DrilldownRequest, Report } from '@/types/stats'
+import type { DrilldownRequest, Report } from '@/types/stats'
 
-const DRILLDOWN_QUERY_DISABLED = ['drilldown', 'report', 'disabled'] as const
+const DRILLDOWN_QUERY_DISABLED = queryKeys.disabled('drilldown-report')
 
 export function useGroupings() {
   return useQuery({
@@ -50,12 +50,5 @@ export function useAllFlatDrilldownReportQuery(request: DrilldownRequest | null,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-  })
-}
-
-export function useExportCsv() {
-  return useMutation({
-    mutationFn: (request: CsvExportRequest) =>
-      api.post<CsvExportResponse>('/stats/reporting/export/csv/', request),
   })
 }

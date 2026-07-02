@@ -1,9 +1,4 @@
-import CodeMirror from '@uiw/react-codemirror'
-import { javascript } from '@codemirror/lang-javascript'
-import { php } from '@codemirror/lang-php'
-import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode'
-import { useMemo } from 'react'
-import { useThemeStore } from '@/store/theme'
+import { Suspense, lazy } from 'react'
 
 export type CodeEditorLanguage = 'javascript' | 'php'
 
@@ -17,38 +12,24 @@ export interface CodeEditorProps {
   id?: string
 }
 
-export function CodeEditor({
-  value,
-  onChange,
-  language,
-  readOnly,
-  height = 'min(420px, 50vh)',
-  id,
-}: CodeEditorProps) {
-  const themeMode = useThemeStore((s) => s.mode)
-  const extensions = useMemo(
-    () => [language === 'javascript' ? javascript() : php()],
-    [language],
-  )
-  const theme = themeMode === 'dark' ? vscodeDark : vscodeLight
+/** CodeMirror implementation is code-split so the ~650 KB vendor bundle loads on demand. */
+const CodeEditorInner = lazy(() => import('@/components/ui-kit/CodeEditorInner'))
 
+export function CodeEditor(props: CodeEditorProps) {
+  const { height = 'min(420px, 50vh)' } = props
   return (
-    <div className="min-h-0 overflow-hidden rounded-md border border-border">
-      <CodeMirror
-        id={id}
-        value={value}
-        height={height}
-        theme={theme}
-        extensions={extensions}
-        onChange={onChange}
-        editable={!readOnly}
-        basicSetup={{
-          lineNumbers: true,
-          foldGutter: true,
-          indentOnInput: true,
-        }}
-        className="text-sm [&_.cm-editor]:min-h-[200px] [&_.cm-scroller]:overflow-auto"
-      />
-    </div>
+    <Suspense
+      fallback={
+        <div className="min-h-0 overflow-hidden rounded-md border border-border">
+          <div
+            className="min-h-[200px] w-full animate-pulse bg-surface-sunken"
+            style={{ height }}
+            aria-hidden="true"
+          />
+        </div>
+      }
+    >
+      <CodeEditorInner {...props} />
+    </Suspense>
   )
 }

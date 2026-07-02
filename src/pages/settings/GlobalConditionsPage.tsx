@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import {
   useConditions,
   useCondition,
@@ -7,7 +7,7 @@ import {
   useDeleteCondition,
   type ConditionListItem,
 } from '@/api/hooks'
-import { Button, PageShell, SearchToolbar, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Button, PageShell, SearchToolbar, ConfirmModal, useToastApi, type PageShellBodyState } from '@/components/ui-kit'
 import { DataTable } from '@/components/ui-kit/data-table'
 import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import { ConditionEditor } from '@/components/forms/ConditionEditor'
@@ -18,9 +18,11 @@ function conditionRowId(row: ConditionListItem): string {
   return row.idCondition
 }
 
+const DEFAULT_SORTING: SortingState = [{ id: 'name', desc: false }]
+
 export function GlobalConditionsPage() {
   const toast = useToastApi()
-  const { data: conditionRows, isLoading, refetch: refetchConditions, isFetching } = useConditions()
+  const { data: conditionRows, isLoading, isError, error, refetch: refetchConditions, isFetching } = useConditions()
   const saveCondition = useSaveCondition()
   const deleteCondition = useDeleteCondition()
 
@@ -123,9 +125,18 @@ export function GlobalConditionsPage() {
     [handleDeleteClick, handleEditCondition],
   )
 
+  const bodyState: PageShellBodyState = isError
+    ? {
+        status: 'error',
+        message: getErrorMessage(error),
+        onRetry: () => void refetchConditions(),
+      }
+    : { status: 'ready' }
+
   return (
     <PageShell fillHeight
       title="Global Conditions"
+      bodyState={bodyState}
       actions={
         <Button
           type="primary"
@@ -150,7 +161,7 @@ export function GlobalConditionsPage() {
         getRowId={conditionRowId}
         loading={isLoading}
         tableConfigKey="settings-global-conditions"
-        defaultSorting={[{ id: 'name', desc: false }]}
+        defaultSorting={DEFAULT_SORTING}
         noPagination
         emptyMessage="No global conditions found. Create one to get started."
       />

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
-import { Button, Input, PageShell, Select, Switch, useToastApi } from '@/components/ui-kit'
+import { Button, FormField, Input, PageShell, Select, Switch, useToastApi, type PageShellBodyState } from '@/components/ui-kit'
 import { PermissionsGrid, type PermissionsGridHandle } from '@/components/settings/PermissionsGrid'
 import { normalizePermissionsRestrictIds } from '@/lib/parseRestrictIds'
 import { useUsers } from '@/api/hooks'
@@ -126,6 +126,9 @@ export function UserEditPage() {
   const { data: users } = useUsers()
   const [isLoading, setIsLoading] = useState(!isNew)
   const [isSaving, setIsSaving] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [profileLoaded, setProfileLoaded] = useState(isNew)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const permissionsGridRef = useRef<PermissionsGridHandle>(null)
 
   const form = useForm<UserEditFormData>({
@@ -136,14 +139,20 @@ export function UserEditPage() {
   useEffect(() => {
     if (isNew || !userId) {
       form.reset(DEFAULT_USER_FORM_VALUES)
+      setLoadError(null)
+      setProfileLoaded(true)
       setIsLoading(false)
       return
     }
 
+    let cancelled = false
     setIsLoading(true)
+    setLoadError(null)
+    setProfileLoaded(false)
     api
       .get<unknown>('/ui/userprofile/load/', { id: userId })
       .then((raw) => {
+        if (cancelled) return
         const profile = parseUserProfile(raw)
         form.reset({
           ...DEFAULT_USER_FORM_VALUES,
@@ -157,22 +166,23 @@ export function UserEditPage() {
           isAdmin: profile.isAdmin,
           permissions: normalizePermissions(profile.permissions),
         })
+        setProfileLoaded(true)
       })
-      .catch(() => {
-        const user = users?.find((entry) => String(entry.id) === userId)
-        if (!user) return
-        form.reset({
-          ...DEFAULT_USER_FORM_VALUES,
-          id: userId,
-          firstname: user.firstname,
-          lastname: user.lastname,
-          email: user.email,
-          enabled: user.enabled,
-          isAdmin: user.isAdmin,
-        })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setLoadError(getErrorMessage(err))
       })
-      .finally(() => setIsLoading(false))
-  }, [form, isNew, userId, users])
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [form, isNew, userId, loadAttempt])
+
+  const handleRetryLoad = useCallback(() => {
+    setLoadAttempt((attempt) => attempt + 1)
+  }, [])
 
   const copyOptions = useMemo(
     () => (users ?? []).filter((user) => String(user.id) !== userId),
@@ -200,6 +210,10 @@ export function UserEditPage() {
   }, [form, toast])
 
   const onSubmit = useCallback(async (data: UserEditFormData) => {
+    if (!profileLoaded) {
+      toast.error('User profile has not finished loading. Retry loading before saving.')
+      return
+    }
     setIsSaving(true)
     try {
       const permissions =
@@ -238,132 +252,124 @@ export function UserEditPage() {
     } finally {
       setIsSaving(false)
     }
-  }, [queryClient, toast, navigate])
+  }, [profileLoaded, queryClient, toast, navigate])
+
+  const bodyState: PageShellBodyState = isLoading
+    ? { status: 'loading' }
+    : loadError
+      ? {
+          status: 'error',
+          message: `Failed to load user: ${loadError}`,
+          onRetry: handleRetryLoad,
+        }
+      : { status: 'ready' }
 
   return (
-    <PageShell title={isNew ? 'New User' : 'Edit User'}>
-      {isLoading ? (
-        <div className="text-sm text-muted-foreground">Loading user...</div>
-      ) : (
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <label htmlFor="login" className="block text-sm font-medium text-foreground">Login</label>
-              <Controller
-                control={form.control}
-                name="login"
-                render={({ field }) => (
-                  <Input id="login" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
-                )}
-              />
-              {form.formState.errors.login && (
-                <p className="text-xs text-destructive">{form.formState.errors.login.message}</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-sm font-medium text-foreground">Email</label>
-              <Controller
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <Input id="email" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
-                )}
-              />
-              {form.formState.errors.email && (
-                <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="firstname" className="block text-sm font-medium text-foreground">First name</label>
-              <Controller
-                control={form.control}
-                name="firstname"
-                render={({ field }) => (
-                  <Input id="firstname" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
-                )}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="lastname" className="block text-sm font-medium text-foreground">Last name</label>
-              <Controller
-                control={form.control}
-                name="lastname"
-                render={({ field }) => (
-                  <Input id="lastname" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
-                )}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="block text-sm font-medium text-foreground">Password</label>
-              <Controller
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <Input
-                    id="password"
-                    type="password"
-                    value={field.value}
-                    onChange={(event) => field.onChange(event.target.value)}
-                  />
-                )}
-              />
-              {form.formState.errors.password && (
-                <p className="text-xs text-destructive">{form.formState.errors.password.message}</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <span className="block text-sm font-medium text-foreground">Copy Rights From</span>
-              <Select
-                onChange={(value) => {
-                  if (typeof value === 'string' && value) {
-                    void handleCopyRights(value)
-                  }
-                }}
-                placeholder="Select a user"
-                className="w-full"
-                options={copySelectOptions}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-md border p-3">
-              <span className="text-sm font-medium">Enabled</span>
-              <Controller
-                control={form.control}
-                name="enabled"
-                render={({ field }) => (
-                  <Switch checked={field.value} onChange={(checked) => field.onChange(checked)} />
-                )}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-md border p-3">
-              <span className="text-sm font-medium">Admin</span>
-              <Controller
-                control={form.control}
-                name="isAdmin"
-                render={({ field }) => (
-                  <Switch checked={field.value} onChange={(checked) => field.onChange(checked)} />
-                )}
-              />
-            </div>
-          </div>
-
+    <PageShell title={isNew ? 'New User' : 'Edit User'} bodyState={bodyState}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2">
           <Controller
             control={form.control}
-            name="permissions"
-            render={({ field }) => (
-              <PermissionsGrid ref={permissionsGridRef} value={field.value} onChange={field.onChange} />
+            name="login"
+            render={({ field, fieldState }) => (
+              <FormField label="Login" htmlFor="login" error={fieldState.error?.message}>
+                <Input id="login" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
+              </FormField>
             )}
           />
-
-          <div className="flex justify-end gap-2">
-            <Button htmlType="button" onClick={() => navigate('/settings/users')}>
-              Cancel
-            </Button>
-            <Button type="primary" htmlType="submit" loading={isSaving} disabled={isSaving}>
-              Save
-            </Button>
+          <Controller
+            control={form.control}
+            name="email"
+            render={({ field, fieldState }) => (
+              <FormField label="Email" htmlFor="email" error={fieldState.error?.message}>
+                <Input id="email" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
+              </FormField>
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="firstname"
+            render={({ field }) => (
+              <FormField label="First name" htmlFor="firstname">
+                <Input id="firstname" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
+              </FormField>
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="lastname"
+            render={({ field }) => (
+              <FormField label="Last name" htmlFor="lastname">
+                <Input id="lastname" value={field.value} onChange={(event) => field.onChange(event.target.value)} />
+              </FormField>
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="password"
+            render={({ field, fieldState }) => (
+              <FormField label="Password" htmlFor="password" error={fieldState.error?.message}>
+                <Input
+                  id="password"
+                  type="password"
+                  value={field.value}
+                  onChange={(event) => field.onChange(event.target.value)}
+                />
+              </FormField>
+            )}
+          />
+          <FormField label="Copy Rights From" htmlFor="copyRightsFrom">
+            <Select
+              id="copyRightsFrom"
+              onChange={(value) => {
+                if (typeof value === 'string' && value) {
+                  void handleCopyRights(value)
+                }
+              }}
+              placeholder="Select a user"
+              className="w-full"
+              options={copySelectOptions}
+            />
+          </FormField>
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <span className="text-sm font-medium">Enabled</span>
+            <Controller
+              control={form.control}
+              name="enabled"
+              render={({ field }) => (
+                <Switch checked={field.value} onChange={(checked) => field.onChange(checked)} />
+              )}
+            />
           </div>
-        </form>
-      )}
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <span className="text-sm font-medium">Admin</span>
+            <Controller
+              control={form.control}
+              name="isAdmin"
+              render={({ field }) => (
+                <Switch checked={field.value} onChange={(checked) => field.onChange(checked)} />
+              )}
+            />
+          </div>
+        </div>
+
+        <Controller
+          control={form.control}
+          name="permissions"
+          render={({ field }) => (
+            <PermissionsGrid ref={permissionsGridRef} value={field.value} onChange={field.onChange} />
+          )}
+        />
+
+        <div className="flex justify-end gap-2">
+          <Button htmlType="button" onClick={() => navigate('/settings/users')}>
+            Cancel
+          </Button>
+          <Button type="primary" htmlType="submit" loading={isSaving} disabled={isSaving}>
+            Save
+          </Button>
+        </div>
+      </form>
     </PageShell>
   )
 }

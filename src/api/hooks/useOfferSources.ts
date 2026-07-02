@@ -26,17 +26,10 @@ export type SaveOfferSourceInput = {
   isCreate: boolean
 }
 
-export function useOfferSources(status?: string) {
-  const params: Record<string, string> = {}
-  if (status && status !== 'all') params.status = status
+export function useOfferSources(status: 'active' | 'archived' = 'active') {
   return useQuery({
-    queryKey: queryKeys.offerSources.list(params),
-    queryFn: () => {
-      if (status === 'archived') {
-        return api.get<OfferSource[]>('/data/offersource/find/byStatus/', { status: 'archived' })
-      }
-      return api.get<OfferSource[]>('/data/offersource/find/byStatus/', { status: 'active' })
-    },
+    queryKey: queryKeys.offerSources.list({ status }),
+    queryFn: () => api.get<OfferSource[]>('/data/offersource/find/byStatus/', { status }),
   })
 }
 

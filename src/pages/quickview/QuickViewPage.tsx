@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, useCallback } from "react"
+import { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import type { ColumnDef } from "@tanstack/react-table"
 import { api } from "@/api/client"
-import { PageShell, TimezoneSelect } from "@/components/ui-kit"
+import { Alert, PageShell, TimezoneSelect } from "@/components/ui-kit"
 import { DataTable } from "@/components/ui-kit/data-table"
 import { entityRowId } from "@/components/ui-kit/data-table"
 import { DateRangePicker } from "@/components/shared/DateRangePicker"
@@ -10,6 +10,9 @@ import { Card } from "@/components/ui-kit"
 import { Button } from "@/components/ui-kit"
 import { useDrilldownStore } from "@/store/drilldown"
 import { toApiDateTimeRange } from "@/lib/statsDateRange"
+import type { DateRange } from "@/lib/date-presets"
+import { getErrorMessage } from "@/lib/utils"
+import { reportRowToCells } from "@/lib/reportRowCells"
 import type { Report, ReportCell } from "@/types/stats"
 
 const REPORT_GROUPS = [
@@ -34,6 +37,9 @@ const REPORT_GROUPS = [
   ],
 ] as const
 
+/** Entity names are timezone-independent; a fixed zone keeps the 1-row name lookup stable across timezone changes. */
+const ENTITY_NAME_LOOKUP_TIMEZONE = "UTC"
+
 interface QuickViewRow {
   id: string
   cells: ReportCell[]
@@ -41,11 +47,7 @@ interface QuickViewRow {
 
 function reportRowsToFlatData(report: Report): QuickViewRow[] {
   return report.rows.map((row, index) => {
-    const cells: ReportCell[] = []
-    for (let i = 0; i < report.columns.length; i += 1) {
-      const cell = row[String(i)] as ReportCell | undefined
-      cells.push(cell ?? { raw: "", formatted: "" })
-    }
+    const cells = reportRowToCells(row, report.columns.length)
     return {
       id: String(cells[0]?.raw ?? index),
       cells,
@@ -59,13 +61,6 @@ export function QuickViewPage() {
   const entityGroupBy = searchParams.get("groupBy") ?? "Element: Campaign"
   const entityId = searchParams.get("id") ?? ""
 
-  const {
-    setGroupings,
-    setGroupingFilters,
-    setTimezone: setDrilldownTimezone,
-    setDateRange: setDrilldownDateRange,
-  } = useDrilldownStore()
-
   const [selectedGroupBy, setSelectedGroupBy] = useState("Time: Date")
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone)
   const [dateRange, setDateRange] = useState(() => ({
@@ -75,6 +70,8 @@ export function QuickViewPage() {
   const [report, setReport] = useState<Report | null>(null)
   const [entityName, setEntityName] = useState(entityId)
   const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const loadRequestIdRef = useRef(0)
 
   const loadEntityName = useCallback(async () => {
     if (!entityId) return
@@ -83,7 +80,7 @@ export function QuickViewPage() {
       const now = new Date()
       const nameReport = await api.postDrilldown<Report>({
         timeRange: toApiDateTimeRange(now, now),
-        timeZone: { name: timezone },
+        timeZone: { name: ENTITY_NAME_LOOKUP_TIMEZONE },
         groupings: [
           {
             groupBy: entityGroupBy,
@@ -98,14 +95,19 @@ export function QuickViewPage() {
       const firstRow = reportRowsToFlatData(nameReport)[0]
       setEntityName(firstRow?.cells[0]?.formatted ?? entityId)
     } catch {
+      // Name lookup is cosmetic — fall back to the raw entity id.
       setEntityName(entityId)
     }
-  }, [entityGroupBy, entityId, timezone])
+  }, [entityGroupBy, entityId])
 
   const loadReport = useCallback(async () => {
     if (!entityId) return
 
+    // Guard against overlapping loads: only the latest request may write state,
+    // so a slow older failure can't paint an error over newer data.
+    const requestId = ++loadRequestIdRef.current
     setIsLoading(true)
+    setLoadError(null)
     try {
       const nextReport = await api.postDrilldown<Report>({
         timeRange: toApiDateTimeRange(dateRange.from, dateRange.to),
@@ -127,9 +129,16 @@ export function QuickViewPage() {
         paging: { start: 0, length: 100 },
         options: { viewType: "flat" },
       })
+      if (requestId !== loadRequestIdRef.current) return
       setReport(nextReport)
+    } catch (err) {
+      // Surface API failures instead of leaving an unhandled rejection + silent empty table.
+      if (requestId !== loadRequestIdRef.current) return
+      setLoadError(getErrorMessage(err))
     } finally {
-      setIsLoading(false)
+      if (requestId === loadRequestIdRef.current) {
+        setIsLoading(false)
+      }
     }
   }, [dateRange.from, dateRange.to, entityGroupBy, entityId, selectedGroupBy, timezone])
 
@@ -170,7 +179,31 @@ export function QuickViewPage() {
 
   const rows = useMemo(() => (report ? reportRowsToFlatData(report) : []), [report])
 
+  const dateRangePickerValue = useMemo<DateRange & { preset: string | null }>(
+    () => ({ from: dateRange.from, to: dateRange.to, preset: null }),
+    [dateRange.from, dateRange.to],
+  )
+
+  const handleDateRangeChange = useCallback((value: DateRange & { preset: string | null }) => {
+    if (value.from && value.to) {
+      setDateRange({ from: value.from, to: value.to })
+    }
+  }, [])
+
+  const handleRetryLoadReport = useCallback(() => {
+    void loadReport()
+  }, [loadReport])
+
   const handleOpenInDrilldown = () => {
+    // Setters only — read them off the store imperatively so this page does not
+    // subscribe to (and re-render on) every drilldown store change.
+    const {
+      setGroupings,
+      setGroupingFilters,
+      setTimezone: setDrilldownTimezone,
+      setDateRange: setDrilldownDateRange,
+    } = useDrilldownStore.getState()
+
     setGroupings([entityGroupBy, selectedGroupBy])
     setGroupingFilters({
       0: {
@@ -201,13 +234,9 @@ export function QuickViewPage() {
     >
       <div className="flex items-center gap-3 flex-wrap">
         <DateRangePicker
-          value={{ from: dateRange.from, to: dateRange.to, preset: null }}
+          value={dateRangePickerValue}
           timezone={timezone}
-          onChange={(value) => {
-            if (value.from && value.to) {
-              setDateRange({ from: value.from, to: value.to })
-            }
-          }}
+          onChange={handleDateRangeChange}
         />
         <TimezoneSelect value={timezone} onChange={setTimezone} />
       </div>
@@ -229,6 +258,20 @@ export function QuickViewPage() {
           </div>
         ))}
       </div>
+
+      {loadError ? (
+        <Alert
+          type="error"
+          showIcon
+          title="Quick view report failed to load"
+          description={loadError}
+          action={
+            <Button size="small" onClick={handleRetryLoadReport}>
+              Retry
+            </Button>
+          }
+        />
+      ) : null}
 
       <Card styles={{ body: { padding: 16 } }}>
         <DataTable<QuickViewRow>

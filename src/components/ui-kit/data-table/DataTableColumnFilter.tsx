@@ -1,5 +1,11 @@
 import { useCallback, useState } from 'react'
-import { Button, Input, InputNumber, Popover, Select } from '@/components/ui-kit'
+/* Module-direct imports (not the ui-kit barrel) — the barrel would create a
+   data-table <-> ui-kit chunk cycle that merges CodeMirror into the entry chunk. */
+import { Button } from '@/components/ui-kit/Button'
+import { Input } from '@/components/ui-kit/Input'
+import { InputNumber } from '@/components/ui-kit/InputNumber'
+import { Popover } from '@/components/ui-kit/Popover'
+import { Select } from '@/components/ui-kit/Select'
 import { Icon } from '@/components/ui-kit/icons'
 import {
   COLUMN_FILTER_OPERATOR_OPTIONS,

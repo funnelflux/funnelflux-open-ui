@@ -90,7 +90,7 @@ export function NodeAdvancedSettingsModal({ nodeId, open, onClose }: NodeAdvance
   }
 
   return (
-    <FormModal open={open} onCancel={onClose} destroyOnHidden maskClosable={false} width={520}>
+    <FormModal open={open} onCancel={onClose} destroyOnHidden mask={{ closable: false }} width={520}>
       <FormModalHeader
         title="Advanced funnel settings"
         description="URL pass-through options for this funnel node. Changes apply when visitors reach this page from this funnel."

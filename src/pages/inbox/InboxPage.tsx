@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table'
 import { sanitizeHtml } from '@/lib/sanitize'
-import { Button, Input, Modal, Select, Tag } from '@/components/ui-kit'
+import { Button, Modal, SearchToolbar, Tag } from '@/components/ui-kit'
 import { DataTable, selectionColumn } from '@/components/ui-kit/data-table'
-import { PageShell, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { PageShell, ConfirmModal, useToastApi, type PageShellBodyState } from '@/components/ui-kit'
+import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import {
   useInboxMessages,
   useInboxMessage,
@@ -13,9 +14,13 @@ import {
 import type { InboxMessage } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 
+function inboxMessageRowId(row: InboxMessage): string {
+  return row.id
+}
+
 export function InboxPage() {
   const toast = useToastApi()
-  const { data: messages, isLoading } = useInboxMessages()
+  const { data: messages, isLoading, isFetching, isError, error, refetch } = useInboxMessages()
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
   const { data: fullMessage, isLoading: isMessageLoading } = useInboxMessage(selectedMessageId ?? '')
   const changeReadStatus = useChangeReadStatus()
@@ -23,7 +28,6 @@ export function InboxPage() {
 
   const [search, setSearch] = useState('')
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [bulkAction, setBulkAction] = useState<'read' | 'unread' | 'delete'>('read')
   const [deleteTarget, setDeleteTarget] = useState<InboxMessage | null>(null)
 
   const selectedIds = useMemo(
@@ -88,27 +92,37 @@ export function InboxPage() {
     }
   }
 
-  const applyBulkAction = useCallback(async () => {
+  const bulkSetReadStatus = useCallback(async (isRead: boolean) => {
     if (selectedIds.length === 0) return
-
     try {
-      if (bulkAction === 'delete') {
-        await deleteMessage.mutateAsync(selectedIds)
-        toast.success(`Deleted ${selectedIds.length} message${selectedIds.length === 1 ? '' : 's'}`)
-      } else {
-        const isRead = bulkAction === 'read'
-        await changeReadStatus.mutateAsync({ ids: selectedIds, isRead })
-        toast.success(
-          isRead
-            ? `Marked ${selectedIds.length} message${selectedIds.length === 1 ? '' : 's'} as read`
-            : `Marked ${selectedIds.length} message${selectedIds.length === 1 ? '' : 's'} as unread`,
-        )
-      }
+      await changeReadStatus.mutateAsync({ ids: selectedIds, isRead })
+      toast.success(
+        `Marked ${selectedIds.length} message${selectedIds.length === 1 ? '' : 's'} as ${isRead ? 'read' : 'unread'}`,
+      )
       setRowSelection({})
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
-  }, [selectedIds, bulkAction, deleteMessage, toast, changeReadStatus])
+  }, [selectedIds, toast, changeReadStatus])
+
+  const bulkDelete = useCallback(async () => {
+    if (selectedIds.length === 0) return
+    try {
+      await deleteMessage.mutateAsync(selectedIds)
+      toast.success(`Deleted ${selectedIds.length} message${selectedIds.length === 1 ? '' : 's'}`)
+      setRowSelection({})
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    }
+  }, [selectedIds, deleteMessage, toast])
+
+  const bulkExtraActions = useMemo(
+    () => [
+      { key: 'mark-read', label: 'Mark as read', onAction: () => bulkSetReadStatus(true) },
+      { key: 'mark-unread', label: 'Mark as unread', onAction: () => bulkSetReadStatus(false) },
+    ],
+    [bulkSetReadStatus],
+  )
 
   const columns = useMemo<ColumnDef<InboxMessage, unknown>[]>(
     () => [
@@ -181,42 +195,38 @@ export function InboxPage() {
     [openMessage, toggleReadStatus],
   )
 
+  const bodyState: PageShellBodyState = isError
+    ? {
+        status: 'error',
+        message: getErrorMessage(error),
+        onRetry: () => void refetch(),
+      }
+    : { status: 'ready' }
+
   return (
-    <PageShell title="Inbox">
+    <PageShell title="Inbox" bodyState={bodyState}>
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="w-44">
-            <Select
-              value={bulkAction}
-              onChange={(value) => setBulkAction((value as 'read' | 'unread' | 'delete') ?? 'read')}
-              options={[
-                { value: 'read', label: 'Mark as read' },
-                { value: 'unread', label: 'Mark as unread' },
-                { value: 'delete', label: 'Delete' },
-              ]}
-            />
-          </div>
-          <Button
-            onClick={() => {
-              void applyBulkAction()
-            }}
-            disabled={selectedIds.length === 0}
-          >
-            Apply
-          </Button>
-          <div className="w-64">
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search..."
-            />
-          </div>
-        </div>
+        <SearchToolbar
+          value={search}
+          onChange={setSearch}
+          placeholder="Search..."
+          onRefresh={() => void refetch()}
+          refreshLoading={isFetching}
+        />
+
+        <BulkActionsBar
+          count={selectedIds.length}
+          onDeselectAll={() => setRowSelection({})}
+          onDelete={bulkDelete}
+          deleteConfirmTitle={`Delete ${selectedIds.length} Message${selectedIds.length === 1 ? '' : 's'}`}
+          deleteConfirmDescription={`Are you sure you want to permanently delete ${selectedIds.length} selected message${selectedIds.length === 1 ? '' : 's'}? This cannot be undone.`}
+          extraActions={bulkExtraActions}
+        />
 
         <DataTable<InboxMessage>
           data={filteredMessages}
           columns={columns}
-          getRowId={(row) => row.id}
+          getRowId={inboxMessageRowId}
           loading={isLoading}
           tableConfigKey="inbox-messages"
           enableRowSelection
@@ -232,6 +242,7 @@ export function InboxPage() {
         description={`Are you sure you want to delete "${deleteTarget?.title}"?`}
         confirmText="Delete"
         danger
+        loading={deleteMessage.isPending}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
@@ -242,7 +253,6 @@ export function InboxPage() {
         onCancel={() => setSelectedMessageId(null)}
         footer={(
           <div className="flex items-center justify-end gap-2">
-            <Button onClick={() => setSelectedMessageId(null)}>OK</Button>
             <Button
               type="default"
               onClick={() => {
@@ -261,6 +271,7 @@ export function InboxPage() {
             >
               Mark as unread
             </Button>
+            <Button onClick={() => setSelectedMessageId(null)}>Close</Button>
           </div>
         )}
         width={760}

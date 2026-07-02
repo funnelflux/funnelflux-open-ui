@@ -294,51 +294,46 @@ export function useCampaignsController() {
     }
   }, [navigate])
 
-  const runClone = useCallback((row: CampaignRow) => {
+  const runClone = useCallback(async (row: CampaignRow) => {
     if (row.id === '__totals__') return
-    if (row._isCategoryHeader) {
-      cloneCampaign.mutate(row.campaignId, {
-        onSuccess: async (pair: IdNamePair) => {
-          toast.success('Campaign cloned')
-          const newCampId = String(pair.id ?? '')
-          const newName = String(pair.name ?? '')
-          let funnelList: IdName[] = []
-          try {
-            funnelList = await api.get<IdName[]>('/data/campaign/funnel/list/', {
-              idCampaign: newCampId,
-            })
-          } catch {
-            funnelList = []
-          }
-          patchStaticHierarchy((prev) =>
-            prev ? cloneCampaignInStatic(prev, row.campaignId, newCampId, newName, funnelList) : prev,
-          )
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      })
+    if (!row._isCategoryHeader) return
+    try {
+      const pair: IdNamePair = await cloneCampaign.mutateAsync(row.campaignId)
+      toast.success('Campaign cloned')
+      const newCampId = String(pair.id ?? '')
+      const newName = String(pair.name ?? '')
+      let funnelList: IdName[] = []
+      try {
+        funnelList = await api.get<IdName[]>('/data/campaign/funnel/list/', {
+          idCampaign: newCampId,
+        })
+      } catch {
+        funnelList = []
+      }
+      patchStaticHierarchy((prev) =>
+        prev ? cloneCampaignInStatic(prev, row.campaignId, newCampId, newName, funnelList) : prev,
+      )
+    } catch (err) {
+      toast.error(getErrorMessage(err))
     }
   }, [cloneCampaign, toast, patchStaticHierarchy])
 
-  const runDelete = useCallback((row: CampaignRow) => {
+  const runDelete = useCallback(async (row: CampaignRow) => {
     if (row.id === '__totals__') return
-    if (row._isCategoryHeader) {
-      deleteCampaign.mutate(row.campaignId, {
-        onSuccess: () => {
-          toast.success('Campaign deleted')
-          patchStaticHierarchy((prev) => (prev ? removeCampaignFromStatic(prev, row.campaignId) : prev))
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      })
-      return
+    try {
+      if (row._isCategoryHeader) {
+        await deleteCampaign.mutateAsync(row.campaignId)
+        toast.success('Campaign deleted')
+        patchStaticHierarchy((prev) => (prev ? removeCampaignFromStatic(prev, row.campaignId) : prev))
+        return
+      }
+      if (!row.funnelId) return
+      await deleteFunnel.mutateAsync(row.funnelId)
+      toast.success('Funnel deleted')
+      patchStaticHierarchy((prev) => (prev ? removeFunnelFromStatic(prev, row.funnelId!) : prev))
+    } catch (err) {
+      toast.error(getErrorMessage(err))
     }
-    if (!row.funnelId) return
-    deleteFunnel.mutate(row.funnelId, {
-      onSuccess: () => {
-        toast.success('Funnel deleted')
-        patchStaticHierarchy((prev) => (prev ? removeFunnelFromStatic(prev, row.funnelId!) : prev))
-      },
-      onError: (err) => toast.error(getErrorMessage(err)),
-    })
   }, [deleteCampaign, deleteFunnel, toast, patchStaticHierarchy])
 
   const runArchive = useCallback(async (row: CampaignRow, archive: boolean) => {
@@ -438,9 +433,9 @@ export function useCampaignsController() {
     setConfirmLoading(true)
     try {
       if (pendingAction.kind === 'clone') {
-        runClone(pendingAction.row)
+        await runClone(pendingAction.row)
       } else if (pendingAction.kind === 'delete') {
-        runDelete(pendingAction.row)
+        await runDelete(pendingAction.row)
       } else {
         await runArchive(pendingAction.row, pendingAction.archive)
       }
@@ -471,6 +466,13 @@ export function useCampaignsController() {
     return pendingAction.archive
       ? `Archive "${label}"? Archived items are hidden from default active views.`
       : `Restore "${label}" to active view?`
+  }, [pendingAction])
+
+  const confirmText = useMemo(() => {
+    if (!pendingAction) return 'Confirm'
+    if (pendingAction.kind === 'clone') return 'Clone'
+    if (pendingAction.kind === 'delete') return 'Delete'
+    return pendingAction.archive ? 'Archive' : 'Restore'
   }, [pendingAction])
 
   const confirmDanger = pendingAction?.kind === 'delete' || (pendingAction?.kind === 'archive' && pendingAction.archive)
@@ -636,6 +638,7 @@ export function useCampaignsController() {
     confirmLoading,
     confirmTitle,
     confirmDescription,
+    confirmText,
     confirmDanger,
     handleCancelConfirm,
     handleConfirmAction,

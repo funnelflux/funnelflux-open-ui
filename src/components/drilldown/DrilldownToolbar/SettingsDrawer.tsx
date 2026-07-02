@@ -34,7 +34,6 @@ export function DrilldownSettingsDrawer() {
       width={420}
       open={settingsDrawerOpen}
       onClose={closeSettingsDrawer}
-      destroyOnClose={false}
     >
       <div className="flex flex-col gap-5">
         <div className="space-y-2">

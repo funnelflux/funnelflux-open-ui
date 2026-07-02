@@ -190,7 +190,7 @@ export function OfferSourceForm({
           onSubmit={handleSubmit(handleSubmitAndMaybeReset)}
           className="space-y-4"
         >
-          <FormField label="Name" htmlFor="offerSourceName" error={errors.offerSourceName?.message}>
+          <FormField label="Name" htmlFor="offerSourceName" required error={errors.offerSourceName?.message}>
             <Controller
               control={control}
               name="offerSourceName"

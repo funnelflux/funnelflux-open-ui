@@ -366,7 +366,7 @@ export function flattenReportToGridRows(report: Report): Record<string, string>[
       }
       out.push(obj)
 
-      const ex = row.expandableInfo as { children?: ReportRow[] } | undefined
+      const ex = row.expandableInfo
       if (ex?.children?.length) {
         walk(ex.children, depth + 1)
       }

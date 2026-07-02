@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Skeleton } from '@/components/ui-kit'
 import { StatCard } from '@/components/ui-kit'
 import type { LiveStats } from '@/types/ui'
@@ -83,7 +84,7 @@ function metricToneClass(key: string, stats: DashboardSummaryStats | undefined):
   return 'text-muted-foreground'
 }
 
-export function StatsCards({ stats, isLoading, layout = 'dashboard', className }: StatsCardsProps) {
+function StatsCardsComponent({ stats, isLoading, layout = 'dashboard', className }: StatsCardsProps) {
   const cards = layout === 'dashboard' ? DASHBOARD_CARDS : LEGACY_CARDS
   const compact = layout === 'dashboard'
 
@@ -113,12 +114,15 @@ export function StatsCards({ stats, isLoading, layout = 'dashboard', className }
           <StatCard
             key={key}
             title={label}
-            value={stats ? formatValue(key, format, stats) : '0'}
+            // No stats after loading means the summary failed — show a placeholder, not fake zeros.
+            value={stats ? formatValue(key, format, stats) : '—'}
             compact={compact}
             className={cn(
               'min-h-0',
               key === 'net' || key === 'roi' ? (
-                stats && Number(stats[key]) < 0 ? 'ff-stat-card--loss' : 'ff-stat-card--profit'
+                stats
+                  ? (Number(stats[key]) < 0 ? 'ff-stat-card--loss' : 'ff-stat-card--profit')
+                  : undefined
               ) : undefined,
             )}
             valueClassName={metricToneClass(key, stats)}
@@ -128,3 +132,5 @@ export function StatsCards({ stats, isLoading, layout = 'dashboard', className }
     </div>
   )
 }
+
+export const StatsCards = memo(StatsCardsComponent)

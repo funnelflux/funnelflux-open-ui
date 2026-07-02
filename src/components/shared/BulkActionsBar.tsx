@@ -25,6 +25,8 @@ interface BulkActionsBarProps {
   /** Override delete confirmation copy (e.g. category + child rows). */
   deleteConfirmTitle?: string
   deleteConfirmDescription?: string
+  /** Page-specific bulk actions without confirmation (e.g. inbox mark read/unread). */
+  extraActions?: { key: string; label: string; onAction: () => Promise<void> }[]
   /** Top overlay above the navbar (`z-50`) or legacy sticky bottom inside the page. */
   variant?: 'floatingTop' | 'bottom'
 }
@@ -40,12 +42,23 @@ export function BulkActionsBar({
   archiveLabel = 'Archive',
   deleteConfirmTitle,
   deleteConfirmDescription,
+  extraActions,
   variant = 'floatingTop',
 }: BulkActionsBarProps) {
   const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null)
   const [moveModalOpen, setMoveModalOpen] = useState(false)
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [runningExtraKey, setRunningExtraKey] = useState<string | null>(null)
+
+  const runExtraAction = useCallback(async (key: string, onAction: () => Promise<void>) => {
+    setRunningExtraKey(key)
+    try {
+      await onAction()
+    } finally {
+      setRunningExtraKey(null)
+    }
+  }, [])
 
   const runArchiveOrDelete = useCallback(async () => {
     if (!confirmAction) return
@@ -131,6 +144,19 @@ export function BulkActionsBar({
           <Button htmlType="button" type="default" size="small" onClick={onDeselectAll}>
             Clear
           </Button>
+          {(extraActions ?? []).map((action) => (
+            <Button
+              key={action.key}
+              htmlType="button"
+              type="default"
+              size="small"
+              loading={runningExtraKey === action.key}
+              disabled={runningExtraKey !== null && runningExtraKey !== action.key}
+              onClick={() => void runExtraAction(action.key, action.onAction)}
+            >
+              {action.label}
+            </Button>
+          ))}
           {onMove ? (
             <Button htmlType="button" type="default" size="small" onClick={onMove} iconName="workflow" iconSize="sm">
               {moveLabel}

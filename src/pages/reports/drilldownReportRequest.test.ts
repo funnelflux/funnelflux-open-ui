@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { withReportColumnFilters } from '@/pages/reports/drilldownReportRequest'
+import {
+  resolveColumnsForFilters,
+  withReportColumnFilters,
+} from '@/pages/reports/drilldownReportRequest'
 import type { DrilldownRequest, Report } from '@/types/stats'
 
 const reportColumns = [
@@ -54,5 +57,44 @@ describe('withReportColumnFilters', () => {
       ],
     })
     expect(lazyChild.columnFilters).toEqual(initial.columnFilters)
+  })
+
+  it('drops header/dimension filters when report columns are not yet available', () => {
+    // Regression guard: before the first report response (report === undefined) the UI ids cannot
+    // be mapped to API column names, so filters are silently dropped. resolveColumnsForFilters must
+    // be used to recover them from the last-known column shape.
+    const dropped = withReportColumnFilters(request, undefined, {
+      'grouping-0': { kind: 'text', operator: 'contains', value: 'brand' },
+    })
+    expect(dropped.columnFilters).toBeUndefined()
+  })
+
+  it('encodes a pending header filter on the first Apply once columns are known via fallback', () => {
+    // User entered a header filter (held in columnFilters state) while the live report was
+    // transiently undefined. On Apply we resolve columns from the last-known snapshot so the
+    // grouping/header filter still reaches the API as columnFilters.filterColumns.
+    const pendingFilters = {
+      'grouping-0': { kind: 'text' as const, operator: 'contains' as const, value: 'brand' },
+      revenue: { kind: 'numeric' as const, operator: '>' as const, value: '10' },
+    }
+    const liveColumns: Report['columns'] | undefined = undefined
+    const columns = resolveColumnsForFilters(liveColumns, reportColumns)
+
+    const applied = withReportColumnFilters(request, columns, pendingFilters)
+
+    expect(applied.columnFilters).toEqual({
+      filterColumns: [
+        { columnName: 'Element: Campaign', filter: '*brand*' },
+        { columnName: 'Revenue', filter: '>10' },
+      ],
+    })
+  })
+
+  it('resolveColumnsForFilters prefers live columns and falls back to last-known', () => {
+    const liveColumns = [{ name: 'Element: Funnel', type: 'grouping' }] as Report['columns']
+    expect(resolveColumnsForFilters(liveColumns, reportColumns)).toBe(liveColumns)
+    expect(resolveColumnsForFilters(undefined, reportColumns)).toBe(reportColumns)
+    expect(resolveColumnsForFilters([] as Report['columns'], reportColumns)).toBe(reportColumns)
+    expect(resolveColumnsForFilters(undefined, null)).toBeUndefined()
   })
 })

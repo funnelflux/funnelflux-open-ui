@@ -3,9 +3,27 @@ import { AuthExpiredError, NetworkError } from '@/api/errors'
 import { parseUserProfile } from '@/schemas/apiBoundaries'
 import type { SessionResponse, UserProfile } from '@/types/api'
 
+export async function fetchSession(): Promise<SessionResponse> {
+  return api.get<SessionResponse>('/auth/session/')
+}
+
+/**
+ * True when the live PHP session belongs to the currently cached user.
+ * Used to detect a session swap (logout/login in the same browser, bfcache
+ * restore, shared machine) so the SPA never keeps showing a previous user's
+ * profile after the underlying session has changed.
+ */
+export function sessionMatchesUser(
+  session: SessionResponse,
+  user: UserProfile | null,
+): boolean {
+  if (!session.authenticated || !user) return false
+  return session.userId === user.id
+}
+
 export async function bootstrapAuth(): Promise<UserProfile> {
   try {
-    const session = await api.get<SessionResponse>('/auth/session/')
+    const session = await fetchSession()
     if (!session.authenticated) {
       throw new Error('AUTH_REQUIRED')
     }

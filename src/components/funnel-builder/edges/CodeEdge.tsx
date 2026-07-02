@@ -54,6 +54,7 @@ function CodeEdgeComponent({
         fallbackY={labelY}
         className={cn(
           'nodrag nopan absolute bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full px-2 text-xs',
+          'dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-900',
           'pointer-events-auto',
           selected && 'ring-1 ring-yellow-400',
         )}

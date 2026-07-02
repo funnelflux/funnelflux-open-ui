@@ -81,15 +81,6 @@ export function useTrafficFilters(status?: string) {
   })
 }
 
-export function useTrafficFilter(id: string) {
-  return useQuery({
-    queryKey: queryKeys.trafficFilters.detail(id),
-    queryFn: () =>
-      api.get<TrafficFilter>('/data/trafficfilter/find/byId/', { idTrafficFilter: id }),
-    enabled: !!id,
-  })
-}
-
 export function useSaveTrafficFilter() {
   const qc = useQueryClient()
   return useMutation({
@@ -99,20 +90,23 @@ export function useSaveTrafficFilter() {
         : api.put<TrafficFilter>('/data/trafficfilter/save/', data),
     onSuccess: (_savedResponse, variables) => {
       const optimisticSavedFilter = normalizeTrafficFilter(variables.data)
-      if (!optimisticSavedFilter) return
-
-      for (const listStatus of TRAFFIC_FILTER_LIST_STATUSES) {
-        const params = trafficFilterListParams(listStatus)
-        qc.setQueryData<TrafficFiltersData>(
-          queryKeys.trafficFilters.list(params),
-          (previous) => upsertFilterInListData(previous, optimisticSavedFilter, listStatus),
-        )
+      if (optimisticSavedFilter) {
+        for (const listStatus of TRAFFIC_FILTER_LIST_STATUSES) {
+          const params = trafficFilterListParams(listStatus)
+          qc.setQueryData<TrafficFiltersData>(
+            queryKeys.trafficFilters.list(params),
+            (previous) => upsertFilterInListData(previous, optimisticSavedFilter, listStatus),
+          )
+        }
       }
 
-      const id = optimisticSavedFilter.idTrafficFilter
-      if (id) {
-        qc.setQueryData(queryKeys.trafficFilters.detail(id), optimisticSavedFilter)
-      }
+      // Safety net: the optimistic patch is built from the client payload and skips server-side
+      // normalization (and is skipped entirely for incomplete payloads). Mark everything stale so
+      // the next mount refetches authoritative data, without disturbing the instant UI above.
+      void qc.invalidateQueries({
+        queryKey: queryKeys.trafficFilters.all,
+        refetchType: 'inactive',
+      })
     },
   })
 }
@@ -123,7 +117,6 @@ export function useDeleteTrafficFilter() {
     mutationFn: (idTrafficFilter: string) =>
       api.delete('/data/trafficfilter/delete/', { idTrafficFilter }),
     onSuccess: (_data, idTrafficFilter) => {
-      qc.removeQueries({ queryKey: queryKeys.trafficFilters.detail(idTrafficFilter) })
       for (const listStatus of TRAFFIC_FILTER_LIST_STATUSES) {
         const params = trafficFilterListParams(listStatus)
         qc.setQueryData<TrafficFiltersData>(
@@ -131,6 +124,11 @@ export function useDeleteTrafficFilter() {
           (previous) => removeFilterFromListData(previous, idTrafficFilter),
         )
       }
+      // Safety net: keep the optimistic removal for instant UI, refetch on next mount.
+      void qc.invalidateQueries({
+        queryKey: queryKeys.trafficFilters.all,
+        refetchType: 'inactive',
+      })
     },
   })
 }

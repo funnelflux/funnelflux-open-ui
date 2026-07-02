@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  format,
   getHours,
   getMinutes,
   isSameMinute,
@@ -9,14 +10,16 @@ import {
   setMinutes,
   setSeconds,
 } from 'date-fns'
+import { TZDate } from '@date-fns/tz'
 import { Icon } from '@/components/ui-kit/icons'
 import {
   Alert,
   Button,
   Card,
+  ConfirmModal,
   DateTimeRangePicker,
   Divider,
-  Field,
+  FormField,
   Input,
   PageShell,
   Segmented,
@@ -29,6 +32,7 @@ import {
 import type { SelectOption } from '@/components/ui-kit'
 import { api } from '@/api/client'
 import { useTrafficSources } from '@/api/hooks/useTrafficSources'
+import { invalidateAllStats } from '@/api/invalidations'
 import { queryKeys } from '@/api/queryKeys'
 import { DATE_PRESETS, getPresetRange } from '@/lib/date-presets'
 import { toApiDateTimeForReportingZone } from '@/lib/statsDateRange'
@@ -92,6 +96,7 @@ function funnelOptionsFromCampaignTree(tree: KeyValuePairTreeItem[]): SelectOpti
 
 export function CostUpdatePage() {
   const toast = useToastApi()
+  const queryClient = useQueryClient()
   const {
     data: costPageData,
     isError: costPageError,
@@ -145,6 +150,7 @@ export function CostUpdatePage() {
   const [costMode, setCostMode] = useState<CostMode>('total')
   const [costAmountRaw, setCostAmountRaw] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const rangePresets = useMemo(() => presetRanges(timezone), [timezone])
 
@@ -177,7 +183,8 @@ export function CostUpdatePage() {
     }
   }, [])
 
-  async function handleSubmit(e: React.FormEvent) {
+  /** Validate, then ask for confirmation — this rewrites historical cost data. */
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     if (!idTrafficSource) {
@@ -188,20 +195,20 @@ export function CostUpdatePage() {
       toast.error('Please enter a valid cost amount')
       return
     }
-
-    const costAmount = Number(costAmountRaw)
-    if (costAmount < 0) {
+    if (Number(costAmountRaw) < 0) {
       toast.error('Cost must be zero or greater')
       return
     }
-
-    const startMs = range[0].getTime()
-    const endMs = range[1].getTime()
-    if (startMs > endMs) {
+    if (range[0].getTime() > range[1].getTime()) {
       toast.error('Start must be on or before end')
       return
     }
 
+    setConfirmOpen(true)
+  }
+
+  async function submitCostUpdate() {
+    const costAmount = Number(costAmountRaw)
     const [fromDate, toDate] = range
     const timeRange = {
       start: toApiDateTimeForReportingZone(fromDate, timezone),
@@ -235,6 +242,8 @@ export function CostUpdatePage() {
           : 'Cost update submitted.',
       )
       setCostAmountRaw('')
+      setConfirmOpen(false)
+      void invalidateAllStats(queryClient)
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
@@ -242,9 +251,25 @@ export function CostUpdatePage() {
     }
   }
 
+  const formatInReportingZone = (d: Date) =>
+    format(new TZDate(d.getTime(), timezone), 'yyyy-MM-dd HH:mm')
+
+  const confirmTrafficSourceLabel =
+    trafficSourceOptions.find((option) => option.value === idTrafficSource)?.label ??
+    idTrafficSource
+  const confirmFunnelLabel =
+    idFunnel && idFunnel !== '__none__'
+      ? funnelOptions.find((option) => option.value === idFunnel)?.label ?? idFunnel
+      : 'All funnels'
+  const confirmDescription =
+    `This retroactively rewrites historical cost data and cannot be undone. ` +
+    `Traffic source: ${confirmTrafficSourceLabel}. Funnel: ${confirmFunnelLabel}. ` +
+    `Range: ${formatInReportingZone(range[0])} to ${formatInReportingZone(range[1])} (${timezone}). ` +
+    `Cost: ${costAmountRaw || '0'} ${costMode === 'total' ? 'total across the range' : 'per entrance'}.`
+
   return (
     <PageShell
-      title="Update Cost"
+      title="Cost Updates"
       subtitle="Manually update cost data for a traffic source over a date and time range."
     >
       <Card className="max-w-4xl border-border" styles={{ body: { padding: 24 } }}>
@@ -275,11 +300,11 @@ export function CostUpdatePage() {
                   <Typography.Title level={5} className="mb-3 mt-0">
                     Scope
                   </Typography.Title>
-                  <Field
-                    title="Traffic source"
+                  <FormField
+                    label="Traffic source"
                     required
                     htmlFor="cost-update-traffic-source"
-                    description="Source this cost will be attributed to in reporting."
+                    help="Source this cost will be attributed to in reporting."
                   >
                     <Select
                       id="cost-update-traffic-source"
@@ -290,12 +315,12 @@ export function CostUpdatePage() {
                       className="w-full"
                       disabled={formLocked || noTrafficSources}
                     />
-                  </Field>
+                  </FormField>
 
-                  <Field
-                    title="Funnel"
+                  <FormField
+                    label="Funnel"
                     htmlFor="cost-update-funnel"
-                    description="Optional. Limit the cost update to one funnel; leave as “All funnels” to apply account-wide for this source."
+                    help="Optional. Limit the cost update to one funnel; leave as “All funnels” to apply account-wide for this source."
                     className="mt-4"
                   >
                     <Select
@@ -307,7 +332,7 @@ export function CostUpdatePage() {
                       className="w-full"
                       disabled={formLocked}
                     />
-                  </Field>
+                  </FormField>
                 </div>
               </div>
 
@@ -316,10 +341,10 @@ export function CostUpdatePage() {
                   <Typography.Title level={5} className="mb-3 mt-0">
                     Time range
                   </Typography.Title>
-                  <Field
-                    title="Timezone"
+                  <FormField
+                    label="Timezone"
                     htmlFor="cost-update-timezone"
-                    description="Dates and times are interpreted in this timezone for the API."
+                    help="Dates and times are interpreted in this timezone for the API."
                   >
                     <TimezoneSelect
                       id="cost-update-timezone"
@@ -328,13 +353,13 @@ export function CostUpdatePage() {
                       className="w-full"
                       disabled={formLocked}
                     />
-                  </Field>
+                  </FormField>
 
-                  <Field
-                    title="From — to"
+                  <FormField
+                    label="From — to"
                     required
                     htmlFor="cost-update-datetime-range"
-                    description="Inclusive range with date and time. Presets apply in one step; if you pick dates in the calendar, confirm with OK. (Auto-advance is off here so presets stay reliable.)"
+                    help="Inclusive range with date and time. Presets apply in one step; if you pick dates in the calendar, confirm with OK. (Auto-advance is off here so presets stay reliable.)"
                     className="mt-4"
                   >
                     <DateTimeRangePicker
@@ -346,7 +371,7 @@ export function CostUpdatePage() {
                       presets={rangePresets}
                       className={cn('w-full [&_.ant-picker]:w-full', 'h-control-md')}
                     />
-                  </Field>
+                  </FormField>
                 </div>
               </div>
             </div>
@@ -357,7 +382,7 @@ export function CostUpdatePage() {
               <Typography.Title level={5} className="mb-0 mt-0">
                 Cost
               </Typography.Title>
-              <Field title="How to apply" htmlFor="cost-update-mode">
+              <FormField label="How to apply" htmlFor="cost-update-mode">
                 <Segmented
                   id="cost-update-mode"
                   block
@@ -369,12 +394,12 @@ export function CostUpdatePage() {
                     { label: 'Cost per entrance', value: 'perEntrance' },
                   ]}
                 />
-              </Field>
-              <Field
-                title={costMode === 'total' ? 'Amount (total)' : 'Amount (per entrance)'}
+              </FormField>
+              <FormField
+                label={costMode === 'total' ? 'Amount (total)' : 'Amount (per entrance)'}
                 required
                 htmlFor="cost-update-amount"
-                description={
+                help={
                   costMode === 'total'
                     ? 'Total spend for the selected source (and funnel, if any) across the range.'
                     : 'Fixed cost applied to each entrance in the range.'
@@ -391,7 +416,7 @@ export function CostUpdatePage() {
                   disabled={formLocked}
                   className="w-full max-w-md"
                 />
-              </Field>
+              </FormField>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -405,12 +430,23 @@ export function CostUpdatePage() {
                     <Icon name="loader-2" size="md" animation="spin" />
                   </span>
                 )}
-                Update cost
+                Update Cost
               </Button>
             </div>
           </form>
         </Spin>
       </Card>
+
+      <ConfirmModal
+        open={confirmOpen}
+        onCancel={() => setConfirmOpen(false)}
+        title="Update historical cost"
+        description={confirmDescription}
+        confirmText="Update Cost"
+        onConfirm={() => void submitCostUpdate()}
+        loading={isSubmitting}
+        danger
+      />
     </PageShell>
   )
 }

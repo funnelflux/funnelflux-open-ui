@@ -34,13 +34,19 @@ export function normalizeTagListResponse(raw: unknown): Tag[] {
   }).filter((t) => t.id.length > 0)
 }
 
+/**
+ * Canonical fetcher for `queryKeys.tags.list()`. Always use this (never a raw `api.get`) when
+ * fetching into the shared cache so entries stay normalized.
+ */
+export async function fetchTagList(): Promise<Tag[]> {
+  const raw = await api.get<unknown>('/data/tag/list/')
+  return normalizeTagListResponse(raw)
+}
+
 export function useTags(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.tags.list(),
-    queryFn: async () => {
-      const raw = await api.get<unknown>('/data/tag/list/')
-      return normalizeTagListResponse(raw)
-    },
+    queryFn: fetchTagList,
     enabled: options?.enabled ?? true,
   })
 }

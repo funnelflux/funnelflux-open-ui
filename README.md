@@ -108,7 +108,7 @@ From the **FunnelFlux self-hosted root**, run the bundled build script, which
 builds this UI and deploys the output into `v2-ui/`:
 
 ```bash
-./build-v2-ui.sh
+./scripts/build-v2-ui.sh
 ```
 
 Or build manually from this directory (output lands in `dist/`, which the parent

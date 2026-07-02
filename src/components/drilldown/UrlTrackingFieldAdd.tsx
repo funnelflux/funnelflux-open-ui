@@ -45,18 +45,19 @@ export function UrlTrackingFieldAdd({
   const filledCount = groupings.filter((g) => g.trim()).length
   const atMax = filledCount >= MAX_DRILLDOWN_GROUPING_LEVELS
 
+  // Kept fresh by invalidateCategoryData (trafficsource category CRUD).
   const { data: categories = [] } = useQuery({
     queryKey: queryKeys.trafficSources.categories,
     queryFn: () => api.get<CategoryRow[]>('/data/trafficsource/category/list/'),
     enabled: open && !disabled,
-    staleTime: 60_000,
   })
 
+  // Same key + endpoint as the canonical `useTrafficSources()` fetcher (lazy: only while open).
+  // Default staleTime (Infinity) applies; traffic-source CRUD invalidations keep it fresh.
   const { data: trafficSources = [] } = useQuery({
     queryKey: queryKeys.trafficSources.list({}),
     queryFn: () => api.get<TrafficSourceListRow[]>('/data/trafficsource/list/'),
     enabled: open && !disabled,
-    staleTime: 60_000,
   })
 
   const categoryNameById = useMemo(() => {

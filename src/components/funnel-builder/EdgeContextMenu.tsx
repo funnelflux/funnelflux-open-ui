@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui-kit'
 import { NODE_TYPES } from '@/types/funnel'
 import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
 import { useClampedFixedMenu } from '@/hooks/useClampedFixedMenu'
+import { useContextMenuA11y } from './useContextMenuA11y'
 import {
   clampOnDoneNumber,
   firstFreeOnDoneSlot,
@@ -74,6 +75,14 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
 
   const edgeType = edge?.data?.edgeType
   useClampedFixedMenu(position, menuRef, `${edgeId ?? ''}:${edgeType ?? ''}`)
+  useContextMenuA11y(
+    Boolean(position && edgeId && edge),
+    menuRef,
+    position ? `${edgeId ?? ''}:${position.x},${position.y}` : undefined,
+    // First (often only) item is the destructive "Delete Connection" — focusing it
+    // would let a stray Enter delete the edge. Focus the container instead.
+    { focusContainer: true },
+  )
 
   if (!position || !edgeId || !edge) return null
 
@@ -142,7 +151,10 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[200px] text-sm"
+      role="menu"
+      tabIndex={-1}
+      aria-label="Connection actions"
+      className="fixed z-50 bg-surface border border-border rounded-md shadow-lg py-1 min-w-[200px] text-sm"
       style={{
         left: position.x,
         top: position.y,
@@ -187,10 +199,11 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
           {weightInfo.isLocked && (
             <button
               type="button"
+              role="menuitem"
               className={cn(
                 'flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-sm',
                 'cursor-pointer rounded-sm transition-colors',
-                'hover:bg-muted dark:hover:bg-zinc-800',
+                'hover:bg-muted',
               )}
               onClick={handleResetAuto}
             >
@@ -250,10 +263,11 @@ export function EdgeContextMenu({ edgeId, position, onClose }: EdgeContextMenuPr
 
       <button
         type="button"
+        role="menuitem"
         className={cn(
           'flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-sm',
           'cursor-pointer rounded-sm transition-colors text-destructive',
-          'hover:bg-muted dark:hover:bg-zinc-800',
+          'hover:bg-muted',
         )}
         onClick={handleDelete}
       >

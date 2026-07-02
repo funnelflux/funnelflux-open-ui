@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { bootstrapAuth } from '@/api/auth'
+import { bootstrapAuth, sessionMatchesUser } from '@/api/auth'
 import { api } from '@/api/client'
 import { AuthExpiredError } from '@/api/errors'
-import type { UserProfile } from '@/types/api'
+import type { SessionResponse, UserProfile } from '@/types/api'
 
 vi.mock('@/api/client', () => ({
   api: { get: vi.fn() },
@@ -128,5 +128,32 @@ describe('bootstrapAuth', () => {
     const user = await bootstrapAuth()
     expect(user.login).toBe('user')
     expect(vi.mocked(api.get)).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('sessionMatchesUser', () => {
+  const session = (over: Partial<SessionResponse> = {}): SessionResponse => ({
+    authenticated: true,
+    userId: '1',
+    username: 'user',
+    isAdmin: false,
+    ...over,
+  })
+  const userWithId = (id: string) => ({ id }) as UserProfile
+
+  it('matches when an authenticated session id equals the cached user id', () => {
+    expect(sessionMatchesUser(session(), userWithId('1'))).toBe(true)
+  })
+
+  it('does not match when the live session belongs to a different user', () => {
+    expect(sessionMatchesUser(session({ userId: '2' }), userWithId('1'))).toBe(false)
+  })
+
+  it('does not match when the session is no longer authenticated', () => {
+    expect(sessionMatchesUser(session({ authenticated: false }), userWithId('1'))).toBe(false)
+  })
+
+  it('does not match when there is no cached user', () => {
+    expect(sessionMatchesUser(session(), null)).toBe(false)
   })
 })

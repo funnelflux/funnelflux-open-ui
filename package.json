@@ -1,7 +1,13 @@
 {
   "name": "funnelflux-open-ui",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Open-source React admin UI for the FunnelFlux self-hosted tracking platform",
+  "license": "Elastic-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/funnelflux/funnelflux-open-ui.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -27,6 +33,8 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.41.1",
     "@date-fns/tz": "^1.4.1",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/roboto": "^5.2.10",
     "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-table": "^8.21.3",
@@ -56,7 +64,6 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/dompurify": "^3.0.5",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/api/queryKeys'
 import { useDashboardSummaryQuery } from '@/api/hooks/useDashboard'
@@ -7,16 +7,16 @@ import { StatsCards } from '@/components/dashboard/StatsCards'
 import { DashboardChart } from '@/components/dashboard/DashboardChart'
 import { DashboardTopTable, type DashboardTopTableProps } from '@/components/dashboard/DashboardTopTable'
 import { useLazySectionVisible } from '@/hooks/useLazySectionVisible'
-import { PageShell, TimezoneSelect, Button, Modal, Select, type SelectOption } from '@/components/ui-kit'
+import { Alert, PageShell, TimezoneSelect, Button, Modal, Select, type SelectOption } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { toApiDateTimeRangeForReporting } from '@/lib/statsDateRange'
 import type { DateRange } from '@/lib/date-presets'
+import { getErrorMessage } from '@/lib/utils'
 import {
   dashboardStatsChanged,
   extractDashboardChartData,
   extractDashboardStats,
   getDashboardChartGrouping,
-  ZERO_DASHBOARD_STATS,
 } from '@/lib/dashboard/summaryReport'
 
 const WIDGETS = [
@@ -62,6 +62,103 @@ const AUTO_REFRESH_INTERVAL_OPTIONS: SelectOption[] = [
 
 const DEFAULT_DASHBOARD_AUTO_REFRESH_SEC = 120
 
+interface DashboardAutoRefreshShellProps {
+  /** Auto-refresh period in seconds; 0 = off. */
+  autoRefreshIntervalSec: number
+  hasPendingTimezoneChange: boolean
+  isFetching: boolean
+  /** Restarts the countdown whenever it changes (manual refresh, date range / timezone / interval change). */
+  countdownResetKey: string
+  onAutoRefresh: () => void
+  actions: ReactNode
+  children: ReactNode
+}
+
+/**
+ * Thin PageShell wrapper that owns the 1 Hz auto-refresh countdown shown in the subtitle.
+ * Keeping the ticking state here means each tick re-renders only this shell: `children` and
+ * `actions` are stable element references created by DashboardPage, so React bails out of the
+ * chart, stat cards, and top tables instead of re-rendering the entire dashboard every second.
+ */
+function DashboardAutoRefreshShell({
+  autoRefreshIntervalSec,
+  hasPendingTimezoneChange,
+  isFetching,
+  countdownResetKey,
+  onAutoRefresh,
+  actions,
+  children,
+}: DashboardAutoRefreshShellProps) {
+  const [secondsUntilAutoRefresh, setSecondsUntilAutoRefresh] = useState(
+    autoRefreshIntervalSec > 0 ? autoRefreshIntervalSec : 0,
+  )
+
+  const onAutoRefreshRef = useRef(onAutoRefresh)
+  useEffect(() => {
+    onAutoRefreshRef.current = onAutoRefresh
+  }, [onAutoRefresh])
+
+  const autoRefreshIntervalSecRef = useRef(autoRefreshIntervalSec)
+  useEffect(() => {
+    autoRefreshIntervalSecRef.current = autoRefreshIntervalSec
+  }, [autoRefreshIntervalSec])
+
+  const hasPendingTimezoneChangeRef = useRef(hasPendingTimezoneChange)
+  useEffect(() => {
+    hasPendingTimezoneChangeRef.current = hasPendingTimezoneChange
+  }, [hasPendingTimezoneChange])
+
+  // Restart the countdown whenever the interval changes or the reset key bumps.
+  useEffect(() => {
+    const interval = autoRefreshIntervalSecRef.current
+    if (interval > 0) {
+      setSecondsUntilAutoRefresh(interval)
+      return
+    }
+    setSecondsUntilAutoRefresh(0)
+  }, [autoRefreshIntervalSec, countdownResetKey])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      if (hasPendingTimezoneChangeRef.current) return
+      const periodSec = autoRefreshIntervalSecRef.current
+      if (periodSec <= 0) return
+      setSecondsUntilAutoRefresh((secondsLeft) => {
+        if (secondsLeft <= 1) {
+          onAutoRefreshRef.current()
+          return periodSec
+        }
+        return secondsLeft - 1
+      })
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  let subtitle: string
+  if (hasPendingTimezoneChange) {
+    subtitle = 'Timezone changed. Click Refresh to reload dashboard reports.'
+  } else if (isFetching) {
+    subtitle = 'Refreshing dashboard reports...'
+  } else if (autoRefreshIntervalSec <= 0) {
+    subtitle = 'Auto refresh off.'
+  } else {
+    subtitle = `Auto refresh every ${autoRefreshIntervalSec}s · Next refresh in ${secondsUntilAutoRefresh}s`
+  }
+
+  return (
+    <PageShell
+      title="Dashboard"
+      subtitle={subtitle}
+      density="dense"
+      className="min-w-0 overflow-x-hidden [&>div:first-child>div:last-child]:hidden md:[&>div:first-child>div:last-child]:flex"
+      actions={actions}
+    >
+      {children}
+    </PageShell>
+  )
+}
+
 export function DashboardPage() {
   const queryClient = useQueryClient()
   const dashboardFetchCount = useIsFetching({ queryKey: queryKeys.dashboard.all })
@@ -79,7 +176,7 @@ export function DashboardPage() {
   const [draftTimezone, setDraftTimezone] = useState(tz)
   const [pulseStats, setPulseStats] = useState(false)
   const [autoRefreshIntervalSec, setAutoRefreshIntervalSec] = useState(DEFAULT_DASHBOARD_AUTO_REFRESH_SEC)
-  const [secondsUntilAutoRefresh, setSecondsUntilAutoRefresh] = useState(DEFAULT_DASHBOARD_AUTO_REFRESH_SEC)
+  const [countdownResetCount, setCountdownResetCount] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const previousStatsRef = useRef<ReturnType<typeof extractDashboardStats> | undefined>(undefined)
@@ -142,64 +239,30 @@ export function DashboardPage() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all })
   }, [queryClient])
 
-  const invalidateDashboardQueriesRef = useRef(invalidateDashboardQueries)
-  useEffect(() => {
-    invalidateDashboardQueriesRef.current = invalidateDashboardQueries
-  }, [invalidateDashboardQueries])
-
-  const autoRefreshIntervalSecRef = useRef(autoRefreshIntervalSec)
-  useEffect(() => {
-    autoRefreshIntervalSecRef.current = autoRefreshIntervalSec
-  }, [autoRefreshIntervalSec])
-
   const hasPendingTimezoneChange = draftTimezone !== tz
-  const hasPendingTimezoneChangeRef = useRef(hasPendingTimezoneChange)
-  useEffect(() => {
-    hasPendingTimezoneChangeRef.current = hasPendingTimezoneChange
-  }, [hasPendingTimezoneChange])
 
-  useEffect(() => {
-    const interval = autoRefreshIntervalSecRef.current
-    if (interval > 0) {
-      setSecondsUntilAutoRefresh(interval)
-    }
-  }, [dateRange.from, dateRange.to, tz])
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      if (hasPendingTimezoneChangeRef.current) return
-      const periodSec = autoRefreshIntervalSecRef.current
-      if (periodSec <= 0) return
-      setSecondsUntilAutoRefresh((secondsLeft) => {
-        if (secondsLeft <= 1) {
-          invalidateDashboardQueriesRef.current()
-          return periodSec
-        }
-        return secondsLeft - 1
-      })
-    }, 1000)
-    return () => window.clearInterval(id)
-  }, [])
+  /** Restarts the shell countdown on manual refresh / interval change / range or timezone change. */
+  const countdownResetKey = useMemo(
+    () => `${dateRange.from.getTime()}:${dateRange.to.getTime()}:${tz}:${countdownResetCount}`,
+    [dateRange.from, dateRange.to, tz, countdownResetCount],
+  )
 
   const handleAutoRefreshIntervalChange = useCallback((next: unknown) => {
     const parsed = typeof next === 'string' ? Number(next) : Number(next ?? 0)
     if (!Number.isFinite(parsed) || parsed < 0) return
     const rounded = Math.trunc(parsed)
     setAutoRefreshIntervalSec(rounded)
-    setSecondsUntilAutoRefresh(rounded > 0 ? rounded : 0)
+    setCountdownResetCount((count) => count + 1)
   }, [])
 
   const bumpRefresh = useCallback(() => {
-    if (autoRefreshIntervalSec > 0) {
-      setSecondsUntilAutoRefresh(autoRefreshIntervalSec)
-    }
+    setCountdownResetCount((count) => count + 1)
     if (draftTimezone !== tz) {
       setTz(draftTimezone)
       return
     }
     invalidateDashboardQueries()
-  }, [autoRefreshIntervalSec, draftTimezone, invalidateDashboardQueries, setTz, tz])
+  }, [draftTimezone, invalidateDashboardQueries, setTz, tz])
 
   const autoRefreshSelectValue = String(autoRefreshIntervalSec)
 
@@ -230,31 +293,25 @@ export function DashboardPage() {
 
   const handleCloseDashboardSettings = useCallback(() => setSettingsOpen(false), [])
 
-  const dashboardAutoRefreshSubtitle = useMemo(() => {
-    if (hasPendingTimezoneChange) return 'Timezone changed. Click Refresh to reload dashboard reports.'
-    if (dashboardFetchCount > 0) return 'Refreshing dashboard reports...'
-    if (autoRefreshIntervalSec <= 0) return 'Auto refresh off.'
-    return `Auto refresh every ${autoRefreshIntervalSec}s · Next refresh in ${secondsUntilAutoRefresh}s`
-  }, [autoRefreshIntervalSec, dashboardFetchCount, hasPendingTimezoneChange, secondsUntilAutoRefresh])
   const dashboardIsFetching = dashboardFetchCount > 0
   const refreshButtonLabel = hasPendingTimezoneChange ? 'Apply timezone' : 'Refresh'
 
   const summaryLoading = summaryQuery.isLoading && stats === undefined
-  const summaryFailed = summaryQuery.isError && stats === undefined
+  // On summary failure `stats` stays undefined (or keeps the previous data via placeholderData);
+  // the error Alert below communicates the failure instead of rendering fake zeros.
 
-  useEffect(() => {
-    if (!summaryFailed) return
-    previousStatsRef.current = ZERO_DASHBOARD_STATS
-  }, [summaryFailed])
-
-  const displayStats = summaryFailed ? ZERO_DASHBOARD_STATS : stats
+  const refetchSummary = summaryQuery.refetch
+  const handleRetrySummary = useCallback(() => {
+    void refetchSummary()
+  }, [refetchSummary])
 
   return (
-    <PageShell
-      title="Dashboard"
-      subtitle={dashboardAutoRefreshSubtitle}
-      density="dense"
-      className="min-w-0 overflow-x-hidden [&>div:first-child>div:last-child]:hidden md:[&>div:first-child>div:last-child]:flex"
+    <DashboardAutoRefreshShell
+      autoRefreshIntervalSec={autoRefreshIntervalSec}
+      hasPendingTimezoneChange={hasPendingTimezoneChange}
+      isFetching={dashboardIsFetching}
+      countdownResetKey={countdownResetKey}
+      onAutoRefresh={invalidateDashboardQueries}
       actions={
         <div className="hidden min-w-0 items-center justify-end gap-2 md:flex">
           <Button
@@ -287,7 +344,7 @@ export function DashboardPage() {
           <TimezoneSelect
             value={draftTimezone}
             onChange={setDraftTimezone}
-            style={{ minWidth: 180, width: 180 }}
+            className="w-[180px]"
           />
         </div>
       }
@@ -297,7 +354,7 @@ export function DashboardPage() {
         open={settingsOpen}
         onCancel={handleCloseDashboardSettings}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <div className="flex flex-col gap-6 py-2">
           <div className="flex flex-col gap-2">
@@ -367,6 +424,20 @@ export function DashboardPage() {
         />
       </div>
 
+      {summaryQuery.isError ? (
+        <Alert
+          type="error"
+          showIcon
+          title="Dashboard summary failed to load"
+          description={getErrorMessage(summaryQuery.error)}
+          action={
+            <Button size="small" onClick={handleRetrySummary}>
+              Retry
+            </Button>
+          }
+        />
+      ) : null}
+
       <section className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2 lg:items-stretch">
         <DashboardChart
           className="min-h-0 min-w-0"
@@ -378,7 +449,7 @@ export function DashboardPage() {
         />
         <div className={pulseStats ? 'min-h-0 animate-pulse' : 'min-h-0'}>
           <StatsCards
-            stats={displayStats}
+            stats={stats}
             isLoading={summaryLoading}
             layout="dashboard"
             className="h-full min-h-[280px]"
@@ -399,6 +470,6 @@ export function DashboardPage() {
           />
         ))}
       </div>
-    </PageShell>
+    </DashboardAutoRefreshShell>
   )
 }

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Icon } from '@/components/ui-kit/icons'
 import { Button, Input, Modal } from '@/components/ui-kit'
 import { parsePageCsvText } from '@/lib/parsePageCsv'
 
@@ -67,24 +66,17 @@ export function CsvImportDialog({
 
   const footer = (
     <div className="flex justify-end gap-2">
-      <Button htmlType="button" onClick={handleCancel}>
+      <Button htmlType="button" onClick={handleCancel} disabled={isImporting}>
         Cancel
       </Button>
       <Button
         type="primary"
         htmlType="button"
-        disabled={!selectedFile || isImporting}
+        iconName="upload"
+        disabled={!selectedFile}
+        loading={isImporting}
         onClick={() => void handleImport()}
       >
-        {isImporting ? (
-          <span className="mr-2 inline-flex">
-            <Icon name="loader-2" size="md" animation="spin" />
-          </span>
-        ) : (
-          <span className="mr-2 inline-flex">
-            <Icon name="upload" size="md" />
-          </span>
-        )}
         Import
       </Button>
     </div>

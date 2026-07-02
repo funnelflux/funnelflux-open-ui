@@ -268,9 +268,11 @@ export function GroupingFilterPopover({
         iconSize="sm"
       >
         {isActive ? (
-          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
         ) : null}
-        <span className="sr-only">Filter {titleLabel}</span>
+        <span className="sr-only">
+          {isActive ? `Filter ${titleLabel} (filter active)` : `Filter ${titleLabel}`}
+        </span>
       </Button>
     </Popover>
   )

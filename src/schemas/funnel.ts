@@ -1,20 +1,16 @@
 import { z } from 'zod/v4'
 
-export type { Funnel } from '@/types/entities'
+/** OpenAPI `Funnel.funnelName`: max 255 characters. */
+export const FUNNEL_NAME_MAX_LEN = 255
 
-/**
- * Partial funnel metadata for modals (not the full canvas graph). Overlaps
- * {@link Funnel} fields used on create/update; `notes` is UI-only until in OpenAPI.
- * `defaultCostPerEntrance` is edited as a number here; {@link Funnel} uses a string on the wire —
- * coerce when building API payloads.
- */
-export const funnelSchema = z.object({
-  idFunnel: z.string().optional(),
+/** Add/Clone Funnel modals: target campaign + name. */
+export const funnelModalSchema = z.object({
   idCampaign: z.string().min(1, 'Campaign is required'),
-  funnelName: z.string().min(1, 'Funnel name is required').max(255),
-  defaultCostPerEntrance: z.number().min(0).default(0),
-  notes: z.string().optional(),
-  isArchived: z.boolean().default(false),
+  funnelName: z
+    .string()
+    .trim()
+    .min(1, 'Funnel name is required')
+    .max(FUNNEL_NAME_MAX_LEN, `Funnel name must be at most ${FUNNEL_NAME_MAX_LEN} characters`),
 })
 
-export type FunnelFormValues = z.infer<typeof funnelSchema>
+export type FunnelModalFormValues = z.infer<typeof funnelModalSchema>

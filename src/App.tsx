@@ -190,9 +190,11 @@ export default function App() {
                     key={entry.path}
                     path={entry.path}
                     element={
-                      <Suspense fallback={<div className="p-8">Loading...</div>}>
-                        <Page />
-                      </Suspense>
+                      <ErrorBoundary>
+                        <Suspense fallback={<div className="p-8">Loading...</div>}>
+                          <Page />
+                        </Suspense>
+                      </ErrorBoundary>
                     }
                   />
                 )

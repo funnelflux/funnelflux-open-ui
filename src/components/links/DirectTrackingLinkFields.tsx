@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { CopyButton, Field, Input, Switch } from '@/components/ui-kit'
+import { CopyButton, FormField, Input, Switch } from '@/components/ui-kit'
 import type { EntranceLinkBundle } from '@/types/ui'
 
 const readonlySnippetClass =
@@ -44,7 +44,7 @@ export function DirectTrackingLinkFields({
         <Switch checked={embedParamsInScript} onChange={handleEmbedToggle} />
       </div>
 
-      <Field title="Direct page URL">
+      <FormField label="Direct page URL">
         <div className="flex w-full min-w-0 items-center gap-2">
           <Input
             value={directUrl}
@@ -54,9 +54,9 @@ export function DirectTrackingLinkFields({
           />
           <CopyButton value={directUrl} disabled={!directUrl} />
         </div>
-      </Field>
+      </FormField>
 
-      <Field title="Universal tracking script">
+      <FormField label="Universal tracking script">
         <div className="flex w-full min-w-0 items-start gap-2">
           <Input.TextArea
             value={trackingSnippet}
@@ -72,7 +72,7 @@ export function DirectTrackingLinkFields({
             aria-label="Copy script"
           />
         </div>
-      </Field>
+      </FormField>
     </div>
   )
 }

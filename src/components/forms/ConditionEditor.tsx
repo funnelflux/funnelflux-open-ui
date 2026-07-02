@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import type { Resolver } from 'react-hook-form'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FormModal, FormModalBody, FormModalFooter, FormModalHeader, Tag, Select, Switch, Field, Button, Input, Spin } from '@/components/ui-kit'
+import { FormModal, FormModalBody, FormModalFooter, FormModalHeader, Tag, Select, Switch, FormField, Button, Input, Spin } from '@/components/ui-kit'
 import type { ConditionBlock as ConditionBlockType } from '@/types/funnel'
 import type { FunnelCondition } from '@/types/entities'
 import { conditionSchema, type ConditionFormValues } from '@/schemas/condition'
@@ -219,11 +219,11 @@ export function ConditionEditor({
           control={control}
           name="conditionName"
           render={({ field }) => (
-            <Field
-              title="Condition name"
+            <FormField
+              label="Condition name"
               htmlFor="conditionName"
               required
-              errorText={errors.conditionName?.message}
+              error={errors.conditionName?.message}
             >
               <Input
                 id="conditionName"
@@ -233,15 +233,15 @@ export function ConditionEditor({
                 onBlur={field.onBlur}
                 placeholder="e.g. US Desktop Only"
               />
-            </Field>
+            </FormField>
           )}
         />
 
         {showScopeControl && (
-          <Field
-            title="Scope"
+          <FormField
+            label="Scope"
             htmlFor="conditionScopeToggle"
-            errorText={errors.scope?.message}
+            error={errors.scope?.message}
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 text-sm">
@@ -256,7 +256,7 @@ export function ConditionEditor({
                 <span className="text-xs text-muted-foreground">Local</span>
               </div>
             </div>
-          </Field>
+          </FormField>
         )}
 
         {(blocks?.length ?? 0) >= 2 && (

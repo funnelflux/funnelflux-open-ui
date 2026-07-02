@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import {
   LineChart,
   Line,
@@ -71,7 +72,7 @@ function tooltipNumericValue(
   return Number(first) || 0
 }
 
-export function DashboardChart({
+function DashboardChartComponent({
   data,
   metric,
   onMetricChange,
@@ -159,3 +160,5 @@ export function DashboardChart({
     </Card>
   )
 }
+
+export const DashboardChart = memo(DashboardChartComponent)
