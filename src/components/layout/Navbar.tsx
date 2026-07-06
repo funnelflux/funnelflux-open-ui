@@ -57,7 +57,7 @@ function NavDropdown({
   }))
 
   return (
-    <Dropdown menu={{ items }} trigger={['click']}>
+    <Dropdown menu={{ items }} trigger={['hover']}>
       <button
         type="button"
         className={cn(
