@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { useTrafficSource } from '@/api/hooks/useTrafficSources'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
@@ -127,6 +129,7 @@ export function FunnelQuickStatsModal({
 }: FunnelQuickStatsModalProps) {
   const toast = useToastApi()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const setGroupings = useDrilldownStore((s) => s.setGroupings)
   const setGroupingFilters = useDrilldownStore((s) => s.setGroupingFilters)
   const setDrilldownTimezone = useDrilldownStore((s) => s.setTimezone)
@@ -160,7 +163,7 @@ export function FunnelQuickStatsModal({
         timeZone: { name: timezone },
       })
       if (!body) return
-      const data = await api.postDrilldown<Report>(body)
+      const data = await executeObservedRequest(queryClient, () => api.postDrilldown<Report>(body))
       setTrafficOptions(trafficOptionsFromReport(data))
     } catch (e) {
       const msg = e && typeof e === 'object' && 'message' in e ? String((e as { message: string }).message) : 'Failed to load traffic sources'
@@ -169,7 +172,7 @@ export function FunnelQuickStatsModal({
     } finally {
       setTrafficOptionsLoaded(true)
     }
-  }, [campaignId, funnelId, datePickerValue.from, datePickerValue.to, timezone, toast])
+  }, [campaignId, funnelId, datePickerValue.from, datePickerValue.to, queryClient, timezone, toast])
 
   const loadReport = useCallback(async () => {
     if (!campaignId || !funnelId) return
@@ -203,7 +206,7 @@ export function FunnelQuickStatsModal({
       })
 
       if (drillBody) {
-        const r = await api.postDrilldown<Report>(drillBody)
+        const r = await executeObservedRequest(queryClient, () => api.postDrilldown<Report>(drillBody))
         setReport(narrowReportToQuickStatsColumns(r))
         return
       }
@@ -228,7 +231,9 @@ export function FunnelQuickStatsModal({
         toast.error('Invalid quick stats request.')
         return
       }
-      const data = await api.post<QuickStatsApiResponse>('/ui/quickstats/load/', qsBody)
+      const data = await executeObservedRequest(queryClient, () =>
+        api.post<QuickStatsApiResponse>('/ui/quickstats/load/', qsBody),
+      )
       if (data.report) {
         setReport(narrowReportToQuickStatsColumns(data.report))
       } else {
@@ -241,7 +246,7 @@ export function FunnelQuickStatsModal({
     } finally {
       setLoading(false)
     }
-  }, [campaignId, funnelId, trafficSourceId, countryCode, trackingField, tab, datePickerValue.from, datePickerValue.to, timezone, toast])
+  }, [campaignId, funnelId, trafficSourceId, countryCode, trackingField, tab, datePickerValue.from, datePickerValue.to, queryClient, timezone, toast])
 
   const handleRefreshReport = useCallback(() => {
     void loadReport()

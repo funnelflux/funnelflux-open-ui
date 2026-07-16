@@ -5,6 +5,7 @@ import {
   CopyButton,
   FormField,
   Input,
+  Modal,
   PageShell,
   Select,
   Spin,
@@ -88,6 +89,8 @@ export function SystemLinksPage() {
   const [iframeCode, setIframeCode] = useState('')
   const [pixelUrl, setPixelUrl] = useState('')
   const [pixelHtml, setPixelHtml] = useState('')
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [isQrGenerating, setIsQrGenerating] = useState(false)
   const requestIdRef = useRef(0)
 
   const { data: funnels } = useFunnels(selectedCampaign)
@@ -221,6 +224,24 @@ export function SystemLinksPage() {
     },
     [toast],
   )
+
+  const showQrCode = useCallback(async () => {
+    if (!entranceLink) return
+    setIsQrGenerating(true)
+    try {
+      const { toDataURL } = await import('qrcode')
+      const dataUrl = await toDataURL(entranceLink, {
+        width: 256,
+        margin: 2,
+        errorCorrectionLevel: 'M',
+      })
+      setQrDataUrl(dataUrl)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setIsQrGenerating(false)
+    }
+  }, [entranceLink, toast])
 
   useEffect(() => {
     if (!selectedCampaign || !selectedFunnel || !selectedTrafficSource || !selectedNode) return
@@ -460,11 +481,8 @@ export function SystemLinksPage() {
                     />
                     <Button
                       disabled={!entranceLink}
-                      onClick={() => {
-                        if (!entranceLink) return
-                        const qr = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(entranceLink)}`
-                        window.open(qr, '_blank', 'noopener,noreferrer')
-                      }}
+                      loading={isQrGenerating}
+                      onClick={() => void showQrCode()}
                     >
                       QR Code
                     </Button>
@@ -584,6 +602,20 @@ export function SystemLinksPage() {
           </Card>
         </div>
       </Spin>
+      <Modal
+        open={qrDataUrl != null}
+        title="Entrance link QR code"
+        footer={null}
+        onCancel={() => setQrDataUrl(null)}
+        destroyOnHidden
+      >
+        {qrDataUrl ? (
+          <div className="flex flex-col items-center gap-4 py-4">
+            <img src={qrDataUrl} alt="QR code for the generated entrance link" width={256} height={256} />
+            <p className="break-all text-center text-xs text-muted-foreground">{entranceLink}</p>
+          </div>
+        ) : null}
+      </Modal>
     </PageShell>
   )
 }

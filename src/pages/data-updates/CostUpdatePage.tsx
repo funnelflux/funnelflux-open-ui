@@ -31,6 +31,7 @@ import {
 } from '@/components/ui-kit'
 import type { SelectOption } from '@/components/ui-kit'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { useTrafficSources } from '@/api/hooks/useTrafficSources'
 import { invalidateAllStats } from '@/api/invalidations'
 import { queryKeys } from '@/api/queryKeys'
@@ -234,7 +235,9 @@ export function CostUpdatePage() {
 
     setIsSubmitting(true)
     try {
-      const res = await api.put<BackgroundJobResponse>('/stats/update/cost/', body)
+      const res = await executeObservedRequest(queryClient, () =>
+        api.put<BackgroundJobResponse>('/stats/update/cost/', body),
+      )
       const jobCount = res.jobIds?.length ?? 0
       toast.success(
         jobCount > 0

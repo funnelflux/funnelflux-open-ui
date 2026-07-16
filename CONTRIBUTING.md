@@ -4,9 +4,8 @@ Thanks for your interest in improving the FunnelFlux Open UI! This guide covers
 how to propose changes, set up your environment, and the conventions to follow.
 
 > **License note:** this project is **source-available** under the
-> [Elastic License 2.0](./LICENSE) — free to use, modify, self-host, and
-> redistribute, but **not** to resell or offer as a hosted/managed commercial
-> service. By contributing you agree your contributions are licensed under the
+> [Elastic License 2.0](./LICENSE). Use and distribution are governed by the
+> complete license terms. By contributing you agree your contributions are licensed under the
 > same terms (see [Contribution licensing](#contribution-licensing)).
 
 ## Ways to Contribute
@@ -23,19 +22,22 @@ You cannot push directly to this repository. Every change lands through a pull
 request that a maintainer reviews and merges.
 
 1. **Fork** the repo to your own account.
-2. **Clone** your fork and branch off the default branch:
+2. **Clone** your fork, fetch the canonical repository, and branch from `develop`:
    ```bash
    git clone https://github.com/<your-username>/funnelflux-open-ui.git
    cd funnelflux-open-ui
-   git checkout -b feat/short-description    # or fix/..., docs/...
+   git remote add upstream https://github.com/funnelflux/funnelflux-open-ui.git
+   git fetch upstream --prune
+   git switch -c feat/short-description upstream/develop
    ```
 3. **Make your changes**, following the conventions below and the full guide in
    [`AGENTS.md`](./AGENTS.md).
 4. **Verify locally** — CI runs these exact checks and they must pass:
    ```bash
-   pnpm install
+   pnpm install --frozen-lockfile
+   pnpm run check-generated-types:committed
    pnpm run lint
-   pnpm run build
+   pnpm run build:ci
    pnpm test
    ```
 5. **Commit** using [Conventional Commits](#commit-message-convention) and sign
@@ -43,8 +45,13 @@ request that a maintainer reviews and merges.
    ```bash
    git commit -s -m "feat(table): add column pinning"
    ```
-6. **Push** to your fork and **open a pull request** against this repo's default
-   branch; fill out the PR template.
+6. **Push** to your fork and open the pull request against `develop`:
+   ```bash
+   git push -u origin feat/short-description
+   gh pr create --repo funnelflux/funnelflux-open-ui --base develop
+   ```
+   Outside contributor PRs do not target `master`; that branch only receives the
+   canonical `develop -> master` release PR.
 7. A maintainer reviews. Push more commits to the same branch to address
    feedback. Once approved and CI is green, a maintainer merges.
 
@@ -55,7 +62,7 @@ request that a maintainer reviews and merges.
   right version). Do **not** use `npm` or `yarn` — the lockfile is `pnpm-lock.yaml`.
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 cp .env.example .env    # configure API endpoint / base path if needed
 pnpm run dev            # Vite dev server on http://localhost:5173
 ```
@@ -72,22 +79,22 @@ script once to materialize tool-specific config from the canonical sources in
 git-ignored:
 
 ```bash
-./scripts/sync-ai-config.sh
+bash scripts/setup-ai-harness.sh install
 ```
 
 ## Commit Message Convention
 
-This project uses **[Conventional Commits](https://www.conventionalcommits.org/)**.
-Releases, version bumps, and the changelog are generated automatically from commit
-messages, so this is required:
+This project uses **[Conventional Commits](https://www.conventionalcommits.org/)**
+to keep the contribution history consistent. Maintainers select the version and
+prepare the changelog during the release process:
 
 ```
 <type>(<optional scope>): <description>
 ```
 
 Common types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`,
-`chore`. A `feat` produces a minor version bump; a `fix` a patch bump. Add `!`
-(e.g. `feat!:`) or a `BREAKING CHANGE:` footer for a major bump.
+`chore`. Use `!` (e.g. `feat!:`) or a `BREAKING CHANGE:` footer to clearly mark
+a breaking change.
 
 ```
 feat(funnel-builder): add condition node duplication

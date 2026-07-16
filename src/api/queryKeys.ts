@@ -7,6 +7,14 @@ export const queryKeys = {
    * stable while there is no real request). Never fetched, never invalidated.
    */
   disabled: (scope: string) => ['disabled', scope] as const,
+  license: {
+    all: ['license'] as const,
+    session: () => [...queryKeys.license.all, 'session'] as const,
+  },
+  auth: {
+    all: ['auth'] as const,
+    profile: (userId: string) => [...queryKeys.auth.all, 'profile', userId] as const,
+  },
   campaigns: {
     all: ['campaigns'] as const,
     list: (params?: Record<string, string>) => [...queryKeys.campaigns.all, 'list', params] as const,

@@ -8,6 +8,7 @@ import { PermissionsGrid, type PermissionsGridHandle } from '@/components/settin
 import { normalizePermissionsRestrictIds } from '@/lib/parseRestrictIds'
 import { useUsers } from '@/api/hooks'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { queryKeys } from '@/api/queryKeys'
 import type { AdminUserPasswordSetRequest, Permissions } from '@/types/api'
 import type { ManagedUser } from '@/types/ui'
@@ -149,8 +150,9 @@ export function UserEditPage() {
     setIsLoading(true)
     setLoadError(null)
     setProfileLoaded(false)
-    api
-      .get<unknown>('/ui/userprofile/load/', { id: userId })
+    executeObservedRequest(queryClient, () =>
+      api.get<unknown>('/ui/userprofile/load/', { id: userId }),
+    )
       .then((raw) => {
         if (cancelled) return
         const profile = parseUserProfile(raw)
@@ -178,7 +180,7 @@ export function UserEditPage() {
     return () => {
       cancelled = true
     }
-  }, [form, isNew, userId, loadAttempt])
+  }, [form, isNew, userId, loadAttempt, queryClient])
 
   const handleRetryLoad = useCallback(() => {
     setLoadAttempt((attempt) => attempt + 1)
@@ -200,14 +202,16 @@ export function UserEditPage() {
   const handleCopyRights = useCallback(async (sourceUserId: string) => {
     if (!sourceUserId) return
     try {
-      const raw = await api.get<unknown>('/ui/userprofile/load/', { id: sourceUserId })
+      const raw = await executeObservedRequest(queryClient, () =>
+        api.get<unknown>('/ui/userprofile/load/', { id: sourceUserId }),
+      )
       const profile = parseUserProfile(raw)
       form.setValue('permissions', normalizePermissions(profile.permissions), { shouldDirty: true })
       toast.success('Permissions copied')
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
-  }, [form, toast])
+  }, [form, queryClient, toast])
 
   const onSubmit = useCallback(async (data: UserEditFormData) => {
     if (!profileLoaded) {
@@ -222,7 +226,7 @@ export function UserEditPage() {
       const normalizedId = data.id.trim()
       const isCreatingUser = normalizedId === '' || normalizedId === '0'
 
-      await api.put('/ui/userprofile/save/', {
+      await executeObservedRequest(queryClient, () => api.put('/ui/userprofile/save/', {
         id: data.id,
         login: data.login,
         firstname: data.firstname,
@@ -233,7 +237,7 @@ export function UserEditPage() {
         enabled: data.enabled,
         permissions,
         ...(isCreatingUser ? { password: data.password } : {}),
-      })
+      }))
 
       await queryClient.invalidateQueries({ queryKey: queryKeys.userManagement.all })
 
@@ -242,7 +246,9 @@ export function UserEditPage() {
           idUser: normalizedId,
           newPassword: data.password,
         }
-        await api.put('/ui/userprofile/changePassword/', passwordPayload)
+        await executeObservedRequest(queryClient, () =>
+          api.put('/ui/userprofile/changePassword/', passwordPayload),
+        )
       }
 
       toast.success('User saved')

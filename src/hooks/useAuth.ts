@@ -1,94 +1,148 @@
-import { useEffect } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchSession, fetchUserProfile, sessionMatchesUser } from '@/api/auth'
+import { isAuthExpiredError, isLicenseLockedError } from '@/api/errors'
+import { queryKeys } from '@/api/queryKeys'
+import {
+  getLicenseRefreshDelay,
+  isLicenseAllowed,
+} from '@/lib/licenseState'
+import { clearProtectedProductData } from '@/lib/licenseAccess'
 import { useAuthStore } from '@/store/auth'
-import { bootstrapAuth, fetchSession, sessionMatchesUser } from '@/api/auth'
+
+function authErrorMessage(error: unknown): string | null {
+  if (!error) return null
+  if (isAuthExpiredError(error)) return 'AUTH_REQUIRED'
+  if (isLicenseLockedError(error)) return null
+  return error instanceof Error ? error.message : 'Authentication failed'
+}
 
 export function useAuth() {
   const queryClient = useQueryClient()
-  const { isAuthenticated, isLoading, user, error, setAuth, setError, setLoading } = useAuthStore()
+  const sessionInStore = useAuthStore((state) => state.session)
+  const user = useAuthStore((state) => state.user)
+  const licenseLockedByResponse = useAuthStore((state) => state.licenseLockedByResponse)
+  const licenseLockSessionVersion = useAuthStore((state) => state.licenseLockSessionVersion)
+  const wakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const sessionQuery = useQuery({
+    queryKey: queryKeys.license.session(),
+    queryFn: fetchSession,
+    staleTime: 0,
+    gcTime: Number.POSITIVE_INFINITY,
+    retry: (failureCount, error) =>
+      !isAuthExpiredError(error) && !isLicenseLockedError(error) && failureCount < 1,
+    refetchInterval: (query) => getLicenseRefreshDelay(query.state.data?.license),
+    refetchIntervalInBackground: true,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    refetchOnReconnect: 'always',
+    meta: { licenseScope: 'bootstrap' },
+  })
+  const refetchSession = sessionQuery.refetch
+
+  const session = sessionQuery.data
+  const backendAllowsProductAccess = Boolean(
+    session?.authenticated && isLicenseAllowed(session.license),
+  )
+  const sessionConfirmedAfterResponseLock =
+    !licenseLockedByResponse || sessionQuery.dataUpdatedAt > licenseLockSessionVersion
+
+  const profileQuery = useQuery({
+    queryKey: queryKeys.auth.profile(session?.userId ?? 'anonymous'),
+    queryFn: fetchUserProfile,
+    enabled: backendAllowsProductAccess && sessionConfirmedAfterResponseLock,
+    staleTime: 0,
+    retry: (failureCount, error) =>
+      !isAuthExpiredError(error) && !isLicenseLockedError(error) && failureCount < 1,
+  })
 
   useEffect(() => {
-    let cancelled = false
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    if (!session) return
 
-    const revalidate = () => {
-      setLoading(true)
-      setError(null)
-      return bootstrapAuth()
-        .then((user) => {
-          if (cancelled) return
-          setAuth(user)
-        })
-        .catch((err) => {
-          if (cancelled) return
-          if (err.message === 'AUTH_REQUIRED') {
-            setError('AUTH_REQUIRED')
-          } else {
-            setError(err.message || 'Authentication failed')
-          }
-        })
+    const previousSession = useAuthStore.getState().session
+    const identityChanged = Boolean(
+      previousSession?.authenticated &&
+      (!session.authenticated || previousSession.userId !== session.userId),
+    )
+
+    if (identityChanged) {
+      useAuthStore.getState().clearProtectedProfile()
+      clearProtectedProductData(queryClient)
     }
 
-    // Already authenticated: confirm the live PHP session still belongs to the
-    // cached user. On a session swap (logout/login in the same browser, bfcache
-    // restore, shared machine) clearAuth() flips isAuthenticated back to false,
-    // which re-runs this effect through the bootstrap path and reloads the
-    // correct profile instead of leaving the previous user's data on screen.
-    const reconcileSession = async () => {
-      try {
-        const session = await fetchSession()
-        if (cancelled) return
-        if (!sessionMatchesUser(session, useAuthStore.getState().user)) {
-          // Mirror every other auth-exit path (401 handler in App.tsx, navbar
-          // logout): drop the previous user's cached query data alongside the
-          // auth store. With staleTime: Infinity and non-user-scoped query keys,
-          // clearAuth() alone would leave user A's lists/reports on screen under
-          // user B until each query happened to refetch.
-          useAuthStore.getState().clearAuth()
-          queryClient.clear()
-        }
-      } catch {
-        // Transient/network error: leave state untouched. A genuine 401 on any
-        // API call is already handled by the query/mutation cache in App.tsx.
-      }
+    useAuthStore.getState().setSession(session)
+
+    if (!session.authenticated) {
+      useAuthStore.getState().setLicenseLockedByResponse(false)
+      clearProtectedProductData(queryClient)
+      return
     }
 
-    const onWake = () => {
-      if (useAuthStore.getState().isAuthenticated) {
-        void reconcileSession()
-        return
-      }
-      if (debounceTimer != null) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => {
-        debounceTimer = null
-        void revalidate()
+    if (!isLicenseAllowed(session.license)) {
+      useAuthStore.getState().setLicenseLockedByResponse(true)
+      useAuthStore.getState().clearProtectedProfile()
+      clearProtectedProductData(queryClient)
+    }
+  }, [queryClient, session])
+
+  useEffect(() => {
+    if (!session || !profileQuery.data || !sessionMatchesUser(session, profileQuery.data)) return
+
+    if (licenseLockedByResponse) {
+      clearProtectedProductData(queryClient)
+    }
+    useAuthStore.getState().setAuth(profileQuery.data)
+    useAuthStore.getState().setLicenseLockedByResponse(false)
+  }, [licenseLockedByResponse, profileQuery.data, queryClient, session])
+
+  useEffect(() => {
+    const refetchOnWake = () => {
+      if (wakeTimerRef.current != null) clearTimeout(wakeTimerRef.current)
+      wakeTimerRef.current = setTimeout(() => {
+        wakeTimerRef.current = null
+        void refetchSession()
       }, 250)
     }
-
-    if (!isAuthenticated) {
-      void revalidate()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refetchOnWake()
+    }
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) refetchOnWake()
     }
 
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') onWake()
-    }
-
-    const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) onWake()
-    }
-
-    window.addEventListener('focus', onWake)
-    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', refetchOnWake)
     window.addEventListener('pageshow', onPageShow)
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
-      cancelled = true
-      window.removeEventListener('focus', onWake)
-      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', refetchOnWake)
       window.removeEventListener('pageshow', onPageShow)
-      if (debounceTimer != null) clearTimeout(debounceTimer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      if (wakeTimerRef.current != null) clearTimeout(wakeTimerRef.current)
     }
-  }, [isAuthenticated, setAuth, setError, setLoading, queryClient])
+  }, [refetchSession])
 
-  return { isAuthenticated, isLoading, user, error }
+  const error = authErrorMessage(sessionQuery.error ?? profileQuery.error)
+  const isAuthenticated = session?.authenticated ?? sessionInStore?.authenticated ?? false
+  const isLicenseLocked = Boolean(
+    isAuthenticated &&
+    (licenseLockedByResponse || (session && !isLicenseAllowed(session.license))),
+  )
+  const isLoading =
+    sessionQuery.isPending ||
+    Boolean(
+      backendAllowsProductAccess &&
+      !licenseLockedByResponse &&
+      (profileQuery.isPending || !user),
+    )
+
+  return {
+    isAuthenticated,
+    isLoading,
+    isLicenseLocked,
+    user,
+    error,
+    license: session?.license ?? sessionInStore?.license ?? null,
+  }
 }

@@ -106,6 +106,14 @@ function userWith(perms: Partial<Permissions> = {}, isAdmin = false): UserProfil
 }
 
 describe('routeRegistry', () => {
+  it('keeps only explicit design/demo entries public and every product route in the app layout', () => {
+    const publicPaths = ROUTE_ENTRIES
+      .filter((entry) => entry.layout === 'public')
+      .map((entry) => entry.path)
+    expect(publicPaths).toEqual(['design-system'])
+    expect(ROUTE_ENTRIES.filter((entry) => entry.layout === 'app').length).toBeGreaterThan(0)
+  })
+
   it('gives every route entry a permission predicate', () => {
     for (const e of ROUTE_ENTRIES) {
       expect(typeof e.permission).toBe('function')

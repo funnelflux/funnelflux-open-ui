@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { UrlTrackingFieldLevelMeta } from '@/lib/urlTrackingFieldGrouping'
+import { registerProtectedStateReset } from '@/store/protectedState'
 
 export type DrilldownTimeAttribution = 'entrance' | 'event'
 
@@ -110,3 +111,7 @@ export const useDrilldownStore = create<DrilldownState>()(
     },
   ),
 )
+
+registerProtectedStateReset(() => {
+  useDrilldownStore.setState({ groupingFilters: {}, urlTrackingFieldByLevel: {} })
+})

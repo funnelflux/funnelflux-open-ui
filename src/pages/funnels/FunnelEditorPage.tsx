@@ -4,6 +4,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useFunnel } from '@/api/hooks'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { queryKeys } from '@/api/queryKeys'
 import { invalidateCampaignFunnelAuxiliary, invalidatePageGroupingAssets } from '@/api/invalidations'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
@@ -180,7 +181,7 @@ export function FunnelEditorPage() {
     try {
       for (const draft of Object.values(pendingPageDrafts)) {
         const isCreate = draft.isCreate ?? !draft.original?.idPage
-        await (isCreate
+        await executeObservedRequest(queryClient, () => isCreate
           ? api.post<Page>('/data/page/save/', draft.page)
           : api.put<Page>('/data/page/save/', draft.page))
         savedPages.push({ ...draft, isCreate })
@@ -188,14 +189,16 @@ export function FunnelEditorPage() {
 
       for (const draft of Object.values(pendingConditionDrafts)) {
         const isCreate = draft.isCreate ?? !draft.original?.idCondition
-        await (isCreate
+        await executeObservedRequest(queryClient, () => isCreate
           ? api.post<void>('/data/campaign/funnel/condition/save/', draft.condition)
           : api.put<void>('/data/campaign/funnel/condition/save/', draft.condition))
         savedConditions.push({ ...draft, isCreate })
       }
 
       if (isNew) {
-        await api.post('/data/campaign/funnel/save/', body)
+        await executeObservedRequest(queryClient, () =>
+          api.post('/data/campaign/funnel/save/', body),
+        )
         markClean()
         clearPendingAssetDrafts()
         dismissedServerVersionRef.current = null
@@ -211,7 +214,9 @@ export function FunnelEditorPage() {
         setSettingsOpen(false)
         navigate(`/campaigns/${campaignId}/funnels/${String(body.idFunnel)}`, { replace: true })
       } else {
-        await api.put('/data/campaign/funnel/save/', body, { deleteDependencies: 'true' })
+        await executeObservedRequest(queryClient, () =>
+          api.put('/data/campaign/funnel/save/', body, { deleteDependencies: 'true' }),
+        )
         markClean()
         clearPendingAssetDrafts()
         dismissedServerVersionRef.current = null
@@ -234,9 +239,13 @@ export function FunnelEditorPage() {
         try {
           const isCreate = draft.isCreate ?? !draft.original?.idCondition
           if (!isCreate && draft.original?.idCondition) {
-            await api.put<void>('/data/campaign/funnel/condition/save/', draft.original)
+            await executeObservedRequest(queryClient, () =>
+              api.put<void>('/data/campaign/funnel/condition/save/', draft.original),
+            )
           } else if (isCreate && draft.condition.idCondition) {
-            await api.delete('/data/campaign/funnel/condition/delete/', { idCondition: draft.condition.idCondition })
+            await executeObservedRequest(queryClient, () =>
+              api.delete('/data/campaign/funnel/condition/delete/', { idCondition: draft.condition.idCondition }),
+            )
           }
         } catch {
           // Best-effort rollback; keep the funnel dirty if rollback also fails.
@@ -246,9 +255,13 @@ export function FunnelEditorPage() {
         try {
           const isCreate = draft.isCreate ?? !draft.original?.idPage
           if (!isCreate && draft.original?.idPage) {
-            await api.put<Page>('/data/page/save/', draft.original)
+            await executeObservedRequest(queryClient, () =>
+              api.put<Page>('/data/page/save/', draft.original),
+            )
           } else if (isCreate && draft.page.idPage) {
-            await api.delete('/data/page/delete/', { idPage: String(draft.page.idPage) })
+            await executeObservedRequest(queryClient, () =>
+              api.delete('/data/page/delete/', { idPage: String(draft.page.idPage) }),
+            )
           }
         } catch {
           // Best-effort rollback; keep the funnel dirty if rollback also fails.

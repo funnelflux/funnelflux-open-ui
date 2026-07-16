@@ -95,6 +95,13 @@ const profile = {
   },
 } as const satisfies UserProfile
 
+const allowedLicense = {
+  state: 'allowed',
+  reasonCode: 'ACTIVE',
+  nextCheckAt: '1784030400',
+  canRevalidate: true,
+} as const
+
 describe('bootstrapAuth', () => {
   beforeEach(() => {
     vi.mocked(api.get).mockReset()
@@ -111,6 +118,7 @@ describe('bootstrapAuth', () => {
       userId: '',
       username: '',
       isAdmin: false,
+      license: allowedLicense,
     })
     await expect(bootstrapAuth()).rejects.toThrow('AUTH_REQUIRED')
   })
@@ -122,12 +130,30 @@ describe('bootstrapAuth', () => {
         userId: '1',
         username: 'user',
         isAdmin: false,
+        license: allowedLicense,
       })
       .mockResolvedValueOnce(profile)
 
     const user = await bootstrapAuth()
     expect(user.login).toBe('user')
     expect(vi.mocked(api.get)).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not load protected profile data for a backend-locked session', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({
+      authenticated: true,
+      userId: '1',
+      username: 'user',
+      isAdmin: false,
+      license: {
+        ...allowedLicense,
+        state: 'locked',
+        reasonCode: 'SUSPENDED',
+      },
+    })
+
+    await expect(bootstrapAuth()).rejects.toThrow('LICENSE_LOCKED')
+    expect(vi.mocked(api.get)).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -137,6 +163,7 @@ describe('sessionMatchesUser', () => {
     userId: '1',
     username: 'user',
     isAdmin: false,
+    license: allowedLicense,
     ...over,
   })
   const userWithId = (id: string) => ({ id }) as UserProfile

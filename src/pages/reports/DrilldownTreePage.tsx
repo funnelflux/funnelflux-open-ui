@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import type { ColumnDef, SortingState, ExpandedState, Table } from "@tanstack/react-table"
+import { useQueryClient } from "@tanstack/react-query"
 import { Alert, Button, PageShell, EmptyState } from "@/components/ui-kit"
 import { DataTable } from "@/components/ui-kit/data-table"
 import { buildColumnsFromReport } from "@/components/ui-kit/data-table"
@@ -15,6 +16,7 @@ import {
 } from "@/components/drilldown/DrilldownToolbar"
 import { useDrilldownReportQuery } from "@/api/hooks"
 import { api } from "@/api/client"
+import { executeObservedRequest } from "@/api/observedRequest"
 import { drilldownSortParamFromReport } from "@/lib/drilldownTableSort"
 import { useTableConfigStore, selectTableConfig, DEFAULT_TABLE_SORTING } from "@/store/tableConfig"
 import { useDrilldownStore } from "@/store/drilldown"
@@ -255,6 +257,7 @@ function setRowExpandError(rows: TreeRowData[], treePath: string, message: strin
 }
 
 export function DrilldownTreePage() {
+  const queryClient = useQueryClient()
   const filtersEnabled = useDrilldownStore((s) => s.filtersEnabled)
   const setTableSorting = useTableConfigStore((s) => s.setSorting)
   const [treeData, setTreeData] = useState<TreeRowData[]>([])
@@ -400,12 +403,12 @@ export function DrilldownTreePage() {
         const { parentTreePath, parentKey, nextOffset, groupings, depth, ancestorKeys } = row._loadMore
         setTreeData((prev) => setRowExpandError(prev, parentTreePath, null))
         try {
-          const childReport = await api.postDrilldown<Report>({
+          const childReport = await executeObservedRequest(queryClient, () => api.postDrilldown<Report>({
             ...withReportColumnFilters(lastRequest, report?.columns, columnFilters),
             groupings,
             topLevelFilters: [],
             paging: { start: nextOffset, length: CHILD_PAGE_SIZE },
-          })
+          }))
           if (token !== expandRequestId.current) return
 
           const leafRows = leafRowsForLazyExpand(childReport, ancestorKeys)
@@ -496,12 +499,12 @@ export function DrilldownTreePage() {
       const token = ++expandRequestId.current
       setTreeData((prev) => setRowExpandError(prev, row.treePath, null))
       try {
-        const childReport = await api.postDrilldown<Report>({
+        const childReport = await executeObservedRequest(queryClient, () => api.postDrilldown<Report>({
           ...withReportColumnFilters(lastRequest, report?.columns, columnFilters),
           groupings,
           topLevelFilters: [],
           paging: { start: 0, length: CHILD_PAGE_SIZE },
-        })
+        }))
         if (token !== expandRequestId.current) return
 
         let leafRows = leafRowsForLazyExpand(childReport, [...row.ancestorKeys, parentKey])
@@ -562,7 +565,7 @@ export function DrilldownTreePage() {
         setTreeData((prev) => setRowExpandError(prev, row.treePath, getErrorMessage(err)))
       }
     },
-    [columnFilters, filtersEnabled, lastRequest, planGroupings, report?.columns],
+    [columnFilters, filtersEnabled, lastRequest, planGroupings, queryClient, report?.columns],
   )
 
   const canLazyExpandRow = useCallback(

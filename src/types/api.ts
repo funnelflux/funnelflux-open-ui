@@ -1,9 +1,13 @@
+import type { LicenseDecision, SessionInfo } from './generated/ui';
+
 // Re-export generated types used by API consumers
 export type {
   AdminUserPasswordSetRequest,
   UserProfileUpdate,
   UserPasswordChangeRequest,
   SessionInfo,
+  LicenseDecision,
+  LicenseRevalidationResponse,
 } from './generated/ui';
 
 // Permissions types: the YAML spec marks boolean fields optional (they have
@@ -59,16 +63,12 @@ export interface UserProfile {
   permissions: Permissions;
 }
 
-// App-only types not in the OpenAPI spec
-
-export interface SessionResponse {
-  authenticated: boolean;
-  userId: string;
-  username: string;
-  isAdmin: boolean;
-}
+export type LicenseState = LicenseDecision['state'];
+export type LicenseStatus = LicenseDecision;
+export type SessionResponse = SessionInfo;
 
 export interface ApiError {
   code: number;
   message: string;
+  errorCode?: string;
 }

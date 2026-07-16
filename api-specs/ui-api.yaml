@@ -1375,11 +1375,11 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-  /ui/auth/session/index.php:
+  /auth/session/:
     get:
       tags:
         - Authentication
-      description: Check the current authentication session. Returns session info if the user is authenticated via a PHP session. Does not accept apiKey — session-based auth only.
+      description: Check the current authentication session. Requires the existing PHP admin session cookie and does not accept apiKey. The additive license object is authoritative; timestamps are Unix epoch seconds.
       responses:
         200:
           description: Session info for the authenticated user
@@ -1395,6 +1395,42 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
+  /license/status/:
+    get:
+      tags:
+        - License
+      description: Return the current safe license decision for an authenticated PHP admin session. Does not accept apiKey. Timestamps are Unix epoch seconds.
+      responses:
+        200:
+          description: Current license decision
+          schema:
+            $ref: '#/definitions/LicenseStatusResponse'
+        401:
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/Error'
+        405:
+          description: Method not allowed (only GET is accepted)
+  /license/revalidate/:
+    post:
+      tags:
+        - License
+      description: Request one rate-bounded fresh license check for the authenticated PHP admin session. Requires the existing session cookie and a same-origin browser POST; it accepts no revalidation token, request body, or custom header. Returns HTTP 200 even if the refreshed state remains locked, so callers refetch session state immediately. Timestamps are Unix epoch seconds.
+      responses:
+        200:
+          description: Refreshed license decision
+          schema:
+            $ref: '#/definitions/LicenseRevalidationResponse'
+        401:
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/Error'
+        403:
+          description: Same-origin browser request required
+          schema:
+            $ref: '#/definitions/Error'
+        405:
+          description: Method not allowed (only POST is accepted)
   /ui/inbox/notifications/check/index.php:
     get:
       tags:
@@ -3628,6 +3664,12 @@ definitions:
         }
   SessionInfo:
     type: object
+    required:
+      - authenticated
+      - userId
+      - username
+      - isAdmin
+      - license
     properties:
       authenticated:
         type: boolean
@@ -3637,6 +3679,74 @@ definitions:
         type: string
       isAdmin:
         type: boolean
+      license:
+        $ref: '#/definitions/LicenseDecision'
+  LicenseStatusResponse:
+    type: object
+    required:
+      - license
+    properties:
+      license:
+        $ref: '#/definitions/LicenseDecision'
+  LicenseRevalidationResponse:
+    type: object
+    required:
+      - revalidated
+      - license
+    properties:
+      revalidated:
+        type: boolean
+        description: True when this request completed its bounded refresh attempt. Inspect license.state for the resulting authorization state.
+      license:
+        $ref: '#/definitions/LicenseDecision'
+  LicenseDecision:
+    type: object
+    required:
+      - state
+      - reasonCode
+      - nextCheckAt
+      - canRevalidate
+    properties:
+      state:
+        type: string
+        description: Authoritative product-access state. Clients must not derive authorization from any other field.
+        enum:
+          - allowed
+          - allowed_grace
+          - locked
+          - wrong_domain
+          - verification_unavailable
+      reasonCode:
+        type: string
+        description: Stable safe reason code for display mapping and diagnostics. It contains no middleware, billing, or credential detail.
+      nextCheckAt:
+        type: integer
+        format: int64
+        description: Unix epoch seconds for the next automatic license check.
+      graceUntil:
+        type: integer
+        format: int64
+        description: Unix epoch seconds. Present only when state is allowed_grace.
+      canRevalidate:
+        type: boolean
+        description: Whether a manual revalidation attempt is currently permitted.
+  LicenseLockedError:
+    type: object
+    required:
+      - errorCode
+    properties:
+      code:
+        type: integer
+        format: int32
+        example: 423
+      message:
+        type: string
+      errorCode:
+        type: string
+        enum:
+          - LICENSE_LOCKED
+      license:
+        $ref: '#/definitions/LicenseDecision'
   NotificationCheck:
     type: object
     properties:

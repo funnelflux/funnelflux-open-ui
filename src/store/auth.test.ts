@@ -14,10 +14,13 @@ describe('useAuthStore setError', () => {
 describe('useAuthStore clearAuth', () => {
   it('clears error along with user state', () => {
     useAuthStore.setState({
+      session: null,
       user: { id: '1' } as import('@/types/api').UserProfile,
       isAuthenticated: true,
       isLoading: false,
       error: 'x',
+      licenseLockedByResponse: true,
+      licenseLockSessionVersion: 42,
     })
     useAuthStore.getState().clearAuth()
     const s = useAuthStore.getState()
@@ -25,5 +28,7 @@ describe('useAuthStore clearAuth', () => {
     expect(s.isAuthenticated).toBe(false)
     expect(s.error).toBeNull()
     expect(s.isLoading).toBe(true)
+    expect(s.session).toBeNull()
+    expect(s.licenseLockedByResponse).toBe(false)
   })
 })

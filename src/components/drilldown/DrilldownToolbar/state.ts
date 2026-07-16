@@ -1,5 +1,6 @@
 import { useCallback, useId, useMemo, useState, type FormEvent } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { useQueryClient } from '@tanstack/react-query'
 import { useToastApi } from '@/components/ui-kit'
 import { useGroupings, useSavedViews, useSaveView } from '@/api/hooks'
 import { getErrorMessage } from '@/lib/utils'
@@ -51,6 +52,7 @@ function useDatePickerState(timezone: string) {
 export function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolbarContextValue {
   const { onApply, isLoading, viewType, paging } = props
   const toast = useToastApi()
+  const queryClient = useQueryClient()
   // Subscribe only to the fields the toolbar uses (shallow-compared): a selectorless
   // subscription would re-render every toolbar consumer on any store write.
   const {
@@ -233,7 +235,7 @@ export function useDrilldownToolbarState(props: DrilldownToolbarProps): Drilldow
         datePickerValue.from,
         datePickerValue.to,
       )
-      await downloadDrilldownCsv(exportRequest, filename)
+      await downloadDrilldownCsv(queryClient, exportRequest, filename)
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
@@ -245,6 +247,7 @@ export function useDrilldownToolbarState(props: DrilldownToolbarProps): Drilldow
     filtersEnabled,
     groupingFilters,
     groupings,
+    queryClient,
     toast,
     toDrilldownRequest,
     urlTrackingFieldByLevel,

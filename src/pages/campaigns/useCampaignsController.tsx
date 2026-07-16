@@ -20,6 +20,7 @@ import {
 } from '@/api/hooks'
 import { useEntityGrid } from '@/api/hooks/useEntityGrid'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { invalidateCampaignFunnelAuxiliary } from '@/api/invalidations'
 import { queryKeys } from '@/api/queryKeys'
 import { ENTITY_GRID_LIST_KEY } from '@/lib/entity-table/data/queryCache'
@@ -304,9 +305,9 @@ export function useCampaignsController() {
       const newName = String(pair.name ?? '')
       let funnelList: IdName[] = []
       try {
-        funnelList = await api.get<IdName[]>('/data/campaign/funnel/list/', {
-          idCampaign: newCampId,
-        })
+        funnelList = await executeObservedRequest(queryClient, () =>
+          api.get<IdName[]>('/data/campaign/funnel/list/', { idCampaign: newCampId }),
+        )
       } catch {
         funnelList = []
       }
@@ -316,7 +317,7 @@ export function useCampaignsController() {
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
-  }, [cloneCampaign, toast, patchStaticHierarchy])
+  }, [cloneCampaign, patchStaticHierarchy, queryClient, toast])
 
   const runDelete = useCallback(async (row: CampaignRow) => {
     if (row.id === '__totals__') return
@@ -340,13 +341,17 @@ export function useCampaignsController() {
     if (row.id === '__totals__') return
     try {
       if (row._isCategoryHeader) {
-        await archiveCampaignRemote(row.campaignId, archive)
+        await executeObservedRequest(queryClient, () =>
+          archiveCampaignRemote(row.campaignId, archive),
+        )
         toast.success(archive ? 'Campaign archived' : 'Campaign restored')
         patchStaticHierarchy((prev) =>
           prev ? setArchiveOnStatic(prev, archiveStatus, row.campaignId, null, archive) : prev,
         )
       } else if (row.funnelId) {
-        await archiveFunnelRemote(row.funnelId, archive)
+        await executeObservedRequest(queryClient, () =>
+          archiveFunnelRemote(row.funnelId!, archive),
+        )
         toast.success(archive ? 'Funnel archived' : 'Funnel restored')
         patchStaticHierarchy((prev) =>
           prev ? setArchiveOnStatic(prev, archiveStatus, null, row.funnelId!, archive) : prev,

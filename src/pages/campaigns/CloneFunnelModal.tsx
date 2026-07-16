@@ -5,6 +5,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { invalidateCampaignFunnelAuxiliary } from '@/api/invalidations'
 import { queryKeys } from '@/api/queryKeys'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { Button, FormField, Input, Select, FormModal, FormModalBody, FormModalFooter, FormModalHeader, useToastApi } from '@/components/ui-kit'
 import { useCampaignsList } from '@/api/hooks'
 import {
@@ -87,12 +88,12 @@ export function CloneFunnelModal({
       if (!source) return
       setCloneIntent(intent)
       try {
-        const summary = await cloneFunnelWithOptions({
+        const summary = await executeObservedRequest(queryClient, () => cloneFunnelWithOptions({
           sourceFunnelId: source.funnelId,
           sourceCampaignId: source.campaignId,
           targetCampaignId: data.idCampaign,
           funnelName: data.funnelName,
-        })
+        }))
         toast.success('Funnel cloned')
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all }),

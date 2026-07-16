@@ -527,10 +527,35 @@ export interface BulkIDs {
 }
 
 export interface SessionInfo {
-  authenticated?: boolean;
-  userId?: string;
-  username?: string;
-  isAdmin?: boolean;
+  authenticated: boolean;
+  userId: string;
+  username: string;
+  isAdmin: boolean;
+  license: LicenseDecision;
+}
+
+export interface LicenseStatusResponse {
+  license: LicenseDecision;
+}
+
+export interface LicenseRevalidationResponse {
+  revalidated: boolean;
+  license: LicenseDecision;
+}
+
+export interface LicenseDecision {
+  state: 'allowed' | 'allowed_grace' | 'locked' | 'wrong_domain' | 'verification_unavailable';
+  reasonCode: string;
+  nextCheckAt: string;
+  graceUntil?: string;
+  canRevalidate: boolean;
+}
+
+export interface LicenseLockedError {
+  code?: number;
+  message?: string;
+  errorCode: 'LICENSE_LOCKED';
+  license?: LicenseDecision;
 }
 
 export interface NotificationCheck {

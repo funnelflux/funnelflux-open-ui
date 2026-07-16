@@ -83,8 +83,8 @@ export function useDeleteThing() {
 ```
 
 ## Query parameter names
-- MUST match the OpenAPI `definition.yaml` exactly. The PHP backend reads specific parameter names (e.g. `idCampaign`, not `id`).
-- Read `../admin/api/v2/data/definition.yaml` (from this package directory in the self-hosted repo) before writing any hook.
+- MUST match the applicable committed OpenAPI document under `api-specs/` exactly. The API expects specific parameter names (e.g. `idCampaign`, not `id`).
+- Read the relevant contract before writing a hook.
 
 ## POST body shape
 - Create a `thingToApiBody()` helper that strips client-only fields (like `create` flag) and only sends properties the API model accepts.

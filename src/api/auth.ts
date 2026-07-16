@@ -1,6 +1,7 @@
 import { api } from '@/api/client'
 import { AuthExpiredError, NetworkError } from '@/api/errors'
 import { parseUserProfile } from '@/schemas/apiBoundaries'
+import { isLicenseAllowed } from '@/lib/licenseState'
 import type { SessionResponse, UserProfile } from '@/types/api'
 
 export async function fetchSession(): Promise<SessionResponse> {
@@ -21,14 +22,21 @@ export function sessionMatchesUser(
   return session.userId === user.id
 }
 
+export async function fetchUserProfile(): Promise<UserProfile> {
+  const profile = await api.get<unknown>('/ui/userprofile/loggedin/load/')
+  return parseUserProfile(profile)
+}
+
 export async function bootstrapAuth(): Promise<UserProfile> {
   try {
     const session = await fetchSession()
     if (!session.authenticated) {
       throw new Error('AUTH_REQUIRED')
     }
-    const profile = await api.get<unknown>('/ui/userprofile/loggedin/load/')
-    return parseUserProfile(profile)
+    if (!isLicenseAllowed(session.license)) {
+      throw new Error('LICENSE_LOCKED')
+    }
+    return fetchUserProfile()
   } catch (err) {
     if (err instanceof Error && err.message === 'AUTH_REQUIRED') {
       throw err

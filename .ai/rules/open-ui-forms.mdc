@@ -54,7 +54,7 @@ export const campaignSchema = z.object({ ... })
 export type CampaignFormData = z.infer<typeof campaignSchema>
 ```
 
-- Schema fields MUST match the OpenAPI `definition.yaml` contract. Check `../admin/api/v2/data/definition.yaml` (from this package in the self-hosted repo) before defining fields.
+- Schema fields MUST match the relevant committed OpenAPI contract in `api-specs/` before defining fields.
 
 ## Form layout
 - Wrap every labeled field in `<FormField>` from `@/components/ui-kit` — it handles label, error display, and help text.

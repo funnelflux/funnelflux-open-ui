@@ -3,6 +3,7 @@ import { Outlet, matchPath, useLocation } from "react-router-dom"
 import { Navbar } from "./Navbar"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { ROUTE_ENTRIES, entryPathToHref } from "@/lib/routeRegistry"
+import { LicenseGraceBanner } from "@/components/licensing/LicenseGraceBanner"
 
 /** Sync `document.title` with the current route's nav label. */
 function useRouteDocumentTitle(pathname: string) {
@@ -33,6 +34,7 @@ export function AppLayout() {
         Skip to content
       </a>
       <Navbar />
+      <LicenseGraceBanner />
       <main
         id="main-content"
         tabIndex={-1}

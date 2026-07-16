@@ -1,0 +1,74 @@
+name: Publish release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.ref == 'develop' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout released master commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Verify release provenance and metadata
+        env:
+          DEVELOP_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch origin "$DEVELOP_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$DEVELOP_SHA^{tree}")"
+          node --input-type=module -e "
+            import fs from 'node:fs';
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const manifest = JSON.parse(fs.readFileSync('.release-please-manifest.json', 'utf8'));
+            if (pkg.version !== manifest['.']) throw new Error('package and manifest versions differ');
+            if (!fs.readFileSync('CHANGELOG.md', 'utf8').includes('## [' + pkg.version + ']')) throw new Error('changelog version missing');
+          "
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Release checks
+        run: |
+          pnpm run check-generated-types:committed
+          pnpm run lint
+          pnpm run build:ci
+          pnpm test
+          pnpm audit --prod --audit-level high
+
+      - name: Generate production dependency notices
+        run: pnpm licenses list --prod --json > THIRD_PARTY_NOTICES.json
+
+      - name: Publish immutable tag and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; refusing to move or replace it."
+            exit 1
+          fi
+          git tag "$TAG" "${{ github.event.pull_request.merge_commit_sha }}"
+          git push origin "$TAG"
+          gh release create "$TAG" THIRD_PARTY_NOTICES.json --verify-tag --generate-notes --title "$TAG"

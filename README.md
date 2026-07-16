@@ -6,10 +6,9 @@ campaign management, a visual funnel builder, reporting, drilldown analytics, an
 dashboards — and is served by the FunnelFlux self-hosted application under the
 `/v2-ui/` path.
 
-> **License:** [Elastic License 2.0](./LICENSE) (source-available). You may use,
-> modify, self-host, and redistribute this software freely. You may **not** resell
-> it or offer it to third parties as a hosted/managed commercial service. See
-> [License](#license).
+> **License:** [Elastic License 2.0](./LICENSE) (source-available). Use,
+> modification, and distribution are governed by that license, including its
+> hosted-service and license-key limitations. See [License](#license).
 
 ## How this repo fits FunnelFlux self-hosted
 
@@ -44,7 +43,7 @@ or update it independently, build it, and the output is deployed to the parent's
 ```bash
 git clone https://github.com/funnelflux/funnelflux-open-ui.git
 cd funnelflux-open-ui
-pnpm install
+pnpm install --frozen-lockfile
 cp .env.example .env     # configure API endpoint / base path if needed
 pnpm run dev             # Vite dev server on http://localhost:5173
 ```
@@ -71,36 +70,14 @@ and coding conventions live in **[`AGENTS.md`](./AGENTS.md)**. `AGENTS.md` is th
 canonical project guide; contributors who use Claude Code can mirror it with:
 
 ```bash
-./scripts/setup-ai-symlinks.sh install
+bash scripts/setup-ai-symlinks.sh install
 ```
 
 ## Installing & updating in your FunnelFlux install
 
-The UI ships as a submodule of FunnelFlux self-hosted. You can either **track the
-latest** code or **pin to a released version** (recommended for production).
-
-### Option A — Pin to a released version (recommended)
-
-Releases are tagged using [semantic versioning](https://semver.org/) (`vMAJOR.MINOR.PATCH`).
-Pinning to a tag gives you a stable, reproducible build:
-
-```bash
-cd funnelflux-open-ui
-git fetch --tags
-git checkout v1.2.0          # replace with the version you want
-```
-
-### Option B — Track the latest
-
-```bash
-cd funnelflux-open-ui
-git checkout master
-git pull origin master       # latest reviewed code on the default branch
-```
-
-> Browse available versions on the
-> [Releases page](https://github.com/funnelflux/funnelflux-open-ui/releases) or with
-> `git tag --list`.
+Use the complete [installation and update guide](./docs/UPDATING.md). It covers
+tag-pinned production installs, pristine checkouts following stable `master`,
+and customer forks that merge upstream changes without losing customizations.
 
 ### Build & deploy into the parent
 
@@ -116,12 +93,12 @@ serves under `/v2-ui/`):
 
 ```bash
 cd funnelflux-open-ui
-pnpm install
+pnpm install --frozen-lockfile
 pnpm run build
 ```
 
-After deploying, clear OPcache on the backend if your install requires it
-(`curl http://<your-host>/admin/clear-opcache.php`).
+The parent deployment tooling owns cache invalidation and atomic replacement of
+the active `v2-ui/` build.
 
 ## Contributing
 
@@ -138,9 +115,9 @@ Do not open a public issue for security problems.
 
 ## License
 
-Distributed under the **[Elastic License 2.0](./LICENSE)**. In short: free to use,
-modify, self-host, and redistribute — but you may not resell the software or offer
-it to others as a hosted/managed commercial service. This is a *source-available*
+Distributed under the **[Elastic License 2.0](./LICENSE)**. Review the license
+itself for the complete permissions, limitations, license-key protection terms,
+notice requirements, and termination provisions. This is a *source-available*
 license, not an OSI-approved open-source license.
 
 [FunnelFlux self-hosted]: https://funnelflux.com

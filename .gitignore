@@ -25,9 +25,11 @@ dist-ssr
 *.sw?
 
 # Local AI assistant configuration and runtime state.
-# Keep repository-specific internal prompts, skills, agents, memories, and
-# editor assistant rules out of the distributed source tree.
-.ai/
+# The curated, repository-specific `.ai/` guidance is versioned. Keep only
+# active/local execution plans out of the distributed source tree.
+.ai/exec-plans/*
+!.ai/exec-plans/templates/
+!.ai/exec-plans/templates/exec-plan-template.md
 .agents/
 .augment/
 .claude/

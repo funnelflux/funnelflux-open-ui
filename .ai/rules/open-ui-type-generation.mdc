@@ -11,7 +11,7 @@ alwaysApply: true
 
 ## Generated files — never edit manually
 
-Files in `src/types/generated/{data,stats,ui,system,index}.ts` are auto-generated from the committed OpenAPI specs in `api-specs/` (`data-api.yaml`, `stats-api.yaml`, `ui-api.yaml`, `system-api.yaml`) by `scripts/generate-types.mjs`. **Do not edit generated files by hand.** Keep `api-specs/` in sync with `admin/api/v2/*/definition.yaml` when the backend contract changes.
+Files in `src/types/generated/{data,stats,ui,system,index}.ts` are auto-generated from the committed OpenAPI specs in `api-specs/` (`data-api.yaml`, `stats-api.yaml`, `ui-api.yaml`, `system-api.yaml`) by `scripts/generate-types.mjs`. **Do not edit generated files by hand.** Treat the committed specs as this repository's contract input.
 
 Hand-written patches belong in `src/types/generated/_overrides.ts` (or wrapper modules under `src/types/`), not in generated `.ts` files.
 

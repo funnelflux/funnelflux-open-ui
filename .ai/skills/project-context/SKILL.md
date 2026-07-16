@@ -1,13 +1,13 @@
 ---
 name: project-context
-description: Use when onboarding to funnelflux-open-ui, explaining domain terms, app architecture, routing, state management, or design-token system.
+description: Use when orienting within this React and TypeScript administrative UI.
 ---
 
 # Project Context
 
 ## System context
 
-This is the `funnelflux-open-ui` submodule — a React SPA that replaces the legacy PHP/jQuery admin at `/admin`. It builds to `dist/` and is served at `/v2-ui/` by the parent FunnelFlux installation. All data comes from the V2 REST API at `/admin/api/v2/`.
+This repository is a React SPA. It builds to `dist/` and uses its configured API path at runtime.
 
 ## Application layers
 
@@ -20,14 +20,14 @@ App.tsx (root)
 │   ├── AuthGate (session check → LoginPage or children)
 │   └── AppLayout (nav + Outlet)
 │       └── Routes → Page components
-└── DesignSystemPage (dev-only, lazy-loaded)
+└── Public design-system route (lazy-loaded)
 ```
 
 ## State management
 
 | Store | File | Purpose |
 |-------|------|---------|
-| Auth | `src/store/auth.ts` | User session, permissions, API key |
+| Auth | `src/store/auth.ts` | Session, profile, permissions, and backend licensing state |
 | Theme | `src/store/theme.ts` | Light/dark mode toggle, persists to localStorage |
 | Dashboard | `src/store/dashboard.ts` | Dashboard widget state |
 | Drilldown | `src/store/drilldown.ts` | Report filters, groupings, saved views |
@@ -38,8 +38,6 @@ Server state (entity lists, report data) is managed by react-query, not Zustand.
 ## API layer
 
 - All API calls go through `src/api/client.ts`
-- Auth: `apiKey` query parameter on every request
-- Dev proxy: Vite forwards `/admin/api/v2` to `localhost:8080`
 - OpenAPI specs for type generation: `api-specs/*-api.yaml`
 
 ## Design token system
@@ -74,6 +72,6 @@ Dark mode: `useThemeStore` toggles `.dark` class on `<html>`, CSS vars swap valu
 | Heatmap | Visual overlay on funnel canvas showing click/conversion volumes per node | `src/components/funnel-builder/HeatmapOverlay.tsx` |
 | System Links | Generated tracking URLs for a campaign + traffic source combination | `src/pages/links/SystemLinksPage.tsx` |
 | Stored Links | Saved/named tracking link configurations | `src/pages/links/StoredLinksPage.tsx` |
-| V2 API | REST API at `/admin/api/v2/` — the sole data source for this React UI | `src/api/client.ts`, `api-specs/` |
+| API contract | Committed OpenAPI input for this UI | `src/api/client.ts`, `api-specs/` |
 | Design Tokens | CSS custom properties in `src/styles/design-tokens.css` | `src/styles/design-tokens.css` |
 | UI Kit | Shared component library at `src/components/ui-kit/` | `src/components/ui-kit/` |

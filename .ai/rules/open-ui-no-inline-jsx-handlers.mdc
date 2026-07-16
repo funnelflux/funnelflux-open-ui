@@ -6,8 +6,6 @@ alwaysApply: false
 
 # No inline functions in JSX
 
-**Glob note:** Same **dual-pattern** convention as all other `funnelflux-open-ui/.ai/rules/*.mdc` files (symlinked to `.cursor/rules/`): `src/...` for a package-root workspace and `funnelflux-open-ui/...` for the monorepo root. Multiple patterns: comma with **no space** after it.
-
 When passing callbacks to JSX props (`onClick`, `onChange`, `onConfirm`, `render`, etc.), **do not** write new arrow functions or `.bind()` calls in the JSX tree.
 
 ## Do this instead

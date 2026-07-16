@@ -4,6 +4,7 @@ import { create } from "zustand"
 import { useAuthStore } from "@/store/auth"
 import { api } from "@/api/client"
 import { queryKeys } from "@/api/queryKeys"
+import { registerProtectedStateReset } from "@/store/protectedState"
 
 interface NotificationCheckResponse {
   unreadCount?: number
@@ -20,6 +21,8 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   unreadCount: 0,
   setUnreadCount: (count) => set({ unreadCount: count }),
 }))
+
+registerProtectedStateReset(() => useNotificationStore.setState({ unreadCount: 0 }))
 
 /**
  * Unread-count check backed by React Query under `queryKeys.inbox.notifications`, so the

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '@/components/ui-kit/icons'
 import { Alert, Button, FormField, Input, PageShell, Radio, useToastApi } from '@/components/ui-kit'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { invalidateAllStats } from '@/api/invalidations'
 import type { BackgroundJobResponse, ConvertedHit, ConversionsUpload } from '@/types/stats'
 import { getErrorMessage } from '@/lib/utils'
@@ -109,7 +110,9 @@ export function ConversionsPage() {
 
     setIsSubmitting(true)
     try {
-      const res = await api.put<BackgroundJobResponse>('/stats/update/conversions/', body)
+      const res = await executeObservedRequest(queryClient, () =>
+        api.put<BackgroundJobResponse>('/stats/update/conversions/', body),
+      )
       const jobCount = res.jobIds?.length ?? 0
       toast.success(
         jobCount > 0

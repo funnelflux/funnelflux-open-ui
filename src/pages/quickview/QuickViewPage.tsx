@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
 import { api } from "@/api/client"
+import { executeObservedRequest } from "@/api/observedRequest"
 import { Alert, PageShell, TimezoneSelect } from "@/components/ui-kit"
 import { DataTable } from "@/components/ui-kit/data-table"
 import { entityRowId } from "@/components/ui-kit/data-table"
@@ -57,6 +59,7 @@ function reportRowsToFlatData(report: Report): QuickViewRow[] {
 
 export function QuickViewPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const entityGroupBy = searchParams.get("groupBy") ?? "Element: Campaign"
   const entityId = searchParams.get("id") ?? ""
@@ -78,7 +81,7 @@ export function QuickViewPage() {
 
     try {
       const now = new Date()
-      const nameReport = await api.postDrilldown<Report>({
+      const nameReport = await executeObservedRequest(queryClient, () => api.postDrilldown<Report>({
         timeRange: toApiDateTimeRange(now, now),
         timeZone: { name: ENTITY_NAME_LOOKUP_TIMEZONE },
         groupings: [
@@ -90,7 +93,7 @@ export function QuickViewPage() {
         ],
         paging: { start: 0, length: 1 },
         options: { viewType: "flat" },
-      })
+      }))
 
       const firstRow = reportRowsToFlatData(nameReport)[0]
       setEntityName(firstRow?.cells[0]?.formatted ?? entityId)
@@ -98,7 +101,7 @@ export function QuickViewPage() {
       // Name lookup is cosmetic — fall back to the raw entity id.
       setEntityName(entityId)
     }
-  }, [entityGroupBy, entityId])
+  }, [entityGroupBy, entityId, queryClient])
 
   const loadReport = useCallback(async () => {
     if (!entityId) return
@@ -109,7 +112,7 @@ export function QuickViewPage() {
     setIsLoading(true)
     setLoadError(null)
     try {
-      const nextReport = await api.postDrilldown<Report>({
+      const nextReport = await executeObservedRequest(queryClient, () => api.postDrilldown<Report>({
         timeRange: toApiDateTimeRange(dateRange.from, dateRange.to),
         timeZone: { name: timezone },
         groupings: [
@@ -128,7 +131,7 @@ export function QuickViewPage() {
         ],
         paging: { start: 0, length: 100 },
         options: { viewType: "flat" },
-      })
+      }))
       if (requestId !== loadRequestIdRef.current) return
       setReport(nextReport)
     } catch (err) {
@@ -140,7 +143,7 @@ export function QuickViewPage() {
         setIsLoading(false)
       }
     }
-  }, [dateRange.from, dateRange.to, entityGroupBy, entityId, selectedGroupBy, timezone])
+  }, [dateRange.from, dateRange.to, entityGroupBy, entityId, queryClient, selectedGroupBy, timezone])
 
   useEffect(() => {
     void loadEntityName()

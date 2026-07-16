@@ -17,6 +17,7 @@ import {
 } from '@/components/ui-kit'
 import type { SelectOption } from '@/components/ui-kit'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { useTrafficSources } from '@/api/hooks/useTrafficSources'
 import { invalidateAllStats } from '@/api/invalidations'
 import { queryKeys } from '@/api/queryKeys'
@@ -270,7 +271,9 @@ export function ResetStatsPage() {
     setIsCalculating(true)
     setPreviewCount(null)
     try {
-      const result = await api.post<IntegerValue>('/ui/resetstats/calculate/', body)
+      const result = await executeObservedRequest(queryClient, () =>
+        api.post<IntegerValue>('/ui/resetstats/calculate/', body),
+      )
       setPreviewCount(parseIntegerValue(result.value))
     } catch (err) {
       toast.error(getErrorMessage(err))
@@ -287,7 +290,9 @@ export function ResetStatsPage() {
     }
     setIsDeleting(true)
     try {
-      await api.delete('/ui/resetstats/delete/', undefined, body)
+      await executeObservedRequest(queryClient, () =>
+        api.delete('/ui/resetstats/delete/', undefined, body),
+      )
       toast.success('Stats reset successfully')
       setPreviewCount(null)
       closeConfirmModal()
