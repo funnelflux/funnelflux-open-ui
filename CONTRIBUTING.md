@@ -64,6 +64,7 @@ request that a maintainer reviews and merges.
 ```bash
 pnpm install --frozen-lockfile
 cp .env.example .env    # configure API endpoint / base path if needed
+bash scripts/setup-git-hooks.sh # enable pre-commit and pre-push quality gates
 pnpm run dev            # Vite dev server on http://localhost:5173
 ```
 

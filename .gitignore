@@ -40,9 +40,8 @@ dist-ssr
 .gstack/
 .lerim/
 .serena/
-CLAUDE.md
-GEMINI.md
+**/CLAUDE.md
+**/GEMINI.md
 docs/_ai_context/
 docs/exec-plans/
-scripts/setup-ai-harness.sh
-scripts/sync-ai-config.sh
+.pare

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+while IFS= read -r git_env_name; do
+    unset "$git_env_name"
+done < <(git rev-parse --local-env-vars)
+exec "$ROOT_DIR/scripts/quality-gate.sh"

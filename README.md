@@ -45,6 +45,7 @@ git clone https://github.com/funnelflux/funnelflux-open-ui.git
 cd funnelflux-open-ui
 pnpm install --frozen-lockfile
 cp .env.example .env     # configure API endpoint / base path if needed
+bash scripts/setup-git-hooks.sh # enable pre-commit and pre-push quality gates
 pnpm run dev             # Vite dev server on http://localhost:5173
 ```
 
@@ -70,7 +71,7 @@ and coding conventions live in **[`AGENTS.md`](./AGENTS.md)**. `AGENTS.md` is th
 canonical project guide; contributors who use Claude Code can mirror it with:
 
 ```bash
-bash scripts/setup-ai-symlinks.sh install
+bash scripts/setup-ai-harness.sh install
 ```
 
 ## Installing & updating in your FunnelFlux install

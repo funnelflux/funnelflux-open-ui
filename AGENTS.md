@@ -2,14 +2,13 @@
 
 Open-source React 19 + TypeScript admin UI for the FunnelFlux self-hosted tracking platform. Lives as a git submodule at `funnelflux-open-ui/` inside the parent PHP application; the build output is deployed to the parent's `v2-ui/` folder and served under the `/v2-ui/` base path.
 
-> **This file is the canonical agent guide.** Tool-specific entrypoints (`CLAUDE.md`, `GEMINI.md`) are git-ignored symlinks to this file; `.cursor/`, `.claude/`, `.agents/`, and `.codex/` loader paths are generated from `.ai/`. Run `./scripts/setup-ai-harness.sh install` after clone or harness changes. Edit this file and `.ai/`, never the generated copies.
+> **This file is the canonical agent guide.** `CLAUDE.md` is a git-ignored symlink to this file; Gemini CLI reads `AGENTS.md` through local configuration. `.cursor/`, `.claude/`, `.agents/`, and `.codex/` loader paths are generated from `.ai/`. Run `bash scripts/setup-ai-harness.sh install` after clone or harness changes. Edit this file and `.ai/`, never the generated copies.
 
 ## Rules
 
 1. **Package manager is `pnpm`** (locked to `pnpm@10.11.1` via `package.json#packageManager`). Do NOT run `npm install` or `yarn`. The lockfile is `pnpm-lock.yaml` and there is a local `.pnpm-store/`.
-2. Build before committing: `pnpm run build`
-3. Lint before committing: `pnpm run lint`
-4. Run tests before committing: `pnpm test`
+2. Enable the managed local Git hooks after clone: `bash scripts/setup-git-hooks.sh`.
+3. Before committing or pushing, run `pnpm run lint`, `pnpm run build`, and `pnpm test`. The managed `pre-commit` and `pre-push` hooks run this same gate; do not bypass them with `--no-verify`.
 5. Follow existing component patterns — check `src/pages/campaigns/CampaignsPage.tsx` for entity pages, `src/components/ui-kit/` for shared components.
 6. Use the `@/` import alias for all `src/` imports (configured in `vite.config.ts` + `tsconfig.app.json`).
 7. Do not commit or push without explicit permission.
@@ -52,6 +51,8 @@ pnpm test             # vitest run (single pass)
 pnpm run test:watch   # vitest watch mode
 pnpm run generate-types  # node scripts/generate-types.mjs (regenerates types from OpenAPI specs in api-specs/)
 pnpm run check-generated-types  # regen + fail if src/types/generated differs from git (CI hygiene)
+scripts/quality-gate.sh         # lint + build + test; used by managed Git hooks
+scripts/setup-git-hooks.sh      # configure this checkout to use .githooks/
 ```
 
 The dev server proxies `/admin/*` requests (PHP login + V2 API) to the backend so session cookies share the same origin. Backend must be running locally on port 8080 (Docker host) for the UI to function.
