@@ -84,6 +84,16 @@ function metricToneClass(key: string, stats: DashboardSummaryStats | undefined):
   return 'text-muted-foreground'
 }
 
+function metricCardToneClass(
+  key: string,
+  stats: DashboardSummaryStats | undefined,
+): string | undefined {
+  if (key !== 'net' && key !== 'roi') return undefined
+  const value = numericMetricValue(key, stats)
+  if (value == null) return undefined
+  return value < 0 ? 'ff-stat-card--loss' : 'ff-stat-card--profit'
+}
+
 function StatsCardsComponent({ stats, isLoading, layout = 'dashboard', className }: StatsCardsProps) {
   const cards = layout === 'dashboard' ? DASHBOARD_CARDS : LEGACY_CARDS
   const compact = layout === 'dashboard'
@@ -119,11 +129,7 @@ function StatsCardsComponent({ stats, isLoading, layout = 'dashboard', className
             compact={compact}
             className={cn(
               'min-h-0',
-              key === 'net' || key === 'roi' ? (
-                stats
-                  ? (Number(stats[key]) < 0 ? 'ff-stat-card--loss' : 'ff-stat-card--profit')
-                  : undefined
-              ) : undefined,
+              metricCardToneClass(key, stats),
             )}
             valueClassName={metricToneClass(key, stats)}
           />

@@ -122,6 +122,19 @@ describe('routeRegistry', () => {
     }
   })
 
+  it('gates funnel assets on campaign view permission', () => {
+    const allowed = userWith()
+    const denied = userWith({
+      campaigns: {
+        ...fullPermissions().campaigns,
+        canView: false,
+      },
+    })
+
+    expect(canManageFunnelAssets(allowed)).toBe(true)
+    expect(canManageFunnelAssets(denied)).toBe(false)
+  })
+
   it('gates inbox as authenticated-only and tags/conditions on campaign view', () => {
     const paths = new Set(
       ROUTE_ENTRIES.filter((e) => e.layout === 'app').map((e) => e.path),

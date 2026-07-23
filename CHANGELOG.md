@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-07-23
+
+### Added
+
+- Installer-compatible compiled release bundles with SHA-256 checksums,
+  source-commit metadata, dependency notices, and archive safety validation
+- Repository-local release-version guidance for maintainers
+
+### Fixed
+
+- Corrected Vite 8 code-splitting configuration and production artifact-base
+  validation
+- Hardened license revalidation cancellation, authenticated bootstrap failures,
+  archived offer-source selection, dashboard ROI parsing, and bulk-action
+  concurrency
+- Improved required-field semantics, error controls, license-lock decoration,
+  modal reset behavior, and lazy editor consistency
+- Added safe default OpenAPI error responses for licensing endpoints
+
 ## [1.1.0] - 2026-07-23
 
 ### Added
@@ -106,5 +125,6 @@ Then open `https://<your-host>/v2-ui/`.
 
 See [README.md](./README.md) for development setup, subfolder installs, and contribution guidelines.
 
+[1.1.1]: https://github.com/funnelflux/funnelflux-open-ui/releases/tag/v1.1.1
 [1.1.0]: https://github.com/funnelflux/funnelflux-open-ui/releases/tag/v1.1.0
 [1.0.0]: https://github.com/funnelflux/funnelflux-open-ui/releases/tag/v1.0.0

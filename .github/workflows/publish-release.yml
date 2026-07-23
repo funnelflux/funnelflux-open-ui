@@ -6,10 +6,14 @@ on:
     branches: [master]
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  validate:
     if: >-
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.ref == 'develop' &&
@@ -21,6 +25,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -34,8 +39,11 @@ jobs:
       - name: Verify release provenance and metadata
         env:
           DEVELOP_SHA: ${{ github.event.pull_request.head.sha }}
+          MASTER_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          git fetch origin "$DEVELOP_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | awk '{ print NF - 1 }')" -eq 2
+          test "$(git rev-parse HEAD^1)" = "$MASTER_BASE_SHA"
+          test "$(git rev-parse HEAD^2)" = "$DEVELOP_SHA"
           test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$DEVELOP_SHA^{tree}")"
           node --input-type=module -e "
             import fs from 'node:fs';
@@ -56,8 +64,44 @@ jobs:
           pnpm test
           pnpm audit --prod --audit-level high
 
+      - name: Package installer-compatible UI bundle
+        env:
+          RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          node scripts/package-release.mjs \
+            --version "$VERSION" \
+            --commit "$RELEASE_COMMIT" \
+            --output release-assets
+
       - name: Generate production dependency notices
-        run: pnpm licenses list --prod --json > THIRD_PARTY_NOTICES.json
+        run: pnpm licenses list --prod --json > release-assets/THIRD_PARTY_NOTICES.json
+
+      - name: Store release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-assets
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout released master commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Download validated release assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-assets
 
       - name: Publish immutable tag and GitHub release
         env:
@@ -69,6 +113,17 @@ jobs:
             echo "Tag $TAG already exists; refusing to move or replace it."
             exit 1
           fi
+          BUNDLE="funnelflux-open-ui-$TAG.tar.gz"
+          test -f "$BUNDLE"
+          test -f "$BUNDLE.sha256"
+          test -f THIRD_PARTY_NOTICES.json
+          sha256sum -c "$BUNDLE.sha256"
           git tag "$TAG" "${{ github.event.pull_request.merge_commit_sha }}"
           git push origin "$TAG"
-          gh release create "$TAG" THIRD_PARTY_NOTICES.json --verify-tag --generate-notes --title "$TAG"
+          gh release create "$TAG" \
+            "$BUNDLE" \
+            "$BUNDLE.sha256" \
+            THIRD_PARTY_NOTICES.json \
+            --verify-tag \
+            --generate-notes \
+            --title "$TAG"

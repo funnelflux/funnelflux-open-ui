@@ -35,6 +35,7 @@ export function CsvImportDialog({
     setHeaders([])
     setRows([])
     setSelectedFile(null)
+    setTemplateDownloadFailed(false)
   }
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {

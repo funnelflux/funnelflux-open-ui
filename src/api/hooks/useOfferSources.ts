@@ -26,7 +26,7 @@ export type SaveOfferSourceInput = {
   isCreate: boolean
 }
 
-export function useOfferSources(status: 'active' | 'archived' = 'active') {
+export function useOfferSources(status: 'active' | 'archived' | 'all' = 'all') {
   return useQuery({
     queryKey: queryKeys.offerSources.list({ status }),
     queryFn: () => api.get<OfferSource[]>('/data/offersource/find/byStatus/', { status }),

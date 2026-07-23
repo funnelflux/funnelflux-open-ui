@@ -19,6 +19,7 @@ import { getErrorMessage } from '@/lib/utils'
 import {
   campaignCreateSchema,
   campaignEditSchema,
+  CAMPAIGN_NAME_MAX_LEN,
   type CampaignCreateFormValues,
   type CampaignEditFormValues,
 } from '@/schemas/campaign'
@@ -48,9 +49,13 @@ function CampaignCreateForm({
     defaultValues: { campaignName: '' },
   })
 
-  const onValid = (data: CampaignCreateFormValues) => {
+  const onValid = (campaignFormValues: CampaignCreateFormValues) => {
     saveCampaignMutate(
-      { create: true, campaignName: data.campaignName, isArchived: false },
+      {
+        create: true,
+        campaignName: campaignFormValues.campaignName,
+        isArchived: false,
+      },
       {
         onSuccess: (saved) => {
           toast.success('Campaign created')
@@ -80,7 +85,7 @@ function CampaignCreateForm({
               onChange={(event) => field.onChange(event.target.value)}
               onBlur={field.onBlur}
               placeholder="Campaign name"
-              maxLength={255}
+              maxLength={CAMPAIGN_NAME_MAX_LEN}
             />
           </FormField>
         )}
@@ -115,12 +120,12 @@ function CampaignEditForm({
     },
   })
 
-  const onValid = (data: CampaignEditFormValues) => {
+  const onValid = (campaignFormValues: CampaignEditFormValues) => {
     const payload: SaveCampaignInput = {
       ...campaign,
-      campaignName: data.campaignName,
-      customTokens: linesToKv(data.customTokensText),
-      acculumatedUrlParams: linesToKv(data.accumulatedParamsText),
+      campaignName: campaignFormValues.campaignName,
+      customTokens: linesToKv(campaignFormValues.customTokensText),
+      acculumatedUrlParams: linesToKv(campaignFormValues.accumulatedParamsText),
     }
     saveCampaignMutate(payload, {
       onSuccess: (saved) => {
@@ -150,7 +155,7 @@ function CampaignEditForm({
               onChange={(event) => field.onChange(event.target.value)}
               onBlur={field.onBlur}
               placeholder="Campaign name"
-              maxLength={255}
+              maxLength={CAMPAIGN_NAME_MAX_LEN}
             />
           </FormField>
         )}

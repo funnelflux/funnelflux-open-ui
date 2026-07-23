@@ -134,6 +134,7 @@ export function useAuth() {
     Boolean(
       backendAllowsProductAccess &&
       !licenseLockedByResponse &&
+      !profileQuery.isError &&
       (profileQuery.isPending || !user),
     )
 

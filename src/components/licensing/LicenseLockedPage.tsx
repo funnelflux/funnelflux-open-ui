@@ -22,7 +22,10 @@ export function LicenseLockedPage({ license }: { license: LicenseStatus }) {
   return (
     <div className="min-h-screen bg-surface-secondary flex items-center justify-center p-4">
       <main className="bg-surface w-full max-w-lg rounded-lg border border-border p-8 shadow-md text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive text-xl font-bold">
+        <div
+          aria-hidden="true"
+          className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive text-xl font-bold"
+        >
           !
         </div>
         <h1 className="mb-2 text-2xl font-bold text-foreground">FunnelFlux access is locked</h1>

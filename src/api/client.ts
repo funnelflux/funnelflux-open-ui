@@ -56,13 +56,14 @@ export class ApiClient {
     return this.postWithParseMode<T>(endpoint, body, params, 'default', signal)
   }
 
-  async revalidateLicense<T>(): Promise<T> {
+  async revalidateLicense<T>(signal?: AbortSignal): Promise<T> {
     let res: Response
     try {
       res = await fetch(this.buildUrl('/license/revalidate/'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: JSON_REQUEST_HEADERS,
+        signal,
       })
     } catch (cause) {
       throw new NetworkError('Network request failed', { cause })

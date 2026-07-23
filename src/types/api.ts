@@ -1,4 +1,4 @@
-import type { LicenseDecision, SessionInfo } from './generated/ui';
+import type { LicenseDecision, SessionInfo } from '@/types/generated/ui';
 
 // Re-export generated types used by API consumers
 export type {
@@ -8,7 +8,7 @@ export type {
   SessionInfo,
   LicenseDecision,
   LicenseRevalidationResponse,
-} from './generated/ui';
+} from '@/types/generated/ui';
 
 // Permissions types: the YAML spec marks boolean fields optional (they have
 // defaults), but the API always returns them. Keep strict non-optional booleans

@@ -9,6 +9,7 @@ import { php } from '@codemirror/lang-php'
 import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode'
 import { useMemo } from 'react'
 import { useThemeStore } from '@/store/theme'
+import { DEFAULT_CODE_EDITOR_HEIGHT } from '@/components/ui-kit/codeEditorConfig'
 import type { CodeEditorProps } from '@/components/ui-kit/CodeEditor'
 
 export default function CodeEditorInner({
@@ -16,7 +17,7 @@ export default function CodeEditorInner({
   onChange,
   language,
   readOnly,
-  height = 'min(420px, 50vh)',
+  height = DEFAULT_CODE_EDITOR_HEIGHT,
   id,
 }: CodeEditorProps) {
   const themeMode = useThemeStore((s) => s.mode)

@@ -43,8 +43,9 @@ describe('ApiClient', () => {
       text: async () => '{"revalidated":true}',
     })
     globalThis.fetch = fetchMock as unknown as typeof fetch
+    const controller = new AbortController()
 
-    await new ApiClient().revalidateLicense()
+    await new ApiClient().revalidateLicense(controller.signal)
 
     expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/admin/api/v2/license/revalidate/')
     const init = fetchMock.mock.calls[0][1] as RequestInit
@@ -52,6 +53,7 @@ describe('ApiClient', () => {
     expect(init.credentials).toBe('same-origin')
     expect(init.body).toBeUndefined()
     expect(init.headers).toEqual({ Accept: 'application/json' })
+    expect(init.signal).toBe(controller.signal)
   })
 
   it('throws AuthExpiredError on 401', async () => {

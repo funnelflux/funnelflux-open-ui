@@ -23,7 +23,7 @@ async function walkFiles(root, directory = root) {
 
 export async function checkDistArtifacts({
   distDir = path.resolve('dist'),
-  expectedBase = process.env.VITE_UI_BASENAME,
+  expectedBase = process.env.VITE_UI_BASENAME || '/v2-ui',
 } = {}) {
   const files = await walkFiles(distDir)
   const violations = files.filter((file) => {
@@ -41,11 +41,12 @@ export async function checkDistArtifacts({
     if (assetReferences.length === 0) {
       violations.push('index.html has no built asset references')
     }
-    const inferredBase = assetReferences[0]?.split('/assets/')[0] || '/'
-    const normalizedBase = normalizeUiBase(expectedBase || inferredBase)
+    const normalizedBase = normalizeUiBase(expectedBase)
     const assetBase = normalizedBase === '/' ? '/assets/' : `${normalizedBase}/assets/`
     for (const reference of assetReferences) {
-      if (!reference.startsWith(assetBase)) {
+      if (!reference.startsWith('/') || reference.startsWith('//')) {
+        violations.push(`non-local asset reference: ${reference}`)
+      } else if (!reference.startsWith(assetBase)) {
         violations.push(`asset reference outside ${assetBase}: ${reference}`)
       }
     }

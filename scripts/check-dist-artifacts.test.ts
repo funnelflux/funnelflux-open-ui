@@ -44,4 +44,29 @@ describe('checkDistArtifacts', () => {
       'asset reference outside /v2-ui/assets/',
     )
   })
+
+  it('uses the production UI base when no override is provided', async () => {
+    const distDir = await fixture({
+      'index.html': '<script type="module" src="/wrong-base/assets/app.js"></script>',
+      'assets/app.js': 'export {}',
+    })
+
+    await expect(checkDistArtifacts({ distDir })).rejects.toThrow(
+      'asset reference outside /v2-ui/assets/',
+    )
+  })
+
+  it.each([
+    'https://cdn.example.com/assets/app.js',
+    '//cdn.example.com/assets/app.js',
+  ])('rejects non-local built asset reference %s', async (reference) => {
+    const distDir = await fixture({
+      'index.html': `<script type="module" src="${reference}"></script>`,
+      'assets/app.js': 'export {}',
+    })
+
+    await expect(checkDistArtifacts({ distDir })).rejects.toThrow(
+      `non-local asset reference: ${reference}`,
+    )
+  })
 })

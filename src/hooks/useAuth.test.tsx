@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthStore } from '@/store/auth'
 import * as authApi from '@/api/auth'
+import { queryKeys } from '@/api/queryKeys'
 import type { LicenseStatus, SessionResponse, UserProfile } from '@/types/api'
 
 vi.mock('@/api/auth', async (importOriginal) => {
@@ -96,7 +97,7 @@ describe('useAuth backend license bootstrap', () => {
     await waitFor(() => expect(useAuthStore.getState().user?.id).toBe('2'))
 
     expect(client.getQueryData(['campaigns'])).toBeUndefined()
-    expect(client.getQueryData(['license', 'session'])).toEqual(session('2'))
+    expect(client.getQueryData(queryKeys.license.session())).toEqual(session('2'))
   })
 
   it('keeps protected data when the authenticated user and allowed license are unchanged', async () => {
@@ -134,6 +135,22 @@ describe('useAuth backend license bootstrap', () => {
 
     expect(result.current.isLicenseLocked).toBe(false)
     expect(result.current.license?.state).toBe('allowed_grace')
+  })
+
+  it('stops loading and reports a profile bootstrap failure', async () => {
+    vi.mocked(authApi.fetchSession).mockResolvedValue(session('1'))
+    vi.mocked(authApi.fetchUserProfile).mockRejectedValue(new Error('Profile unavailable'))
+    const client = makeClient()
+    const { result } = renderHook(() => useAuth(), { wrapper: makeWrapper(client) })
+
+    await waitFor(
+      () => expect(result.current.error).toBe('Profile unavailable'),
+      { timeout: 3_000 },
+    )
+
+    expect(result.current.isAuthenticated).toBe(true)
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.user).toBeNull()
   })
 
   it('refreshes the license session on focus, visibility, and reconnect', async () => {
