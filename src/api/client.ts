@@ -1,5 +1,5 @@
 import type { ApiError } from '@/types/api'
-import { ApiHttpError, AuthExpiredError, NetworkError } from '@/api/errors'
+import { ApiHttpError, AuthExpiredError, LicenseLockedError, NetworkError } from '@/api/errors'
 
 const API_PATH = import.meta.env.VITE_API_PATH || '/admin/api/v2'
 type ResponseParseMode = 'default' | 'statsRawBigInt'
@@ -54,6 +54,20 @@ export class ApiClient {
 
   async post<T>(endpoint: string, body?: unknown, params?: Record<string, string>, signal?: AbortSignal): Promise<T> {
     return this.postWithParseMode<T>(endpoint, body, params, 'default', signal)
+  }
+
+  async revalidateLicense<T>(): Promise<T> {
+    let res: Response
+    try {
+      res = await fetch(this.buildUrl('/license/revalidate/'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: JSON_REQUEST_HEADERS,
+      })
+    } catch (cause) {
+      throw new NetworkError('Network request failed', { cause })
+    }
+    return this.handleResponse<T>(res)
   }
 
   async postDrilldown<T>(body?: unknown, params?: Record<string, string>, signal?: AbortSignal): Promise<T> {
@@ -151,37 +165,64 @@ export class ApiClient {
     } catch (cause) {
       throw new NetworkError('Network request failed', { cause })
     }
-    if (res.status === 401) {
-      throw new AuthExpiredError()
-    }
-    if (!res.ok) {
-      const error: ApiError = await res.json().catch(() => ({
-        code: res.status,
-        message: res.statusText,
-      }))
-      throw new ApiHttpError(error.message || res.statusText, res.status, error)
-    }
+    await this.throwForErrorResponse(res)
     return res.blob()
+  }
+
+  /** Download a same-origin file so protected 401/423 responses remain observable by the SPA. */
+  async download(url: string, signal?: AbortSignal): Promise<Blob> {
+    const resolvedUrl = new URL(url, window.location.origin)
+    if (resolvedUrl.origin !== window.location.origin) {
+      throw new ApiHttpError('Cross-origin downloads are not supported', 400)
+    }
+
+    let res: Response
+    try {
+      res = await fetch(resolvedUrl.toString(), {
+        credentials: 'same-origin',
+        headers: JSON_REQUEST_HEADERS,
+        signal,
+      })
+    } catch (cause) {
+      throw new NetworkError('Network request failed', { cause })
+    }
+    await this.throwForErrorResponse(res)
+    return res.blob()
+  }
+
+  private async throwForErrorResponse(res: Response): Promise<void> {
+    if (res.ok) return
+
+    const parsed: unknown = await res.json().catch(() => null)
+    const error: ApiError = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? {
+          code: typeof Reflect.get(parsed, 'code') === 'number' ? Reflect.get(parsed, 'code') as number : res.status,
+          message: typeof Reflect.get(parsed, 'message') === 'string'
+            ? Reflect.get(parsed, 'message') as string
+            : res.statusText,
+          ...(typeof Reflect.get(parsed, 'errorCode') === 'string'
+            ? { errorCode: Reflect.get(parsed, 'errorCode') as string }
+            : {}),
+        }
+      : {
+      code: res.status,
+      message: res.statusText,
+        }
+
+    if (res.status === 401) {
+      throw new AuthExpiredError(error.message || 'Session expired', error)
+    }
+    if (res.status === 423) {
+      throw new LicenseLockedError('License locked', error)
+    }
+    throw new ApiHttpError(error.message || res.statusText, res.status, error)
   }
 
   private async handleResponse<T>(
     res: Response,
     parseMode: ResponseParseMode = 'default',
   ): Promise<T> {
-    if (res.status === 401) {
-      const error: ApiError = await res.json().catch(() => ({
-        code: 401,
-        message: res.statusText,
-      }))
-      throw new AuthExpiredError(error.message || 'Session expired', error)
-    }
-    if (!res.ok) {
-      const error: ApiError = await res.json().catch(() => ({
-        code: res.status,
-        message: res.statusText,
-      }))
-      throw new ApiHttpError(error.message || res.statusText, res.status, error)
-    }
+    await this.throwForErrorResponse(res)
     const text = await res.text()
     if (!text) return {} as T
     return (parseMode === 'statsRawBigInt' ? parseStatsJsonPreserveLargeIntRaw(text) : JSON.parse(text)) as T

@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Alert,
   Button,
   Collapse,
-  Field,
+  FormField,
   FormModal,
   FormModalBody,
   FormModalFooter,
@@ -13,24 +14,15 @@ import {
   useToastApi,
 } from '@/components/ui-kit'
 import { type SaveCampaignInput, useCampaign, useSaveCampaign } from '@/api/hooks'
+import { kvToLines, linesToKv } from '@/lib/kvLines'
 import { getErrorMessage } from '@/lib/utils'
-import type { Campaign, KeyValuePair } from '@/types/entities'
-
-function kvToLines(rows: KeyValuePair[] | undefined): string {
-  if (!rows?.length) return ''
-  return rows.map((row) => `${row.key}=${row.value}`).join('\n')
-}
-
-function linesToKv(text: string): KeyValuePair[] {
-  return text
-    .split('\n')
-    .map((line) => {
-      const equalsIndex = line.indexOf('=')
-      if (equalsIndex === -1) return { key: line.trim(), value: '' }
-      return { key: line.slice(0, equalsIndex).trim(), value: line.slice(equalsIndex + 1).trim() }
-    })
-    .filter((row) => row.key !== '' || row.value !== '')
-}
+import {
+  campaignCreateSchema,
+  campaignEditSchema,
+  type CampaignCreateFormValues,
+  type CampaignEditFormValues,
+} from '@/schemas/campaign'
+import type { Campaign } from '@/types/entities'
 
 const CAMPAIGN_EDITOR_FORM_ID = 'campaign-editor-form'
 
@@ -50,37 +42,49 @@ function CampaignCreateForm({
   onClose,
 }: CampaignCreateFormProps) {
   const toast = useToastApi()
-  const [campaignName, setCampaignName] = useState('')
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault()
-    const trimmed = campaignName.trim()
-    if (!trimmed) {
-      toast.error('Campaign name is required')
-      return
-    }
+  // Mounted only while the modal is open (destroyOnHidden), so defaultValues suffice.
+  const { control, handleSubmit } = useForm<CampaignCreateFormValues>({
+    resolver: zodResolver(campaignCreateSchema),
+    defaultValues: { campaignName: '' },
+  })
+
+  const onValid = (data: CampaignCreateFormValues) => {
     saveCampaignMutate(
-      { create: true, campaignName: trimmed, isArchived: false },
+      { create: true, campaignName: data.campaignName, isArchived: false },
       {
-        onSuccess: (data) => {
+        onSuccess: (saved) => {
           toast.success('Campaign created')
-          onSaved(data)
+          onSaved(saved)
           onClose()
         },
         onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
   }
+
   return (
-    <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4 py-1">
-      <Field title="Campaign name" htmlFor="campaignName" required>
-        <Input
-          id="campaignName"
-          value={campaignName}
-          onChange={(event) => setCampaignName(event.target.value)}
-          placeholder="Campaign name"
-          maxLength={255}
-        />
-      </Field>
+    <form id={formId} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4 py-1">
+      <Controller
+        control={control}
+        name="campaignName"
+        render={({ field, fieldState }) => (
+          <FormField
+            label="Campaign name"
+            htmlFor="campaignName"
+            required
+            error={fieldState.error?.message}
+          >
+            <Input
+              id="campaignName"
+              value={field.value}
+              onChange={(event) => field.onChange(event.target.value)}
+              onBlur={field.onBlur}
+              placeholder="Campaign name"
+              maxLength={255}
+            />
+          </FormField>
+        )}
+      />
     </form>
   )
 }
@@ -101,27 +105,27 @@ function CampaignEditForm({
   onClose,
 }: CampaignEditFormProps) {
   const toast = useToastApi()
-  const [campaignName, setCampaignName] = useState(campaign.campaignName)
-  const [customTokensText, setCustomTokensText] = useState(kvToLines(campaign.customTokens))
-  const [accParamsText, setAccParamsText] = useState(kvToLines(campaign.acculumatedUrlParams))
+  // Keyed by campaign id and mounted only when open + loaded, so defaultValues suffice.
+  const { control, handleSubmit } = useForm<CampaignEditFormValues>({
+    resolver: zodResolver(campaignEditSchema),
+    defaultValues: {
+      campaignName: campaign.campaignName,
+      customTokensText: kvToLines(campaign.customTokens),
+      accumulatedParamsText: kvToLines(campaign.acculumatedUrlParams),
+    },
+  })
 
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault()
-    const trimmed = campaignName.trim()
-    if (!trimmed) {
-      toast.error('Campaign name is required')
-      return
-    }
+  const onValid = (data: CampaignEditFormValues) => {
     const payload: SaveCampaignInput = {
       ...campaign,
-      campaignName: trimmed,
-      customTokens: linesToKv(customTokensText),
-      acculumatedUrlParams: linesToKv(accParamsText),
+      campaignName: data.campaignName,
+      customTokens: linesToKv(data.customTokensText),
+      acculumatedUrlParams: linesToKv(data.accumulatedParamsText),
     }
     saveCampaignMutate(payload, {
-      onSuccess: (data) => {
+      onSuccess: (saved) => {
         toast.success('Campaign saved')
-        onSaved(data)
+        onSaved(saved)
         onClose()
       },
       onError: (err) => toast.error(getErrorMessage(err)),
@@ -129,19 +133,31 @@ function CampaignEditForm({
   }
 
   return (
-    <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4 py-1">
-      <Field title="Campaign name" htmlFor="campaignNameEdit" required>
-        <Input
-          id="campaignNameEdit"
-          value={campaignName}
-          onChange={(event) => setCampaignName(event.target.value)}
-          placeholder="Campaign name"
-          maxLength={255}
-        />
-      </Field>
-      <Field title="Campaign ID" htmlFor="campaignIdReadonly" description="Read-only identifier">
+    <form id={formId} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4 py-1">
+      <Controller
+        control={control}
+        name="campaignName"
+        render={({ field, fieldState }) => (
+          <FormField
+            label="Campaign name"
+            htmlFor="campaignNameEdit"
+            required
+            error={fieldState.error?.message}
+          >
+            <Input
+              id="campaignNameEdit"
+              value={field.value}
+              onChange={(event) => field.onChange(event.target.value)}
+              onBlur={field.onBlur}
+              placeholder="Campaign name"
+              maxLength={255}
+            />
+          </FormField>
+        )}
+      />
+      <FormField label="Campaign ID" htmlFor="campaignIdReadonly" help="Read-only identifier">
         <Input id="campaignIdReadonly" readOnly value={campaign.idCampaign} />
-      </Field>
+      </FormField>
       <Collapse
         bordered={false}
         className="bg-muted/40 rounded-md"
@@ -155,34 +171,50 @@ function CampaignEditForm({
             ),
             children: (
               <div className="flex flex-col gap-4 pt-1">
-                <Field
-                  title="Custom tokens"
-                  htmlFor="campCustomTokens"
-                  description="One key=value per line. Usable in conditions, JS and PHP nodes."
-                >
-                  <Input.TextArea
-                    id="campCustomTokens"
-                    rows={5}
-                    className="font-mono text-xs"
-                    placeholder={'token1=value_one\ntoken2=value_two'}
-                    value={customTokensText}
-                    onChange={(event) => setCustomTokensText(event.target.value)}
-                  />
-                </Field>
-                <Field
-                  title="Accumulate these URL params"
-                  htmlFor="campAccParams"
-                  description="One key=value per line. Added to funnel tracking URLs unless a funnel overrides them."
-                >
-                  <Input.TextArea
-                    id="campAccParams"
-                    rows={4}
-                    className="font-mono text-xs"
-                    placeholder={'param1=value\nparam2=value'}
-                    value={accParamsText}
-                    onChange={(event) => setAccParamsText(event.target.value)}
-                  />
-                </Field>
+                <Controller
+                  control={control}
+                  name="customTokensText"
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="Custom tokens"
+                      htmlFor="campCustomTokens"
+                      error={fieldState.error?.message}
+                      help="One key=value per line. Usable in conditions, JS and PHP nodes."
+                    >
+                      <Input.TextArea
+                        id="campCustomTokens"
+                        rows={5}
+                        className="font-mono text-xs"
+                        placeholder={'token1=value_one\ntoken2=value_two'}
+                        value={field.value}
+                        onChange={(event) => field.onChange(event.target.value)}
+                        onBlur={field.onBlur}
+                      />
+                    </FormField>
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="accumulatedParamsText"
+                  render={({ field, fieldState }) => (
+                    <FormField
+                      label="Accumulate these URL params"
+                      htmlFor="campAccParams"
+                      error={fieldState.error?.message}
+                      help="One key=value per line. Added to funnel tracking URLs unless a funnel overrides them."
+                    >
+                      <Input.TextArea
+                        id="campAccParams"
+                        rows={4}
+                        className="font-mono text-xs"
+                        placeholder={'param1=value\nparam2=value'}
+                        value={field.value}
+                        onChange={(event) => field.onChange(event.target.value)}
+                        onBlur={field.onBlur}
+                      />
+                    </FormField>
+                  )}
+                />
               </div>
             ),
           },

@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useMemo } from 'react'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
-import { Button, Field, Input, Select } from '@/components/ui-kit'
+import { Button, FormField, Input, Select } from '@/components/ui-kit'
 import type { FunnelKeyValuePair, FunnelPostbackOverrideRow } from '@/types/funnel'
 import { cn } from '@/lib/utils'
 
@@ -87,10 +87,10 @@ export function FunnelAdvancedSettings({
   const body = (
     <div className={cn('space-y-8', embedded ? 'pt-1' : 'p-4')}>
         <div className="grid gap-6 lg:grid-cols-2">
-          <Field
-            title="Custom tokens"
+          <FormField
+            label="Custom tokens"
             htmlFor="customTokens"
-            description="One key=value per line."
+            help="One key=value per line."
           >
             <Input.TextArea
               id="customTokens"
@@ -100,11 +100,11 @@ export function FunnelAdvancedSettings({
               value={customTokensText}
               onChange={(e) => setCustomTokensText(e.target.value)}
             />
-          </Field>
-          <Field
-            title="Accumulate these URL params"
+          </FormField>
+          <FormField
+            label="Accumulate these URL params"
             htmlFor="accuParams"
-            description="Passed through on funnel links as query pairs."
+            help="Passed through on funnel links as query pairs."
           >
             <Input.TextArea
               id="accuParams"
@@ -114,7 +114,7 @@ export function FunnelAdvancedSettings({
               value={accuParamsText}
               onChange={(e) => setAccuParamsText(e.target.value)}
             />
-          </Field>
+          </FormField>
         </div>
 
         <div className="space-y-3">
@@ -158,6 +158,7 @@ export function FunnelAdvancedSettings({
                     danger
                     className="!mx-0 justify-self-center"
                     iconName="trash-2"
+                    aria-label="Remove cost override"
                     onClick={() => removeCostRow(i)}
                   />
                 </Fragment>
@@ -206,6 +207,7 @@ export function FunnelAdvancedSettings({
                     type="text"
                     danger
                     iconName="trash-2"
+                    aria-label="Remove postback override"
                     onClick={() => removePbRow(i)}
                   />
                 </div>

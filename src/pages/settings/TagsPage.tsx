@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
-import { Button, PageShell, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
+import { Button, PageShell, SearchToolbar, ConfirmModal, useToastApi, type PageShellBodyState } from '@/components/ui-kit'
 import { DataTable } from '@/components/ui-kit/data-table'
 import { editBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import { useTags, useSaveTag, useUpdateTag, useDeleteTag } from '@/api/hooks/useTags'
@@ -12,16 +12,30 @@ function visitorTagRowId(row: Tag): string {
   return row.id
 }
 
+const DEFAULT_SORTING: SortingState = [{ id: 'name', desc: false }]
+
 export function TagsPage() {
   const toast = useToastApi()
-  const { data: tags, isLoading, isError, error } = useTags()
+  const { data: tags, isLoading, isError, error, refetch, isFetching } = useTags()
   const saveTag = useSaveTag()
   const updateTag = useUpdateTag()
   const deleteTag = useDeleteTag()
 
+  const [search, setSearch] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingTag, setEditingTag] = useState<Tag | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<Tag | null>(null)
+
+  const filteredTags = useMemo(() => {
+    const list = tags ?? []
+    const needle = search.trim().toLowerCase()
+    if (!needle) return list
+    return list.filter((tag) => tag.name.toLowerCase().includes(needle))
+  }, [tags, search])
+
+  const handleRefresh = useCallback(() => {
+    void refetch()
+  }, [refetch])
 
   function openCreate() {
     setEditingTag(undefined)
@@ -104,25 +118,42 @@ export function TagsPage() {
     [openEdit],
   )
 
+  const bodyState: PageShellBodyState = isError
+    ? {
+        status: 'error',
+        message: getErrorMessage(error),
+        onRetry: () => void refetch(),
+      }
+    : { status: 'ready' }
+
   return (
     <PageShell
       title="Visitor Tags"
       fillHeight
+      bodyState={bodyState}
       actions={
         <Button type="primary" iconName="plus" onClick={openCreate}>
           Add Tags
         </Button>
       }
     >
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search tags..."
+        onRefresh={handleRefresh}
+        refreshLoading={isFetching}
+      />
+
       <DataTable<Tag>
-        data={tags ?? []}
+        data={filteredTags}
         columns={columns}
         getRowId={visitorTagRowId}
         loading={isLoading}
         tableConfigKey="settings-visitor-tags"
-        defaultSorting={[{ id: 'name', desc: false }]}
+        defaultSorting={DEFAULT_SORTING}
         noPagination
-        emptyMessage={isError ? `Failed to load tags: ${getErrorMessage(error)}` : 'No tags yet. Add some with the button above.'}
+        emptyMessage={search ? 'No tags match your search.' : 'No tags yet. Add some with the button above.'}
       />
 
       <TagModal

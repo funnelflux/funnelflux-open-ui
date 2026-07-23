@@ -24,7 +24,7 @@ const bluePalette = [
 const semanticColors = [
   { label: 'Success', var: '--ff-success', hex: '#16A34A' },
   { label: 'Warning', var: '--ff-warning', hex: '#D97706' },
-  { label: 'Error', var: '--ff-error', hex: '#DC2626' },
+  { label: 'Error (dark: #F87171)', var: '--ff-error', hex: '#DC2626' },
   { label: 'Info', var: '--ff-info', hex: '#3B82F6' },
 ]
 

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Alert,
   Button,
@@ -5,6 +6,7 @@ import {
   TimezoneSelect,
 } from '@/components/ui-kit'
 import { entityRowId } from '@/components/ui-kit/data-table'
+import type { DataTableProps } from '@/components/ui-kit/data-table'
 import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
@@ -19,12 +21,66 @@ import { CampaignEditorModal } from '@/pages/campaigns/CampaignEditorModal'
 import { useCampaignsController } from '@/pages/campaigns/useCampaignsController'
 
 const TABLE_KEY = 'campaigns'
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
 
 const canSelectCampaignRow = (row: { original: CampaignRow }) => row.original.id !== '__totals__'
 const campaignRowClassName = (row: CampaignRow) => row._isCategoryHeader ? 'dt-row--category-strip' : undefined
 
 export function CampaignsPage() {
   const controller = useCampaignsController()
+
+  const tableProps = useMemo<DataTableProps<CampaignRow>>(() => ({
+    data: controller.grid.rows,
+    columns: controller.columnDefs,
+    loading: controller.grid.isLoading,
+    loadingMore: controller.grid.isLoadingMore,
+    getRowId: entityRowId,
+    tableConfigKey: TABLE_KEY,
+    sorting: controller.grid.sorting,
+    onSortingChange: controller.grid.handleSortingChange,
+    manualSorting: true,
+    pagination: controller.pagination,
+    onPaginationChange: controller.handlePaginationChange,
+    manualPagination: true,
+    pageCount: controller.grid.pageCount,
+    manualPaginationTotalRows: controller.grid.totalRows,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+    pinnedBottomRows: controller.pinnedBottomRows,
+    enableRowSelection: canSelectCampaignRow,
+    rowSelection: controller.rowSelection,
+    onRowSelectionChange: controller.handleRowSelectionChange,
+    rowClassName: campaignRowClassName,
+    tableRef: controller.tableRef,
+    onTableInstance: controller.setTableForChooser,
+    columnSizing: controller.tableConfig.columnSizing,
+    onColumnSizingChange: controller.handleTableColumnSizingChange,
+    columnVisibility: controller.tableConfig.columnVisibility,
+    onColumnVisibilityChange: controller.handleTableColumnVisibilityChange,
+    emptyMessage: controller.search
+      ? 'No campaigns or funnels match your search.'
+      : 'No campaigns found.',
+  }), [
+    controller.grid.rows,
+    controller.columnDefs,
+    controller.grid.isLoading,
+    controller.grid.isLoadingMore,
+    controller.grid.sorting,
+    controller.grid.handleSortingChange,
+    controller.pagination,
+    controller.handlePaginationChange,
+    controller.grid.pageCount,
+    controller.grid.totalRows,
+    controller.pinnedBottomRows,
+    controller.rowSelection,
+    controller.handleRowSelectionChange,
+    controller.tableRef,
+    controller.setTableForChooser,
+    controller.tableConfig.columnSizing,
+    controller.handleTableColumnSizingChange,
+    controller.tableConfig.columnVisibility,
+    controller.handleTableColumnVisibilityChange,
+    controller.search,
+  ])
 
   return (
     <EntityPage<CampaignRow>
@@ -91,37 +147,7 @@ export function CampaignsPage() {
           />
         ) : null,
       }}
-      tableProps={{
-        data: controller.grid.rows,
-        columns: controller.columnDefs,
-        loading: controller.grid.isLoading,
-        loadingMore: controller.grid.isLoadingMore,
-        getRowId: entityRowId,
-        tableConfigKey: TABLE_KEY,
-        sorting: controller.grid.sorting,
-        onSortingChange: controller.grid.handleSortingChange,
-        manualSorting: true,
-        pagination: controller.pagination,
-        onPaginationChange: controller.handlePaginationChange,
-        manualPagination: true,
-        pageCount: controller.grid.pageCount,
-        manualPaginationTotalRows: controller.grid.totalRows,
-        pageSizeOptions: [25, 50, 100, 200],
-        pinnedBottomRows: controller.pinnedBottomRows,
-        enableRowSelection: canSelectCampaignRow,
-        rowSelection: controller.rowSelection,
-        onRowSelectionChange: controller.handleRowSelectionChange,
-        rowClassName: campaignRowClassName,
-        tableRef: controller.tableRef,
-        onTableInstance: controller.setTableForChooser,
-        columnSizing: controller.tableConfig.columnSizing,
-        onColumnSizingChange: controller.handleTableColumnSizingChange,
-        columnVisibility: controller.tableConfig.columnVisibility,
-        onColumnVisibilityChange: controller.handleTableColumnVisibilityChange,
-        emptyMessage: controller.search
-          ? 'No campaigns or funnels match your search.'
-          : 'No campaigns found.',
-      }}
+      tableProps={tableProps}
       bulkActions={(
         <BulkActionsBar
           count={controller.bulkTargetRows.length}
@@ -158,6 +184,7 @@ export function CampaignsPage() {
             onCancel={controller.handleCancelConfirm}
             title={controller.confirmTitle}
             description={controller.confirmDescription}
+            confirmText={controller.confirmText}
             onConfirm={() => void controller.handleConfirmAction()}
             loading={controller.confirmLoading}
             danger={Boolean(controller.confirmDanger)}

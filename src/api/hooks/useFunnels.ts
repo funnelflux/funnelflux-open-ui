@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { idNamePairFromCloneWire } from '@/api/cloneResponse'
 import { api } from '@/api/client'
 import { invalidateCampaignFunnelAuxiliary } from '@/api/invalidations'
 import { queryKeys } from '@/api/queryKeys'
@@ -75,26 +74,6 @@ export function useDeleteFunnel() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete('/data/campaign/funnel/delete/', { idFunnel: id }),
-    onSuccess: async () => {
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: queryKeys.funnels.all }),
-        invalidateCampaignFunnelAuxiliary(qc),
-      ])
-    },
-  })
-}
-
-export function useCloneFunnel() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const wire = await api.post<Record<string, unknown>>(
-        '/data/campaign/funnel/clone/',
-        undefined,
-        { idFunnel: id },
-      )
-      return idNamePairFromCloneWire(wire, 'idFunnel', 'funnelName')
-    },
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: queryKeys.funnels.all }),

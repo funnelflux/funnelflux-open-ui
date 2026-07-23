@@ -1,4 +1,5 @@
-import { memo, useMemo } from 'react'
+import { memo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { BaseEdge, getBezierPath, type EdgeProps, type Edge } from '@xyflow/react'
 import type { WeightedEdgeData } from '@/types/funnel'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
@@ -36,18 +37,21 @@ function WeightedEdgeComponent({
     targetPosition,
   })
 
-  const allEdges = useFunnelEditorStore((s) => s.edges)
-
-  const { displayed, locked, hasError } = useMemo(() => {
-    const siblings = getSiblingWeightedEdges(allEdges, source)
-    const dist = computeDisplayedWeights(siblings)
-    const entry = dist.byEdgeId.get(id)
-    return {
-      displayed: entry?.weight ?? data?.weight ?? 0,
-      locked: entry?.locked ?? Boolean(data?.locked),
-      hasError: dist.allLocked && dist.errorDrift > WEIGHT_EPSILON,
-    }
-  }, [allEdges, source, id, data?.weight, data?.locked])
+  // Select only this edge's displayed weight state — subscribing to the whole
+  // `s.edges` array re-renders every weighted edge on any edge change (O(E²)).
+  // useShallow keeps the subscription stable while the three scalars are equal.
+  const { displayed, locked, hasError } = useFunnelEditorStore(
+    useShallow((s) => {
+      const siblings = getSiblingWeightedEdges(s.edges, source)
+      const dist = computeDisplayedWeights(siblings)
+      const entry = dist.byEdgeId.get(id)
+      return {
+        displayed: entry?.weight ?? data?.weight ?? 0,
+        locked: entry?.locked ?? Boolean(data?.locked),
+        hasError: dist.allLocked && dist.errorDrift > WEIGHT_EPSILON,
+      }
+    }),
+  )
 
   return (
     <>

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Icon } from '@/components/ui-kit/icons'
+import { useQueryClient } from '@tanstack/react-query'
+import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { Button, Input, Modal } from '@/components/ui-kit'
 import { parsePageCsvText } from '@/lib/parsePageCsv'
 
@@ -19,10 +21,13 @@ export function CsvImportDialog({
   templateUrl,
   onImport,
 }: CsvImportDialogProps) {
+  const queryClient = useQueryClient()
   const [headers, setHeaders] = useState<string[]>([])
   const [rows, setRows] = useState<string[][]>([])
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isImporting, setIsImporting] = useState(false)
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false)
+  const [templateDownloadFailed, setTemplateDownloadFailed] = useState(false)
 
   const previewRows = useMemo(() => rows.slice(0, 5), [rows])
 
@@ -65,26 +70,41 @@ export function CsvImportDialog({
     resetState()
   }
 
+  const handleTemplateDownload = async () => {
+    setIsDownloadingTemplate(true)
+    setTemplateDownloadFailed(false)
+    try {
+      const blob = await executeObservedRequest(queryClient, () => api.download(templateUrl))
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download =
+        new URL(templateUrl, window.location.origin).pathname.split('/').pop() ||
+        'import-template.csv'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+    } catch {
+      setTemplateDownloadFailed(true)
+    } finally {
+      setIsDownloadingTemplate(false)
+    }
+  }
+
   const footer = (
     <div className="flex justify-end gap-2">
-      <Button htmlType="button" onClick={handleCancel}>
+      <Button htmlType="button" onClick={handleCancel} disabled={isImporting}>
         Cancel
       </Button>
       <Button
         type="primary"
         htmlType="button"
-        disabled={!selectedFile || isImporting}
+        iconName="upload"
+        disabled={!selectedFile}
+        loading={isImporting}
         onClick={() => void handleImport()}
       >
-        {isImporting ? (
-          <span className="mr-2 inline-flex">
-            <Icon name="loader-2" size="md" animation="spin" />
-          </span>
-        ) : (
-          <span className="mr-2 inline-flex">
-            <Icon name="upload" size="md" />
-          </span>
-        )}
         Import
       </Button>
     </div>
@@ -94,12 +114,23 @@ export function CsvImportDialog({
     <Modal open={open} onCancel={handleCancel} title={title} footer={footer} width={896} destroyOnHidden>
       <p className="text-sm text-muted-foreground mb-4">
         Download the{' '}
-        <a href={templateUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">
-          CSV template
-        </a>
+        <button
+          type="button"
+          className="text-primary underline disabled:cursor-wait disabled:opacity-60"
+          disabled={isDownloadingTemplate}
+          onClick={() => void handleTemplateDownload()}
+        >
+          {isDownloadingTemplate ? 'CSV template…' : 'CSV template'}
+        </button>
         , replace the sample rows with your data, then upload the file below. Columns must be comma-separated;
         values may be wrapped in double quotes. Rows with duplicate names or invalid URLs are skipped by the server.
       </p>
+
+      {templateDownloadFailed ? (
+        <p role="alert" className="mb-4 text-sm text-destructive">
+          The CSV template could not be downloaded. Please try again.
+        </p>
+      ) : null}
 
       <div className="space-y-4">
         <div className="rounded-lg border border-dashed p-6">

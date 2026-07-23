@@ -9,6 +9,7 @@ import {
   getUserMenuNavLinks,
   canAccessAuthenticatedOnly,
 } from '@/lib/routeRegistry'
+import { canManageFunnelAssets } from '@/lib/routeAccess'
 
 function fullPermissions(overrides: Partial<Permissions> = {}): Permissions {
   const base: Permissions = {
@@ -105,6 +106,14 @@ function userWith(perms: Partial<Permissions> = {}, isAdmin = false): UserProfil
 }
 
 describe('routeRegistry', () => {
+  it('keeps only explicit design/demo entries public and every product route in the app layout', () => {
+    const publicPaths = ROUTE_ENTRIES
+      .filter((entry) => entry.layout === 'public')
+      .map((entry) => entry.path)
+    expect(publicPaths).toEqual(['design-system'])
+    expect(ROUTE_ENTRIES.filter((entry) => entry.layout === 'app').length).toBeGreaterThan(0)
+  })
+
   it('gives every route entry a permission predicate', () => {
     for (const e of ROUTE_ENTRIES) {
       expect(typeof e.permission).toBe('function')
@@ -113,7 +122,7 @@ describe('routeRegistry', () => {
     }
   })
 
-  it('exposes inbox, tags, and conditions as authenticated-only policies', () => {
+  it('gates inbox as authenticated-only and tags/conditions on campaign view', () => {
     const paths = new Set(
       ROUTE_ENTRIES.filter((e) => e.layout === 'app').map((e) => e.path),
     )
@@ -123,8 +132,10 @@ describe('routeRegistry', () => {
 
     const inbox = ROUTE_ENTRIES.find((e) => e.path === 'inbox')
     const tags = ROUTE_ENTRIES.find((e) => e.path === 'settings/tags')
+    const conditions = ROUTE_ENTRIES.find((e) => e.path === 'settings/conditions')
     expect(inbox?.permission).toBe(canAccessAuthenticatedOnly)
-    expect(tags?.permission).toBe(canAccessAuthenticatedOnly)
+    expect(tags?.permission).toBe(canManageFunnelAssets)
+    expect(conditions?.permission).toBe(canManageFunnelAssets)
   })
 
   it('resolves default landing path by priority for representative profiles', () => {

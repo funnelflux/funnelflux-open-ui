@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
-import { Button, Switch, PageShell, ConfirmModal, useToastApi, type SelectOption } from '@/components/ui-kit'
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
+import { Button, Switch, PageShell, SearchToolbar, ConfirmModal, useToastApi, type PageShellBodyState, type SelectOption } from '@/components/ui-kit'
 import { DataTable } from '@/components/ui-kit/data-table'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn } from '@/components/ui-kit/data-table'
 import {
@@ -19,19 +19,32 @@ function trafficFilterRowId(row: TrafficFilter): string {
   return row.idTrafficFilter
 }
 
+const DEFAULT_SORTING: SortingState = [{ id: 'trafficFilterName', desc: false }]
+
 export function TrafficFiltersPage() {
   const toast = useToastApi()
-  const { data: trafficFiltersData, isLoading } = useTrafficFilters()
+  const { data: trafficFiltersData, isLoading, isError, error, refetch, isFetching } = useTrafficFilters()
   const saveFilter = useSaveTrafficFilter()
   const deleteFilter = useDeleteTrafficFilter()
   const applyRetro = useApplyTrafficFilterRetroactively()
 
+  const [search, setSearch] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingFilter, setEditingFilter] = useState<TrafficFilter | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<TrafficFilter | null>(null)
   const [retroTarget, setRetroTarget] = useState<TrafficFilter | null>(null)
 
-  const filters = trafficFiltersData?.filters ?? []
+  const filters = useMemo(() => {
+    const list = trafficFiltersData?.filters ?? []
+    const needle = search.trim().toLowerCase()
+    if (!needle) return list
+    return list.filter((filter) => filter.trafficFilterName.toLowerCase().includes(needle))
+  }, [trafficFiltersData?.filters, search])
+
+  const handleRefresh = useCallback(() => {
+    void refetch()
+  }, [refetch])
+
   const countryOptions = useMemo<SelectOption[]>(
     () =>
       (trafficFiltersData?.availableCountries ?? []).flatMap((country: KeyValuePair) => {
@@ -182,24 +195,41 @@ export function TrafficFiltersPage() {
     [openEdit, handleApplyRetroactively, handleToggleEnabled],
   )
 
+  const bodyState: PageShellBodyState = isError
+    ? {
+        status: 'error',
+        message: getErrorMessage(error),
+        onRetry: () => void refetch(),
+      }
+    : { status: 'ready' }
+
   return (
     <PageShell fillHeight
       title="Traffic Filters"
+      bodyState={bodyState}
       actions={
         <Button type="primary" iconName="plus" onClick={openCreate}>
           Add Filter
         </Button>
       }
     >
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search traffic filters..."
+        onRefresh={handleRefresh}
+        refreshLoading={isFetching}
+      />
+
       <DataTable<TrafficFilter>
         data={filters}
         columns={columns}
         getRowId={trafficFilterRowId}
         loading={isLoading}
         tableConfigKey="settings-traffic-filters"
-        defaultSorting={[{ id: 'trafficFilterName', desc: false }]}
+        defaultSorting={DEFAULT_SORTING}
         noPagination
-        emptyMessage="No traffic filters configured."
+        emptyMessage={search ? 'No traffic filters match your search.' : 'No traffic filters configured.'}
       />
 
       <TrafficFilterModal

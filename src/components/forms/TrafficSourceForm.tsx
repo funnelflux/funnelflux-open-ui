@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
-import { useForm, Controller, useWatch } from 'react-hook-form'
+import { useForm, Controller, useWatch, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormField, FormModal, FormModalBody, FormModalFooter, FormModalHeader, Button, Input, Select } from '@/components/ui-kit'
 import { KeyValueListField } from '@/components/forms/KeyValueListField'
@@ -74,8 +74,7 @@ export function TrafficSourceForm({
     getValues,
     formState: { errors },
   } = useForm<TrafficSourceFormData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(trafficSourceSchema) as any,
+    resolver: zodResolver(trafficSourceSchema) as Resolver<TrafficSourceFormData>,
     defaultValues,
   })
 
@@ -185,7 +184,7 @@ export function TrafficSourceForm({
               </FormField>
             )}
 
-            <FormField label="Name" htmlFor="trafficSourceName" error={errors.trafficSourceName?.message}>
+            <FormField label="Name" htmlFor="trafficSourceName" required error={errors.trafficSourceName?.message}>
               <Controller
                 control={control}
                 name="trafficSourceName"

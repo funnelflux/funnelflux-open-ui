@@ -75,18 +75,19 @@ export function UrlTrackingFieldPickerPopover({
   const [open, setOpen] = useState(false)
   const [selectedTsId, setSelectedTsId] = useState('')
 
+  // Kept fresh by invalidateCategoryData (trafficsource category CRUD).
   const { data: categories = [] } = useQuery({
     queryKey: queryKeys.trafficSources.categories,
     queryFn: () => api.get<CategoryRow[]>('/data/trafficsource/category/list/'),
     enabled: open && !disabled,
-    staleTime: 60_000,
   })
 
+  // Same key + endpoint as the canonical `useTrafficSources()` fetcher (lazy: only while open).
+  // Default staleTime (Infinity) applies; traffic-source CRUD invalidations keep it fresh.
   const { data: trafficSources = [] } = useQuery({
     queryKey: queryKeys.trafficSources.list({}),
     queryFn: () => api.get<TrafficSourceListRow[]>('/data/trafficsource/list/'),
     enabled: open && !disabled,
-    staleTime: 60_000,
   })
 
   const categoryNameById = useMemo(() => {
@@ -260,12 +261,16 @@ export function UrlTrackingFieldPickerPopover({
         iconName="list-tree"
         iconSize="sm"
         title="URL tracking field"
-        aria-label={`URL tracking field, level ${levelIndex + 1}${grouping ? `, ${grouping}` : ''}`}
+        aria-label={`URL tracking field, level ${levelIndex + 1}${grouping ? `, ${grouping}` : ''}${
+          !isConfigured ? ', not configured' : ''
+        }`}
       >
         {!isConfigured ? (
-          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-warning" aria-hidden />
         ) : null}
-        <span className="sr-only">Configure URL tracking field</span>
+        <span className="sr-only">
+          {!isConfigured ? 'Configure URL tracking field (not configured)' : 'Configure URL tracking field'}
+        </span>
       </Button>
     </Popover>
   )

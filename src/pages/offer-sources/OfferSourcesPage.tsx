@@ -1,10 +1,11 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Button, TimezoneSelect } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
 import { entityRowId } from '@/components/ui-kit/data-table'
+import type { DataTableProps } from '@/components/ui-kit/data-table'
 import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
 import { useEntityTableColumns } from '@/lib/entity-table/engine/useEntityTableColumns'
 import { cn, getErrorMessage } from '@/lib/utils'
@@ -53,6 +54,61 @@ export function OfferSourcesPage() {
       ? { status: 'loading' as const }
       : { status: 'ready' as const }
 
+  const rowClassName = useCallback(
+    (row: OfferSourceGridRow) =>
+      cn(row.id === controller.highlightRowId && 'dt-row--revealed'),
+    [controller.highlightRowId],
+  )
+
+  const tableProps = useMemo<DataTableProps<OfferSourceGridRow>>(() => ({
+    data: controller.pageRows,
+    columns: columnDefs,
+    loading: controller.isLoading,
+    loadingMore: controller.isLoadingMore,
+    getRowId: entityRowId,
+    tableConfigKey: TABLE_KEY,
+    pinnedBottomRows: controller.pinnedBottomRows,
+    enableRowSelection: canSelectOfferSourceRow,
+    rowSelection: controller.rowSelection,
+    onRowSelectionChange: controller.setRowSelection,
+    rowClassName,
+    tableRef: controller.tableRef,
+    onTableInstance: controller.setTableForChooser,
+    emptyMessage:
+      controller.search ? `No ${controller.pluralLower} match your search.` : `No ${controller.pluralLower} found.`,
+    manualPagination: true,
+    manualSorting: true,
+    sorting: controller.effectiveSorting,
+    onSortingChange: controller.handleSortingChange,
+    pageCount: controller.pageCount,
+    manualPaginationTotalRows: controller.totalDataCount,
+    pagination: controller.pagination,
+    onPaginationChange: controller.setPagination,
+    columnVisibility: gridColumnVisibility.columnVisibility,
+    onColumnVisibilityChange: gridColumnVisibility.onColumnVisibilityChange,
+  }), [
+    controller.pageRows,
+    columnDefs,
+    controller.isLoading,
+    controller.isLoadingMore,
+    controller.pinnedBottomRows,
+    controller.rowSelection,
+    controller.setRowSelection,
+    rowClassName,
+    controller.tableRef,
+    controller.setTableForChooser,
+    controller.search,
+    controller.pluralLower,
+    controller.effectiveSorting,
+    controller.handleSortingChange,
+    controller.pageCount,
+    controller.totalDataCount,
+    controller.pagination,
+    controller.setPagination,
+    gridColumnVisibility.columnVisibility,
+    gridColumnVisibility.onColumnVisibilityChange,
+  ])
+
   return (
     <EntityPage<OfferSourceGridRow>
       title="Offer Sources"
@@ -93,34 +149,7 @@ export function OfferSourcesPage() {
           />
         ) : null,
       }}
-      tableProps={{
-        data: controller.pageRows,
-        columns: columnDefs,
-        loading: controller.isLoading,
-        loadingMore: controller.isLoadingMore,
-        getRowId: entityRowId,
-        tableConfigKey: TABLE_KEY,
-        pinnedBottomRows: controller.pinnedBottomRows,
-        enableRowSelection: canSelectOfferSourceRow,
-        rowSelection: controller.rowSelection,
-        onRowSelectionChange: controller.setRowSelection,
-        rowClassName: (row) =>
-          cn(row.id === controller.highlightRowId && 'dt-row--revealed'),
-        tableRef: controller.tableRef,
-        onTableInstance: controller.setTableForChooser,
-        emptyMessage:
-          controller.search ? `No ${controller.pluralLower} match your search.` : `No ${controller.pluralLower} found.`,
-        manualPagination: true,
-        manualSorting: true,
-        sorting: controller.effectiveSorting,
-        onSortingChange: controller.handleSortingChange,
-        pageCount: controller.pageCount,
-        manualPaginationTotalRows: controller.totalDataCount,
-        pagination: controller.pagination,
-        onPaginationChange: controller.setPagination,
-        columnVisibility: gridColumnVisibility.columnVisibility,
-        onColumnVisibilityChange: gridColumnVisibility.onColumnVisibilityChange,
-      }}
+      tableProps={tableProps}
       bulkActions={(
         <BulkActionsBar
           count={controller.selectedIds.length}

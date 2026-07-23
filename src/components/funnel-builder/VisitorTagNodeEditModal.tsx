@@ -9,9 +9,8 @@ import {
   type ChangeEvent,
 } from 'react'
 import { Button, Divider, Input, Select, FormModal, FormModalBody, FormModalFooter, FormModalHeader, useToastApi, type SelectOption } from '@/components/ui-kit'
-import { api } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
-import { useSaveTag, useTags } from '@/api/hooks'
+import { fetchTagList, useSaveTag, useTags } from '@/api/hooks'
 import type { Tag } from '@/types/entities'
 import {
   NODE_TYPE_LABELS,
@@ -120,7 +119,7 @@ const VisitorTagNodeEditorForm = forwardRef<
       await saveTag.mutateAsync(name)
       const refreshedTags = await qc.fetchQuery({
         queryKey: queryKeys.tags.list(),
-        queryFn: () => api.get<Tag[]>('/data/tag/list/'),
+        queryFn: fetchTagList,
       })
       const created =
         refreshedTags.find((t) => t.name.trim().toLowerCase() === name.toLowerCase()) ??

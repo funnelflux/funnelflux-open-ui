@@ -194,7 +194,7 @@ export function RotatorNodeEditModal({ nodeId, open, onClose }: RotatorNodeEditM
                 </span>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 rounded border bg-background px-2 py-0.5 text-xs hover:bg-muted dark:hover:bg-zinc-800"
+                  className="inline-flex items-center gap-1 rounded border border-border bg-background px-2 py-0.5 text-xs hover:bg-muted"
                   onClick={handleResetAll}
                 >
                   <Icon name="rotate-ccw" size="sm" />

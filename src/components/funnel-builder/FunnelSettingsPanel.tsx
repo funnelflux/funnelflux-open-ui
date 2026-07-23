@@ -1,5 +1,5 @@
 import { useMemo, type ChangeEvent } from 'react'
-import { Collapse, Field, Input, InputNumber, Select } from '@/components/ui-kit'
+import { Collapse, FormField, Input, InputNumber, Select } from '@/components/ui-kit'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { useCampaignsList } from '@/api/hooks'
 import { FunnelAdvancedSettings } from '@/components/funnel-builder/FunnelAdvancedSettings'
@@ -20,7 +20,7 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
 
   return (
     <div className="space-y-6">
-      <Field title="Funnel name" htmlFor="funnel-settings-name" required>
+      <FormField label="Funnel name" htmlFor="funnel-settings-name" required>
         <Input
           id="funnel-settings-name"
           className="w-full"
@@ -29,13 +29,13 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
           placeholder="Funnel name"
           autoComplete="off"
         />
-      </Field>
+      </FormField>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <Field
-          title="Default cost per entrance"
+        <FormField
+          label="Default cost per entrance"
           htmlFor="funnel-settings-cost"
-          description="Optional baseline cost applied when traffic source cost is missing."
+          help="Optional baseline cost applied when traffic source cost is missing."
         >
           <InputNumber
             id="funnel-settings-cost"
@@ -45,18 +45,18 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
             onChange={(v) => updateMeta({ defaultCostPerEntrance: Number(v ?? 0) })}
             className="w-full"
           />
-        </Field>
-        <Field title="Funnel ID" description={meta.idFunnel ? undefined : 'Saved funnels will show an ID.'}>
+        </FormField>
+        <FormField label="Funnel ID" help={meta.idFunnel ? undefined : 'Saved funnels will show an ID.'}>
           <Input
             value={meta.idFunnel || '—'}
             disabled
             className="font-mono text-xs"
             aria-label="Funnel ID"
           />
-        </Field>
+        </FormField>
       </div>
 
-      <Field title="Notes" htmlFor="funnel-settings-notes">
+      <FormField label="Notes" htmlFor="funnel-settings-notes">
         <Input.TextArea
           id="funnel-settings-notes"
           className="min-h-[5.5rem] resize-y text-sm"
@@ -65,12 +65,12 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
           placeholder="Optional notes for this funnel…"
           autoSize={{ minRows: 3 }}
         />
-      </Field>
+      </FormField>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <Field
-          title="Campaign name"
-          description={!isNew ? 'Campaign is fixed after the funnel is created.' : undefined}
+        <FormField
+          label="Campaign name"
+          help={!isNew ? 'Campaign is fixed after the funnel is created.' : undefined}
         >
           <Select
             className="w-full"
@@ -80,15 +80,15 @@ export function FunnelSettingsPanel({ isNew }: FunnelSettingsPanelProps) {
             placeholder="Select campaign…"
             options={campaignOptions}
           />
-        </Field>
-        <Field title="Campaign ID">
+        </FormField>
+        <FormField label="Campaign ID">
           <Input
             value={meta.idCampaign || '—'}
             disabled
             className="font-mono text-xs"
             aria-label="Campaign ID"
           />
-        </Field>
+        </FormField>
       </div>
 
       <Collapse

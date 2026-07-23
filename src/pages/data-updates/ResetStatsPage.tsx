@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useState, type ChangeEvent } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '@/components/ui-kit/icons'
 import {
   Alert,
   Button,
   Card,
   DateTimeRangePicker,
-  Field,
+  FormField,
   Input,
   PageShell,
   ConfirmModal,
@@ -17,7 +17,9 @@ import {
 } from '@/components/ui-kit'
 import type { SelectOption } from '@/components/ui-kit'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { useTrafficSources } from '@/api/hooks/useTrafficSources'
+import { invalidateAllStats } from '@/api/invalidations'
 import { queryKeys } from '@/api/queryKeys'
 import { DATE_PRESETS, getPresetRange } from '@/lib/date-presets'
 import { toApiDateTimeForReportingZone } from '@/lib/statsDateRange'
@@ -95,6 +97,7 @@ function normalizeTrafficSourceRow(row: Record<string, unknown>): {
 
 export function ResetStatsPage() {
   const toast = useToastApi()
+  const queryClient = useQueryClient()
   const {
     data: pageData,
     isPending: pageLoading,
@@ -268,7 +271,9 @@ export function ResetStatsPage() {
     setIsCalculating(true)
     setPreviewCount(null)
     try {
-      const result = await api.post<IntegerValue>('/ui/resetstats/calculate/', body)
+      const result = await executeObservedRequest(queryClient, () =>
+        api.post<IntegerValue>('/ui/resetstats/calculate/', body),
+      )
       setPreviewCount(parseIntegerValue(result.value))
     } catch (err) {
       toast.error(getErrorMessage(err))
@@ -285,10 +290,13 @@ export function ResetStatsPage() {
     }
     setIsDeleting(true)
     try {
-      await api.delete('/ui/resetstats/delete/', undefined, body)
+      await executeObservedRequest(queryClient, () =>
+        api.delete('/ui/resetstats/delete/', undefined, body),
+      )
       toast.success('Stats reset successfully')
       setPreviewCount(null)
       closeConfirmModal()
+      void invalidateAllStats(queryClient)
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
@@ -325,10 +333,10 @@ export function ResetStatsPage() {
           <div className="space-y-6">
             <div className="space-y-5">
               <div className="grid gap-5 lg:grid-cols-3">
-                <Field
-                  title="Campaign"
+                <FormField
+                  label="Campaign"
                   htmlFor="reset-stats-campaign"
-                  description="Optional. Narrow available funnels and scope by campaign."
+                  help="Optional. Narrow available funnels and scope by campaign."
                 >
                   <Select
                     id="reset-stats-campaign"
@@ -340,12 +348,12 @@ export function ResetStatsPage() {
                     disabled={formLocked}
                     allowClear
                   />
-                </Field>
+                </FormField>
 
-                <Field
-                  title="Funnel"
+                <FormField
+                  label="Funnel"
                   htmlFor="reset-stats-funnel"
-                  description="Optional. Leave empty for all funnels (optionally scoped by campaign)."
+                  help="Optional. Leave empty for all funnels (optionally scoped by campaign)."
                 >
                   <Select
                     id="reset-stats-funnel"
@@ -357,12 +365,12 @@ export function ResetStatsPage() {
                     disabled={formLocked || funnelOptions.length === 0}
                     allowClear
                   />
-                </Field>
+                </FormField>
 
-                <Field
-                  title="Traffic source"
+                <FormField
+                  label="Traffic source"
                   htmlFor="reset-stats-traffic-source"
-                  description="Optional. Limit to one traffic source."
+                  help="Optional. Limit to one traffic source."
                 >
                   <Select
                     id="reset-stats-traffic-source"
@@ -374,13 +382,13 @@ export function ResetStatsPage() {
                     disabled={formLocked || noTrafficSources}
                     allowClear
                   />
-                </Field>
+                </FormField>
               </div>
 
-              <Field
-                title="Visitor ID"
+              <FormField
+                label="Visitor ID"
                 htmlFor="reset-stats-visitor-id"
-                description="Optional. Restrict reset to a single visitor ID."
+                help="Optional. Restrict reset to a single visitor ID."
               >
                 <Input
                   id="reset-stats-visitor-id"
@@ -390,14 +398,14 @@ export function ResetStatsPage() {
                   className="w-full max-w-md"
                   disabled={formLocked}
                 />
-              </Field>
+              </FormField>
 
               <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(220px,1fr)]">
-                <Field
-                  title="Date-time range"
+                <FormField
+                  label="Date-time range"
                   required
                   htmlFor="reset-stats-datetime-range"
-                  description="Start and end are interpreted in the selected timezone."
+                  help="Start and end are interpreted in the selected timezone."
                 >
                   <DateTimeRangePicker
                     showTime
@@ -408,12 +416,12 @@ export function ResetStatsPage() {
                     presets={rangePresets}
                     className={cn('w-full [&_.ant-picker]:w-full', 'h-control-md')}
                   />
-                </Field>
+                </FormField>
 
-                <Field
-                  title="Timezone"
+                <FormField
+                  label="Timezone"
                   htmlFor="reset-stats-timezone"
-                  description="Interprets the date range in this timezone (same as reporting)."
+                  help="Interprets the date range in this timezone (same as reporting)."
                 >
                   <TimezoneSelect
                     id="reset-stats-timezone"
@@ -422,7 +430,7 @@ export function ResetStatsPage() {
                     className="w-full"
                     disabled={formLocked}
                   />
-                </Field>
+                </FormField>
               </div>
             </div>
 
@@ -442,7 +450,7 @@ export function ResetStatsPage() {
                 onClick={openConfirmModal}
                 disabled={previewCount === null || previewCount === 0 || formLocked}
               >
-                Reset stats
+                Reset Stats
               </Button>
             </div>
 

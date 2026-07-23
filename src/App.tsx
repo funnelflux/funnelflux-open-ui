@@ -1,7 +1,7 @@
 import { Suspense, useState, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query'
-import { AuthExpiredError } from '@/api/errors'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { createQueryClient } from '@/api/queryClient'
 import { ConfigProvider } from '@/components/ui-kit/ConfigProvider'
 import { AntdApp } from '@/components/ui-kit/AntdApp'
 import { Spin } from '@/components/ui-kit/Spin'
@@ -17,44 +17,9 @@ import type { UserProfile } from '@/types/api'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { canViewDashboard } from '@/lib/routeAccess'
 import { ROUTE_ENTRIES, getDefaultAuthorizedPath } from '@/lib/routeRegistry'
+import { LicenseLockedPage } from '@/components/licensing/LicenseLockedPage'
 
 const dashboardPageComponent = ROUTE_ENTRIES.find((e) => e.index)?.Component
-
-/** How long unused query data stays in memory for instant back-navigation. */
-const TABLE_CACHE_GC_TIME_MS = 1000 * 60 * 60
-
-function createQueryClient() {
-  const queryClient = new QueryClient({
-    queryCache: new QueryCache({
-      onError: (error) => {
-        if (error instanceof AuthExpiredError) {
-          useAuthStore.getState().clearAuth()
-          queryClient.clear()
-        }
-      },
-    }),
-    mutationCache: new MutationCache({
-      onError: (error) => {
-        if (error instanceof AuthExpiredError) {
-          useAuthStore.getState().clearAuth()
-          queryClient.clear()
-        }
-      },
-    }),
-    defaultOptions: {
-      queries: {
-        /** No automatic refetch on timer, tab focus, or reconnect — explicit invalidate / Refresh only. */
-        staleTime: Number.POSITIVE_INFINITY,
-        /** Keep unused table/list data resident so returning to a page restores instantly. */
-        gcTime: TABLE_CACHE_GC_TIME_MS,
-        retry: 1,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-      },
-    },
-  })
-  return queryClient
-}
 
 function PermissionGuard({
   check,
@@ -106,10 +71,14 @@ function SessionBootstrappingScreen() {
 }
 
 function AuthGate({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading, error } = useAuth()
+  const { isAuthenticated, isLoading, isLicenseLocked, license, error } = useAuth()
 
   if (isLoading) {
     return <SessionBootstrappingScreen />
+  }
+
+  if (isLicenseLocked && license) {
+    return <LicenseLockedPage license={license} />
   }
 
   if (error && error !== 'AUTH_REQUIRED') {
@@ -190,9 +159,11 @@ export default function App() {
                     key={entry.path}
                     path={entry.path}
                     element={
-                      <Suspense fallback={<div className="p-8">Loading...</div>}>
-                        <Page />
-                      </Suspense>
+                      <ErrorBoundary>
+                        <Suspense fallback={<div className="p-8">Loading...</div>}>
+                          <Page />
+                        </Suspense>
+                      </ErrorBoundary>
                     }
                   />
                 )

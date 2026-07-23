@@ -3,5 +3,4 @@
 # co-owner handles on the same line, space-separated.
 # Docs: https://docs.github.com/articles/about-code-owners
 
-* @ff-zeno
-# * @ff-zeno @second-owner-handle   # <- uncomment & add co-owners when ready
+* @ff-zeno @hosseind88

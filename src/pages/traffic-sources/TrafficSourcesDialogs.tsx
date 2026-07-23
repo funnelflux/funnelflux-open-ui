@@ -84,6 +84,7 @@ export function TrafficSourcesDialogs({
         onCancel={onDeleteDismiss}
         title={`Delete ${singularLabel}`}
         description="Are you sure? This cannot be undone."
+        confirmText="Delete"
         onConfirm={onDeleteConfirm}
         loading={deletePending}
         danger
@@ -106,6 +107,7 @@ export function TrafficSourcesDialogs({
       <FormModal
         open={Boolean(categoryRename)}
         onCancel={onCategoryRenameDismiss}
+        width={480}
         destroyOnHidden
       >
         <FormModalHeader title="Rename category" />
@@ -138,6 +140,7 @@ export function TrafficSourcesDialogs({
         onCancel={onCategoryDeleteDismiss}
         title="Delete category"
         description={`Delete this category? ${singularLabel}s in it will become uncategorized.`}
+        confirmText="Delete"
         onConfirm={onCategoryDeleteConfirm}
         loading={categoryDeletePending}
         danger

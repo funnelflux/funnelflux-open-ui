@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { ApiClient } from '@/api/client'
-import { AuthExpiredError, ApiHttpError, NetworkError } from '@/api/errors'
+import { AuthExpiredError, ApiHttpError, LicenseLockedError, NetworkError } from '@/api/errors'
 
 describe('ApiClient', () => {
   const originalFetch = globalThis.fetch
@@ -36,6 +36,24 @@ describe('ApiClient', () => {
     expect(init.body).toBeUndefined()
   })
 
+  it('revalidates through the cookie-session endpoint without a body or custom token header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '{"revalidated":true}',
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    await new ApiClient().revalidateLicense()
+
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:3000/admin/api/v2/license/revalidate/')
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.method).toBe('POST')
+    expect(init.credentials).toBe('same-origin')
+    expect(init.body).toBeUndefined()
+    expect(init.headers).toEqual({ Accept: 'application/json' })
+  })
+
   it('throws AuthExpiredError on 401', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -60,6 +78,49 @@ describe('ApiClient', () => {
     const err = await client.get('/data/x').catch((e) => e)
     expect(err).toBeInstanceOf(ApiHttpError)
     expect((err as ApiHttpError).status).toBe(500)
+  })
+
+  it.each([
+    ['GET', (client: ApiClient) => client.get('/data/x')],
+    ['POST', (client: ApiClient) => client.post('/data/x', { value: 1 })],
+    ['drilldown POST', (client: ApiClient) => client.postDrilldown({ value: 1 })],
+    ['PUT', (client: ApiClient) => client.put('/data/x', { value: 1 })],
+    ['DELETE', (client: ApiClient) => client.delete('/data/x')],
+    ['multipart upload', (client: ApiClient) => client.postFormData('/data/x', new FormData())],
+    ['POST blob', (client: ApiClient) => client.postBlob('/data/x', { value: 1 })],
+    ['download', (client: ApiClient) => client.download('/protected-export.csv')],
+  ])('throws LicenseLockedError for HTTP 423 from %s', async (_name, request) => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 423,
+      statusText: 'Locked',
+      json: async () => ({
+        code: 423,
+        errorCode: 'LICENSE_LOCKED',
+        message: 'Backend detail must not become UI policy',
+      }),
+    }) as unknown as typeof fetch
+
+    const error = await request(new ApiClient()).catch((caught) => caught)
+
+    expect(error).toBeInstanceOf(LicenseLockedError)
+    expect((error as LicenseLockedError).status).toBe(423)
+    expect((error as LicenseLockedError).body?.errorCode).toBe('LICENSE_LOCKED')
+  })
+
+  it.each([
+    ['non-JSON', async () => { throw new SyntaxError('not json') }],
+    ['JSON null', async () => null],
+    ['JSON array', async () => [{ message: 'not an API error object' }]],
+  ])('still recognizes %s HTTP 423 responses as a license lock', async (_name, json) => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 423,
+      statusText: 'Locked',
+      json,
+    }) as unknown as typeof fetch
+
+    await expect(new ApiClient().get('/data/x')).rejects.toBeInstanceOf(LicenseLockedError)
   })
 
   it('returns empty object for empty 200 body', async () => {

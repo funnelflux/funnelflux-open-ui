@@ -15,10 +15,10 @@ export function reportRowToCells(row: ReportRow, columnCount: number): ReportCel
     return cells
   }
 
+  const legacyRow = row as unknown as Record<string, ReportCell | undefined>
   const cells: ReportCell[] = []
   for (let i = 0; i < columnCount; i++) {
-    const cell = row[String(i)] as ReportCell | undefined
-    cells.push(cell ?? EMPTY)
+    cells.push(legacyRow[String(i)] ?? EMPTY)
   }
   return cells
 }

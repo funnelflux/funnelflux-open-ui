@@ -9,7 +9,7 @@ import {
   Input,
   Button,
   Select,
-  Field,
+  FormField,
   InputNumber,
   CodeEditor,
   Spin,
@@ -275,8 +275,8 @@ function CodeNodeEditForm({
         onConfirm={handleConfirmSnippetOverwrite}
         title="Overwrite current code?"
         description="Do you really want to overwrite your current code?"
-        cancelText="Wait, I've changed my mind!"
-        confirmText="Yes, replace it now..."
+        cancelText="Cancel"
+        confirmText="Overwrite"
         danger
       />
       <FormModalBody>
@@ -297,9 +297,9 @@ function CodeNodeEditForm({
                     allowClear
                   />
                 </Form.Item>
-                <Field
-                  title="Load existing snippet"
-                  description="Selecting a snippet overwrites the editor with its saved contents."
+                <FormField
+                  label="Load existing snippet"
+                  help="Selecting a snippet overwrites the editor with its saved contents."
                 >
                   <Select
                     aria-label="Load existing snippet"
@@ -312,7 +312,7 @@ function CodeNodeEditForm({
                     options={snippetOptions}
                     className="w-full"
                   />
-                </Field>
+                </FormField>
               </div>
 
               {codeType === 'javascript' && (
@@ -326,13 +326,13 @@ function CodeNodeEditForm({
                 </Form.Item>
               )}
 
-              <Field title={codeType === 'javascript' ? 'Enter your JavaScript below:' : 'Enter your PHP below:'}>
+              <FormField label={codeType === 'javascript' ? 'Enter your JavaScript below:' : 'Enter your PHP below:'}>
                 <CodeEditor
                   language={codeType === 'javascript' ? 'javascript' : 'php'}
                   value={codeContent}
                   onChange={setCodeContent}
                 />
-              </Field>
+              </FormField>
             </Form>
           </form>
         }

@@ -8,6 +8,9 @@
 
 <!-- e.g. Closes #123 -->
 
+> Contributor and feature PRs target `develop`. A PR into `master` is reserved
+> for the canonical `develop -> master` release promotion.
+
 ## Type of change
 
 - [ ] Bug fix (`fix`)
@@ -18,7 +21,8 @@
 ## Checklist
 
 - [ ] `pnpm run lint` passes
-- [ ] `pnpm run build` passes
+- [ ] `pnpm run check-generated-types:committed` passes
+- [ ] `pnpm run build:ci` passes
 - [ ] `pnpm test` passes
 - [ ] Commits follow Conventional Commits and are signed off (`git commit -s`)
 - [ ] Changes are scoped to what was requested; no leftover TODOs

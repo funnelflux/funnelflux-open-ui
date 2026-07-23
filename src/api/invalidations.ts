@@ -210,6 +210,26 @@ export async function invalidateCampaignFunnelAuxiliary(queryClient: QueryClient
   ])
 }
 
+/* ─── Stats (drilldown / dashboard / entity grids) ──────────────────── */
+
+/**
+ * Stats-mutating operations (conversion uploads, retroactive cost updates, stat resets) change
+ * historical numbers everywhere. With `staleTime: Infinity` app-wide, every stats consumer must
+ * be explicitly invalidated: drilldown reports, dashboard widgets, and every entity-grid stats
+ * query (`[prefix..., ENTITY_GRID_STATS_KEY, ...]` — pages, traffic sources, offer sources,
+ * campaign strip). Inactive queries are marked stale and refetch on next mount.
+ */
+export async function invalidateAllStats(qc: QueryClient): Promise<void> {
+  await Promise.all([
+    qc.invalidateQueries({ queryKey: queryKeys.drilldown.all }),
+    qc.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+    qc.invalidateQueries({
+      predicate: (query) =>
+        Array.isArray(query.queryKey) && query.queryKey.includes(ENTITY_GRID_STATS_KEY),
+    }),
+  ])
+}
+
 /* ─── Categories ────────────────────────────────────────────────────── */
 
 /**
@@ -223,6 +243,13 @@ export async function invalidateCategoryData(
   await qc.invalidateQueries({ queryKey: queryKeys.categories.all })
   if (entityType === 'page' || entityType == null) {
     await qc.invalidateQueries({ queryKey: queryKeys.groupingFilterAssets.pageCategories() })
+  }
+  if (entityType === 'trafficsource' || entityType == null) {
+    // Drilldown URL-tracking-field popovers cache TS categories under this separate key.
+    await qc.invalidateQueries({
+      queryKey: queryKeys.trafficSources.categories,
+      refetchType: 'inactive',
+    })
   }
   if (entityType === 'page') {
     await invalidatePageDataAfterCategoryChange(qc)

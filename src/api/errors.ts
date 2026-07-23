@@ -21,6 +21,14 @@ export class AuthExpiredError extends ApiHttpError {
   }
 }
 
+/** The backend has locked protected product access while preserving the authenticated session. */
+export class LicenseLockedError extends ApiHttpError {
+  constructor(message = 'License locked', body?: ApiError) {
+    super(message, 423, body)
+    this.name = 'LicenseLockedError'
+  }
+}
+
 /** `fetch` failed (offline, DNS, CORS, etc.). */
 export class NetworkError extends Error {
   constructor(message = 'Network request failed', options?: { cause?: unknown }) {
@@ -31,6 +39,10 @@ export class NetworkError extends Error {
 
 export function isAuthExpiredError(err: unknown): err is AuthExpiredError {
   return err instanceof AuthExpiredError
+}
+
+export function isLicenseLockedError(err: unknown): err is LicenseLockedError {
+  return err instanceof LicenseLockedError
 }
 
 /** Map thrown values to {@link ApiError} for bulk-operation summaries. */

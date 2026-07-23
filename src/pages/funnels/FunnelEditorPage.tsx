@@ -4,7 +4,9 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useFunnel } from '@/api/hooks'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { queryKeys } from '@/api/queryKeys'
+import { invalidateCampaignFunnelAuxiliary, invalidatePageGroupingAssets } from '@/api/invalidations'
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { FunnelCanvas } from '@/components/funnel-builder/FunnelCanvas'
 import { HeatmapOverlay } from '@/components/funnel-builder/HeatmapOverlay'
@@ -51,13 +53,14 @@ export function FunnelEditorPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [quickStatsOpen, setQuickStatsOpen] = useState(false)
   const [serverRefreshOpen, setServerRefreshOpen] = useState(false)
+  const [discardConfirm, setDiscardConfirm] = useState<'discard' | 'back' | null>(null)
   const canViewStats = useAuthStore((s) => s.user?.permissions.stats.canView)
 
   const dismissedServerVersionRef = useRef<string | null>(null)
   const pendingServerFunnelRef = useRef<unknown>(null)
 
   const isNew = funnelId === 'new'
-  const { data: funnel, isLoading } = useFunnel(isNew ? '' : funnelId ?? '', {
+  const { data: funnel, isLoading, isError, refetch } = useFunnel(isNew ? '' : funnelId ?? '', {
     loadDependencies: true,
   })
 
@@ -178,7 +181,7 @@ export function FunnelEditorPage() {
     try {
       for (const draft of Object.values(pendingPageDrafts)) {
         const isCreate = draft.isCreate ?? !draft.original?.idPage
-        await (isCreate
+        await executeObservedRequest(queryClient, () => isCreate
           ? api.post<Page>('/data/page/save/', draft.page)
           : api.put<Page>('/data/page/save/', draft.page))
         savedPages.push({ ...draft, isCreate })
@@ -186,31 +189,45 @@ export function FunnelEditorPage() {
 
       for (const draft of Object.values(pendingConditionDrafts)) {
         const isCreate = draft.isCreate ?? !draft.original?.idCondition
-        await (isCreate
+        await executeObservedRequest(queryClient, () => isCreate
           ? api.post<void>('/data/campaign/funnel/condition/save/', draft.condition)
           : api.put<void>('/data/campaign/funnel/condition/save/', draft.condition))
         savedConditions.push({ ...draft, isCreate })
       }
 
       if (isNew) {
-        await api.post('/data/campaign/funnel/save/', body)
+        await executeObservedRequest(queryClient, () =>
+          api.post('/data/campaign/funnel/save/', body),
+        )
         markClean()
         clearPendingAssetDrafts()
         dismissedServerVersionRef.current = null
         await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all })
         await queryClient.invalidateQueries({ queryKey: queryKeys.pages.all })
         await queryClient.invalidateQueries({ queryKey: queryKeys.conditions.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.campaignStrip.all })
+        await invalidateCampaignFunnelAuxiliary(queryClient)
+        if (savedPages.length > 0) {
+          await invalidatePageGroupingAssets(queryClient)
+        }
         toast.success('Funnel saved successfully')
         setSettingsOpen(false)
         navigate(`/campaigns/${campaignId}/funnels/${String(body.idFunnel)}`, { replace: true })
       } else {
-        await api.put('/data/campaign/funnel/save/', body, { deleteDependencies: 'true' })
+        await executeObservedRequest(queryClient, () =>
+          api.put('/data/campaign/funnel/save/', body, { deleteDependencies: 'true' }),
+        )
         markClean()
         clearPendingAssetDrafts()
         dismissedServerVersionRef.current = null
         await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.all })
         await queryClient.invalidateQueries({ queryKey: queryKeys.pages.all })
         await queryClient.invalidateQueries({ queryKey: queryKeys.conditions.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.campaignStrip.all })
+        await invalidateCampaignFunnelAuxiliary(queryClient)
+        if (savedPages.length > 0) {
+          await invalidatePageGroupingAssets(queryClient)
+        }
         if (funnelId) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.funnels.detail(funnelId) })
         }
@@ -222,9 +239,13 @@ export function FunnelEditorPage() {
         try {
           const isCreate = draft.isCreate ?? !draft.original?.idCondition
           if (!isCreate && draft.original?.idCondition) {
-            await api.put<void>('/data/campaign/funnel/condition/save/', draft.original)
+            await executeObservedRequest(queryClient, () =>
+              api.put<void>('/data/campaign/funnel/condition/save/', draft.original),
+            )
           } else if (isCreate && draft.condition.idCondition) {
-            await api.delete('/data/campaign/funnel/condition/delete/', { idCondition: draft.condition.idCondition })
+            await executeObservedRequest(queryClient, () =>
+              api.delete('/data/campaign/funnel/condition/delete/', { idCondition: draft.condition.idCondition }),
+            )
           }
         } catch {
           // Best-effort rollback; keep the funnel dirty if rollback also fails.
@@ -234,9 +255,13 @@ export function FunnelEditorPage() {
         try {
           const isCreate = draft.isCreate ?? !draft.original?.idPage
           if (!isCreate && draft.original?.idPage) {
-            await api.put<Page>('/data/page/save/', draft.original)
+            await executeObservedRequest(queryClient, () =>
+              api.put<Page>('/data/page/save/', draft.original),
+            )
           } else if (isCreate && draft.page.idPage) {
-            await api.delete('/data/page/delete/', { idPage: String(draft.page.idPage) })
+            await executeObservedRequest(queryClient, () =>
+              api.delete('/data/page/delete/', { idPage: String(draft.page.idPage) }),
+            )
           }
         } catch {
           // Best-effort rollback; keep the funnel dirty if rollback also fails.
@@ -244,6 +269,9 @@ export function FunnelEditorPage() {
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.pages.all })
       await queryClient.invalidateQueries({ queryKey: queryKeys.conditions.all })
+      if (savedPages.length > 0) {
+        await invalidatePageGroupingAssets(queryClient)
+      }
       toast.error('Failed to save funnel')
     } finally {
       setIsSaving(false)
@@ -264,11 +292,7 @@ export function FunnelEditorPage() {
     funnelId,
   ])
 
-  const handleDiscard = useCallback(() => {
-    if (!isDirty || isSaving) return
-    if (!isNew && !funnel) return
-    const ok = window.confirm('Discard all unsaved changes?')
-    if (!ok) return
+  const performDiscard = useCallback(() => {
     if (isNew) {
       resetEditor()
       if (campaignId) {
@@ -282,12 +306,11 @@ export function FunnelEditorPage() {
       markClean()
       return
     }
+    if (!funnel) return
     persistExtrasRef.current = extractPersistExtras(funnel)
     requestHydrate(funnel, { force: true })
     clearPendingAssetDrafts()
   }, [
-    isDirty,
-    isSaving,
     isNew,
     campaignId,
     funnel,
@@ -299,16 +322,60 @@ export function FunnelEditorPage() {
     location.state,
   ])
 
+  const handleDiscard = useCallback(() => {
+    if (!isDirty || isSaving) return
+    if (!isNew && !funnel) return
+    setDiscardConfirm('discard')
+  }, [isDirty, isSaving, isNew, funnel])
+
   const handleBack = useCallback(() => {
     if (isDirty) {
-      const ok = window.confirm('You have unsaved changes. Discard them?')
-      if (!ok) return
+      setDiscardConfirm('back')
+      return
     }
     navigate(campaignId ? `/campaigns` : '/')
   }, [isDirty, navigate, campaignId])
 
+  const handleDiscardConfirmCancel = useCallback(() => {
+    setDiscardConfirm(null)
+  }, [])
+
+  const handleDiscardConfirm = useCallback(() => {
+    const action = discardConfirm
+    setDiscardConfirm(null)
+    if (action === 'back') {
+      navigate(campaignId ? `/campaigns` : '/')
+      return
+    }
+    performDiscard()
+  }, [discardConfirm, navigate, campaignId, performDiscard])
+
   if (funnelId === 'new') {
     return <Navigate to="/campaigns" replace />
+  }
+
+  // Only when there is genuinely nothing to render — a failed background
+  // refetch (isError with cached data) must not unmount a working editor.
+  if (isError && !funnel && !isNew) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
+        <span className="text-destructive inline-flex [&>svg]:h-8 [&>svg]:w-8">
+          <Icon name="alert-triangle" size="lg" />
+        </span>
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold">Failed to load funnel</h2>
+          <p className="text-sm text-muted-foreground">
+            This funnel could not be loaded. It may have been deleted, or the server is unreachable.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => void refetch()}>Retry</Button>
+          <Button type="primary" uiVariant="default" onClick={() => navigate('/campaigns')}>
+            Back to campaigns
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (isLoading && !isNew) {
@@ -340,7 +407,7 @@ export function FunnelEditorPage() {
             </div>
 
             {isDirty && (
-              <span className="shrink-0 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded-md px-2 py-0.5">
+              <span className="shrink-0 text-xs text-warning dark:text-amber-400 bg-warning/10 rounded-md px-2 py-0.5">
                 Unsaved
               </span>
             )}
@@ -443,6 +510,20 @@ export function FunnelEditorPage() {
         danger
         onCancel={handleServerRefreshCancel}
         onConfirm={handleServerRefreshConfirm}
+      />
+
+      <ConfirmModal
+        open={discardConfirm !== null}
+        title={discardConfirm === 'back' ? 'Unsaved changes' : 'Discard changes'}
+        description={
+          discardConfirm === 'back'
+            ? 'You have unsaved changes. Discard them and leave this funnel?'
+            : 'Discard all unsaved changes?'
+        }
+        confirmText="Discard"
+        danger
+        onCancel={handleDiscardConfirmCancel}
+        onConfirm={handleDiscardConfirm}
       />
     </div>
   )

@@ -481,13 +481,16 @@ function DataTableInner<TData>({
   )
 
   const renderRow = useCallback(
-    (row: Row<TData>, style?: React.CSSProperties) => {
+    (row: Row<TData>, style?: React.CSSProperties, rowIndex?: number) => {
       const depth = row.depth ?? 0
       const rowClassValue = typeof rowClassName === 'function' ? rowClassName(row.original) : rowClassName
 
       return (
         <div
           key={row.id}
+          role="row"
+          /* 1-based; header row is 1 — required with virtualization since only a window of rows is in the DOM */
+          aria-rowindex={rowIndex != null ? rowIndex + 2 : undefined}
           className={`dt-row${row.getIsSelected() ? ' dt-row--selected' : ''} dt-row--depth-${Math.min(depth, 3)}${rowClassValue ? ` ${rowClassValue}` : ''}`}
           style={{ ...style, minWidth: totalTableWidth }}
           data-row-id={row.id}
@@ -504,6 +507,7 @@ function DataTableInner<TData>({
               <div
                 key={cell.id}
                 data-col-id={cell.column.id}
+                role="cell"
                 className={cellClasses}
                 style={{ width: getColWidth(cell.column) }}
               >
@@ -551,9 +555,14 @@ function DataTableInner<TData>({
   const renderPinnedBottom = () => {
     if (!pinnedBottomRows?.length) return null
     return (
-      <div className="dt-pinned-bottom" style={{ minWidth: totalTableWidth }}>
-        {pinnedTable.getRowModel().rows.map((row) => (
-          <div key={row.id} className="dt-row">
+      <div className="dt-pinned-bottom" role="rowgroup" style={{ minWidth: totalTableWidth }}>
+        {pinnedTable.getRowModel().rows.map((row, pinnedIndex) => (
+          <div
+            key={row.id}
+            className="dt-row"
+            role="row"
+            aria-rowindex={1 + tableRows.length + pinnedIndex + 1}
+          >
             {row.getVisibleCells().map((cell) => {
               const meta = cell.column.columnDef.meta as Record<string, unknown> | undefined
               const cellAlign = (meta?.align as ColumnAlign | undefined)
@@ -564,6 +573,7 @@ function DataTableInner<TData>({
                   <div
                     key={cell.id}
                     data-col-id={cell.column.id}
+                    role="cell"
                     className={'dt-cell' + alignClass(cellAlign)}
                     style={{ width: getColWidth(cell.column) }}
                   />
@@ -574,6 +584,7 @@ function DataTableInner<TData>({
                 <div
                   key={cell.id}
                   data-col-id={cell.column.id}
+                  role="cell"
                   className={'dt-cell' + alignClass(cellAlign)}
                   style={{ width: getColWidth(cell.column) }}
                 >
@@ -586,6 +597,9 @@ function DataTableInner<TData>({
       </div>
     )
   }
+
+  /** Header row + all body rows (even those not rendered while virtualized) + pinned totals rows. */
+  const ariaRowCount = 1 + tableRows.length + (pinnedBottomRows?.length ?? 0)
 
   const totalRowCount = manualPagination ? (pageCount ?? 0) * pagination.pageSize : data.length
   const totalPages = table.getPageCount()
@@ -664,9 +678,18 @@ function DataTableInner<TData>({
           </div>
         )}
 
-        <div className="dt-scroll-inner">
+        <div
+          className="dt-scroll-inner"
+          role="table"
+          aria-rowcount={ariaRowCount}
+        >
           {/* Header — sticky top, scrolls horizontally with body */}
-          <div className="dt-header" style={{ minWidth: totalTableWidth }}>
+          <div
+            className="dt-header"
+            style={{ minWidth: totalTableWidth }}
+            role="row"
+            aria-rowindex={1}
+          >
             {headerGroups.map((hg) =>
               hg.headers.map((header) => {
                 const canSort = header.column.getCanSort()
@@ -685,9 +708,20 @@ function DataTableInner<TData>({
                 const canFilter = Boolean(onColumnFilterChange) && filterKind !== null
                 const activeFilter = Boolean(columnFilters?.[columnId])
                 return (
+                  // eslint-disable-next-line jsx-a11y/interactive-supports-focus -- sort/filter/drag interactions live on focusable child buttons; the cell itself is not a tab stop
                   <div
                     key={header.id}
                     data-col-id={columnId}
+                    role="columnheader"
+                    aria-sort={
+                      canSort
+                        ? sorted === 'asc'
+                          ? 'ascending'
+                          : sorted === 'desc'
+                            ? 'descending'
+                            : 'none'
+                        : undefined
+                    }
                     onDragOver={canDragColumn ? handleHeaderDragOver : undefined}
                     onDrop={canDragColumn ? handleHeaderDrop(columnId) : undefined}
                     className={cn(
@@ -756,10 +790,11 @@ function DataTableInner<TData>({
           </div>
 
           {/* Body — grows when few rows so pinned totals stay at bottom of the scroll area */}
-          <div className="dt-body">
+          <div className="dt-body" role="rowgroup">
             {loadingEmpty ? (
               <div
                 className="dt-loading-skeleton-wrap"
+                role="presentation"
                 aria-busy="true"
                 aria-label="Loading"
               >
@@ -774,21 +809,26 @@ function DataTableInner<TData>({
                 ))}
               </div>
             ) : !loading && tableRows.length === 0 ? (
-              <div className="dt-empty">{emptyMessage}</div>
+              <div className="dt-empty" role="presentation">{emptyMessage}</div>
             ) : shouldVirtualize ? (
-              <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+              /* presentation: keeps role="row" children owned by the rowgroup in the a11y tree */
+              <div role="presentation" style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
                 {virtualizer.getVirtualItems().map((virtualRow) => {
                   const row = tableRows[virtualRow.index]
-                  return renderRow(row, {
-                    position: 'absolute',
-                    top: 0,
-                    transform: `translateY(${virtualRow.start}px)`,
-                    height: rowHeight,
-                  })
+                  return renderRow(
+                    row,
+                    {
+                      position: 'absolute',
+                      top: 0,
+                      transform: `translateY(${virtualRow.start}px)`,
+                      height: rowHeight,
+                    },
+                    virtualRow.index,
+                  )
                 })}
               </div>
             ) : (
-              tableRows.map((row) => renderRow(row))
+              tableRows.map((row, rowIndex) => renderRow(row, undefined, rowIndex))
             )}
           </div>
 

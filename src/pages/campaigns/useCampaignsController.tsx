@@ -20,6 +20,7 @@ import {
 } from '@/api/hooks'
 import { useEntityGrid } from '@/api/hooks/useEntityGrid'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
 import { invalidateCampaignFunnelAuxiliary } from '@/api/invalidations'
 import { queryKeys } from '@/api/queryKeys'
 import { ENTITY_GRID_LIST_KEY } from '@/lib/entity-table/data/queryCache'
@@ -294,64 +295,63 @@ export function useCampaignsController() {
     }
   }, [navigate])
 
-  const runClone = useCallback((row: CampaignRow) => {
+  const runClone = useCallback(async (row: CampaignRow) => {
     if (row.id === '__totals__') return
-    if (row._isCategoryHeader) {
-      cloneCampaign.mutate(row.campaignId, {
-        onSuccess: async (pair: IdNamePair) => {
-          toast.success('Campaign cloned')
-          const newCampId = String(pair.id ?? '')
-          const newName = String(pair.name ?? '')
-          let funnelList: IdName[] = []
-          try {
-            funnelList = await api.get<IdName[]>('/data/campaign/funnel/list/', {
-              idCampaign: newCampId,
-            })
-          } catch {
-            funnelList = []
-          }
-          patchStaticHierarchy((prev) =>
-            prev ? cloneCampaignInStatic(prev, row.campaignId, newCampId, newName, funnelList) : prev,
-          )
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      })
+    if (!row._isCategoryHeader) return
+    try {
+      const pair: IdNamePair = await cloneCampaign.mutateAsync(row.campaignId)
+      toast.success('Campaign cloned')
+      const newCampId = String(pair.id ?? '')
+      const newName = String(pair.name ?? '')
+      let funnelList: IdName[] = []
+      try {
+        funnelList = await executeObservedRequest(queryClient, () =>
+          api.get<IdName[]>('/data/campaign/funnel/list/', { idCampaign: newCampId }),
+        )
+      } catch {
+        funnelList = []
+      }
+      patchStaticHierarchy((prev) =>
+        prev ? cloneCampaignInStatic(prev, row.campaignId, newCampId, newName, funnelList) : prev,
+      )
+    } catch (err) {
+      toast.error(getErrorMessage(err))
     }
-  }, [cloneCampaign, toast, patchStaticHierarchy])
+  }, [cloneCampaign, patchStaticHierarchy, queryClient, toast])
 
-  const runDelete = useCallback((row: CampaignRow) => {
+  const runDelete = useCallback(async (row: CampaignRow) => {
     if (row.id === '__totals__') return
-    if (row._isCategoryHeader) {
-      deleteCampaign.mutate(row.campaignId, {
-        onSuccess: () => {
-          toast.success('Campaign deleted')
-          patchStaticHierarchy((prev) => (prev ? removeCampaignFromStatic(prev, row.campaignId) : prev))
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-      })
-      return
+    try {
+      if (row._isCategoryHeader) {
+        await deleteCampaign.mutateAsync(row.campaignId)
+        toast.success('Campaign deleted')
+        patchStaticHierarchy((prev) => (prev ? removeCampaignFromStatic(prev, row.campaignId) : prev))
+        return
+      }
+      if (!row.funnelId) return
+      await deleteFunnel.mutateAsync(row.funnelId)
+      toast.success('Funnel deleted')
+      patchStaticHierarchy((prev) => (prev ? removeFunnelFromStatic(prev, row.funnelId!) : prev))
+    } catch (err) {
+      toast.error(getErrorMessage(err))
     }
-    if (!row.funnelId) return
-    deleteFunnel.mutate(row.funnelId, {
-      onSuccess: () => {
-        toast.success('Funnel deleted')
-        patchStaticHierarchy((prev) => (prev ? removeFunnelFromStatic(prev, row.funnelId!) : prev))
-      },
-      onError: (err) => toast.error(getErrorMessage(err)),
-    })
   }, [deleteCampaign, deleteFunnel, toast, patchStaticHierarchy])
 
   const runArchive = useCallback(async (row: CampaignRow, archive: boolean) => {
     if (row.id === '__totals__') return
     try {
       if (row._isCategoryHeader) {
-        await archiveCampaignRemote(row.campaignId, archive)
+        await executeObservedRequest(queryClient, () =>
+          archiveCampaignRemote(row.campaignId, archive),
+        )
         toast.success(archive ? 'Campaign archived' : 'Campaign restored')
         patchStaticHierarchy((prev) =>
           prev ? setArchiveOnStatic(prev, archiveStatus, row.campaignId, null, archive) : prev,
         )
       } else if (row.funnelId) {
-        await archiveFunnelRemote(row.funnelId, archive)
+        await executeObservedRequest(queryClient, () =>
+          archiveFunnelRemote(row.funnelId!, archive),
+        )
         toast.success(archive ? 'Funnel archived' : 'Funnel restored')
         patchStaticHierarchy((prev) =>
           prev ? setArchiveOnStatic(prev, archiveStatus, null, row.funnelId!, archive) : prev,
@@ -438,9 +438,9 @@ export function useCampaignsController() {
     setConfirmLoading(true)
     try {
       if (pendingAction.kind === 'clone') {
-        runClone(pendingAction.row)
+        await runClone(pendingAction.row)
       } else if (pendingAction.kind === 'delete') {
-        runDelete(pendingAction.row)
+        await runDelete(pendingAction.row)
       } else {
         await runArchive(pendingAction.row, pendingAction.archive)
       }
@@ -471,6 +471,13 @@ export function useCampaignsController() {
     return pendingAction.archive
       ? `Archive "${label}"? Archived items are hidden from default active views.`
       : `Restore "${label}" to active view?`
+  }, [pendingAction])
+
+  const confirmText = useMemo(() => {
+    if (!pendingAction) return 'Confirm'
+    if (pendingAction.kind === 'clone') return 'Clone'
+    if (pendingAction.kind === 'delete') return 'Delete'
+    return pendingAction.archive ? 'Archive' : 'Restore'
   }, [pendingAction])
 
   const confirmDanger = pendingAction?.kind === 'delete' || (pendingAction?.kind === 'archive' && pendingAction.archive)
@@ -636,6 +643,7 @@ export function useCampaignsController() {
     confirmLoading,
     confirmTitle,
     confirmDescription,
+    confirmText,
     confirmDanger,
     handleCancelConfirm,
     handleConfirmAction,

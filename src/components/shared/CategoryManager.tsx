@@ -71,6 +71,7 @@ function CategoryManageRowEditor({
         size="small"
         iconName="check"
         iconSize="sm"
+        aria-label="Confirm rename"
         onClick={handleRename}
         disabled={!draftName.trim() || draftName.trim() === category.name}
         loading={renamePending}
@@ -80,6 +81,7 @@ function CategoryManageRowEditor({
         size="small"
         iconName="x"
         iconSize="sm"
+        aria-label="Cancel rename"
         onClick={onCancelEditing}
       />
     </div>
@@ -123,8 +125,9 @@ const CategoryManageRow = memo(function CategoryManageRow({
         size="small"
         iconName="pencil"
         iconSize="sm"
+        aria-label={`Rename category ${category.name}`}
         onClick={handleStartEditing}
-        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
       />
       <Button
         type="text"
@@ -132,8 +135,9 @@ const CategoryManageRow = memo(function CategoryManageRow({
         danger
         iconName="trash-2"
         iconSize="sm"
+        aria-label={`Delete category ${category.name}`}
         onClick={handleRequestDelete}
-        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
       />
     </div>
   )
@@ -382,7 +386,7 @@ export function CategoryManager({
         <Select
           value={selectedCategoryId || '__all__'}
           onChange={handleSelectChange}
-          style={{ width: 220 }}
+          className="w-[220px]"
           alphabetical={false}
           options={filterSelectOptions}
         />
@@ -407,7 +411,7 @@ export function CategoryManager({
       </div>
 
       {createOpen ? (
-        <FormModal open onCancel={handleCloseCreate}>
+        <FormModal open onCancel={handleCloseCreate} width={480}>
           <FormModalHeader title="Create Category" />
           <FormModalBody>
             <form

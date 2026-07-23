@@ -1,0 +1,28 @@
+name: PR policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  release-path:
+    name: Release branch policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce develop to master only
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          CANONICAL_REPO: ${{ github.repository }}
+        run: |
+          if [ "$BASE_REF" != "master" ]; then
+            exit 0
+          fi
+          if [ "$HEAD_REF" != "develop" ] || [ "$HEAD_REPO" != "$CANONICAL_REPO" ]; then
+            echo "Only the canonical develop branch may open the release PR into master."
+            exit 1
+          fi

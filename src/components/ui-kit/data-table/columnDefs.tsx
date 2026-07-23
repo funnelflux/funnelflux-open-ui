@@ -1,8 +1,8 @@
 import type { ColumnDef, CellContext } from '@tanstack/react-table'
 import type { ReactNode } from 'react'
 import { Icon, type IconName } from '@/components/ui-kit/icons'
-import { Tooltip } from '../Tooltip'
-import { Button } from '../Button'
+import { Tooltip } from '@/components/ui-kit/Tooltip'
+import { Button } from '@/components/ui-kit/Button'
 import type { ReportCell } from '@/types/stats'
 import {
   getColumnMeta,
@@ -293,6 +293,7 @@ function actionBtnColumn<T>(
           <Button
             type="text"
             size="small"
+            aria-label={tooltip}
             className={`dt-action-btn${opts?.destructive ? ' dt-action-btn--destructive' : ''}`}
             onClick={(e) => {
               e.stopPropagation()
@@ -349,6 +350,7 @@ export function archiveBtnColumn<T>(
           <Button
             type="text"
             size="small"
+            aria-label={tooltip}
             className="dt-action-btn"
             onClick={(e) => {
               e.stopPropagation()
@@ -395,6 +397,7 @@ export function addFunnelOrMoveColumn<T>(
               <Button
                 type="text"
                 size="small"
+                aria-label="Add Funnel"
                 className="dt-action-btn"
                 onClick={(e) => { e.stopPropagation(); onAddFunnel(row) }}
                 icon={<Icon name="plus" size="sm" />}
@@ -406,6 +409,7 @@ export function addFunnelOrMoveColumn<T>(
               <Button
                 type="text"
                 size="small"
+                aria-label="Move funnel to another campaign"
                 className="dt-action-btn"
                 onClick={(e) => { e.stopPropagation(); onMove(row) }}
                 icon={<Icon name="workflow" size="sm" />}

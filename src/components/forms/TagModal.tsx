@@ -2,11 +2,10 @@ import { useEffect, useId, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
-  Button,
   FormField,
   FormModal,
   FormModalBody,
-  FormModalFooter,
+  FormModalFooterSubmit,
   FormModalHeader,
   Input,
 } from '@/components/ui-kit'
@@ -84,23 +83,12 @@ export function TagModal({
           />
         </form>
       </FormModalBody>
-      <FormModalFooter>
-        <Button htmlType="button" onClick={handleClose} className="flex-1 sm:flex-none">
-          Cancel
-        </Button>
-        <Button
-          type="primary"
-          htmlType="submit"
-          form={formId}
-          disabled={isSubmitting}
-          className="flex-1 sm:flex-none"
-          iconName={isSubmitting ? 'loader-2' : undefined}
-          iconAnimation={isSubmitting ? 'spin' : 'none'}
-          iconSize="sm"
-        >
-          {isEdit ? 'Save' : 'Add'}
-        </Button>
-      </FormModalFooter>
+      <FormModalFooterSubmit
+        onCancel={handleClose}
+        formId={formId}
+        submitLabel={isEdit ? 'Save' : 'Create'}
+        loading={isSubmitting}
+      />
     </FormModal>
   )
 }

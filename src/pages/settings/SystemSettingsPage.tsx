@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Divider } from '@/components/ui-kit'
-import { PageShell, useToastApi, Button, Input, Switch, Select } from '@/components/ui-kit'
+import { PageShell, useToastApi, Button, FormField, Input, Switch, Select, type PageShellBodyState } from '@/components/ui-kit'
 import { useSystemSettings, useSaveSystemSettings } from '@/api/hooks/useSystemSettings'
 import { DomainsManager } from '@/components/settings/DomainsManager'
 import {
@@ -48,7 +48,7 @@ function formDataToSystemSettingsPayload(data: SystemSettingsFormData): Partial<
 
 export function SystemSettingsPage() {
   const toast = useToastApi()
-  const { data: settings, isLoading } = useSystemSettings()
+  const { data: settings, isLoading, isError, error, refetch } = useSystemSettings()
   const saveSettings = useSaveSystemSettings()
 
   const { control, handleSubmit, reset } = useForm<SystemSettingsFormData>({
@@ -92,16 +92,18 @@ export function SystemSettingsPage() {
     return REDIRECT_METHODS.find((m) => m.type === type)?.name ?? type
   }
 
-  if (isLoading) {
-    return (
-      <PageShell title="System Settings">
-        <p className="text-sm text-muted-foreground">Loading settings...</p>
-      </PageShell>
-    )
-  }
+  const bodyState: PageShellBodyState = isLoading
+    ? { status: 'loading' }
+    : isError
+      ? {
+          status: 'error',
+          message: getErrorMessage(error),
+          onRetry: () => void refetch(),
+        }
+      : { status: 'ready' }
 
   return (
-    <PageShell title="System Settings">
+    <PageShell title="System Settings" bodyState={bodyState}>
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="max-w-2xl space-y-6"
@@ -132,8 +134,12 @@ export function SystemSettingsPage() {
           control={control}
           name="defaultHomePageURL"
           render={({ field, fieldState }) => (
-            <div className="space-y-2">
-              <label htmlFor="defaultHomePageURL" className="block text-sm font-medium text-foreground">Default Home Page URL</label>
+            <FormField
+              label="Default Home Page URL"
+              htmlFor="defaultHomePageURL"
+              error={fieldState.error?.message}
+              help="Visitors to the root domain will be redirected here"
+            >
               <Input
                 id="defaultHomePageURL"
                 value={field.value}
@@ -141,13 +147,7 @@ export function SystemSettingsPage() {
                 onBlur={field.onBlur}
                 placeholder="https://example.com"
               />
-              {fieldState.error && (
-                <p className="text-xs text-destructive">{fieldState.error.message}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Visitors to the root domain will be redirected here
-              </p>
-            </div>
+            </FormField>
           )}
         />
 
@@ -217,10 +217,11 @@ export function SystemSettingsPage() {
           control={control}
           name="minConfidenceRateForWinners"
           render={({ field, fieldState }) => (
-            <div className="space-y-2">
-              <label htmlFor="minConfidenceRateForWinners" className="block text-sm font-medium text-foreground">
-                Min Confidence Rate for Winners (%)
-              </label>
+            <FormField
+              label="Min Confidence Rate for Winners (%)"
+              htmlFor="minConfidenceRateForWinners"
+              error={fieldState.error?.message}
+            >
               <Input
                 id="minConfidenceRateForWinners"
                 type="number"
@@ -233,10 +234,7 @@ export function SystemSettingsPage() {
                 }}
                 onBlur={field.onBlur}
               />
-              {fieldState.error && (
-                <p className="text-xs text-destructive">{fieldState.error.message}</p>
-              )}
-            </div>
+            </FormField>
           )}
         />
 
@@ -245,8 +243,7 @@ export function SystemSettingsPage() {
           control={control}
           name="clickbankIPNKey"
           render={({ field }) => (
-            <div className="space-y-2">
-              <label htmlFor="clickbankIPNKey" className="block text-sm font-medium text-foreground">ClickBank IPN Key</label>
+            <FormField label="ClickBank IPN Key" htmlFor="clickbankIPNKey">
               <Input
                 id="clickbankIPNKey"
                 value={field.value}
@@ -254,7 +251,7 @@ export function SystemSettingsPage() {
                 onBlur={field.onBlur}
                 placeholder="Enter IPN key"
               />
-            </div>
+            </FormField>
           )}
         />
 

@@ -23,6 +23,7 @@ import {
 import { CODE_NODE_MAX_ON_DONE_EXITS } from '@/lib/codeNodeExits'
 import { createDefaultEntranceFlowNode } from '@/lib/defaultNewFunnelNodes'
 import type { FunnelEditorMeta } from '@/types/funnel'
+import { registerProtectedStateReset } from '@/store/protectedState'
 
 import { validateFunnelGraph, type GraphIssue } from '@/lib/funnel-graph/validateGraph'
 
@@ -464,3 +465,5 @@ export const useFunnelEditorStore = create<FunnelEditorState>((set, get) => ({
   clearPendingAssetDrafts: () =>
     set({ pendingPageDrafts: {}, pendingConditionDrafts: {} }),
 }))
+
+registerProtectedStateReset(() => useFunnelEditorStore.getState().resetEditor())

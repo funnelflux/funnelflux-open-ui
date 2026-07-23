@@ -6,17 +6,17 @@
 #
 # Canonical sources:
 #   - AGENTS.md files (root and nested) — repo guidance.
-#   - .ai/skills/<name>/SKILL.md       — shared skill bodies.
+#   - .ai/skills/<name>/SKILL.md       — repo-specific skill bodies; generic skills are global.
 #   - .ai/rules/<name>.mdc             — Cursor rule bodies.
-#   - .ai/agents/<role>.toml           — Codex agent definitions.
+#   - .ai/agents/<role>.toml           — repo-specific Codex agent definitions; generic agents are global.
 #
 # Generated symlinks:
 #   - <dir>/CLAUDE.md          -> AGENTS.md
-#   - .claude/skills/<name>    -> ../../.ai/skills/<name>
-#   - .agents/skills/<name>    -> ../../.ai/skills/<name>
+#   - .claude/skills/<name>    -> ../../.ai/skills/<name> (repo-specific only)
+#   - .agents/skills/<name>    -> ../../.ai/skills/<name> (repo-specific only)
 #   - .cursor/skills/<name>    -> ../../.ai/skills/<name>
 #   - .cursor/rules/<name>.mdc -> ../../.ai/rules/<name>.mdc
-#   - .codex/agents/<role>.toml -> ../../.ai/agents/<role>.toml
+#   - .codex/agents/<role>.toml -> ../../.ai/agents/<role>.toml (repo-specific only)
 
 if [ -n "${POSIXLY_CORRECT:-}" ] || [ -z "${BASH_VERSION:-}" ]; then
     exec bash "$0" "$@"
@@ -74,19 +74,19 @@ is_link_to() {
 install_guidance_links() {
     local created=0 existing=0 skipped=0
     while IFS= read -r -d '' agents; do
-        local dir claude
+        local dir guidance_path
         dir="$(dirname "$agents")"
-        claude="$dir/CLAUDE.md"
-        if [ -e "$claude" ] || [ -L "$claude" ]; then
-            if is_link_to "$claude" "AGENTS.md"; then
+        guidance_path="$dir/CLAUDE.md"
+        if [ -e "$guidance_path" ] || [ -L "$guidance_path" ]; then
+            if is_link_to "$guidance_path" "AGENTS.md"; then
                 existing=$((existing + 1))
             else
-                echo "skip   $claude (exists and is not managed)"
+                echo "skip   $guidance_path (exists and is not managed)"
                 skipped=$((skipped + 1))
             fi
         else
-            ln -s "AGENTS.md" "$claude"
-            echo "link   $claude -> AGENTS.md"
+            ln -s "AGENTS.md" "$guidance_path"
+            echo "link   $guidance_path -> AGENTS.md"
             created=$((created + 1))
         fi
     done < <(find_agents_files)
@@ -167,13 +167,13 @@ install_rule_links() {
 status_report() {
     local guidance_ok=0 guidance_other=0 claude_skills=0 agent_skills=0 cursor_skills=0 cursor_rules=0 codex_agents=0
     while IFS= read -r -d '' agents; do
-        local claude
-        claude="$(dirname "$agents")/CLAUDE.md"
-        if is_link_to "$claude" "AGENTS.md"; then
+        local guidance_path
+        guidance_path="$(dirname "$agents")/CLAUDE.md"
+        if is_link_to "$guidance_path" "AGENTS.md"; then
             guidance_ok=$((guidance_ok + 1))
-        elif [ -e "$claude" ] || [ -L "$claude" ]; then
+        elif [ -e "$guidance_path" ] || [ -L "$guidance_path" ]; then
             guidance_other=$((guidance_other + 1))
-            echo "other guidance: $claude"
+            echo "other guidance: $guidance_path"
         fi
     done < <(find_agents_files)
     while IFS= read -r -d '' name; do
@@ -204,7 +204,7 @@ case "$MODE" in
         install_rule_links
         install_agent_links
         echo "Summary"
-        echo "  CLAUDE.md links: created=${GUIDANCE_CREATED:-0} existing=${GUIDANCE_EXISTING:-0} skipped=${GUIDANCE_SKIPPED:-0}"
+        echo "  guidance links: created=${GUIDANCE_CREATED:-0} existing=${GUIDANCE_EXISTING:-0} skipped=${GUIDANCE_SKIPPED:-0}"
         echo "  .claude/skills: created=${CLAUDE_SKILLS_CREATED:-0} existing=${CLAUDE_SKILLS_EXISTING:-0} skipped=${CLAUDE_SKILLS_SKIPPED:-0}"
         echo "  .agents/skills: created=${AGENTS_SKILLS_CREATED:-0} existing=${AGENTS_SKILLS_EXISTING:-0} skipped=${AGENTS_SKILLS_SKIPPED:-0}"
         echo "  .cursor/skills: created=${CURSOR_SKILLS_CREATED:-0} existing=${CURSOR_SKILLS_EXISTING:-0} skipped=${CURSOR_SKILLS_SKIPPED:-0}"

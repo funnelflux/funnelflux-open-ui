@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef } from 'react'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button, Input, Switch, Select, SmartMultiSelect, FormField, FormModal, FormModalBody, FormModalFooter, FormModalHeader, type SelectOption } from '@/components/ui-kit'
+import { Input, Switch, Select, SmartMultiSelect, FormField, FormModal, FormModalBody, FormModalFooterSubmit, FormModalHeader, type SelectOption } from '@/components/ui-kit'
 import { trafficFilterSchema, type TrafficFilterFormData } from '@/schemas/trafficFilter'
 import { FILTER_TYPES, FILTER_TYPE_LABELS } from '@/lib/trafficFilterConstants'
 import { generateEntityId } from '@/lib/id-generator'
@@ -330,23 +330,12 @@ export function TrafficFilterModal({
 
         </form>
       </FormModalBody>
-      <FormModalFooter>
-        <Button htmlType="button" onClick={handleClose} className="flex-1 sm:flex-none">
-          Cancel
-        </Button>
-        <Button
-          type="primary"
-          htmlType="submit"
-          form={formId}
-          disabled={isSubmitting}
-          className="flex-1 sm:flex-none"
-          iconName={isSubmitting ? 'loader-2' : undefined}
-          iconAnimation={isSubmitting ? 'spin' : 'none'}
-          iconSize="sm"
-        >
-          {initialData ? 'Save' : 'Create'}
-        </Button>
-      </FormModalFooter>
+      <FormModalFooterSubmit
+        onCancel={handleClose}
+        formId={formId}
+        submitLabel={initialData ? 'Save' : 'Create'}
+        loading={isSubmitting}
+      />
     </FormModal>
   )
 }

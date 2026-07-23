@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { Tag } from '@/components/ui-kit'
-import { Button, Switch, PageShell, ConfirmModal, useToastApi } from '@/components/ui-kit'
+import { Button, Switch, PageShell, SearchToolbar, ConfirmModal, useToastApi, type PageShellBodyState } from '@/components/ui-kit'
 import { DataTable } from '@/components/ui-kit/data-table'
 import { editBtnColumn, deleteBtnColumn, enableBtnColumn, disableBtnColumn } from '@/components/ui-kit/data-table'
 import { useUsers, useChangeUserStatus, useDeleteUser } from '@/api/hooks/useUserManagement'
@@ -13,14 +13,30 @@ function managedUserRowId(row: ManagedUser): string {
   return String(row.id)
 }
 
+const DEFAULT_SORTING: SortingState = [{ id: 'email', desc: false }]
+
 export function UserManagementPage() {
   const navigate = useNavigate()
   const toast = useToastApi()
-  const { data: users, isLoading } = useUsers()
+  const { data: users, isLoading, isError, error, refetch, isFetching } = useUsers()
   const changeStatus = useChangeUserStatus()
   const deleteUser = useDeleteUser()
 
+  const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null)
+
+  const filteredUsers = useMemo(() => {
+    const list = users ?? []
+    const needle = search.trim().toLowerCase()
+    if (!needle) return list
+    return list.filter((user) =>
+      `${user.email} ${user.firstname} ${user.lastname}`.toLowerCase().includes(needle),
+    )
+  }, [users, search])
+
+  const handleRefresh = useCallback(() => {
+    void refetch()
+  }, [refetch])
 
   const changeMutate = changeStatus.mutate
   const deleteMutate = deleteUser.mutate
@@ -121,24 +137,41 @@ export function UserManagementPage() {
     [handleNavigateToEdit, handleRequestDelete, handleToggleEnabled],
   )
 
+  const bodyState: PageShellBodyState = isError
+    ? {
+        status: 'error',
+        message: getErrorMessage(error),
+        onRetry: () => void refetch(),
+      }
+    : { status: 'ready' }
+
   return (
     <PageShell fillHeight
       title="User Management"
+      bodyState={bodyState}
       actions={
         <Button type="primary" iconName="user-plus" onClick={handleNavigateToCreate}>
           Add User
         </Button>
       }
     >
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search users..."
+        onRefresh={handleRefresh}
+        refreshLoading={isFetching}
+      />
+
       <DataTable<ManagedUser>
-        data={users ?? []}
+        data={filteredUsers}
         columns={columns}
         getRowId={managedUserRowId}
         loading={isLoading}
         tableConfigKey="settings-users"
-        defaultSorting={[{ id: 'email', desc: false }]}
+        defaultSorting={DEFAULT_SORTING}
         noPagination
-        emptyMessage="No users found."
+        emptyMessage={search ? 'No users match your search.' : 'No users found.'}
       />
 
       <ConfirmModal
@@ -147,6 +180,7 @@ export function UserManagementPage() {
         description={`Are you sure you want to delete user "${deleteTarget?.email}"? This cannot be undone.`}
         confirmText="Delete"
         danger
+        loading={deleteUser.isPending}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />

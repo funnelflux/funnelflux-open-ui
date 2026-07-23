@@ -5,6 +5,7 @@ import { NODE_TYPES, NODE_TYPE_LABELS, type NodeTypeValue } from '@/types/funnel
 import { useFunnelEditorStore } from '@/store/funnelEditor'
 import { EntityPickerDialog, type EntityPickerDialogProps } from './EntityPickerDialog'
 import { useClampedFixedMenu } from '@/hooks/useClampedFixedMenu'
+import { useContextMenuA11y } from './useContextMenuA11y'
 import { computeSubmenuPlacement } from '@/lib/clampFixedPositionToViewport'
 
 interface CanvasContextMenuProps {
@@ -26,6 +27,11 @@ export function CanvasContextMenu({
   const advancedMenuRef = useRef<HTMLDivElement>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   useClampedFixedMenu(screenPosition, menuRef, showAdvanced ? 'advanced-open' : 'advanced-closed')
+  useContextMenuA11y(
+    Boolean(screenPosition),
+    menuRef,
+    screenPosition ? `${screenPosition.x},${screenPosition.y}` : undefined,
+  )
 
   useLayoutEffect(() => {
     if (!showAdvanced) return
@@ -163,7 +169,9 @@ export function CanvasContextMenu({
     <>
       <div
         ref={menuRef}
-        className="fixed z-50 bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
+        role="menu"
+        aria-label="Add funnel node"
+        className="fixed z-50 bg-surface border border-border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
         style={{
           left: screenPosition.x,
           top: screenPosition.y,
@@ -204,8 +212,20 @@ export function CanvasContextMenu({
           className="relative"
           onMouseEnter={() => setShowAdvanced(true)}
           onMouseLeave={() => setShowAdvanced(false)}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              setShowAdvanced(false)
+            }
+          }}
         >
-          <div className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent">
+          <div
+            role="menuitem"
+            tabIndex={-1}
+            aria-haspopup="menu"
+            aria-expanded={showAdvanced}
+            className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-muted"
+            onFocus={() => setShowAdvanced(true)}
+          >
             <Icon name="chevron-right" size="md" />
             <span>Advanced</span>
             <span className="ml-auto">
@@ -216,7 +236,9 @@ export function CanvasContextMenu({
           {showAdvanced && (
             <div
               ref={advancedMenuRef}
-              className="absolute left-full bg-white dark:bg-zinc-900 border rounded-md shadow-lg py-1 min-w-[160px] text-sm"
+              role="menu"
+              aria-label="Advanced nodes"
+              className="absolute left-full bg-surface border border-border rounded-md shadow-lg py-1 min-w-[160px] text-sm"
             >
               <MenuItem
                 icon={<Icon name="code" size="md" />}
@@ -264,10 +286,11 @@ function MenuItem({
   return (
     <button
       type="button"
+      role="menuitem"
       className={cn(
         'flex w-full items-center gap-2 border-0 bg-transparent px-3 py-1.5 text-left text-sm text-inherit',
         'cursor-pointer rounded-sm transition-colors',
-        'hover:bg-muted dark:hover:bg-zinc-800',
+        'hover:bg-muted',
         className,
       )}
       onClick={onClick}

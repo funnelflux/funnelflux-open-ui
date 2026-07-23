@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Button, TimezoneSelect } from '@/components/ui-kit'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { CategoryManager } from '@/components/shared/CategoryManager'
@@ -6,6 +6,7 @@ import { BulkActionsBar } from '@/components/shared/BulkActionsBar'
 import { ColumnChooser } from '@/components/shared/ColumnChooser'
 import { ArchiveToggle } from '@/components/shared/ArchiveToggle'
 import { entityRowId } from '@/components/ui-kit/data-table'
+import type { DataTableProps } from '@/components/ui-kit/data-table'
 import { defaultColIds } from '@/lib/entity-table/columns/defaultColIds'
 import { useEntityTableColumns } from '@/lib/entity-table/engine/useEntityTableColumns'
 import type { CategoryStripGridRow } from '@/lib/entity-table/data/mergedRows'
@@ -59,6 +60,57 @@ export function TrafficSourcesPage() {
       ? { status: 'loading' as const }
       : { status: 'ready' as const }
 
+  const tableProps = useMemo<DataTableProps<CategoryStripGridRow>>(() => ({
+    data: controller.pageRows,
+    columns: columnDefs,
+    loading: controller.isLoading,
+    loadingMore: controller.isLoadingMore,
+    getRowId: entityRowId,
+    tableConfigKey: TABLE_KEY,
+    pinnedBottomRows: controller.pinnedBottomRows,
+    enableRowSelection: canSelectTrafficSourceRow,
+    rowSelection: controller.rowSelection,
+    onRowSelectionChange: controller.handleRowSelectionChange,
+    rowClassName: trafficCategoryRowClassName,
+    tableRef: controller.tableRef,
+    onTableInstance: controller.setTableForChooser,
+    emptyMessage:
+      controller.search || controller.selectedCategoryId
+        ? 'No traffic sources match your filters.'
+        : 'No traffic sources found.',
+    manualPagination: true,
+    manualSorting: true,
+    sorting: controller.effectiveSorting,
+    onSortingChange: controller.handleSortingChange,
+    pageCount: controller.pageCount,
+    manualPaginationTotalRows: controller.totalDataCount,
+    pagination: controller.pagination,
+    onPaginationChange: controller.setPagination,
+    columnVisibility: gridColumnVisibility.columnVisibility,
+    onColumnVisibilityChange: gridColumnVisibility.onColumnVisibilityChange,
+  }), [
+    controller.pageRows,
+    columnDefs,
+    controller.isLoading,
+    controller.isLoadingMore,
+    controller.pinnedBottomRows,
+    controller.rowSelection,
+    controller.handleRowSelectionChange,
+    trafficCategoryRowClassName,
+    controller.tableRef,
+    controller.setTableForChooser,
+    controller.search,
+    controller.selectedCategoryId,
+    controller.effectiveSorting,
+    controller.handleSortingChange,
+    controller.pageCount,
+    controller.totalDataCount,
+    controller.pagination,
+    controller.setPagination,
+    gridColumnVisibility.columnVisibility,
+    gridColumnVisibility.onColumnVisibilityChange,
+  ])
+
   return (
     <EntityPage<CategoryStripGridRow>
       title="Traffic Sources"
@@ -107,35 +159,7 @@ export function TrafficSourcesPage() {
           />
         ) : null,
       }}
-      tableProps={{
-        data: controller.pageRows,
-        columns: columnDefs,
-        loading: controller.isLoading,
-        loadingMore: controller.isLoadingMore,
-        getRowId: entityRowId,
-        tableConfigKey: TABLE_KEY,
-        pinnedBottomRows: controller.pinnedBottomRows,
-        enableRowSelection: canSelectTrafficSourceRow,
-        rowSelection: controller.rowSelection,
-        onRowSelectionChange: controller.handleRowSelectionChange,
-        rowClassName: trafficCategoryRowClassName,
-        tableRef: controller.tableRef,
-        onTableInstance: controller.setTableForChooser,
-        emptyMessage:
-          controller.search || controller.selectedCategoryId
-            ? 'No traffic sources match your filters.'
-            : 'No traffic sources found.',
-        manualPagination: true,
-        manualSorting: true,
-        sorting: controller.effectiveSorting,
-        onSortingChange: controller.handleSortingChange,
-        pageCount: controller.pageCount,
-        manualPaginationTotalRows: controller.totalDataCount,
-        pagination: controller.pagination,
-        onPaginationChange: controller.setPagination,
-        columnVisibility: gridColumnVisibility.columnVisibility,
-        onColumnVisibilityChange: gridColumnVisibility.onColumnVisibilityChange,
-      }}
+      tableProps={tableProps}
       bulkActions={(
         <BulkActionsBar
           count={controller.selectedIds.length}

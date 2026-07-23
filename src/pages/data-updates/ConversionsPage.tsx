@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '@/components/ui-kit/icons'
-import { Alert, Button, Field, Input, PageShell, useToastApi } from '@/components/ui-kit'
+import { Alert, Button, FormField, Input, PageShell, Radio, useToastApi } from '@/components/ui-kit'
 import { api } from '@/api/client'
+import { executeObservedRequest } from '@/api/observedRequest'
+import { invalidateAllStats } from '@/api/invalidations'
 import type { BackgroundJobResponse, ConvertedHit, ConversionsUpload } from '@/types/stats'
 import { getErrorMessage } from '@/lib/utils'
 
@@ -63,6 +66,7 @@ function csvTextToConvertedHits(text: string): ConvertedHit[] {
 
 export function ConversionsPage() {
   const toast = useToastApi()
+  const queryClient = useQueryClient()
   const [csvData, setCsvData] = useState('')
   const [postbackCalls, setPostbackCalls] = useState<NonNullable<ConversionsUpload['postbackCalls']>>(
     'none',
@@ -106,7 +110,9 @@ export function ConversionsPage() {
 
     setIsSubmitting(true)
     try {
-      const res = await api.put<BackgroundJobResponse>('/stats/update/conversions/', body)
+      const res = await executeObservedRequest(queryClient, () =>
+        api.put<BackgroundJobResponse>('/stats/update/conversions/', body),
+      )
       const jobCount = res.jobIds?.length ?? 0
       toast.success(
         jobCount > 0
@@ -114,6 +120,7 @@ export function ConversionsPage() {
           : 'Conversion update submitted.',
       )
       setCsvData('')
+      void invalidateAllStats(queryClient)
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
@@ -123,7 +130,7 @@ export function ConversionsPage() {
 
   return (
     <PageShell
-      title="Update Conversions"
+      title="Conversion Updates"
       subtitle="Upload conversions (and optional payouts) line-by-line."
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -131,21 +138,25 @@ export function ConversionsPage() {
           To edit your conversions and/or conversion payouts, enter conversion data one per line in the textarea below.
         </p>
 
-        <fieldset className="space-y-3">
-          {POSTBACK_OPTIONS.map((option) => (
-            <label key={option.value} className="flex cursor-pointer items-center gap-3 text-sm">
-              <input
-                type="radio"
-                name="postbackCalls"
-                checked={postbackCalls === option.value}
-                onChange={() => handlePostbackCallsChange(option.value)}
-              />
-              <span>{option.label}</span>
-            </label>
-          ))}
-        </fieldset>
+        <Radio.Group
+          name="postbackCalls"
+          value={postbackCalls}
+          onChange={(event) =>
+            handlePostbackCallsChange(
+              event.target.value as NonNullable<ConversionsUpload['postbackCalls']>,
+            )
+          }
+        >
+          <div className="flex flex-col gap-3">
+            {POSTBACK_OPTIONS.map((option) => (
+              <Radio key={option.value} value={option.value} className="text-sm">
+                {option.label}
+              </Radio>
+            ))}
+          </div>
+        </Radio.Group>
 
-        <Field title="Conversion Data" required htmlFor="conversions-csv-data">
+        <FormField label="Conversion Data" required htmlFor="conversions-csv-data">
           <Input.TextArea
             id="conversions-csv-data"
             value={csvData}
@@ -154,7 +165,7 @@ export function ConversionsPage() {
             rows={10}
             className="font-mono text-xs"
           />
-        </Field>
+        </FormField>
 
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <Button

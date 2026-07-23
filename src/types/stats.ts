@@ -45,7 +45,6 @@ export interface ReportCell {
   formatted: string;
 }
 
-// ReportRow with an index signature for dynamic property access
 export type ReportRow = {
   cells: ReportCell[];
   rowId: string;
@@ -55,8 +54,11 @@ export type ReportRow = {
   epvConfidenceRate?: GeneratedReportRow['epvConfidenceRate'];
   children?: ReportRow[];
   parentRowId?: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
+  /** Server-provided expansion payload on tree reports; may carry extra props that must survive spreads. */
+  expandableInfo?: {
+    children?: ReportRow[];
+    [key: string]: unknown;
+  };
 };
 
 // Report with paging object for backward compatibility

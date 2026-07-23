@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useId } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
-import { Button, Input, FormModal, FormModalBody, FormModalFooter, FormModalHeader, PageShell, ConfirmModal, useToastApi, FormField } from '@/components/ui-kit'
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
+import { Button, Input, FormModal, FormModalBody, FormModalFooter, FormModalHeader, PageShell, SearchToolbar, ConfirmModal, useToastApi, FormField, type PageShellBodyState } from '@/components/ui-kit'
 import { DataTable } from '@/components/ui-kit/data-table'
 import { editBtnColumn, resetStatsBtnColumn, deleteBtnColumn, entityRowId } from '@/components/ui-kit/data-table'
 import {
@@ -13,17 +13,31 @@ import type { StoredLink } from '@/types/ui'
 import { getErrorMessage } from '@/lib/utils'
 import { getHttpUrlError } from '@/lib/validateHttpUrl'
 
+const DEFAULT_SORTING: SortingState = [{ id: 'name', desc: false }]
+
 export function StoredLinksPage() {
   const toast = useToastApi()
-  const { data: links, isLoading } = useStoredLinks()
+  const { data: links, isLoading, isError, error, refetch, isFetching } = useStoredLinks()
   const saveMutation = useSaveStoredLink()
   const deleteMutation = useDeleteStoredLink()
   const resetMutation = useResetStoredLink()
 
+  const [search, setSearch] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingLink, setEditingLink] = useState<StoredLink | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [resetId, setResetId] = useState<string | null>(null)
+
+  const filteredLinks = useMemo(() => {
+    const list = links ?? []
+    const needle = search.trim().toLowerCase()
+    if (!needle) return list
+    return list.filter((link) => `${link.name} ${link.targetURL}`.toLowerCase().includes(needle))
+  }, [links, search])
+
+  const handleRefresh = useCallback(() => {
+    void refetch()
+  }, [refetch])
 
   // Form state
   const [formName, setFormName] = useState('')
@@ -145,40 +159,56 @@ export function StoredLinksPage() {
     [openEdit],
   )
 
+  const bodyState: PageShellBodyState = isError
+    ? {
+        status: 'error',
+        message: getErrorMessage(error),
+        onRetry: () => void refetch(),
+      }
+    : { status: 'ready' }
+
   return (
     <PageShell
       fillHeight
       title="Stored Links"
+      bodyState={bodyState}
       actions={
         <Button type="primary" iconName="plus" onClick={openCreate}>
           Add Link
         </Button>
       }
     >
+      <SearchToolbar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search stored links..."
+        onRefresh={handleRefresh}
+        refreshLoading={isFetching}
+      />
+
       <DataTable<StoredLink>
-        data={links ?? []}
+        data={filteredLinks}
         columns={columns}
         getRowId={entityRowId}
         loading={isLoading}
         tableConfigKey="stored-links"
-        defaultSorting={[{ id: 'name', desc: false }]}
+        defaultSorting={DEFAULT_SORTING}
         noPagination
-        emptyMessage="No stored links yet. Create one to get started."
+        emptyMessage={search ? 'No stored links match your search.' : 'No stored links yet. Create one to get started.'}
       />
 
       <FormModal open={sheetOpen} onCancel={() => setSheetOpen(false)} width={480} destroyOnHidden>
         <FormModalHeader title={editingLink ? 'Edit Link' : 'Add Link'} />
         <FormModalBody>
           <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor="link-name" className="text-sm font-medium">Name</label>
+            <FormField label="Name" htmlFor="link-name">
               <Input
                 id="link-name"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 placeholder="My tracking link"
               />
-            </div>
+            </FormField>
 
             <FormField label="URL" htmlFor="link-url" error={formUrlError}>
               <Input
@@ -192,14 +222,13 @@ export function StoredLinksPage() {
           </form>
         </FormModalBody>
         <FormModalFooter>
-          <Button htmlType="button" onClick={() => setSheetOpen(false)}>
+          <Button htmlType="button" disabled={saveMutation.isPending} onClick={() => setSheetOpen(false)}>
             Cancel
           </Button>
           <Button
             type="primary"
             htmlType="submit"
             form={formId}
-            disabled={saveMutation.isPending}
             loading={saveMutation.isPending}
           >
             {editingLink ? 'Save Changes' : 'Create Link'}
@@ -213,6 +242,7 @@ export function StoredLinksPage() {
         onCancel={() => setDeleteId(null)}
         title="Delete Link"
         description="Are you sure you want to delete this stored link? This action cannot be undone."
+        confirmText="Delete"
         onConfirm={handleDelete}
         loading={deleteMutation.isPending}
         danger

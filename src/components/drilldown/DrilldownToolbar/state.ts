@@ -1,4 +1,6 @@
 import { useCallback, useId, useMemo, useState, type FormEvent } from 'react'
+import { useShallow } from 'zustand/react/shallow'
+import { useQueryClient } from '@tanstack/react-query'
 import { useToastApi } from '@/components/ui-kit'
 import { useGroupings, useSavedViews, useSaveView } from '@/api/hooks'
 import { getErrorMessage } from '@/lib/utils'
@@ -19,7 +21,9 @@ import type {
 } from '@/components/drilldown/DrilldownToolbar/types'
 
 function useDatePickerState(timezone: string) {
-  const { dateRange, setDateRange } = useDrilldownStore()
+  // Per-field selectors: a selectorless subscription would re-render on every store write.
+  const dateRange = useDrilldownStore((s) => s.dateRange)
+  const setDateRange = useDrilldownStore((s) => s.setDateRange)
 
   const value = useMemo((): DateRange & { preset: string | null } => {
     if (dateRange?.start && dateRange?.end) {
@@ -48,6 +52,9 @@ function useDatePickerState(timezone: string) {
 export function useDrilldownToolbarState(props: DrilldownToolbarProps): DrilldownToolbarContextValue {
   const { onApply, isLoading, viewType, paging } = props
   const toast = useToastApi()
+  const queryClient = useQueryClient()
+  // Subscribe only to the fields the toolbar uses (shallow-compared): a selectorless
+  // subscription would re-render every toolbar consumer on any store write.
   const {
     groupings,
     groupingFilters,
@@ -67,7 +74,28 @@ export function useDrilldownToolbarState(props: DrilldownToolbarProps): Drilldow
     setTimeAttribution,
     setShowFilteredTraffic,
     setShowWinners,
-  } = useDrilldownStore()
+  } = useDrilldownStore(
+    useShallow((s) => ({
+      groupings: s.groupings,
+      groupingFilters: s.groupingFilters,
+      timezone: s.timezone,
+      dateRange: s.dateRange,
+      setGroupings: s.setGroupings,
+      setGroupingFilter: s.setGroupingFilter,
+      setGroupingFilters: s.setGroupingFilters,
+      replaceGroupingsStack: s.replaceGroupingsStack,
+      setTimezone: s.setTimezone,
+      setDateRange: s.setDateRange,
+      urlTrackingFieldByLevel: s.urlTrackingFieldByLevel,
+      timeAttribution: s.timeAttribution,
+      showFilteredTraffic: s.showFilteredTraffic,
+      showWinners: s.showWinners,
+      filtersEnabled: s.filtersEnabled,
+      setTimeAttribution: s.setTimeAttribution,
+      setShowFilteredTraffic: s.setShowFilteredTraffic,
+      setShowWinners: s.setShowWinners,
+    })),
+  )
 
   const { data: availableGroupings } = useGroupings()
   const { data: savedViews } = useSavedViews()
@@ -207,7 +235,7 @@ export function useDrilldownToolbarState(props: DrilldownToolbarProps): Drilldow
         datePickerValue.from,
         datePickerValue.to,
       )
-      await downloadDrilldownCsv(exportRequest, filename)
+      await downloadDrilldownCsv(queryClient, exportRequest, filename)
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
@@ -219,6 +247,7 @@ export function useDrilldownToolbarState(props: DrilldownToolbarProps): Drilldow
     filtersEnabled,
     groupingFilters,
     groupings,
+    queryClient,
     toast,
     toDrilldownRequest,
     urlTrackingFieldByLevel,
@@ -279,42 +308,84 @@ export function useDrilldownToolbarState(props: DrilldownToolbarProps): Drilldow
     [dateRange, groupingFilters, groupings, saveView, saveViewName, timezone, toast, urlTrackingFieldByLevel],
   )
 
-  return {
-    dateTimeRangeValue,
-    onDateTimeRangeChange,
-    timezone,
-    setTimezone,
-    selectedViewId,
-    handleSelectView,
-    savedViews,
-    openSaveNewViewModal,
-    saveModalOpen,
-    setSaveModalOpen,
-    saveViewFormId,
-    saveViewName,
-    setSaveViewName,
-    handleSaveViewSubmit,
-    saveViewPending: saveView.isPending,
-    handleApply,
-    handleExport,
-    isLoading,
-    isExporting,
-    groupings,
-    groupingFilters,
-    availableGroupings,
-    setGroupings,
-    setGroupingFilter,
-    settingsDrawerOpen,
-    openSettingsDrawer,
-    closeSettingsDrawer,
-    filtersDrawerOpen,
-    openFiltersDrawer,
-    closeFiltersDrawer,
-    timeAttribution,
-    setTimeAttribution,
-    showFilteredTraffic,
-    setShowFilteredTraffic,
-    showWinners,
-    setShowWinners,
-  }
+  // Memoized so the context provider value keeps a stable identity between renders — a fresh
+  // object literal here would re-render every toolbar consumer on any parent render.
+  return useMemo(
+    () => ({
+      dateTimeRangeValue,
+      onDateTimeRangeChange,
+      timezone,
+      setTimezone,
+      selectedViewId,
+      handleSelectView,
+      savedViews,
+      openSaveNewViewModal,
+      saveModalOpen,
+      setSaveModalOpen,
+      saveViewFormId,
+      saveViewName,
+      setSaveViewName,
+      handleSaveViewSubmit,
+      saveViewPending: saveView.isPending,
+      handleApply,
+      handleExport,
+      isLoading,
+      isExporting,
+      groupings,
+      groupingFilters,
+      availableGroupings,
+      setGroupings,
+      setGroupingFilter,
+      settingsDrawerOpen,
+      openSettingsDrawer,
+      closeSettingsDrawer,
+      filtersDrawerOpen,
+      openFiltersDrawer,
+      closeFiltersDrawer,
+      timeAttribution,
+      setTimeAttribution,
+      showFilteredTraffic,
+      setShowFilteredTraffic,
+      showWinners,
+      setShowWinners,
+    }),
+    [
+      dateTimeRangeValue,
+      onDateTimeRangeChange,
+      timezone,
+      setTimezone,
+      selectedViewId,
+      handleSelectView,
+      savedViews,
+      openSaveNewViewModal,
+      saveModalOpen,
+      setSaveModalOpen,
+      saveViewFormId,
+      saveViewName,
+      setSaveViewName,
+      handleSaveViewSubmit,
+      saveView.isPending,
+      handleApply,
+      handleExport,
+      isLoading,
+      isExporting,
+      groupings,
+      groupingFilters,
+      availableGroupings,
+      setGroupings,
+      setGroupingFilter,
+      settingsDrawerOpen,
+      openSettingsDrawer,
+      closeSettingsDrawer,
+      filtersDrawerOpen,
+      openFiltersDrawer,
+      closeFiltersDrawer,
+      timeAttribution,
+      setTimeAttribution,
+      showFilteredTraffic,
+      setShowFilteredTraffic,
+      showWinners,
+      setShowWinners,
+    ],
+  )
 }

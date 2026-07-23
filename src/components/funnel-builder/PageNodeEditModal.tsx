@@ -98,7 +98,7 @@ export function PageNodeEditModal({ nodeId, pageType, open, onClose }: PageNodeE
   }
 
   return (
-    <FormModal open={open} onCancel={onClose} destroyOnHidden maskClosable={false}>
+    <FormModal open={open} onCancel={onClose} destroyOnHidden mask={{ closable: false }}>
       <FormModalHeader title={`Edit ${entityLabel}`} />
       <FormModalBody>
         {noPage ? (

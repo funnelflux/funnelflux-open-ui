@@ -1,16 +1,42 @@
 import { api } from '@/api/client'
 import { AuthExpiredError, NetworkError } from '@/api/errors'
 import { parseUserProfile } from '@/schemas/apiBoundaries'
+import { isLicenseAllowed } from '@/lib/licenseState'
 import type { SessionResponse, UserProfile } from '@/types/api'
+
+export async function fetchSession(): Promise<SessionResponse> {
+  return api.get<SessionResponse>('/auth/session/')
+}
+
+/**
+ * True when the live PHP session belongs to the currently cached user.
+ * Used to detect a session swap (logout/login in the same browser, bfcache
+ * restore, shared machine) so the SPA never keeps showing a previous user's
+ * profile after the underlying session has changed.
+ */
+export function sessionMatchesUser(
+  session: SessionResponse,
+  user: UserProfile | null,
+): boolean {
+  if (!session.authenticated || !user) return false
+  return session.userId === user.id
+}
+
+export async function fetchUserProfile(): Promise<UserProfile> {
+  const profile = await api.get<unknown>('/ui/userprofile/loggedin/load/')
+  return parseUserProfile(profile)
+}
 
 export async function bootstrapAuth(): Promise<UserProfile> {
   try {
-    const session = await api.get<SessionResponse>('/auth/session/')
+    const session = await fetchSession()
     if (!session.authenticated) {
       throw new Error('AUTH_REQUIRED')
     }
-    const profile = await api.get<unknown>('/ui/userprofile/loggedin/load/')
-    return parseUserProfile(profile)
+    if (!isLicenseAllowed(session.license)) {
+      throw new Error('LICENSE_LOCKED')
+    }
+    return fetchUserProfile()
   } catch (err) {
     if (err instanceof Error && err.message === 'AUTH_REQUIRED') {
       throw err

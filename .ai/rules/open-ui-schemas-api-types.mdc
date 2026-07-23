@@ -20,7 +20,7 @@ alwaysApply: true
 
 ## After OpenAPI changes
 
-When `../admin/api/v2/*/definition.yaml` changes (self-hosted repo), run `pnpm generate-types` from this package root, then update Zod fields/enums and JSDoc so they stay consistent with the generated interfaces.
+When a committed OpenAPI input under `api-specs/` changes, run `pnpm generate-types`, then update Zod fields, enums, and JSDoc so they stay consistent with the generated interfaces.
 
 ## Related rules
 

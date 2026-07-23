@@ -261,7 +261,7 @@ export function PageForm({
           </FormField>
         )}
 
-        <FormField label="Name" htmlFor="pageName" error={form.formState.errors.pageName?.message}>
+        <FormField label="Name" htmlFor="pageName" required error={form.formState.errors.pageName?.message}>
           <Controller
             control={form.control}
             name="pageName"
@@ -278,7 +278,7 @@ export function PageForm({
           />
         </FormField>
 
-        <FormField label="URL" htmlFor="url" error={form.formState.errors.url?.message}>
+        <FormField label="URL" htmlFor="url" required error={form.formState.errors.url?.message}>
           <Controller
             control={form.control}
             name="url"
@@ -608,10 +608,7 @@ export function PageForm({
           type="primary"
           htmlType="submit"
           form={formId}
-          disabled={isSubmitting}
-          iconName={isSubmitting ? 'loader-2' : undefined}
-          iconAnimation={isSubmitting ? 'spin' : 'none'}
-          iconSize="sm"
+          loading={isSubmitting}
         >
           {isEditing ? 'Save' : 'Create'}
         </Button>

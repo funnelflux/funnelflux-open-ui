@@ -439,7 +439,7 @@ export function FunnelUrlModal({
   const wizardKey = `${idCampaign}-${idFunnel}-${contextNodeId}-${contextSupportsDirectTracking}`
 
   return (
-    <FormModal open={open} onCancel={() => onOpenChange(false)} destroyOnClose width={560}>
+    <FormModal open={open} onCancel={() => onOpenChange(false)} destroyOnHidden width={560}>
       <FormModalHeader
         title="Funnel URL"
         description="Follow the steps below to get the URL of one of your funnels."

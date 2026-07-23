@@ -1,13 +1,19 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Field, Input, Select, FormModal, FormModalBody, FormModalFooter, FormModalHeader, useToastApi } from '@/components/ui-kit'
+import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Button, FormField, Input, Select, FormModal, FormModalBody, FormModalFooter, FormModalHeader, useToastApi } from '@/components/ui-kit'
 import { useCampaignsList, useSaveFunnel } from '@/api/hooks'
 import { buildMinimalNewFunnelPayload } from '@/lib/defaultNewFunnelNodes'
 import { getErrorMessage } from '@/lib/utils'
+import {
+  FUNNEL_NAME_MAX_LEN,
+  funnelModalSchema,
+  type FunnelModalFormValues,
+} from '@/schemas/funnel'
 import type { Funnel } from '@/types/entities'
 
-/** OpenAPI `Funnel.funnelName`: max 255 characters */
-export const FUNNEL_NAME_MAX_LEN = 255
+const ADD_FUNNEL_FORM_ID = 'add-funnel-form'
 
 export type CreatedFunnelSummary = {
   idFunnel: string
@@ -34,18 +40,26 @@ export function AddFunnelModal({
   const navigate = useNavigate()
   const toast = useToastApi()
   const saveFunnel = useSaveFunnel()
-  const [campaignId, setCampaignId] = useState<string | undefined>(initialCampaignId)
-  const [funnelName, setFunnelName] = useState('')
   const [createIntent, setCreateIntent] = useState<CreateIntent | null>(null)
   const { data: campaigns, isLoading: campaignsLoading } = useCampaignsList({ enabled: open })
+
+  const { control, handleSubmit, reset } = useForm<FunnelModalFormValues>({
+    resolver: zodResolver(funnelModalSchema),
+    defaultValues: { idCampaign: initialCampaignId ?? '', funnelName: '' },
+  })
+
+  // destroyOnHidden does not reset a useForm colocated with the modal — reset on open.
+  // createIntent needs no reset here: it is cleared on success/error and spinners gate on `busy`.
+  useEffect(() => {
+    if (!open) return
+    reset({ idCampaign: initialCampaignId ?? '', funnelName: '' })
+  }, [open, initialCampaignId, reset])
 
   const campaignOptions = useMemo(
     () => (campaigns ?? []).map((campaign) => ({ label: campaign.name, value: campaign.id })),
     [campaigns],
   )
 
-  const trimmedName = funnelName.trim().slice(0, FUNNEL_NAME_MAX_LEN)
-  const canSubmit = Boolean(campaignId && trimmedName)
   const busy = saveFunnel.isPending
 
   const handleModalClose = useCallback(() => {
@@ -54,18 +68,17 @@ export function AddFunnelModal({
   }, [busy, onClose])
 
   const runCreate = useCallback(
-    (intent: CreateIntent) => {
-      if (!campaignId || !trimmedName) return
+    (data: FunnelModalFormValues, intent: CreateIntent) => {
       setCreateIntent(intent)
-      const payload = buildMinimalNewFunnelPayload(campaignId, trimmedName)
+      const payload = buildMinimalNewFunnelPayload(data.idCampaign, data.funnelName)
       saveFunnel.mutate(
         { ...payload, create: true },
         {
           onSuccess: (saved: Funnel) => {
             const summary: CreatedFunnelSummary = {
               idFunnel: String(saved.idFunnel ?? payload.idFunnel),
-              funnelName: String(saved.funnelName ?? trimmedName),
-              idCampaign: String(saved.idCampaign ?? campaignId),
+              funnelName: String(saved.funnelName ?? data.funnelName),
+              idCampaign: String(saved.idCampaign ?? data.idCampaign),
             }
             toast.success('Funnel created')
             onFunnelCreated?.(summary)
@@ -82,19 +95,13 @@ export function AddFunnelModal({
         },
       )
     },
-    [
-      campaignId,
-      trimmedName,
-      saveFunnel,
-      toast,
-      onFunnelCreated,
-      onClose,
-      navigate,
-    ],
+    [saveFunnel, toast, onFunnelCreated, onClose, navigate],
   )
 
-  const handleCreate = useCallback(() => runCreate('list'), [runCreate])
-  const handleCreateAndOpenEditor = useCallback(() => runCreate('editor'), [runCreate])
+  const submitWithIntent = useCallback(
+    (intent: CreateIntent) => handleSubmit((data) => runCreate(data, intent)),
+    [handleSubmit, runCreate],
+  )
 
   return (
     <FormModal
@@ -102,62 +109,80 @@ export function AddFunnelModal({
       onCancel={handleModalClose}
       destroyOnHidden
     >
-      <FormModalHeader title="Add funnel" />
+      <FormModalHeader title="Add Funnel" />
       <FormModalBody>
-        <div className="space-y-4">
-        <Field title="Campaign" required htmlFor="add-funnel-modal-campaign">
-          <Select
-            id="add-funnel-modal-campaign"
-            options={campaignOptions}
-            value={campaignId}
-            onChange={(id) => setCampaignId(id)}
-            placeholder={campaignsLoading ? 'Loading campaigns…' : 'Select campaign'}
-            disabled={campaignsLoading || busy}
-            className="w-full"
+        <form id={ADD_FUNNEL_FORM_ID} onSubmit={submitWithIntent('list')} className="space-y-4">
+          <Controller
+            control={control}
+            name="idCampaign"
+            render={({ field, fieldState }) => (
+              <FormField
+                label="Campaign"
+                required
+                htmlFor="add-funnel-modal-campaign"
+                error={fieldState.error?.message}
+              >
+                <Select
+                  id="add-funnel-modal-campaign"
+                  options={campaignOptions}
+                  value={field.value || undefined}
+                  onChange={(id) => field.onChange(id ?? '')}
+                  placeholder={campaignsLoading ? 'Loading campaigns…' : 'Select campaign'}
+                  disabled={campaignsLoading || busy}
+                  className="w-full"
+                />
+              </FormField>
+            )}
           />
-        </Field>
-        <Field
-          title="Funnel name"
-          required
-          htmlFor="add-funnel-modal-name"
-          description={`Required (API max ${FUNNEL_NAME_MAX_LEN} characters).`}
-        >
-          <Input
-            id="add-funnel-modal-name"
-            value={funnelName}
-            onChange={(event) =>
-              setFunnelName(event.target.value.slice(0, FUNNEL_NAME_MAX_LEN))
-            }
-            placeholder="e.g. Main push landing flow"
-            maxLength={FUNNEL_NAME_MAX_LEN}
-            className="w-full"
-            disabled={busy}
-            onPressEnter={canSubmit && !busy ? handleCreate : undefined}
+          <Controller
+            control={control}
+            name="funnelName"
+            render={({ field, fieldState }) => (
+              <FormField
+                label="Funnel name"
+                required
+                htmlFor="add-funnel-modal-name"
+                error={fieldState.error?.message}
+                help={`Required (API max ${FUNNEL_NAME_MAX_LEN} characters).`}
+              >
+                <Input
+                  id="add-funnel-modal-name"
+                  value={field.value}
+                  onChange={(event) => field.onChange(event.target.value)}
+                  onBlur={field.onBlur}
+                  placeholder="e.g. Main push landing flow"
+                  maxLength={FUNNEL_NAME_MAX_LEN}
+                  className="w-full"
+                  disabled={busy}
+                />
+              </FormField>
+            )}
           />
-        </Field>
-        {!campaignsLoading && campaignOptions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Create a campaign first, then add a funnel.
-          </p>
-        ) : null}
-        </div>
+          {!campaignsLoading && campaignOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Create a campaign first, then add a funnel.
+            </p>
+          ) : null}
+        </form>
       </FormModalBody>
       <FormModalFooter>
         <Button onClick={handleModalClose} disabled={busy}>
           Cancel
         </Button>
         <Button
-          disabled={!canSubmit}
+          htmlType="submit"
+          form={ADD_FUNNEL_FORM_ID}
+          disabled={busy}
           loading={busy && createIntent === 'list'}
-          onClick={handleCreate}
         >
           Create
         </Button>
         <Button
           type="primary"
-          disabled={!canSubmit}
+          htmlType="button"
+          disabled={busy}
           loading={busy && createIntent === 'editor'}
-          onClick={handleCreateAndOpenEditor}
+          onClick={() => void submitWithIntent('editor')()}
         >
           Create and open editor
         </Button>

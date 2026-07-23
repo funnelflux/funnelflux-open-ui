@@ -1,8 +1,9 @@
 import { idNamePairFromCloneWire } from '@/api/cloneResponse'
 import { api } from '@/api/client'
+import { FUNNEL_NAME_MAX_LEN } from '@/schemas/funnel'
 import type { Funnel } from '@/types/entities'
 
-export const FUNNEL_NAME_MAX_LEN = 255
+export { FUNNEL_NAME_MAX_LEN }
 
 export type CloneFunnelInput = {
   sourceFunnelId: string
