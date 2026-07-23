@@ -142,7 +142,11 @@ describe('packageRelease', () => {
         outputDir,
       })).rejects.toThrow('tar failed to start:')
     } finally {
-      process.env.PATH = originalPath
+      if (originalPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = originalPath
+      }
     }
   })
 })

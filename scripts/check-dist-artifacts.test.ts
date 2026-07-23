@@ -84,13 +84,14 @@ describe('checkDistArtifacts', () => {
   it.each([
     '/v2-ui/assets/../outside.js',
     '/v2-ui/assets/%2e%2e/outside.js',
+    '/v2-ui/assets%2f..%2foutside.js',
   ])('rejects built asset traversal reference %s', async (reference) => {
     const distDir = await fixture({
       'index.html': `<script type="module" src="${reference}"></script>`,
       'assets/app.js': 'export {}',
     })
 
-    await expect(checkDistArtifacts({ distDir })).rejects.toThrow(
+    await expect(checkDistArtifacts({ distDir, expectedBase: '/v2-ui' })).rejects.toThrow(
       `asset reference outside /v2-ui/assets/: ${reference}`,
     )
   })
