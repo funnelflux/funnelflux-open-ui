@@ -66,6 +66,14 @@ export class ApiClient {
         signal,
       })
     } catch (cause) {
+      if (
+        typeof cause === 'object'
+        && cause !== null
+        && 'name' in cause
+        && cause.name === 'AbortError'
+      ) {
+        throw cause
+      }
       throw new NetworkError('Network request failed', { cause })
     }
     return this.handleResponse<T>(res)

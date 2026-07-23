@@ -50,15 +50,26 @@ describe('checkDistArtifacts', () => {
       'index.html': '<script type="module" src="/wrong-base/assets/app.js"></script>',
       'assets/app.js': 'export {}',
     })
+    const originalUiBase = process.env.VITE_UI_BASENAME
+    delete process.env.VITE_UI_BASENAME
 
-    await expect(checkDistArtifacts({ distDir })).rejects.toThrow(
-      'asset reference outside /v2-ui/assets/',
-    )
+    try {
+      await expect(checkDistArtifacts({ distDir })).rejects.toThrow(
+        'asset reference outside /v2-ui/assets/',
+      )
+    } finally {
+      if (originalUiBase === undefined) {
+        delete process.env.VITE_UI_BASENAME
+      } else {
+        process.env.VITE_UI_BASENAME = originalUiBase
+      }
+    }
   })
 
   it.each([
     'https://cdn.example.com/assets/app.js',
     '//cdn.example.com/assets/app.js',
+    'assets/app.js',
   ])('rejects non-local built asset reference %s', async (reference) => {
     const distDir = await fixture({
       'index.html': `<script type="module" src="${reference}"></script>`,
@@ -67,6 +78,20 @@ describe('checkDistArtifacts', () => {
 
     await expect(checkDistArtifacts({ distDir })).rejects.toThrow(
       `non-local asset reference: ${reference}`,
+    )
+  })
+
+  it.each([
+    '/v2-ui/assets/../outside.js',
+    '/v2-ui/assets/%2e%2e/outside.js',
+  ])('rejects built asset traversal reference %s', async (reference) => {
+    const distDir = await fixture({
+      'index.html': `<script type="module" src="${reference}"></script>`,
+      'assets/app.js': 'export {}',
+    })
+
+    await expect(checkDistArtifacts({ distDir })).rejects.toThrow(
+      `asset reference outside /v2-ui/assets/: ${reference}`,
     )
   })
 })

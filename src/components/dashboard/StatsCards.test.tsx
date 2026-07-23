@@ -15,4 +15,19 @@ describe('StatsCards', () => {
       'ff-stat-card--loss',
     )
   })
+
+  it('keeps zero ROI and P&L cards neutral', () => {
+    render(
+      <StatsCards
+        isLoading={false}
+        stats={{ roi: '0%', revenue: 0, cost: 0 }}
+      />,
+    )
+
+    for (const label of ['P&L', 'ROI']) {
+      const card = screen.getByText(label).closest('.ff-stat-card')
+      expect(card).not.toHaveClass('ff-stat-card--profit')
+      expect(card).not.toHaveClass('ff-stat-card--loss')
+    }
+  })
 })

@@ -37,7 +37,7 @@ export async function checkDistArtifacts({
     const html = await readFile(path.join(distDir, 'index.html'), 'utf8')
     const assetReferences = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
       .map((match) => match[1])
-      .filter((reference) => reference.includes('/assets/'))
+      .filter((reference) => /(?:^|\/)assets\//.test(reference))
     if (assetReferences.length === 0) {
       violations.push('index.html has no built asset references')
     }
@@ -46,8 +46,11 @@ export async function checkDistArtifacts({
     for (const reference of assetReferences) {
       if (!reference.startsWith('/') || reference.startsWith('//')) {
         violations.push(`non-local asset reference: ${reference}`)
-      } else if (!reference.startsWith(assetBase)) {
-        violations.push(`asset reference outside ${assetBase}: ${reference}`)
+      } else {
+        const canonicalPath = new URL(reference, 'https://artifact.invalid').pathname
+        if (!canonicalPath.startsWith(assetBase)) {
+          violations.push(`asset reference outside ${assetBase}: ${reference}`)
+        }
       }
     }
   }

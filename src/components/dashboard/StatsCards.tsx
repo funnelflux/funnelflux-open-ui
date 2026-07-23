@@ -91,7 +91,9 @@ function metricCardToneClass(
   if (key !== 'net' && key !== 'roi') return undefined
   const value = numericMetricValue(key, stats)
   if (value == null) return undefined
-  return value < 0 ? 'ff-stat-card--loss' : 'ff-stat-card--profit'
+  if (value < 0) return 'ff-stat-card--loss'
+  if (value > 0) return 'ff-stat-card--profit'
+  return undefined
 }
 
 function StatsCardsComponent({ stats, isLoading, layout = 'dashboard', className }: StatsCardsProps) {

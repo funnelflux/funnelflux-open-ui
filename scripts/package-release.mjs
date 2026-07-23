@@ -59,19 +59,24 @@ async function inspectTree(root, directory = root) {
 
 function run(command, args) {
   const result = spawnSync(command, args, { encoding: 'utf8' })
+  if (result.error) {
+    throw new Error(`${command} failed to start: ${result.error.message}`)
+  }
   if (result.status !== 0) {
-    const detail = result.stderr.trim() || result.stdout.trim() || `exit status ${result.status}`
+    const detail = (result.stderr ?? '').trim()
+      || (result.stdout ?? '').trim()
+      || `exit status ${result.status}`
     throw new Error(`${command} failed: ${detail}`)
   }
-  return result.stdout
+  return result.stdout ?? ''
 }
 
 function normalizeArchiveEntry(entry) {
   return entry.replace(/^\.\//, '').replace(/\/$/, '')
 }
 
-function validateArchiveEntries(archivePath) {
-  const entries = run('tar', ['-tzf', archivePath])
+export function validateArchiveEntries(archivePath, execute = run) {
+  const entries = execute('tar', ['-tzf', archivePath])
     .split('\n')
     .filter(Boolean)
   const normalizedEntries = entries.map(normalizeArchiveEntry)
@@ -92,7 +97,7 @@ function validateArchiveEntries(archivePath) {
     }
   }
 
-  const verboseEntries = run('tar', ['-tvzf', archivePath]).split('\n').filter(Boolean)
+  const verboseEntries = execute('tar', ['-tvzf', archivePath]).split('\n').filter(Boolean)
   const linkedEntry = verboseEntries.find((entry) => entry.startsWith('l') || entry.startsWith('h'))
   if (linkedEntry) {
     throw new Error(`Release archive contains a link entry: ${linkedEntry}`)

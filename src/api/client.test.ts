@@ -56,6 +56,15 @@ describe('ApiClient', () => {
     expect(init.signal).toBe(controller.signal)
   })
 
+  it('preserves abort cancellation during license revalidation', async () => {
+    const abortError = new DOMException('The operation was aborted', 'AbortError')
+    globalThis.fetch = vi.fn().mockRejectedValue(abortError) as unknown as typeof fetch
+
+    await expect(
+      new ApiClient().revalidateLicense(new AbortController().signal),
+    ).rejects.toBe(abortError)
+  })
+
   it('throws AuthExpiredError on 401', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,

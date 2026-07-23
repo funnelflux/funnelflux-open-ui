@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { link, mkdtemp, mkdir, readFile, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
-import { packageRelease } from './package-release.mjs'
+import { packageRelease, validateArchiveEntries } from './package-release.mjs'
 
 const execFileAsync = promisify(execFile)
 const COMMIT = '0123456789abcdef0123456789abcdef01234567'
@@ -17,6 +18,14 @@ async function fixture() {
   await writeFile(path.join(distDir, 'index.html'), '<html></html>')
   await writeFile(path.join(distDir, 'assets', 'app.js'), 'export {}')
   return { root, distDir, outputDir }
+}
+
+const VALID_ARCHIVE_ENTRIES = './\n./index.html\n./assets/\n./release.json\n'
+
+function archiveRunner(entries: string, verboseEntries = '') {
+  return (_command: string, args: string[]) => (
+    args.includes('-tvzf') ? verboseEntries : entries
+  )
 }
 
 describe('packageRelease', () => {
@@ -42,11 +51,14 @@ describe('packageRelease', () => {
     expect(entries).toContain('./assets/')
     expect(entries).toContain('./release.json')
 
-    await expect(execFileAsync('sha256sum', ['-c', path.basename(result.checksumPath)], {
-      cwd: outputDir,
-    })).resolves.toMatchObject({
-      stdout: expect.stringContaining('funnelflux-open-ui-v1.2.0.tar.gz: OK'),
-    })
+    const [expectedDigest, checksumName] = (
+      await readFile(result.checksumPath, 'utf8')
+    ).trim().split(/\s+/)
+    const actualDigest = createHash('sha256')
+      .update(await readFile(result.bundlePath))
+      .digest('hex')
+    expect(checksumName).toBe(result.bundleName)
+    expect(actualDigest).toBe(expectedDigest)
   })
 
   it('rejects a forbidden sourcemap before creating a bundle', async () => {
@@ -88,5 +100,49 @@ describe('packageRelease', () => {
       distDir,
       outputDir,
     })).rejects.toThrow('hard-linked files: assets/')
+  })
+
+  it.each([
+    `${VALID_ARCHIVE_ENTRIES}/absolute.txt\n`,
+    `${VALID_ARCHIVE_ENTRIES}../outside.txt\n`,
+  ])('rejects unsafe archive paths during post-pack validation', (entries) => {
+    expect(() => validateArchiveEntries(
+      'release.tar.gz',
+      archiveRunner(entries),
+    )).toThrow('unsafe path')
+  })
+
+  it('rejects forbidden files during post-pack validation', () => {
+    expect(() => validateArchiveEntries(
+      'release.tar.gz',
+      archiveRunner(`${VALID_ARCHIVE_ENTRIES}./assets/app.js.map\n`),
+    )).toThrow('forbidden file')
+  })
+
+  it.each([
+    'lrwxrwxrwx user/group 0 2026-01-01 00:00 ./assets/link -> app.js\n',
+    'hrw-r--r-- user/group 0 2026-01-01 00:00 ./assets/link link to ./assets/app.js\n',
+  ])('rejects link entries during post-pack validation', (verboseEntries) => {
+    expect(() => validateArchiveEntries(
+      'release.tar.gz',
+      archiveRunner(VALID_ARCHIVE_ENTRIES, verboseEntries),
+    )).toThrow('link entry')
+  })
+
+  it('reports a missing archive command without masking the process error', async () => {
+    const { distDir, outputDir } = await fixture()
+    const originalPath = process.env.PATH
+    process.env.PATH = ''
+
+    try {
+      await expect(packageRelease({
+        version: '1.2.0',
+        commit: COMMIT,
+        distDir,
+        outputDir,
+      })).rejects.toThrow('tar failed to start:')
+    } finally {
+      process.env.PATH = originalPath
+    }
   })
 })
