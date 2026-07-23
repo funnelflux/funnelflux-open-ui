@@ -5,6 +5,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-07-23
+
+### Added
+
+- Backend-authoritative license-state handling with a full-page lock screen,
+  outage-grace warning, manual revalidation, and automatic refresh on timers,
+  focus, reconnect, and visibility changes
+- Protected-query and client-state cleanup when licensing locks or the
+  authenticated user changes, without discarding the login session
+- Public-repository contribution guidance, upstream-sync tooling, branch-policy
+  checks, immutable release publishing, and managed local Git quality gates
+- Retryable error states across product pages, drilldown URL-state sharing, and
+  accessible funnel context menus and data-table actions
+
+### Changed
+
+- Improved dashboard refresh behavior, report tooling, form validation,
+  notification caching, and post-mutation stats invalidation
+- Lazy-loaded CodeMirror and refined vendor chunking to reduce startup coupling
+- Navbar dropdowns now open on hover
+
+### Fixed
+
+- Prevented the production boot failure caused by circular vendor-chunk imports
+- Removed the unnecessary PHP wrapper from the static V2 UI build
+- Corrected pinned GitHub Action commits used by CI and release workflows
+
+### Security
+
+- Recognize backend `423 LICENSE_LOCKED` responses across standard, mutation,
+  multipart, upload, download, and blob requests
+- Keep product routes behind authentication and backend licensing state while
+  leaving only design-system/demo routes public
+
 ## [1.0.0] - 2026-06-21
 
 First public release of **FunnelFlux Open UI** — the modern React admin interface
@@ -72,4 +106,5 @@ Then open `https://<your-host>/v2-ui/`.
 
 See [README.md](./README.md) for development setup, subfolder installs, and contribution guidelines.
 
+[1.1.0]: https://github.com/funnelflux/funnelflux-open-ui/releases/tag/v1.1.0
 [1.0.0]: https://github.com/funnelflux/funnelflux-open-ui/releases/tag/v1.0.0
