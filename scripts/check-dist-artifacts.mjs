@@ -25,9 +25,24 @@ async function walkFiles(root, directory = root) {
 
 function decodeReference(reference) {
   try {
-    return decodeURIComponent(reference)
+    const rawReference = new URL(reference, ARTIFACT_ORIGIN)
+    if (rawReference.origin !== ARTIFACT_ORIGIN) return null
+
+    const decodedPathname = decodeURIComponent(rawReference.pathname)
+    const normalizedReference = new URL(decodedPathname, ARTIFACT_ORIGIN)
+    if (normalizedReference.origin !== ARTIFACT_ORIGIN) return null
+
+    return normalizedReference.pathname
   } catch {
     return reference
+  }
+}
+
+function hasAssetSegment(reference) {
+  try {
+    return /(?:^|\/)assets\//.test(decodeURIComponent(reference))
+  } catch {
+    return /(?:^|\/)assets\//.test(reference)
   }
 }
 
@@ -46,21 +61,20 @@ export async function checkDistArtifacts({
   } else {
     const html = await readFile(path.join(distDir, 'index.html'), 'utf8')
     const assetReferences = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
-      .map((match) => match[1])
-      .filter((reference) => /(?:^|\/)assets\//.test(decodeReference(reference)))
+      .map((match) => ({ reference: match[1], decodedReference: decodeReference(match[1]) }))
+      .filter(({ reference, decodedReference }) => (
+        decodedReference === null || hasAssetSegment(reference)
+      ))
     if (assetReferences.length === 0) {
       violations.push('index.html has no built asset references')
     }
     const normalizedBase = normalizeUiBase(expectedBase)
     const assetBase = normalizedBase === '/' ? '/assets/' : `${normalizedBase}/assets/`
-    for (const reference of assetReferences) {
-      if (!reference.startsWith('/') || reference.startsWith('//')) {
+    for (const { reference, decodedReference } of assetReferences) {
+      if (!reference.startsWith('/') || reference.startsWith('//') || decodedReference === null) {
         violations.push(`non-local asset reference: ${reference}`)
-      } else {
-        const canonicalPath = new URL(decodeReference(reference), ARTIFACT_ORIGIN).pathname
-        if (!canonicalPath.startsWith(assetBase)) {
-          violations.push(`asset reference outside ${assetBase}: ${reference}`)
-        }
+      } else if (!decodedReference.startsWith(assetBase)) {
+        violations.push(`asset reference outside ${assetBase}: ${reference}`)
       }
     }
   }

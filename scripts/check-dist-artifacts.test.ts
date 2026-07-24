@@ -70,6 +70,8 @@ describe('checkDistArtifacts', () => {
     'https://cdn.example.com/assets/app.js',
     '//cdn.example.com/assets/app.js',
     'assets/app.js',
+    '/%2f%2fevil.example/v2-ui/assets/app.js',
+    '/%5c%5cevil.example/v2-ui/assets/app.js',
   ])('rejects non-local built asset reference %s', async (reference) => {
     const distDir = await fixture({
       'index.html': `<script type="module" src="${reference}"></script>`,
