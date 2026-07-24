@@ -1,5 +1,14 @@
-import type { ReactNode } from 'react'
+import {
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import { cn } from '@/lib/utils'
+
+type AriaRequiredElement = ReactElement<{
+  'aria-required'?: boolean | 'true' | 'false'
+}>
 
 interface FormFieldProps {
   label: string
@@ -20,6 +29,13 @@ export function FormField({
   children,
   className,
 }: FormFieldProps) {
+  const control =
+    required && isValidElement(children)
+      ? cloneElement(children as AriaRequiredElement, {
+          'aria-required': (children as AriaRequiredElement).props['aria-required'] ?? true,
+        })
+      : children
+
   return (
     <div className={cn(className)}>
       <label
@@ -27,9 +43,9 @@ export function FormField({
         className="mb-1.5 block text-sm font-medium text-foreground"
       >
         {label}
-        {required && <span className="text-error ml-0.5">*</span>}
+        {required && <span aria-hidden="true" className="text-error ml-0.5">*</span>}
       </label>
-      {children}
+      {control}
       {error && <p className="mt-2 text-xs text-error">{error}</p>}
       {!error && help && <p className="mt-2 text-xs text-muted-foreground">{help}</p>}
     </div>

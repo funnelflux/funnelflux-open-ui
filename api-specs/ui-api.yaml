@@ -1411,6 +1411,10 @@ paths:
             $ref: '#/definitions/Error'
         405:
           description: Method not allowed (only GET is accepted)
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
   /license/revalidate/:
     post:
       tags:
@@ -1431,6 +1435,10 @@ paths:
             $ref: '#/definitions/Error'
         405:
           description: Method not allowed (only POST is accepted)
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
   /ui/inbox/notifications/check/index.php:
     get:
       tags:

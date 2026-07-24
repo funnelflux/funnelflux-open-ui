@@ -43,7 +43,7 @@ export function useNotifications(onForcePopup?: (message: string) => void) {
   // refetch that still carries forcePopup would re-show the same popup after every read/delete.
   const lastPopupMessageRef = useRef<string | null>(null)
 
-  const { data } = useQuery({
+  const { data: notificationCheck } = useQuery({
     queryKey: queryKeys.inbox.notifications,
     queryFn: () =>
       api.get<NotificationCheckResponse>("/ui/inbox/notifications/check/"),
@@ -51,15 +51,15 @@ export function useNotifications(onForcePopup?: (message: string) => void) {
   })
 
   useEffect(() => {
-    if (!data) return
-    setUnreadCount(data.unreadCount ?? 0)
+    if (!notificationCheck) return
+    setUnreadCount(notificationCheck.unreadCount ?? 0)
     if (
-      data.forcePopup &&
-      data.forcePopupMessage &&
-      data.forcePopupMessage !== lastPopupMessageRef.current
+      notificationCheck.forcePopup &&
+      notificationCheck.forcePopupMessage &&
+      notificationCheck.forcePopupMessage !== lastPopupMessageRef.current
     ) {
-      lastPopupMessageRef.current = data.forcePopupMessage
-      onForcePopupRef.current?.(data.forcePopupMessage)
+      lastPopupMessageRef.current = notificationCheck.forcePopupMessage
+      onForcePopupRef.current?.(notificationCheck.forcePopupMessage)
     }
-  }, [data, setUnreadCount])
+  }, [notificationCheck, setUnreadCount])
 }

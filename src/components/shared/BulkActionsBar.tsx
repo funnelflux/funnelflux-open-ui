@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { Button, ConfirmModal, Modal, Select } from '@/components/ui-kit'
 import { cn } from '@/lib/utils'
 
@@ -50,19 +50,25 @@ export function BulkActionsBar({
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [runningExtraKey, setRunningExtraKey] = useState<string | null>(null)
+  const busyRef = useRef(false)
+  const isBusy = isSubmitting || runningExtraKey !== null
 
   const runExtraAction = useCallback(async (key: string, onAction: () => Promise<void>) => {
+    if (busyRef.current) return
+    busyRef.current = true
     setRunningExtraKey(key)
     try {
       await onAction()
     } finally {
+      busyRef.current = false
       setRunningExtraKey(null)
     }
   }, [])
 
   const runArchiveOrDelete = useCallback(async () => {
-    if (!confirmAction) return
+    if (!confirmAction || busyRef.current) return
 
+    busyRef.current = true
     setIsSubmitting(true)
     try {
       if (confirmAction === 'archive' && onArchive) {
@@ -72,6 +78,7 @@ export function BulkActionsBar({
       }
       setConfirmAction(null)
     } finally {
+      busyRef.current = false
       setIsSubmitting(false)
     }
   }, [confirmAction, onArchive, onDelete])
@@ -81,30 +88,36 @@ export function BulkActionsBar({
   }, [runArchiveOrDelete])
 
   const handleDismissConfirm = useCallback(() => {
+    if (busyRef.current) return
     setConfirmAction(null)
   }, [])
 
   const handleRequestArchive = useCallback(() => {
+    if (busyRef.current) return
     setConfirmAction('archive')
   }, [])
 
   const handleRequestDelete = useCallback(() => {
+    if (busyRef.current) return
     setConfirmAction('delete')
   }, [])
 
   const handleOpenMoveCategoryModal = useCallback(() => {
+    if (busyRef.current) return
     setMoveModalOpen(true)
   }, [])
 
   const runCategoryMove = useCallback(async () => {
-    if (!selectedCategoryId || !onMoveToCategory) return
+    if (!selectedCategoryId || !onMoveToCategory || busyRef.current) return
 
+    busyRef.current = true
     setIsSubmitting(true)
     try {
       await onMoveToCategory.onMove(selectedCategoryId)
       setMoveModalOpen(false)
       setSelectedCategoryId('')
     } finally {
+      busyRef.current = false
       setIsSubmitting(false)
     }
   }, [selectedCategoryId, onMoveToCategory])
@@ -114,6 +127,7 @@ export function BulkActionsBar({
   }, [runCategoryMove])
 
   const handleMoveModalCancel = useCallback(() => {
+    if (busyRef.current) return
     setMoveModalOpen(false)
     setSelectedCategoryId('')
   }, [])
@@ -141,7 +155,7 @@ export function BulkActionsBar({
       >
         <div className="text-sm font-medium">{count} selected</div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Button htmlType="button" type="default" size="small" onClick={onDeselectAll}>
+          <Button htmlType="button" type="default" size="small" disabled={isBusy} onClick={onDeselectAll}>
             Clear
           </Button>
           {(extraActions ?? []).map((action) => (
@@ -151,29 +165,29 @@ export function BulkActionsBar({
               type="default"
               size="small"
               loading={runningExtraKey === action.key}
-              disabled={runningExtraKey !== null && runningExtraKey !== action.key}
+              disabled={isBusy && runningExtraKey !== action.key}
               onClick={() => void runExtraAction(action.key, action.onAction)}
             >
               {action.label}
             </Button>
           ))}
           {onMove ? (
-            <Button htmlType="button" type="default" size="small" onClick={onMove} iconName="workflow" iconSize="sm">
+            <Button htmlType="button" type="default" size="small" disabled={isBusy} onClick={onMove} iconName="workflow" iconSize="sm">
               {moveLabel}
             </Button>
           ) : null}
           {onMoveToCategory ? (
-            <Button htmlType="button" type="default" size="small" onClick={handleOpenMoveCategoryModal} iconName="folder-input" iconSize="sm">
+            <Button htmlType="button" type="default" size="small" disabled={isBusy} onClick={handleOpenMoveCategoryModal} iconName="folder-input" iconSize="sm">
               Move to category
             </Button>
           ) : null}
           {onArchive ? (
-            <Button htmlType="button" type="default" size="small" onClick={handleRequestArchive} iconName="archive" iconSize="sm">
+            <Button htmlType="button" type="default" size="small" disabled={isBusy} onClick={handleRequestArchive} iconName="archive" iconSize="sm">
               {archiveLabel}
             </Button>
           ) : null}
           {onDelete ? (
-            <Button htmlType="button" danger type="primary" size="small" onClick={handleRequestDelete} iconName="trash-2" iconSize="sm">
+            <Button htmlType="button" danger type="primary" size="small" disabled={isBusy} onClick={handleRequestDelete} iconName="trash-2" iconSize="sm">
               Delete
             </Button>
           ) : null}
@@ -207,7 +221,7 @@ export function BulkActionsBar({
           onOk={handleMoveModalOk}
           okText="Move"
           confirmLoading={isSubmitting}
-          okButtonProps={{ disabled: !selectedCategoryId }}
+          okButtonProps={{ disabled: !selectedCategoryId || isSubmitting }}
           destroyOnHidden
         >
           <div className="py-4">

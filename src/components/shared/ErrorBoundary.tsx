@@ -44,6 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
               Part of the app failed to load, likely because it was updated. Reload to get the latest version.
             </p>
             <button
+              type="button"
               onClick={() => window.location.reload()}
               className="text-sm text-primary underline"
             >
@@ -57,6 +58,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <h2 className="text-lg font-bold text-destructive mb-2">Something went wrong</h2>
           <p className="text-sm text-muted-foreground mb-4">{this.state.error?.message}</p>
           <button
+            type="button"
             onClick={() => this.setState({ hasError: false, error: null })}
             className="text-sm text-primary underline"
           >

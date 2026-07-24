@@ -1,4 +1,5 @@
 import { Suspense, lazy } from 'react'
+import { DEFAULT_CODE_EDITOR_HEIGHT } from '@/components/ui-kit/codeEditorConfig'
 
 export type CodeEditorLanguage = 'javascript' | 'php'
 
@@ -16,7 +17,7 @@ export interface CodeEditorProps {
 const CodeEditorInner = lazy(() => import('@/components/ui-kit/CodeEditorInner'))
 
 export function CodeEditor(props: CodeEditorProps) {
-  const { height = 'min(420px, 50vh)' } = props
+  const { height = DEFAULT_CODE_EDITOR_HEIGHT } = props
   return (
     <Suspense
       fallback={

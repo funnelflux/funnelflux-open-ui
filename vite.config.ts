@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      rollupOptions: {
+      rolldownOptions: {
         output: {
           /**
            * Rolldown-native chunk groups (first match wins).
@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => {
            * CJS react runtime (react/jsx-runtime ended up hosted inside codemirror-vendor,
            * making the 650 KB CodeMirror bundle a static dependency of the entry chunk).
            */
-          advancedChunks: {
+          codeSplitting: {
             // Match modules individually (rollup `manualChunks` semantics). Without this,
             // a group recursively captures its whole dependency closure — the first group
             // would swallow antd/react/lucide and balloon to ~700 KB.

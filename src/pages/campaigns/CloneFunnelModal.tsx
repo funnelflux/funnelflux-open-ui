@@ -49,7 +49,7 @@ export function CloneFunnelModal({
   const queryClient = useQueryClient()
   const toast = useToastApi()
   const [cloneIntent, setCloneIntent] = useState<CloneIntent | null>(null)
-  const { data: campaigns, isLoading: campaignsLoading } = useCampaignsList()
+  const { data: campaigns, isLoading: campaignsLoading } = useCampaignsList({ enabled: open })
 
   const {
     control,
