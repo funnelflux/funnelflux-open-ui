@@ -40,9 +40,9 @@ function decodeReference(reference) {
 
 function hasAssetSegment(reference) {
   try {
-    return /(?:^|\/)assets\//.test(decodeURIComponent(reference))
+    return /(?:^|[\\/])assets[\\/]/.test(decodeURIComponent(reference))
   } catch {
-    return /(?:^|\/)assets\//.test(reference)
+    return /(?:^|[\\/])assets[\\/]/.test(reference)
   }
 }
 

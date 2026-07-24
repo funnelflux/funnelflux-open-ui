@@ -87,6 +87,7 @@ describe('checkDistArtifacts', () => {
     '/v2-ui/assets/../outside.js',
     '/v2-ui/assets/%2e%2e/outside.js',
     '/v2-ui/assets%2f..%2foutside.js',
+    '/v2-ui/assets%5c..%5coutside.js',
   ])('rejects built asset traversal reference %s', async (reference) => {
     const distDir = await fixture({
       'index.html': `<script type="module" src="${reference}"></script>`,
