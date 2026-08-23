@@ -22,26 +22,51 @@ const bluePalette = [
 ]
 
 const semanticColors = [
-  { label: 'Success', var: '--ff-success', hex: '#16A34A' },
-  { label: 'Warning', var: '--ff-warning', hex: '#D97706' },
-  { label: 'Error (dark: #F87171)', var: '--ff-error', hex: '#DC2626' },
-  { label: 'Info', var: '--ff-info', hex: '#3B82F6' },
+  { label: 'Success', var: '--ff-success', hex: '#16A34A', darkHex: '#22C55E' },
+  { label: 'Warning', var: '--ff-warning', hex: '#D97706', darkHex: '#F59E0B' },
+  { label: 'Error (dark: #F87171)', var: '--ff-error', hex: '#DC2626', darkHex: '#F87171' },
+  { label: 'Info', var: '--ff-info', hex: '#3B82F6', darkHex: '#3B82F6' },
+  { label: 'Accent', var: '--ff-accent', hex: '#C2410C', darkHex: '#FB923C' },
+  { label: 'Accent hover', var: '--ff-accent-hover', hex: '#9A3412', darkHex: '#EA580C' },
 ]
+const textStatusColors = [
+  { label: 'Success text (AA)', var: '--ff-success-text', hex: '#15803D', darkHex: '#4ADE80' },
+  { label: 'Warning text (AA)', var: '--ff-warning-text', hex: '#B45309', darkHex: '#FBBF24' },
+  { label: 'Error text (AA)', var: '--ff-error-text', hex: '#DC2626', darkHex: '#F87171' },
+  { label: 'Info text (AA)', var: '--ff-info-text', hex: '#1D4ED8', darkHex: '#60A5FA' },
+]
+
+const surfaceColors = [
+  { label: 'Surface hover', var: '--surface-hover', hex: '#F1F5F9', darkHex: '#334155' },
+]
+
 
 const chartColors = [
   '#3B82F6', '#8B5CF6', '#06B6D4', '#F97316', '#22C55E',
   '#EC4899', '#EAB308', '#6366F1', '#14B8A6', '#F43F5E',
 ]
 
-function Swatch({ label, cssVar, hex }: { label: string; cssVar: string; hex: string }) {
+function Swatch({
+  label,
+  cssVar,
+  hex,
+  darkHex,
+}: {
+  label: string
+  cssVar: string
+  hex: string
+  darkHex?: string
+}) {
   return (
     <div className="flex flex-col items-center gap-1.5">
       <div
         className="w-16 h-16 rounded-lg border border-border"
-        style={{ backgroundColor: hex }}
+        style={{ backgroundColor: `var(${cssVar})` }}
       />
       <span className="text-xs font-medium text-foreground">{label}</span>
-      <span className="text-[10px] text-muted-foreground font-mono">{hex}</span>
+      <span className="text-[10px] text-muted-foreground font-mono">
+        {darkHex ? `light ${hex} · dark ${darkHex}` : hex}
+      </span>
       <span className="text-[10px] text-muted-foreground font-mono">{cssVar}</span>
     </div>
   )
@@ -69,9 +94,23 @@ export function ColorsSection() {
       <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Semantic</h3>
       <div className="flex flex-wrap gap-4 mb-8">
         {semanticColors.map((c) => (
-          <Swatch key={c.var} label={c.label} cssVar={c.var} hex={c.hex} />
+          <Swatch key={c.var} label={c.label} cssVar={c.var} hex={c.hex} darkHex={c.darkHex} />
         ))}
       </div>
+      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Accessible text colors</h3>
+      <div className="flex flex-wrap gap-4 mb-8">
+        {textStatusColors.map((c) => (
+          <Swatch key={c.var} label={c.label} cssVar={c.var} hex={c.hex} darkHex={c.darkHex} />
+        ))}
+      </div>
+
+      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Surface states</h3>
+      <div className="flex flex-wrap gap-4 mb-8">
+        {surfaceColors.map((c) => (
+          <Swatch key={c.var} label={c.label} cssVar={c.var} hex={c.hex} darkHex={c.darkHex} />
+        ))}
+      </div>
+
 
       <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Chart Palette</h3>
       <div className="flex flex-wrap gap-3">

@@ -9,8 +9,11 @@ const FORM_MODAL_MAX_WIDTH_PX = 700
 
 const VIEWPORT_SAFE_WIDTH = 'calc(100vw - 1rem)'
 
+type FormModalCancelEvent = Parameters<NonNullable<ModalProps['onCancel']>>[0]
+
 const FormModalContext = createContext<{
-  onCancel?: ModalProps['onCancel']
+  onCancel?: (event?: FormModalCancelEvent) => void
+  isDirty?: boolean
 }>({})
 
 function useFormModalContext() {
@@ -29,9 +32,22 @@ function resolveFormModalWidth(width: ModalProps['width'] | undefined): ModalPro
   return width
 }
 
+const DIRTY_FORM_CONFIRM_MESSAGE = 'You have unsaved changes. Are you sure you want to close this form?'
+
+
+function canCloseDirtyForm(isDirty: boolean): boolean {
+  if (!isDirty) return true
+  if (typeof globalThis.confirm !== 'function') return true
+  return globalThis.confirm(DIRTY_FORM_CONFIRM_MESSAGE)
+}
+
 export type FormModalProps = Omit<ModalProps, 'title' | 'footer' | 'layoutVariant' | 'scrollBody'> & {
   /** Horizontal inset for header/body/footer content. Defaults to clamp(1rem, 4vw, 1.5rem). */
   padding?: string
+  /** Prevent accidental dismissal while the form contains unsaved changes. */
+  isDirty?: boolean
+  /** Alias for `isDirty`, retained for callers that use the shorter name. */
+  dirty?: boolean
   children: ReactNode
 }
 
@@ -44,8 +60,24 @@ export function FormModal({
   centered = true,
   onCancel,
   closable = false,
+  isDirty = false,
+  dirty = false,
   ...rest
 }: FormModalProps) {
+  const isFormDirty = isDirty || dirty
+  const guardedOnCancel = useCallback(
+    (event?: FormModalCancelEvent) => {
+      if (!canCloseDirtyForm(isFormDirty)) return
+      if (event && onCancel) {
+        onCancel(event)
+      } else if (onCancel) {
+        onCancel(event as FormModalCancelEvent)
+      }
+    },
+    [isFormDirty, onCancel],
+  )
+  const effectiveOnCancel = onCancel ? guardedOnCancel : undefined
+
   const classNamesObj = typeof classNames === 'object' && classNames
     ? (classNames as Record<string, string | undefined>)
     : {}
@@ -63,12 +95,12 @@ export function FormModal({
   } as CSSProperties
 
   return (
-    <FormModalContext.Provider value={{ onCancel }}>
+    <FormModalContext.Provider value={{ onCancel: effectiveOnCancel, isDirty: isFormDirty }}>
       <Modal
         {...rest}
         centered={centered}
         closable={closable}
-        onCancel={onCancel}
+        onCancel={effectiveOnCancel}
         title={null}
         footer={null}
         layoutVariant="form"
@@ -250,7 +282,7 @@ function FormModalFooter({ children, className }: FormModalFooterProps) {
 }
 
 export interface FormModalFooterSubmitProps {
-  onCancel: () => void
+  onCancel?: () => void
   formId?: string
   submitLabel: ReactNode
   cancelLabel?: ReactNode
@@ -269,6 +301,15 @@ export function FormModalFooterSubmit({
   disabled = false,
   extra,
 }: FormModalFooterSubmitProps) {
+  const ctx = useFormModalContext()
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel()
+    } else {
+      ctx.onCancel?.()
+    }
+  }
+
   return (
     <FormModalFooter>
       {extra ? (
@@ -277,7 +318,7 @@ export function FormModalFooterSubmit({
         </div>
       ) : null}
       <div className="flex w-full min-w-0 flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-        <Button htmlType="button" onClick={onCancel} disabled={loading} className="w-full sm:w-auto">
+        <Button htmlType="button" onClick={handleCancel} disabled={loading} className="w-full sm:w-auto">
           {cancelLabel}
         </Button>
         <Button

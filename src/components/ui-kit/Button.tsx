@@ -74,7 +74,7 @@ export const Button = forwardRef<HTMLButtonElement | null, ButtonProps>(
 
     const variantClass =
       uiVariant === 'accent'
-        ? '!border-accent-orange !bg-accent-orange !text-white hover:!border-accent-orange-hover hover:!bg-accent-orange-hover hover:!text-white'
+        ? '!bg-accent-orange hover:!bg-accent-orange-hover !text-white'
         : undefined
 
     return (

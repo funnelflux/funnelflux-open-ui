@@ -107,11 +107,10 @@ export function BaseNode({
     return (
       <div
         className={cn(
-          'relative w-[220px] rounded-2xl border bg-card/95 backdrop-blur-sm',
-          'shadow-md hover:shadow-lg transition-shadow duration-200',
-          'border-border/80',
-          isEntrance && 'ring-1 ring-emerald-500/35',
-          selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background shadow-lg',
+          'relative w-[220px] rounded-2xl border border-border bg-card text-card-foreground shadow-sm',
+          'transition-shadow duration-200 hover:shadow-md',
+          isEntrance && 'ring-1 ring-success/35',
+          selected && 'ring-2 ring-primary ring-offset-1 ring-offset-background',
           className,
         )}
       >
@@ -135,7 +134,7 @@ export function BaseNode({
                 {card.kind}
               </p>
               <p
-                className="text-sm font-semibold leading-snug text-foreground line-clamp-2 break-all"
+                className="text-sm font-semibold leading-snug text-card-foreground line-clamp-2 break-all"
                 title={card.title || undefined}
               >
                 {truncateNodeTitle(card.title || '—')}
@@ -155,8 +154,8 @@ export function BaseNode({
   return (
     <div
       className={cn(
-        'relative w-[180px] rounded-lg border bg-background shadow-sm',
-        isEntrance && 'border-t-2 border-t-green-500',
+        'relative w-[180px] rounded-lg border border-border bg-card text-card-foreground shadow-sm',
+        isEntrance && 'border-t-2 border-t-success',
         selected && 'ring-2 ring-primary ring-offset-1 ring-offset-background',
         className,
       )}

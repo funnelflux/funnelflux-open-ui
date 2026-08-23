@@ -26,6 +26,34 @@ const REDIRECT_METHOD_OPTIONS = REDIRECT_METHODS.map((method) => ({
   label: method.name,
 }))
 
+interface SettingsToggleRowProps {
+  id: string
+  label: string
+  description: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}
+
+function SettingsToggleRow({
+  id,
+  label,
+  description,
+  checked,
+  onChange,
+}: SettingsToggleRowProps) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0 space-y-1">
+        <label htmlFor={id} className="block text-sm font-medium leading-5 text-foreground">
+          {label}
+        </label>
+        <p className="text-xs leading-4 text-muted-foreground">{description}</p>
+      </div>
+      <Switch id={id} checked={checked} onChange={onChange} className="mt-0.5 shrink-0" />
+    </div>
+  )
+}
+
 function redirectApiToForm(
   value: RedirectMethod | undefined,
 ): SystemSettingsFormData['offersDefaultRedirect'] {
@@ -109,25 +137,19 @@ export function SystemSettingsPage() {
         className="max-w-2xl space-y-6"
       >
         {/* Force HTTPS */}
-        <div className="flex items-center justify-between">
-          <div>
-            <label htmlFor="forceHTTPS" className="block text-sm font-medium text-foreground">Force HTTPS</label>
-            <p className="text-xs text-muted-foreground">
-              Redirect all HTTP traffic to HTTPS
-            </p>
-          </div>
-          <Controller
-            control={control}
-            name="forceHTTPS"
-            render={({ field }) => (
-              <Switch
-                id="forceHTTPS"
-                checked={field.value}
-                onChange={field.onChange}
-              />
-            )}
-          />
-        </div>
+        <Controller
+          control={control}
+          name="forceHTTPS"
+          render={({ field }) => (
+            <SettingsToggleRow
+              id="forceHTTPS"
+              label="Force HTTPS"
+              description="Redirect all HTTP traffic to HTTPS"
+              checked={field.value}
+              onChange={field.onChange}
+            />
+          )}
+        />
 
         {/* Default Home Page URL */}
         <Controller
@@ -152,25 +174,19 @@ export function SystemSettingsPage() {
         />
 
         {/* Auto Expand Campaigns */}
-        <div className="flex items-center justify-between">
-          <div>
-            <label htmlFor="autoExpandCampaigns" className="block text-sm font-medium text-foreground">Auto Expand Campaigns</label>
-            <p className="text-xs text-muted-foreground">
-              Automatically expand campaign rows in the listing
-            </p>
-          </div>
-          <Controller
-            control={control}
-            name="autoExpandCampaigns"
-            render={({ field }) => (
-              <Switch
-                id="autoExpandCampaigns"
-                checked={field.value}
-                onChange={field.onChange}
-              />
-            )}
-          />
-        </div>
+        <Controller
+          control={control}
+          name="autoExpandCampaigns"
+          render={({ field }) => (
+            <SettingsToggleRow
+              id="autoExpandCampaigns"
+              label="Auto Expand Campaigns"
+              description="Automatically expand campaign rows in the listing"
+              checked={field.value}
+              onChange={field.onChange}
+            />
+          )}
+        />
 
         {/* Offers Default Redirect */}
         <div className="space-y-2">

@@ -41,7 +41,9 @@ export function PageShell({
 
   let body: ReactNode = children
   if (state.status === 'loading') {
-    body = <LoadingPage />
+    body = (
+      <LoadingPage className={fillHeight ? 'min-h-0 flex-1 py-12' : 'min-h-[400px] py-12'} />
+    )
   } else if (state.status === 'error') {
     body = (
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 px-4">

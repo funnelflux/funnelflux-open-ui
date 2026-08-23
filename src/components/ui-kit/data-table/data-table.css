@@ -216,6 +216,26 @@
   padding: 0 2px;
 }
 
+/* Keep the visual checkbox compact while giving its label a WCAG-sized target. */
+.dt-checkbox-hit-area {
+  display: inline-grid;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  place-items: center;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.dt-checkbox-hit-area:has(.dt-checkbox:disabled) {
+  cursor: not-allowed;
+}
+
+.dt-checkbox-hit-area .dt-checkbox {
+  margin: 0;
+}
+
 /* Action button cells — centered, compact */
 .dt-cell:has(.dt-action-btn) {
   justify-content: center;
@@ -330,6 +350,9 @@
 
 .dt-row:hover {
   background: var(--surface-secondary);
+}
+.dark .dt-row:hover {
+  background: var(--surface-hover);
 }
 
 .dt-row--selected {
@@ -456,6 +479,7 @@
 /* ---- Actions overlay (legacy, kept for compatibility) ---- */
 .dt-row .dt-actions {
   opacity: 0;
+  pointer-events: none;
   transition: opacity 150ms;
   position: absolute;
   right: 0;
@@ -468,8 +492,10 @@
   background: var(--surface);
 }
 
-.dt-row:hover .dt-actions {
+.dt-row:hover .dt-actions,
+.dt-row:focus-within .dt-actions {
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* Align header label with tree rows (indent + expand + gap) */
@@ -670,6 +696,11 @@
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
+}
+
+.dt-checkbox:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .dt-checkbox:checked {

@@ -17,7 +17,7 @@ export function DataDisplaySection() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-3xl">
             <Card className="ff-analytics-panel" title="Configuration" styles={{ body: { padding: 16 } }}>
               <div className="space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Status</span><Tag color="green">Active</Tag></div>
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Status</span><Tag variant="success">Active</Tag></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Type</span><span>CPA</span></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Payout</span><span>$2.50</span></div>
               </div>
@@ -143,16 +143,13 @@ export function DataDisplaySection() {
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Tags</h3>
           <Space wrap>
-            <Tag>Default</Tag>
-            <Tag color="blue">Blue</Tag>
-            <Tag color="green">Green</Tag>
-            <Tag color="orange">Orange</Tag>
-            <Tag color="red">Red</Tag>
-            <Tag color="purple">Purple</Tag>
-            <Tag variant="filled" color="processing">Processing</Tag>
-            <Tag variant="filled" color="success">Success</Tag>
-            <Tag variant="filled" color="error">Error</Tag>
-            <Tag variant="filled" color="warning">Warning</Tag>
+            <Tag variant="info">Info</Tag>
+            <Tag variant="success">Success</Tag>
+            <Tag variant="warning">Warning</Tag>
+            <Tag variant="error">Error</Tag>
+            <Tag variant="neutral">Neutral</Tag>
+            <Tag variant="accent">Accent</Tag>
+            <Tag variant="primary">Primary</Tag>
           </Space>
         </div>
 
@@ -160,24 +157,26 @@ export function DataDisplaySection() {
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Badge</h3>
           <Space size="large">
-            <Badge count={5}>
+            <Badge variant="info" count={5}>
               <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
                 <Icon name="settings" size="sm" />
               </div>
             </Badge>
-            <Badge count={0} showZero>
+            <Badge variant="success" count={0} showZero>
               <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
                 <Icon name="settings" size="sm" />
               </div>
             </Badge>
-            <Badge dot>
+            <Badge variant="warning" dot>
               <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
                 <Icon name="settings" size="sm" />
               </div>
             </Badge>
-            <Badge status="success" text="Active" />
-            <Badge status="error" text="Inactive" />
-            <Badge status="processing" text="Processing" />
+            <Badge variant="info" text="Info" />
+            <Badge variant="success" text="Active" />
+            <Badge variant="warning" text="Pending" />
+            <Badge variant="error" text="Inactive" />
+            <Badge variant="neutral" text="Neutral" />
           </Space>
         </div>
 

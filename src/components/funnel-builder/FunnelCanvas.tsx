@@ -328,7 +328,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
         deleteKeyCode={['Backspace', 'Delete']}
         className={cn(
           variant === 'builder'
-            ? 'bg-gradient-to-br from-slate-950/[0.03] via-background to-violet-950/[0.04]'
+            ? 'bg-gradient-to-br from-background via-background to-primary-subtle/40'
             : 'bg-muted/30',
         )}
         defaultEdgeOptions={{
@@ -344,7 +344,7 @@ export function FunnelCanvas(props: FunnelCanvasProps = {}) {
         <Background
           gap={variant === 'builder' ? 20 : 15}
           size={1}
-          className={variant === 'builder' ? '[&>*]:stroke-border/60' : undefined}
+          color="var(--border)"
         />
         <Controls
           position="bottom-left"

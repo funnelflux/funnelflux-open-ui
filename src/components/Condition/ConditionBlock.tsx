@@ -50,14 +50,22 @@ export function ConditionBlock({
   }
 
   return (
-    <div className="rounded-lg border bg-card p-3 space-y-3">
+    <div className="space-y-3 rounded-lg border border-border bg-card p-3 text-card-foreground">
       {/* Block header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Block {blockIndex + 1}</span>
           <Tag
-            className="cursor-pointer select-none text-xs"
+            role="button"
+            tabIndex={0}
+            className="cursor-pointer select-none text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
             onClick={toggleLogicOperator}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                toggleLogicOperator()
+              }
+            }}
           >
             {block.logicOperator}
           </Tag>

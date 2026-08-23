@@ -34,9 +34,9 @@
   --ff-error:   #DC2626;
   --ff-info:    #3B82F6;
 
-  /* Accent (CTA orange) — Tailwind orange-600 base, orange-500 hover */
-  --ff-accent:       #EA580C;
-  --ff-accent-hover: #F97316;
+  /* Accent (CTA orange) — AA-contrast ramps for light and dark surfaces */
+  --ff-accent:       #C2410C;
+  --ff-accent-hover: #9A3412;
 
   /* Chart palette – 10 colors, same in both modes */
   --ff-chart-1:  #3B82F6;
@@ -91,6 +91,7 @@
   --background:        var(--ff-gray-50);
   --foreground:        var(--ff-gray-900);
   --surface:           var(--ff-gray-0);
+  --surface-hover:     var(--ff-gray-100);
   --surface-secondary: var(--ff-gray-50);
   --surface-sunken:    var(--ff-gray-100);
   --border:            var(--ff-gray-200);
@@ -103,6 +104,10 @@
   --primary-subtle:    var(--ff-blue-50);
   --destructive:       var(--ff-error);
   --destructive-fg:    #FFFFFF;
+  --ff-success-text:   #15803D;
+  --ff-warning-text:   #B45309;
+  --ff-error-text:     #DC2626;
+  --ff-info-text:      #1D4ED8;
   --nav-bg:            var(--ff-gray-800);
   --nav-fg:            var(--ff-gray-50);
   --ring:              var(--ff-blue-500);
@@ -121,6 +126,7 @@
   --background:        var(--ff-gray-900);
   --foreground:        var(--ff-gray-50);
   --surface:           var(--ff-gray-800);
+  --surface-hover:     var(--ff-gray-700);
   --surface-secondary: var(--ff-gray-800);
   --surface-sunken:    var(--ff-gray-900);
   --border:            var(--ff-gray-700);
@@ -133,6 +139,12 @@
   --primary-subtle:    #1E3A5F;
   --destructive:       var(--ff-error); /* follows the AA-contrast dark ramp below */
   --destructive-fg:    #FFFFFF;
+  --ff-success-text:   #4ADE80;
+  --ff-warning-text:   #FBBF24;
+  --ff-error-text:     #F87171;
+  --ff-info-text:      #60A5FA;
+  --ff-accent:         #FB923C;
+  --ff-accent-hover:   #EA580C;
   --nav-bg:            var(--ff-gray-950);
   --nav-fg:            var(--ff-gray-50);
   --ring:              var(--ff-blue-500);
@@ -151,6 +163,7 @@
   --ff-profit:  #22C55E;
   --ff-loss:    #F87171;
 }
+
 
 /* Modal backdrop blur */
 .ant-modal-mask {

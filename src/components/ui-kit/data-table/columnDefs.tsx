@@ -456,38 +456,46 @@ export function selectionColumn<T>(): ColumnDef<T, unknown> {
       const someSelected = selectedCount > 0 && !allSelected
 
       return (
-        <input
-          type="checkbox"
-          className="dt-checkbox"
-          checked={allSelected}
-          disabled={selectableRows.length === 0}
-          ref={(el) => { if (el) el.indeterminate = someSelected }}
-          onChange={(e) => {
-            const checked = e.currentTarget.checked
-            table.setRowSelection((prev) => {
-              const next = { ...prev }
-              for (const row of selectableRows) {
-                if (checked) next[row.id] = true
-                else delete next[row.id]
-              }
-              return next
-            })
-          }}
-          onClick={(e) => e.stopPropagation()}
-        />
+        <label className="dt-checkbox-hit-area">
+          <input
+            type="checkbox"
+            className="dt-checkbox"
+            checked={allSelected}
+            disabled={selectableRows.length === 0}
+            aria-label="Select all rows"
+            ref={(el) => { if (el) el.indeterminate = someSelected }}
+            onChange={(e) => {
+              const checked = e.currentTarget.checked
+              table.setRowSelection((prev) => {
+                const next = { ...prev }
+                for (const row of selectableRows) {
+                  if (checked) next[row.id] = true
+                  else delete next[row.id]
+                }
+                return next
+              })
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <span className="sr-only">Select all rows</span>
+        </label>
       )
     },
     cell: ({ row }) => {
       if (isPinnedTotalsRow(row.original)) return null
       return (
-        <input
-          type="checkbox"
-          className="dt-checkbox"
-          checked={row.getIsSelected()}
-          disabled={!row.getCanSelect()}
-          onChange={(e) => row.toggleSelected(e.currentTarget.checked)}
-          onClick={(e) => e.stopPropagation()}
-        />
+        <label className="dt-checkbox-hit-area">
+          <input
+            type="checkbox"
+            className="dt-checkbox"
+            checked={row.getIsSelected()}
+            disabled={!row.getCanSelect()}
+            aria-label="Select row"
+            onChange={(e) => row.toggleSelected(e.currentTarget.checked)}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <span className="sr-only">Select row</span>
+        </label>
       )
     },
   }
