@@ -44,4 +44,5 @@ dist-ssr
 **/GEMINI.md
 docs/_ai_context/
 docs/exec-plans/
+design/audits/
 .pare
