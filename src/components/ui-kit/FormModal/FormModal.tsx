@@ -304,6 +304,8 @@ export function FormModalFooterSubmit({
   const ctx = useFormModalContext()
   const handleCancel = () => {
     if (onCancel) {
+      // The context path is already guarded; only the caller-supplied callback needs the check.
+      if (!canCloseDirtyForm(ctx.isDirty ?? false)) return
       onCancel()
     } else {
       ctx.onCancel?.()

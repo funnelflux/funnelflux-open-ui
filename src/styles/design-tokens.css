@@ -37,6 +37,7 @@
   /* Accent (CTA orange) — AA-contrast ramps for light and dark surfaces */
   --ff-accent:       #C2410C;
   --ff-accent-hover: #9A3412;
+  --ff-accent-fg:    var(--ff-gray-0);
 
   /* Chart palette – 10 colors, same in both modes */
   --ff-chart-1:  #3B82F6;
@@ -145,6 +146,8 @@
   --ff-info-text:      #60A5FA;
   --ff-accent:         #FB923C;
   --ff-accent-hover:   #EA580C;
+  /* Dark accent fills are light, so white text fails AA; use near-black instead. */
+  --ff-accent-fg:      var(--ff-gray-950);
   --nav-bg:            var(--ff-gray-950);
   --nav-fg:            var(--ff-gray-50);
   --ring:              var(--ff-blue-500);

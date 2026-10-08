@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Badge } from '@/components/ui-kit/Badge'
-import { FormModal, FormModalHeader } from '@/components/ui-kit/FormModal/FormModal'
+import { FormModal, FormModalFooterSubmit, FormModalHeader } from '@/components/ui-kit/FormModal/FormModal'
 import { Tag } from '@/components/ui-kit/Tag'
 
 vi.mock('@/components/ui-kit/Modal', () => ({
@@ -45,6 +45,27 @@ describe('FormModal', () => {
     confirmMock.mockReturnValue(true)
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('guards a footer cancel callback while the form is dirty', () => {
+    const onCancel = vi.fn()
+    const footerCancel = vi.fn()
+
+    render(
+      <FormModal open isDirty onCancel={onCancel}>
+        <FormModalHeader title="Edit funnel" />
+        <FormModalFooterSubmit onCancel={footerCancel} submitLabel="Save" />
+      </FormModal>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(confirmMock).toHaveBeenCalledWith('You have unsaved changes. Are you sure you want to close this form?')
+    expect(footerCancel).not.toHaveBeenCalled()
+
+    confirmMock.mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(footerCancel).toHaveBeenCalledTimes(1)
+    expect(onCancel).not.toHaveBeenCalled()
   })
 })
 

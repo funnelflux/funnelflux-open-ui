@@ -43,6 +43,7 @@
      hover class in funnel-builder — defining `--color-accent` would activate it. */
   --color-accent-orange: var(--ff-accent);
   --color-accent-orange-hover: var(--ff-accent-hover);
+  --color-accent-orange-fg: var(--ff-accent-fg);
 
   /* Raw palette available as utilities (e.g., bg-gray-50) */
   --color-gray-0: var(--ff-gray-0);
