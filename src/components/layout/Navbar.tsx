@@ -57,11 +57,11 @@ function NavDropdown({
   }))
 
   return (
-    <Dropdown menu={{ items }} trigger={['hover']}>
+    <Dropdown menu={{ items }} trigger={['hover', 'click']}>
       <button
         type="button"
         className={cn(
-          'ff-navbar-item cursor-pointer px-3 py-2 text-sm rounded flex items-center gap-1 outline-none border-0 bg-transparent',
+          'ff-navbar-item cursor-pointer px-3 py-2 text-sm rounded flex items-center gap-1 outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--nav-bg)]',
           active && 'ff-navbar-item--active',
         )}
       >
@@ -92,7 +92,7 @@ function DesktopNav({
             key={item.to}
             to={item.to}
             className={cn(
-              'ff-navbar-item shrink-0 px-3 py-2 text-sm rounded no-underline',
+              'ff-navbar-item shrink-0 px-3 py-2 text-sm rounded no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--nav-bg)]',
               active && 'ff-navbar-item--active',
             )}
           >
@@ -139,7 +139,7 @@ function MainNavDropdown({
     <Dropdown menu={{ items }} trigger={['click']}>
       <button
         type="button"
-        className="ff-navbar-util-btn flex shrink-0 cursor-pointer items-center gap-1.5 rounded border-0 bg-transparent px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="ff-navbar-util-btn flex shrink-0 cursor-pointer items-center gap-1.5 rounded border-0 bg-transparent px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--nav-bg)]"
         aria-label="Open navigation menu"
       >
         <Icon name="menu" />
@@ -186,7 +186,7 @@ function SettingsDropdown({ settingsLinks }: { settingsLinks: NavLinkItem[] }) {
     <Dropdown menu={{ items }} trigger={['click']}>
       <button
         type="button"
-        className="ff-navbar-util-btn cursor-pointer p-2 rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+        className="ff-navbar-util-btn cursor-pointer p-2 rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--nav-bg)]"
         aria-label="Settings"
       >
         <Icon name="settings" />
@@ -241,7 +241,8 @@ function UserDropdown({ userLinks }: { userLinks: NavLinkItem[] }) {
     <Dropdown menu={{ items }} trigger={['click']}>
       <button
         type="button"
-        className="ff-navbar-util-btn flex shrink-0 cursor-pointer items-center gap-1.5 px-2 py-1.5 text-sm rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="User account menu"
+        className="ff-navbar-util-btn flex shrink-0 cursor-pointer items-center gap-1.5 px-2 py-1.5 text-sm rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--nav-bg)]"
       >
         <Icon name="user" />
         <span className="hidden sm:inline">{user?.firstname || user?.login}</span>
@@ -259,7 +260,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="ff-navbar-util-btn cursor-pointer p-2 rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+      className="ff-navbar-util-btn cursor-pointer p-2 rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--nav-bg)]"
       aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       {mode === 'dark' ? <Icon name="sun" /> : <Icon name="moon" />}
@@ -280,7 +281,10 @@ export function Navbar() {
 
   return (
     <nav className="ff-navbar bg-nav-bg h-14 px-4 flex items-center gap-2 sticky top-0 z-50 min-w-0">
-      <Link to="/" className="ff-navbar-brand mr-2 flex shrink-0 items-center gap-2 font-bold text-lg no-underline text-inherit">
+      <Link
+        to="/"
+        className="ff-navbar-brand mr-2 flex shrink-0 items-center gap-2 rounded font-bold text-lg no-underline text-inherit outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--nav-bg)]"
+      >
         <img
           src={`${import.meta.env.BASE_URL}logo-full-on-dark.png`}
           alt="FunnelFlux"

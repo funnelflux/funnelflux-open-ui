@@ -162,13 +162,13 @@ export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, c
     return (
       <HeatmapContext.Provider value={contextValue}>
         <div className="relative flex min-h-0 flex-1 flex-col">
-          <div className="absolute left-4 top-4 z-30 max-w-[360px] rounded-2xl border bg-card/95 p-3 shadow-xl backdrop-blur">
+          <div className="absolute left-4 top-4 z-30 max-w-[360px] rounded-2xl border border-border bg-card p-3 text-card-foreground shadow-xl backdrop-blur">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                 <Icon name="bar-chart-3" size="md" aria-hidden />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">Heatmap</p>
+                <p className="text-sm font-semibold text-card-foreground">Heatmap</p>
                 <p className="text-xs text-muted-foreground">Save this funnel before viewing stats.</p>
               </div>
             </div>
@@ -189,19 +189,19 @@ export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, c
               onClick={handleToggle}
               iconName="bar-chart-3"
               iconSize="sm"
-              className="rounded-full border bg-card/95 shadow-lg backdrop-blur"
+              className="rounded-full border border-border bg-card text-card-foreground shadow-lg backdrop-blur"
             >
               Heatmap
             </Button>
           ) : (
-            <div className="w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl border bg-card/95 p-3 shadow-xl backdrop-blur">
+            <div className="w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card p-3 text-card-foreground shadow-xl backdrop-blur">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <Icon name="bar-chart-3" size="md" aria-hidden />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">Funnel Heatmap</p>
+                    <p className="text-sm font-semibold text-card-foreground">Funnel Heatmap</p>
                     <p className="text-xs text-muted-foreground">Grouped by funnel node</p>
                   </div>
                 </div>
@@ -264,7 +264,7 @@ export function HeatmapOverlay({ funnelId, campaignId, enabled, isNew = false, c
               {!heatmapLoading && Object.keys(nodeStats).length > 0 ? (
                 <div className="mt-3 flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2 text-xs">
                   <span className="text-muted-foreground">Nodes with stats</span>
-                  <span className="font-semibold tabular-nums text-foreground">
+                  <span className="font-semibold tabular-nums text-card-foreground">
                     {Object.keys(nodeStats).length}
                   </span>
                 </div>

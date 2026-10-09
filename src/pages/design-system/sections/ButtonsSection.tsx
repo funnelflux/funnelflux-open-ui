@@ -19,6 +19,7 @@ export function ButtonsSection() {
             <Button type="dashed">Dashed</Button>
             <Button type="text">Text</Button>
             <Button type="link">Link</Button>
+            <Button uiVariant="accent">Accent</Button>
           </Space>
         </div>
 

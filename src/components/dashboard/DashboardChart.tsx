@@ -9,16 +9,8 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { Button, Card, Skeleton } from '@/components/ui-kit'
-import {
-  CHART_COLORS,
-  CHART_GRID_STYLE,
-  CHART_AXIS_STYLE,
-  CHART_TOOLTIP_STYLE,
-  DASHBOARD_METRIC_STROKE,
-  PROFIT_COLOR,
-  LOSS_COLOR,
-} from '@/lib/chart-theme'
-import { useThemeStore } from '@/store/theme'
+import { CHART_COLORS } from '@/lib/chart-theme'
+import { useChartTheme } from '@/hooks/useChartTheme'
 import { cn } from '@/lib/utils'
 
 interface ChartPoint {
@@ -80,17 +72,21 @@ function DashboardChartComponent({
   chartHeight = 260,
   className,
 }: DashboardChartProps) {
-  const mode = useThemeStore((s) => s.mode)
-  const tooltipStyle = CHART_TOOLTIP_STYLE[mode]
-  const gridStyle = CHART_GRID_STYLE[mode]
-  const axisStyle = CHART_AXIS_STYLE[mode]
+  const {
+    stroke,
+    tooltip,
+    grid,
+    axis,
+    profitColor,
+    lossColor,
+  } = useChartTheme()
 
   const lastRoi = data.length > 0 ? data[data.length - 1]!.roi : 0
-  const roiStroke = lastRoi >= 0 ? PROFIT_COLOR : LOSS_COLOR
+  const roiStroke = lastRoi >= 0 ? profitColor : lossColor
 
   const lineStroke = metric === 'roi'
     ? roiStroke
-    : (DASHBOARD_METRIC_STROKE[metric] ?? CHART_COLORS[0])
+    : (stroke[metric] ?? CHART_COLORS[0])
 
   return (
     <Card
@@ -134,15 +130,15 @@ function DashboardChartComponent({
         ) : (
           <ResponsiveContainer width="100%" height={chartHeight}>
             <LineChart data={data} margin={{ top: 8, right: 4, bottom: 4, left: -8 }}>
-              <CartesianGrid {...gridStyle} />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} {...axisStyle} />
-              <YAxis tick={{ fontSize: 11 }} {...axisStyle} width={48} />
+              <CartesianGrid {...grid} />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} {...axis} />
+              <YAxis tick={{ fontSize: 11 }} {...axis} width={48} />
               <Tooltip
                 formatter={(value) => [
                   formatTooltipValue(tooltipNumericValue(value), metric),
                   METRICS.find((m) => m.key === metric)?.label ?? metric,
                 ]}
-                {...tooltipStyle}
+                {...tooltip}
               />
               <Line
                 type="monotone"

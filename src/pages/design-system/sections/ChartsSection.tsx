@@ -2,8 +2,8 @@ import {
   LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
-import { CHART_COLORS, CHART_TOOLTIP_STYLE, CHART_GRID_STYLE, CHART_AXIS_STYLE } from '@/lib/chart-theme'
-import { useThemeStore } from '@/store/theme'
+import { CHART_COLORS } from '@/lib/chart-theme'
+import { useChartTheme } from '@/hooks/useChartTheme'
 
 const lineData = [
   { day: 'Mon', visits: 4200, clicks: 2800, conversions: 140 },
@@ -30,10 +30,12 @@ const pieData = [
 ]
 
 export function ChartsSection() {
-  const mode = useThemeStore((s) => s.mode)
-  const tooltipStyle = CHART_TOOLTIP_STYLE[mode]
-  const gridStyle = CHART_GRID_STYLE[mode]
-  const axisStyle = CHART_AXIS_STYLE[mode]
+  const {
+    stroke: metricStroke,
+    tooltip: tooltipStyle,
+    grid: gridStyle,
+    axis: axisStyle,
+  } = useChartTheme()
 
   return (
     <section id="charts">
@@ -53,9 +55,9 @@ export function ChartsSection() {
               <YAxis {...axisStyle} />
               <Tooltip {...tooltipStyle} />
               <Legend />
-              <Line type="monotone" dataKey="visits" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="clicks" stroke={CHART_COLORS[1]} strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="conversions" stroke={CHART_COLORS[4]} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="visits" stroke={metricStroke.visits} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="clicks" stroke={metricStroke.clicks} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="conversions" stroke={metricStroke.conversions} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -70,8 +72,8 @@ export function ChartsSection() {
               <YAxis {...axisStyle} />
               <Tooltip {...tooltipStyle} />
               <Legend />
-              <Bar dataKey="revenue" fill={CHART_COLORS[4]} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="cost" fill={CHART_COLORS[3]} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="revenue" fill={metricStroke.revenue} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="cost" fill={metricStroke.cost} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

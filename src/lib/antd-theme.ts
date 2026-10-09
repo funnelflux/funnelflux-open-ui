@@ -1,3 +1,5 @@
+export { CHART_COLORS, LOSS_COLOR, PROFIT_COLOR } from '@/lib/chart-theme'
+
 import { theme } from '@/components/ui-kit/antdTheme'
 import type { ThemeConfig } from '@/components/ui-kit/antdTheme'
 
@@ -125,11 +127,3 @@ export const darkTheme: ThemeConfig = {
   },
 }
 
-/* Chart colors for JS consumption (matches --ff-chart-* in design-tokens.css) */
-export const CHART_COLORS = [
-  '#3B82F6', '#8B5CF6', '#06B6D4', '#F97316', '#22C55E',
-  '#EC4899', '#EAB308', '#6366F1', '#14B8A6', '#F43F5E',
-] as const
-
-export const PROFIT_COLOR = '#16A34A'
-export const LOSS_COLOR = '#DC2626'

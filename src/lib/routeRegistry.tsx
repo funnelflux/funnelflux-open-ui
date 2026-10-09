@@ -580,6 +580,13 @@ export function getSettingsNavLinks(user: UserProfile): NavLinkItem[] {
     }))
 
   links.push({
+    label: 'Knowledge Base',
+    to: 'https://help.funnelflux.com/',
+    icon: 'external-link',
+    external: true,
+  })
+
+  links.push({
     label: 'API Docs',
     to: 'http://api-docs.funnelflux.com/',
     icon: 'external-link',

@@ -6,16 +6,16 @@ import { cn } from '@/lib/utils'
 // ── Intensity Classification ───────────────────────────────────────────────
 
 function getIntensityClass(value: number, maxValue: number): string {
-  if (maxValue <= 0) return 'bg-card/95 text-muted-foreground border-border'
+  if (maxValue <= 0) return 'bg-card text-muted-foreground border-border'
 
   const ratio = value / maxValue
   if (ratio >= 0.7) {
     return 'bg-primary/95 text-primary-foreground border-primary/70 shadow-xl'
   }
   if (ratio >= 0.35) {
-    return 'bg-warning/20 text-foreground border-warning/40'
+    return 'bg-warning/20 text-card-foreground border-warning/40'
   }
-  return 'bg-card/95 text-foreground border-border'
+  return 'bg-card text-card-foreground border-border'
 }
 
 // ── Component ──────────────────────────────────────────────────────────────

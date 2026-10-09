@@ -62,11 +62,11 @@ function ColumnChooserRow({ label, abbr, checked, onChange }: ColumnChooserRowPr
   const showAbbr = abbr != null && abbr.length > 0 && abbr !== label
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2 hover:bg-[var(--surface-hover)]">
+    <div className="flex min-h-12 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-hover focus-within:bg-surface-hover">
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm leading-snug">{label}</div>
+        <div className="truncate text-sm leading-5 text-foreground">{label}</div>
         {showAbbr ? (
-          <div className="truncate text-xs text-[var(--muted-fg)]">{abbr}</div>
+          <div className="truncate text-xs leading-4 text-muted-foreground">{abbr}</div>
         ) : null}
       </div>
       <Switch size="small" checked={checked} onChange={onChange} className="shrink-0" />
@@ -76,7 +76,7 @@ function ColumnChooserRow({ label, abbr, checked, onChange }: ColumnChooserRowPr
 
 function ColumnChooserSectionHeader({ label }: { label: string }) {
   return (
-    <div className="px-4 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--muted-fg)]">
+    <div className="px-4 pt-3 pb-1 text-xs font-semibold uppercase leading-4 tracking-wide text-muted-foreground">
       {label}
     </div>
   )
@@ -158,43 +158,43 @@ function ColumnChooserGroupHeader({
   collapsible = true,
 }: ColumnChooserGroupHeaderProps) {
   return (
-    <div className="flex items-center gap-2 px-4 py-2.5 hover:bg-[var(--surface-hover)]">
+    <div className="flex min-h-11 items-center gap-2 px-4 py-2.5 transition-colors hover:bg-surface-hover focus-within:bg-surface-hover">
       {collapsible ? (
         <button
           type="button"
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left text-[var(--foreground)]"
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-sm border-none bg-transparent p-0 text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
           onClick={onToggle}
         >
-          <span className="shrink-0 text-[var(--muted-fg)]">
+          <span className="shrink-0 text-muted-foreground">
             {isCollapsed
               ? <Icon name="chevron-right" size="sm" aria-hidden />
               : <Icon name="chevron-down" size="sm" aria-hidden />}
           </span>
-          <span className="truncate text-sm font-medium">{groupLabel}</span>
-          <span className="shrink-0 text-xs tabular-nums text-[var(--muted-fg)]">
+          <span className="truncate text-sm font-medium leading-5">{groupLabel}</span>
+          <span className="shrink-0 text-xs leading-4 tabular-nums text-muted-foreground">
             {visibleCount}/{totalCount}
           </span>
         </button>
       ) : (
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="truncate text-sm font-medium">{groupLabel}</span>
-          <span className="shrink-0 text-xs tabular-nums text-[var(--muted-fg)]">
+          <span className="truncate text-sm font-medium leading-5">{groupLabel}</span>
+          <span className="shrink-0 text-xs leading-4 tabular-nums text-muted-foreground">
             {visibleCount}/{totalCount}
           </span>
         </div>
       )}
-      <div className="flex shrink-0 items-center gap-2 text-xs">
+      <div className="flex shrink-0 items-center gap-1 text-xs leading-4">
         <button
           type="button"
-          className="cursor-pointer border-none bg-transparent p-0 text-[var(--muted-fg)] hover:text-[var(--foreground)]"
+          className="cursor-pointer rounded-sm border-none bg-transparent px-1 py-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
           onClick={onShowAll}
         >
           All
         </button>
-        <span className="text-[var(--border)]" aria-hidden>·</span>
+        <span className="text-border" aria-hidden>·</span>
         <button
           type="button"
-          className="cursor-pointer border-none bg-transparent p-0 text-[var(--muted-fg)] hover:text-[var(--foreground)]"
+          className="cursor-pointer rounded-sm border-none bg-transparent px-1 py-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
           onClick={onHideAll}
         >
           None
@@ -481,10 +481,10 @@ export function ColumnChooser<TData>({
         classNames={{ wrapper: 'ff-column-chooser-drawer' }}
         styles={{ body: { padding: 0 } }}
       >
-        <div className="flex h-full flex-col bg-[var(--surface)]">
-          <div className="border-b border-[var(--border)] px-4 pt-3 pb-3">
+        <div className="flex h-full flex-col bg-surface">
+          <div className="border-b border-border px-4 py-3">
             <Input
-              prefix={<span className="text-[var(--muted-fg)]"><Icon name="search" size="sm" aria-hidden /></span>}
+              prefix={<span className="text-muted-foreground"><Icon name="search" size="sm" aria-hidden /></span>}
               placeholder="Search columns..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -494,7 +494,7 @@ export function ColumnChooser<TData>({
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto min-h-0 text-[var(--foreground)]">
+          <div className="min-h-0 flex-1 overflow-y-auto text-foreground">
             {filteredGroups.map((group) => {
               const isCollapsed = collapsedGroups.has(group.groupId) && !searchLower
               const groupColsInTable = visibleColumnsInGroup(group, tableColumnIds, isControlled)
@@ -504,7 +504,7 @@ export function ColumnChooser<TData>({
               if (totalInGroup === 0 && !searchLower) return null
 
               return (
-                <div key={group.groupId} className="border-b border-[var(--border)] last:border-b-0">
+                <div key={group.groupId} className="border-b border-border last:border-b-0">
                   <ColumnChooserGroupHeader
                     groupLabel={group.groupLabel}
                     visibleCount={visibleInGroup}
@@ -529,7 +529,7 @@ export function ColumnChooser<TData>({
             })}
 
             {filteredUngrouped.length > 0 && (
-              <div className="border-b border-[var(--border)]">
+              <div className="border-b border-border">
                 <ColumnChooserGroupHeader
                   groupLabel="Other"
                   visibleCount={filteredUngrouped.filter((c) => effectiveSelected.has(c.id)).length}
@@ -561,7 +561,7 @@ export function ColumnChooser<TData>({
             )}
           </div>
 
-          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--border)] px-4 py-3">
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3">
             <Button type="default" onClick={handleCancel}>
               Cancel
             </Button>
