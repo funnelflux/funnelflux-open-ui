@@ -232,8 +232,10 @@ Utilities, theming, and pure helpers (most have unit tests):
 | Code quality | `.ai/rules/open-ui-general-guardrails.mdc` |
 | Architecture / terminology | `.ai/skills/project-context/SKILL.md` |
 | Debugging | Global `rca` skill |
-| Planning | Global `exec-plan` skill, `.ai/exec-plans/` |
+| Planning | Linear, global `exec-plan` and `work-board` skills, `.ai/exec-plans/` |
 | OpenAPI type generation | `.ai/skills/openapi-type-generation/SKILL.md`, `.ai/rules/open-ui-type-generation.mdc` |
+
+Developer follow-up: authenticated local-backend developer acceptance is tracked in https://github.com/funnelflux/funnelflux-open-ui/issues/27.
 
 ## State Management Rules
 
