@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-09
+
+### Added
+
+- Knowledge Base link to https://help.funnelflux.com/ in the settings menu
+- Unsaved-changes confirmation when closing a dirty form modal, including from
+  the footer Cancel button
+
+### Changed
+
+- Audited design tokens and aligned the UI kit (badges, tags, buttons, data
+  tables, modals) and chart palettes with them
+
+### Fixed
+
+- Raised dark-mode contrast for accent buttons and status colors to meet
+  WCAG AA
+
+### Security
+
+- Upgraded `react-router-dom` to 7.18.4 and `dompurify` to 3.4.16 to clear
+  published advisories
+
 ## [1.1.1] - 2026-07-23
 
 ### Added
@@ -125,6 +148,7 @@ Then open `https://<your-host>/v2-ui/`.
 
 See [README.md](./README.md) for development setup, subfolder installs, and contribution guidelines.
 
+[1.2.0]: https://github.com/funnelflux/funnelflux-open-ui/releases/tag/v1.2.0
 [1.1.1]: https://github.com/funnelflux/funnelflux-open-ui/releases/tag/v1.1.1
 [1.1.0]: https://github.com/funnelflux/funnelflux-open-ui/releases/tag/v1.1.0
 [1.0.0]: https://github.com/funnelflux/funnelflux-open-ui/releases/tag/v1.0.0
