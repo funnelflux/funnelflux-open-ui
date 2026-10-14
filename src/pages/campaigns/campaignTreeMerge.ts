@@ -35,7 +35,7 @@ export function buildCampaignCategoryHeader(
     categoryId: row.campaignId,
     _categoryId: row.campaignId,
     _isCategoryHeader: true,
-    isArchived: row.isArchived,
+    isArchived: Boolean(row.campaignIsArchived),
   }
 }
 
@@ -102,6 +102,7 @@ export function mapMergedRowsToCampaignFunnels(rows: EntityGridRow[]): CampaignR
     funnelId: row.id,
     categoryId: String(row.campaignId ?? ''),
     isArchived: Boolean(row.isArchived),
+    campaignIsArchived: Boolean(row.campaignIsArchived),
   }))
 }
 
@@ -122,6 +123,7 @@ export function buildCampaignFunnelRowsFromGrid(
     campaignId: funnel.campaignId,
     campaignName: funnel.campaignName,
     isArchived: funnel.isArchived,
+    campaignIsArchived: funnel.campaignIsArchived,
     categoryId: funnel.campaignId,
   }))
   const merged = buildMergedRows(listEntities, statsByFunnelId, columns)
