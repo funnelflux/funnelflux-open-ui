@@ -33,7 +33,6 @@ import type { CreatedFunnelSummary } from '@/pages/campaigns/AddFunnelModal'
 import type { CloneFunnelSource } from '@/pages/campaigns/CloneFunnelModal'
 import {
   addFunnelToStatic,
-  cloneCampaignInStatic,
   removeCampaignFromStatic,
   removeFunnelFromStatic,
   setArchiveOnStatic,
@@ -44,14 +43,18 @@ import {
   filterCampaignFunnelRows,
   mapMergedRowsToCampaignFunnels,
 } from '@/pages/campaigns/campaignTreeMerge'
-import { fetchCampaignTreeStaticData, type CampaignTreeStaticData } from '@/pages/campaigns/campaignTreeStatic'
+import {
+  fetchCampaignTreeStaticData,
+  selectFunnelsForTab,
+  type CampaignTreeStaticData,
+} from '@/pages/campaigns/campaignTreeStatic'
 import {
   metricColumnIdsForScope,
   visibleMetricColumnIdsFromVisibility,
 } from '@/lib/drilldownMetrics'
 import { getErrorMessage, selectedRowIds } from '@/lib/utils'
 import type { ReportCell } from '@/types/stats'
-import type { Campaign, Funnel, IdName, IdNamePair } from '@/types/entities'
+import type { Campaign, Funnel } from '@/types/entities'
 import { useAuthStore } from '@/store/auth'
 import { useEntityTableFiltersStore } from '@/store/entityTableFilters'
 import { DEFAULT_TABLE_SORTING, selectTableConfig, useTableConfigStore } from '@/store/tableConfig'
@@ -149,15 +152,16 @@ export function useCampaignsController() {
 
   const listQueryFn = useCallback(async () => {
     const staticData = await queryClient.fetchQuery({
-      queryKey: queryKeys.campaignStrip.static(archiveStatus),
-      queryFn: () => fetchCampaignTreeStaticData(archiveStatus),
+      queryKey: queryKeys.campaignStrip.static(),
+      queryFn: fetchCampaignTreeStaticData,
     })
-    return staticData.orderedFunnels.map((funnel) => ({
+    return selectFunnelsForTab(staticData, archiveStatus).map((funnel) => ({
       id: funnel.id,
       name: funnel.name,
       campaignId: funnel.campaignId,
       campaignName: funnel.campaignName,
       isArchived: funnel.isArchived,
+      campaignIsArchived: funnel.campaignIsArchived,
       categoryId: funnel.campaignId,
     }))
   }, [queryClient, archiveStatus])
@@ -174,25 +178,23 @@ export function useCampaignsController() {
     enabled: true,
   })
 
+  /** Refreshes the grid list under every tab prefix so tab switches see the patched static data. */
   const invalidateCampaignList = useCallback(() => {
     void queryClient.invalidateQueries({
-      queryKey: queryKeyPrefix,
+      queryKey: queryKeys.campaignStrip.all,
       predicate: (query) => {
         const key = query.queryKey as unknown[]
         return key.includes(ENTITY_GRID_LIST_KEY)
       },
     })
-  }, [queryClient, queryKeyPrefix])
+  }, [queryClient])
 
   const patchStaticHierarchy = useCallback((
     updater: (prev: CampaignTreeStaticData | undefined) => CampaignTreeStaticData | undefined,
   ) => {
-    queryClient.setQueryData(
-      queryKeys.campaignStrip.static(archiveStatus),
-      updater,
-    )
+    queryClient.setQueryData(queryKeys.campaignStrip.static(), updater)
     invalidateCampaignList()
-  }, [queryClient, archiveStatus, invalidateCampaignList])
+  }, [queryClient, invalidateCampaignList])
 
   const searchLower = search.trim().toLowerCase()
   const funnelRows = useMemo(
@@ -299,25 +301,15 @@ export function useCampaignsController() {
     if (row.id === '__totals__') return
     if (!row._isCategoryHeader) return
     try {
-      const pair: IdNamePair = await cloneCampaign.mutateAsync(row.campaignId)
+      await cloneCampaign.mutateAsync(row.campaignId)
       toast.success('Campaign cloned')
-      const newCampId = String(pair.id ?? '')
-      const newName = String(pair.name ?? '')
-      let funnelList: IdName[] = []
-      try {
-        funnelList = await executeObservedRequest(queryClient, () =>
-          api.get<IdName[]>('/data/campaign/funnel/list/', { idCampaign: newCampId }),
-        )
-      } catch {
-        funnelList = []
-      }
-      patchStaticHierarchy((prev) =>
-        prev ? cloneCampaignInStatic(prev, row.campaignId, newCampId, newName, funnelList) : prev,
-      )
+      // Clone copies archive flags server-side; refetch rather than guess them.
+      await queryClient.invalidateQueries({ queryKey: queryKeys.campaignStrip.static() })
+      invalidateCampaignList()
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
-  }, [cloneCampaign, patchStaticHierarchy, queryClient, toast])
+  }, [cloneCampaign, invalidateCampaignList, queryClient, toast])
 
   const runDelete = useCallback(async (row: CampaignRow) => {
     if (row.id === '__totals__') return
@@ -346,7 +338,7 @@ export function useCampaignsController() {
         )
         toast.success(archive ? 'Campaign archived' : 'Campaign restored')
         patchStaticHierarchy((prev) =>
-          prev ? setArchiveOnStatic(prev, archiveStatus, row.campaignId, null, archive) : prev,
+          prev ? setArchiveOnStatic(prev, row.campaignId, null, archive) : prev,
         )
       } else if (row.funnelId) {
         await executeObservedRequest(queryClient, () =>
@@ -354,7 +346,7 @@ export function useCampaignsController() {
         )
         toast.success(archive ? 'Funnel archived' : 'Funnel restored')
         patchStaticHierarchy((prev) =>
-          prev ? setArchiveOnStatic(prev, archiveStatus, null, row.funnelId!, archive) : prev,
+          prev ? setArchiveOnStatic(prev, null, row.funnelId!, archive) : prev,
         )
       }
       await Promise.all([
@@ -365,7 +357,7 @@ export function useCampaignsController() {
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
-  }, [archiveStatus, toast, patchStaticHierarchy, queryClient])
+  }, [toast, patchStaticHierarchy, queryClient])
 
   const bulkTargetRows = useMemo(() => {
     const selectedSet = new Set(selectedIds)

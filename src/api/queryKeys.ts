@@ -26,8 +26,7 @@ export const queryKeys = {
   /** Campaigns category-strip table (not covered by `campaigns.all` invalidations). */
   campaignStrip: {
     all: ['campaignStrip'] as const,
-    static: (archiveStatus: string) =>
-      [...queryKeys.campaignStrip.all, 'static', archiveStatus] as const,
+    static: () => [...queryKeys.campaignStrip.all, 'static'] as const,
   },
   funnels: {
     all: ['funnels'] as const,

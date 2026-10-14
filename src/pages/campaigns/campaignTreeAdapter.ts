@@ -10,7 +10,10 @@ export interface CampaignRow {
   categoryId?: string
   _isCategoryHeader?: boolean
   _categoryId?: string
+  /** Funnel rows: the funnel's own flag. Campaign header rows: the campaign's flag. */
   isArchived?: boolean
+  /** Parent campaign's archive flag (funnel rows). */
+  campaignIsArchived?: boolean
   [key: string]: unknown
 }
 
