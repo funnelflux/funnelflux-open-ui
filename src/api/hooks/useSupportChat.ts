@@ -19,8 +19,8 @@ export function useSupportChat(userId: string): boolean {
   })
 
   useEffect(() => {
-    if (data) loadCrisp(data)
-  }, [data])
+    if (data) loadCrisp(data, userId)
+  }, [data, userId])
 
   return data !== undefined
 }

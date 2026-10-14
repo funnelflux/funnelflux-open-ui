@@ -10,9 +10,9 @@ const CRISP_SCRIPT_SRC = 'https://client.crisp.chat/l.js'
 /** Fallback for when `session:loaded` fires before our handler is registered. */
 const HIDE_LAUNCHER_FALLBACK_MS = 2500
 /**
- * Email of the user whose identity this browser last gave Crisp. Crisp keeps its session in a
+ * ID of the FunnelFlux user this browser last identified to Crisp. Crisp keeps its session in a
  * cookie across page loads, so a different user signing in must reset it to avoid inheriting
- * the previous user's conversation.
+ * the previous user's conversation. Keyed on the user ID because emails may be empty.
  */
 export const CRISP_IDENTITY_STORAGE_KEY = 'ff-crisp-identity'
 
@@ -26,8 +26,8 @@ declare global {
   }
 }
 
-/** Email applied during this page load; undefined until the first load. */
-let appliedEmail: string | undefined
+/** User ID applied during this page load; undefined until the first load. */
+let appliedUserId: string | undefined
 
 function push(command: CrispCommand) {
   try {
@@ -47,7 +47,7 @@ function hideLauncher() {
   push(['do', 'chat:hide'])
 }
 
-function readStoredEmail(): string | null {
+function readStoredUserId(): string | null {
   try {
     return window.localStorage.getItem(CRISP_IDENTITY_STORAGE_KEY)
   } catch {
@@ -59,7 +59,7 @@ function readStoredEmail(): string | null {
  * Load the Crisp SDK (first call only) and apply the user's identity. A user different from the
  * one this browser last identified (in this page or an earlier one) resets the Crisp session.
  */
-export function loadCrisp(config: SupportChatConfig) {
+export function loadCrisp(config: SupportChatConfig, userId: string) {
   try {
     if (!window.$crisp) {
       window.$crisp = []
@@ -76,11 +76,11 @@ export function loadCrisp(config: SupportChatConfig) {
       window.setTimeout(hideLauncher, HIDE_LAUNCHER_FALLBACK_MS)
     }
 
-    const previousEmail = appliedEmail ?? readStoredEmail()
-    if (previousEmail !== null && previousEmail !== config.email) push(['do', 'session:reset'])
-    appliedEmail = config.email
+    const previousUserId = appliedUserId ?? readStoredUserId()
+    if (previousUserId !== null && previousUserId !== userId) push(['do', 'session:reset'])
+    appliedUserId = userId
     try {
-      window.localStorage.setItem(CRISP_IDENTITY_STORAGE_KEY, config.email)
+      window.localStorage.setItem(CRISP_IDENTITY_STORAGE_KEY, userId)
     } catch {
       // Storage may be unavailable (private mode); only cross-load reset detection is lost.
     }

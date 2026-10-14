@@ -176,14 +176,15 @@ describe('useSupportChat', () => {
   })
 
   it('resets the restored Crisp session when a different user signs in after a page load', async () => {
-    const first = await loadAs(config)
+    // Both accounts lack an email, so only the user ID can tell them apart.
+    const first = await loadAs({ ...config, email: '' }, '7')
     first.hook.unmount()
     newPage()
 
-    await loadAs({ ...config, email: 'other@example.com' })
+    await loadAs({ ...config, email: '' }, '8')
 
     expect(resetCount()).toBe(1)
-    expect(window.localStorage.getItem(CRISP_IDENTITY_STORAGE_KEY)).toBe('other@example.com')
+    expect(window.localStorage.getItem(CRISP_IDENTITY_STORAGE_KEY)).toBe('8')
   })
 
   it('keeps the Crisp session when the same user reloads the page', async () => {
