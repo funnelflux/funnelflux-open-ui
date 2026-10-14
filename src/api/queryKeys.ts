@@ -15,6 +15,9 @@ export const queryKeys = {
     all: ['auth'] as const,
     profile: (userId: string) => [...queryKeys.auth.all, 'profile', userId] as const,
   },
+  supportChat: {
+    config: (userId: string) => ['supportChat', 'config', userId] as const,
+  },
   campaigns: {
     all: ['campaigns'] as const,
     list: (params?: Record<string, string>) => [...queryKeys.campaigns.all, 'list', params] as const,

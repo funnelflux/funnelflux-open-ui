@@ -107,7 +107,7 @@ The dev server proxies `/admin/*` requests (PHP login + V2 API) to the backend s
 | `src/api/drilldown.ts` | Drilldown report fetcher |
 | `src/api/normalizeTemplateList.ts`, `offerSourceTemplateLoad.ts`, `trafficSourceTemplateLoad.ts` | Template normalization |
 | `src/api/generated/` | Auto-generated API types (do NOT hand-edit; regen via `pnpm run generate-types`) |
-| `src/api/hooks/` | One React Query hook file per entity: `useCampaigns`, `useCategories`, `useCodeSnippets`, `useConditions`, `useDashboard`, `useDomains`, `useDrilldown`, `useEntityGrid`, `useFunnels`, `useGroupingFilterAssetOptions`, `useInbox`, `useOfferSources`, `usePages`, `useSavedViews`, `useStoredLinks`, `useSystemLinks`, `useSystemSettings`, `useTags`, `useTrafficFilters`, `useTrafficSources`, `useUserManagement`, and `index.ts` barrel |
+| `src/api/hooks/` | One React Query hook file per entity: `useCampaigns`, `useCategories`, `useCodeSnippets`, `useConditions`, `useDashboard`, `useDomains`, `useDrilldown`, `useEntityGrid`, `useFunnels`, `useGroupingFilterAssetOptions`, `useInbox`, `useOfferSources`, `usePages`, `useSavedViews`, `useStoredLinks`, `useSupportChat` (Crisp support chat config + loader, `src/lib/crisp.ts`), `useSystemLinks`, `useSystemSettings`, `useTags`, `useTrafficFilters`, `useTrafficSources`, `useUserManagement`, and `index.ts` barrel |
 
 ### `src/components/`
 
@@ -232,8 +232,10 @@ Utilities, theming, and pure helpers (most have unit tests):
 | Code quality | `.ai/rules/open-ui-general-guardrails.mdc` |
 | Architecture / terminology | `.ai/skills/project-context/SKILL.md` |
 | Debugging | Global `rca` skill |
-| Planning | Global `exec-plan` skill, `.ai/exec-plans/` |
+| Planning | Linear, global `exec-plan` and `work-board` skills, `.ai/exec-plans/` |
 | OpenAPI type generation | `.ai/skills/openapi-type-generation/SKILL.md`, `.ai/rules/open-ui-type-generation.mdc` |
+
+Developer follow-up: authenticated local-backend developer acceptance is tracked in https://github.com/funnelflux/funnelflux-open-ui/issues/27.
 
 ## State Management Rules
 

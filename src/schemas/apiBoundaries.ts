@@ -116,3 +116,17 @@ export const drilldownReportSchema = z
 export function parseDrilldownReport(input: unknown): unknown {
   return drilldownReportSchema.parse(input)
 }
+
+/** `GET /ui/support/chat/load/` — Crisp support chat bootstrap for the signed-in user. */
+export const supportChatConfigSchema = z.object({
+  websiteId: z.string().min(1),
+  email: z.string(),
+  nickname: z.string(),
+  sessionData: z.record(z.string(), z.string()),
+})
+
+export type SupportChatConfig = z.infer<typeof supportChatConfigSchema>
+
+export function parseSupportChatConfig(input: unknown): SupportChatConfig {
+  return supportChatConfigSchema.parse(input)
+}
