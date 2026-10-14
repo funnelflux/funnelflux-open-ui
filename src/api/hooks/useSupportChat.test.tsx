@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CRISP_IDENTITY_STORAGE_KEY } from '@/lib/crisp'
+import type { SupportChatConfig } from '@/schemas/apiBoundaries'
 
 vi.mock('@/api/client', () => ({
   api: { get: vi.fn() },
@@ -9,7 +11,7 @@ vi.mock('@/api/client', () => ({
 
 const CRISP_SRC = 'https://client.crisp.chat/l.js'
 
-const config = {
+const config: SupportChatConfig = {
   websiteId: 'site-123',
   email: 'user@example.com',
   nickname: 'Zeno Rocha',
@@ -21,7 +23,7 @@ const config = {
 }
 
 // Dynamic imports after resetModules: the Crisp loader keeps the applied identity at module
-// scope, so each test needs a fresh module instance (a static import would share it).
+// scope, so each test (and each simulated page load) needs a fresh module instance.
 async function setup() {
   vi.resetModules()
   const { api } = await import('@/api/client')
@@ -37,17 +39,40 @@ async function setup() {
   return { api: vi.mocked(api), useSupportChat, openCrispChat, wrapper, queryFailed }
 }
 
+/** Simulate a full page load: fresh modules and no in-page Crisp, but browser storage kept. */
+function newPage() {
+  delete window.$crisp
+  delete window.CRISP_WEBSITE_ID
+  crispScripts().forEach((s) => s.remove())
+}
+
+async function loadAs(response: SupportChatConfig, userId = '7') {
+  const ctx = await setup()
+  ctx.api.get.mockResolvedValue(response)
+  const hook = renderHook(() => ctx.useSupportChat(userId), { wrapper: ctx.wrapper })
+  await waitFor(() => expect(hook.result.current).toBe(true))
+  return { ...ctx, hook }
+}
+
 function crispScripts() {
   return document.head.querySelectorAll(`script[src="${CRISP_SRC}"]`)
 }
+
+function handler(event: string) {
+  const entry = window.$crisp!.find((c) => c[0] === 'on' && c[1] === event)
+  expect(entry).toBeDefined()
+  return entry![2] as () => void
+}
+
+const hideCount = () => window.$crisp!.filter((c) => c[1] === 'chat:hide').length
+const resetCount = () => window.$crisp!.filter((c) => c[1] === 'session:reset').length
 
 describe('useSupportChat', () => {
   beforeEach(() => {
     // Advancing fake timers keep waitFor working while letting tests drop pending Crisp timers.
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    delete window.$crisp
-    delete window.CRISP_WEBSITE_ID
-    crispScripts().forEach((s) => s.remove())
+    window.localStorage.clear()
+    newPage()
   })
 
   afterEach(() => {
@@ -56,53 +81,53 @@ describe('useSupportChat', () => {
   })
 
   it('loads Crisp with the API website ID, identity, and session data in key order', async () => {
-    const { api, useSupportChat, wrapper } = await setup()
-    api.get.mockResolvedValue(config)
+    const { api } = await loadAs(config)
 
-    const { result } = renderHook(() => useSupportChat('7'), { wrapper })
-
-    await waitFor(() => expect(result.current).toBe(true))
     expect(api.get).toHaveBeenCalledWith('/ui/support/chat/load/')
     expect(window.CRISP_WEBSITE_ID).toBe('site-123')
     const scripts = crispScripts()
     expect(scripts).toHaveLength(1)
     expect((scripts[0] as HTMLScriptElement).crossOrigin).toBe('anonymous')
 
-    const commands = window.$crisp!.filter((c) => c[0] === 'set')
-    expect(commands).toEqual([
-      ['set', 'user:email', 'user@example.com'],
+    expect(window.$crisp!.filter((c) => c[0] === 'set')).toEqual([
+      ['set', 'user:email', ['user@example.com']],
       ['set', 'session:identifier', 'user@example.com'],
-      ['set', 'user:nickname', 'Zeno Rocha'],
+      ['set', 'user:nickname', ['Zeno Rocha']],
       [
         'set',
         'session:data',
         [[['user_hash', 'abc'], ['is_admin', 'yes'], ['funnelflux_version', '3.003']]],
       ],
     ])
+    expect(resetCount()).toBe(0)
   })
 
-  it('hides the Crisp launcher on session load and after the fallback delay', async () => {
-    const { api, useSupportChat, wrapper } = await setup()
-    api.get.mockResolvedValue(config)
-    const { result } = renderHook(() => useSupportChat('7'), { wrapper })
-    await waitFor(() => expect(result.current).toBe(true))
+  it('hides the Crisp launcher on session load, after the fallback delay, and on chat close', async () => {
+    await loadAs(config)
 
-    const onLoaded = window.$crisp!.find((c) => c[0] === 'on' && c[1] === 'session:loaded')
-    expect(onLoaded).toBeDefined()
-    ;(onLoaded![2] as () => void)()
-    expect(window.$crisp!.filter((c) => c[1] === 'chat:hide')).toHaveLength(1)
+    handler('session:loaded')()
+    expect(hideCount()).toBe(1)
+    vi.advanceTimersByTime(2500)
+    expect(hideCount()).toBe(2)
+    // Crisp may still report the chat as opened while its close event runs.
+    window.$crisp!.is = (state) => state === 'chat:opened'
+    handler('chat:closed')()
+    expect(hideCount()).toBe(3)
+  })
+
+  it('does not hide the chat while the user has it open', async () => {
+    await loadAs(config)
+    window.$crisp!.is = (state) => state === 'chat:opened'
 
     vi.advanceTimersByTime(2500)
-    expect(window.$crisp!.filter((c) => c[1] === 'chat:hide')).toHaveLength(2)
+    handler('session:loaded')()
+
+    expect(hideCount()).toBe(0)
   })
 
   it('skips the nickname when empty and session data when no keys are present', async () => {
-    const { api, useSupportChat, wrapper } = await setup()
-    api.get.mockResolvedValue({ ...config, nickname: '', sessionData: {} })
+    await loadAs({ ...config, nickname: '', sessionData: {} })
 
-    const { result } = renderHook(() => useSupportChat('7'), { wrapper })
-
-    await waitFor(() => expect(result.current).toBe(true))
     expect(window.$crisp!.filter((c) => c[0] === 'set').map((c) => c[1])).toEqual([
       'user:email',
       'session:identifier',
@@ -134,30 +159,45 @@ describe('useSupportChat', () => {
   })
 
   it('resets the Crisp session when a different user signs in without a reload', async () => {
-    const { api, useSupportChat, wrapper } = await setup()
-    api.get.mockResolvedValueOnce(config)
-    const first = renderHook(() => useSupportChat('7'), { wrapper })
-    await waitFor(() => expect(first.result.current).toBe(true))
-    first.unmount()
+    const first = await loadAs(config)
+    first.hook.unmount()
 
-    api.get.mockResolvedValueOnce({ ...config, email: 'other@example.com', nickname: '' })
-    const second = renderHook(() => useSupportChat('8'), { wrapper })
+    first.api.get.mockResolvedValue({ ...config, email: 'other@example.com', nickname: '' })
+    const second = renderHook(() => first.useSupportChat('8'), { wrapper: first.wrapper })
     await waitFor(() => expect(second.result.current).toBe(true))
 
     expect(crispScripts()).toHaveLength(1)
     const tail = window.$crisp!.slice(window.$crisp!.findIndex((c) => c[1] === 'session:reset'))
     expect(tail.slice(0, 3)).toEqual([
       ['do', 'session:reset'],
-      ['set', 'user:email', 'other@example.com'],
+      ['set', 'user:email', ['other@example.com']],
       ['set', 'session:identifier', 'other@example.com'],
     ])
   })
 
+  it('resets the restored Crisp session when a different user signs in after a page load', async () => {
+    const first = await loadAs(config)
+    first.hook.unmount()
+    newPage()
+
+    await loadAs({ ...config, email: 'other@example.com' })
+
+    expect(resetCount()).toBe(1)
+    expect(window.localStorage.getItem(CRISP_IDENTITY_STORAGE_KEY)).toBe('other@example.com')
+  })
+
+  it('keeps the Crisp session when the same user reloads the page', async () => {
+    const first = await loadAs(config)
+    first.hook.unmount()
+    newPage()
+
+    await loadAs(config)
+
+    expect(resetCount()).toBe(0)
+  })
+
   it('opens the chat by showing the widget then opening it', async () => {
-    const { api, useSupportChat, openCrispChat, wrapper } = await setup()
-    api.get.mockResolvedValue(config)
-    const { result } = renderHook(() => useSupportChat('7'), { wrapper })
-    await waitFor(() => expect(result.current).toBe(true))
+    const { openCrispChat } = await loadAs(config)
 
     openCrispChat()
 
