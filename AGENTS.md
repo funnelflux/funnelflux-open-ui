@@ -107,7 +107,7 @@ The dev server proxies `/admin/*` requests (PHP login + V2 API) to the backend s
 | `src/api/drilldown.ts` | Drilldown report fetcher |
 | `src/api/normalizeTemplateList.ts`, `offerSourceTemplateLoad.ts`, `trafficSourceTemplateLoad.ts` | Template normalization |
 | `src/api/generated/` | Auto-generated API types (do NOT hand-edit; regen via `pnpm run generate-types`) |
-| `src/api/hooks/` | One React Query hook file per entity: `useCampaigns`, `useCategories`, `useCodeSnippets`, `useConditions`, `useDashboard`, `useDomains`, `useDrilldown`, `useEntityGrid`, `useFunnels`, `useGroupingFilterAssetOptions`, `useInbox`, `useOfferSources`, `usePages`, `useSavedViews`, `useStoredLinks`, `useSystemLinks`, `useSystemSettings`, `useTags`, `useTrafficFilters`, `useTrafficSources`, `useUserManagement`, and `index.ts` barrel |
+| `src/api/hooks/` | One React Query hook file per entity: `useCampaigns`, `useCategories`, `useCodeSnippets`, `useConditions`, `useDashboard`, `useDomains`, `useDrilldown`, `useEntityGrid`, `useFunnels`, `useGroupingFilterAssetOptions`, `useInbox`, `useOfferSources`, `usePages`, `useSavedViews`, `useStoredLinks`, `useSupportChat` (Crisp support chat config + loader, `src/lib/crisp.ts`), `useSystemLinks`, `useSystemSettings`, `useTags`, `useTrafficFilters`, `useTrafficSources`, `useUserManagement`, and `index.ts` barrel |
 
 ### `src/components/`
 

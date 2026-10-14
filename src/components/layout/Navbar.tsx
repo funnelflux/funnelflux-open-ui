@@ -5,6 +5,8 @@ import { Dropdown, type MenuProps } from '@/components/ui-kit/Dropdown'
 import { Icon } from '@/components/ui-kit/icons'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/theme'
+import { useSupportChat } from '@/api/hooks/useSupportChat'
+import { openCrispChat } from '@/lib/crisp'
 import {
   getMainNavStructure,
   getSettingsNavLinks,
@@ -268,6 +270,23 @@ function ThemeToggle() {
   )
 }
 
+function SupportChatButton({ userId }: { userId: string }) {
+  const available = useSupportChat(userId)
+  if (!available) return null
+
+  return (
+    <button
+      type="button"
+      onClick={openCrispChat}
+      className="ff-navbar-util-btn cursor-pointer p-2 rounded outline-none border-0 bg-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--nav-bg)]"
+      aria-label="Support chat"
+      title="Support chat"
+    >
+      <Icon name="message-circle" />
+    </button>
+  )
+}
+
 export function Navbar() {
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
@@ -304,6 +323,7 @@ export function Navbar() {
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
+        <SupportChatButton userId={user.id} />
         <ThemeToggle />
         {settingsLinks.length > 0 ? <SettingsDropdown settingsLinks={settingsLinks} /> : null}
         <UserDropdown userLinks={userLinks} />
